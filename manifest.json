@@ -1,0 +1,52 @@
+{
+  "manifest_version": 3,
+  "name": "Universal Translator",
+  "version": "1.0",
+  "description": "Translate web content using various translation services.",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "permissions": [
+    "storage",      // 存储用户设置
+    "activeTab",    // 访问当前活动标签页
+    "scripting",    // 向页面注入脚本
+    "contextMenus"  // (可选) 添加右键菜单翻译
+  ],
+  "host_permissions": [
+    "*://*.deepl.com/*", // DeepL API
+    "*://api.cognitive.microsofttranslator.com/*", // Microsoft API
+    "*://translation.googleapis.com/*", // Google API
+    "*://api.openai.com/*" // OpenAI API
+    // 根据需要添加其他翻译服务的域名
+  ],
+  "background": {
+    "scripts": ["background/service-worker.js"],
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["lib/webextension-polyfill.js", "content/content-script.js"],
+      "css": ["content/style.css"] // (可选) 为悬浮窗口等添加样式
+    }
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "48": "icons/icon-48.png"
+    }
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  },
+  // 确保 Firefox 兼容性
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "translator@example.com"
+    }
+  }
+}

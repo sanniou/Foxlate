@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal Translator Settings</title>
+    <link rel="stylesheet" href="options.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Universal Translator Settings</h1>
+
+        <section class="settings-section">
+            <h2>General Settings</h2>
+            <div class="form-group">
+                <label for="translatorEngine">Translation Engine:</label>
+                <select id="translatorEngine">
+                    <option value="deeplx">DeepLx</option>
+                    <option value="google">Google Translate</option>
+                    <option value="ai">AI Translator (GPT)</option>
+                    <!-- Add more options as you implement more translators -->
+                </select>
+            </div>
+            <!-- API fields for AI Translator -->
+            <div class="form-group" id="aiApiGroup" style="display: none;">
+                <label for="aiApiKey">AI API Key:</label>
+                <input type="password" id="aiApiKey" placeholder="Enter your OpenAI-compatible API Key">
+                <label for="aiApiUrl">API Endpoint URL (Optional):</label>
+                <input type="text" id="aiApiUrl" placeholder="e.g., https://api.openai.com/v1/chat/completions">
+                <label for="aiModelName">Model Name (Optional):</label>
+                <input type="text" id="aiModelName" placeholder="e.g., gpt-3.5-turbo">
+                <button id="testAiBtn" class="test-btn" style="margin-top: 10px;">Test Connection</button>
+            </div>
+            <!-- API URL field for DeepLx -->
+            <div class="form-group" id="deeplxUrlGroup">
+                <label for="deeplxApiUrl">DeepLx API URL:</label>
+                <div class="input-with-button">
+                    <input type="text" id="deeplxApiUrl" placeholder="e.g., https://api.deeplx.com/translate">
+                    <button id="testDeepLxBtn" class="test-btn">Test</button>
+                </div>
+            </div>
+            <!-- API Key field for Google Translate, hidden by default -->
+            <div class="form-group" id="googleApiKeyGroup" style="display: none;">
+                <label for="googleApiKey">Google API Key:</label>
+                <div class="input-with-button">
+                    <input type="password" id="googleApiKey" placeholder="Enter your Google Cloud Translation API Key">
+                    <button id="testGoogleBtn" class="test-btn">Test</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="targetLanguage">Target Language (e.g., ZH, EN):</label>
+                <input type="text" id="targetLanguage" value="ZH">
+            </div>
+            <div class="form-group">
+                <label for="translationSelector">Elements to Translate (CSS Selector):</label>
+                <textarea id="translationSelector" rows="3">p, h1, h2, h3, h4, li, a</textarea>
+                <small>Comma-separated CSS selectors for elements to be translated.</small>
+            </div>
+        </section>
+
+        <section class="settings-section">
+            <h2>Display Format</h2>
+            <div class="form-group">
+                <label>Display Mode:</label>
+                <div class="radio-group">
+                    <input type="radio" id="displayReplace" name="displayMode" value="replace" checked>
+                    <label for="displayReplace">Replace Original</label>
+                </div>
+                <div class="radio-group">
+                    <input type="radio" id="displayAppend" name="displayMode" value="append">
+                    <label for="displayAppend">Append Translated</label>
+                </div>
+                <div class="radio-group">
+                    <input type="radio" id="displayHover" name="displayMode" value="hover">
+                    <label for="displayHover">Hover to Display</label>
+                </div>
+            </div>
+        </section>
+
+        <section class="settings-section">
+            <h2>Domain Rules</h2>
+            <div class="form-group">
+                <label for="newDomain">Domain:</label>
+                <input type="text" id="newDomain" placeholder="e.g., example.com">
+                <label for="newDomainRule">Rule:</label>
+                <select id="newDomainRule">
+                    <option value="manual">Manual Translate</option>
+                    <option value="always">Always Translate</option>
+                </select>
+                <button id="addDomainRuleBtn">Add Rule</button>
+            </div>
+            <div class="domain-rules-list">
+                <h3>Current Rules:</h3>
+                <ul id="domainRulesList">
+                    <!-- Domain rules will be dynamically added here -->
+                </ul>
+                <small>Rules apply to the exact hostname. Default is "Manual Translate".</small>
+            </div>
+        </section>
+
+        <section class="settings-section">
+            <h2>Configuration Management</h2>
+            <div class="form-group">
+                <button id="saveSettingsBtn">Save Settings</button>
+            </div>
+            <div class="form-group">
+                <button id="export-btn">Export Settings</button>
+            </div>
+            <div class="form-group">
+                <label for="import-input">Import Settings:</label>
+                <input type="file" id="import-input" accept=".json">
+            </div>
+        </section>
+
+        <div id="statusMessage" class="status-message"></div>
+    </div>
+
+    <script src="../lib/webextension-polyfill.js"></script>
+    <script src="options.js"></script>
+</body>
+</html>
