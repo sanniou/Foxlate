@@ -11,10 +11,40 @@
             <h1>Universal Translator</h1>
         </header>
         <main>
-            <button id="toggleTranslationBtn" class="action-btn"></button> 
+            <div class="section">
+                <div class="language-selection-row"> <!-- 新增容器用于并排显示 -->
+                    <div class="form-group language-group">
+                        <label for="sourceLanguageSelect">原始语言:</label>
+                        <select id="sourceLanguageSelect"></select>
+                    </div>
+                </div>
+                <div class="form-group language-group">
+                    <label for="targetLanguageSelect">目标语言:</label>
+                    <select id="targetLanguageSelect"></select>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="form-group">
+                    <label for="engineSelect">翻译服务:</label>
+                    <select id="engineSelect"></select>
+                </div>
+            </div>
+
+            <button id="translatePageBtn" class="action-btn">翻译此页</button>
+
+            <div class="section toggle-section">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="alwaysTranslateToggle">
+                    <span class="slider round"></span>
+                </label>
+                <span class="toggle-label">总是翻译此网站</span>
+            </div>
         </main>
         <footer>
-            <button id="openOptionsBtn" class="options-btn">⚙️ Settings</button>
+            <button id="openOptionsBtn" class="footer-btn left-btn">⚙️ 设置</button>
+            <span id="versionDisplay" class="version-display"></span>
+            <button id="aboutBtn" class="footer-btn right-btn">关于</button>
         </footer>
     </div>
     <script src="../lib/webextension-polyfill.js"></script>

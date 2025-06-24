@@ -1,5 +1,5 @@
 body {
-    width: 250px;
+    width: 280px; /* 增加宽度以适应更多元素 */
     margin: 0;
     font-family: Arial, sans-serif;
     background-color: #f9f9f9;
@@ -14,7 +14,7 @@ body {
 header h1 {
     font-size: 16px;
     color: #333;
-    text-align: center;
+    text-align: left; /* 标题左对齐 */
     margin: 0 0 15px 0;
     border-bottom: 1px solid #eee;
     padding-bottom: 10px;
@@ -37,16 +37,23 @@ main {
     transition: background-color 0.2s;
 }
 
+.action-btn:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
 .action-btn:hover {
     background-color: #0056b3;
 }
 
 footer {
     margin-top: 15px;
-    text-align: center;
+    display: flex; /* 使用 flex 布局 */
+    justify-content: space-between; /* 元素之间留有空间 */
+    align-items: center;
 }
 
-.options-btn {
+.footer-btn {
     background: none;
     border: 1px solid #ccc;
     color: #555;
@@ -54,6 +61,130 @@ footer {
     border-radius: 5px;
     cursor: pointer;
     font-size: 12px;
+    white-space: nowrap; /* 防止按钮文本换行 */
+}
+
+.footer-btn:hover {
+    background-color: #f0f0f0;
+    border-color: #bbb;
+}
+
+.version-display {
+    font-size: 11px;
+    color: #888;
+    flex-grow: 1; /* 占据中间剩余空间 */
+    text-align: center;
+}
+
+/* 新增 language-selection-row 样式，用于包含两个 language-group */
+.language-selection-row {
+    display: flex;
+    justify-content: space-between; /* 使两个子元素左右分散 */
+    align-items: flex-end; /* 底部对齐，确保下拉框对齐 */
+    margin-bottom: 10px; /* 与下方元素保持间距 */
+}
+
+/* 调整 language-group 样式，使其在 language-selection-row 中正确显示 */
+.language-group {
+    flex: 1; /* 占据可用空间 */
+    margin-right: 10px; /* 两个下拉框之间的间距 */
+}
+
+.language-group:last-child {
+    margin-right: 0; /* 最后一个不留右边距 */
+}
+
+/* 新增的表单组和选择器样式 */
+.section {
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+.section:last-of-type {
+    border-bottom: none; /* 最后一个 section 不显示下划线 */
+}
+
+.form-group {
+    margin-bottom: 10px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 13px;
+    color: #555;
+    margin-bottom: 5px;
+}
+
+.form-group select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    background-color: #fff;
+}
+
+/* Toggle Switch 样式 */
+.toggle-section {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start; /* 左对齐 */
+    margin-top: 15px;
+}
+
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 22px;
+    margin-right: 10px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 22px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: #2196F3;
+}
+
+input:focus + .slider {
+    box-shadow: 0 0 1px #2196F3;
+}
+
+input:checked + .slider:before {
+    transform: translateX(18px);
+}
+
+.toggle-label {
+    font-size: 13px;
+    color: #555;
 }
 
 .options-btn:hover {

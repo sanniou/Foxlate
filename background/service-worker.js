@@ -137,4 +137,13 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
     sendResponse({ status: 'PONG' });
     return true;
   }
+
+  // 处理来自 popup 的页面翻译请求 (目前仅为占位符)
+  if (request.type === 'TRANSLATE_PAGE_REQUEST') {
+    console.log("[Background] Received page translation request from popup for tab:", sender.tab.id);
+    // 这里可以添加逻辑来向 content-script 发送实际的页面翻译指令
+    // 例如: browser.tabs.sendMessage(sender.tab.id, { type: 'PERFORM_PAGE_TRANSLATION' });
+    // 但目前 content-script 中没有实现复杂的页面翻译逻辑，所以暂时只打印日志。
+    return false; // 不需要异步响应
+  }
 });

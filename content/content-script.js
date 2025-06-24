@@ -5,6 +5,11 @@
 
 console.log("[Universal Translator] Content script loaded and ready.");
 
+// 页面翻译的占位符函数
+function performPageTranslation() {
+    console.log("[Content Script] Page translation requested. (Actual translation logic is currently a placeholder)");
+    // 在这里可以实现遍历DOM元素并发送翻译请求的逻辑
+}
 // 监听来自 popup 或 background 的手动翻译指令
 browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.type === 'PING') {
@@ -22,6 +27,11 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
           showSelectionTranslationPanel(`翻译失败: ${error || 'Unknown error'}`, true);
       }
       // 此消息类型不需要响应
+    }
+
+    if (request.type === 'TRANSLATE_PAGE_REQUEST') {
+        performPageTranslation();
+        // 不需要响应
     }
 });
 
