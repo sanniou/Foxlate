@@ -1,23 +1,4 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // --- Constants ---
-    const SUPPORTED_LANGUAGES = {
-        'auto': 'langAuto',
-        'EN': 'langEN',
-        'ZH': 'langZH',
-        'JA': 'langJA',
-        'KO': 'langKO',
-        'FR': 'langFR',
-        'DE': 'langDE',
-        'ES': 'langES',
-        'RU': 'langRU'
-    };
-
-    const SUPPORTED_ENGINES = {
-        'deeplx': 'deeplx',
-        'google': 'googleTranslate',
-        'ai': 'aiTranslator'
-    };
-
     // --- Element Cache ---
     const elements = {
         sourceLanguageSelect: document.getElementById('sourceLanguageSelect'),
@@ -80,12 +61,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentSettings = settings || {};
 
         // Populate and select the translation engine
-        populateSelect(elements.engineSelect, SUPPORTED_ENGINES, currentSettings.translatorEngine || 'deeplx');
+        populateSelect(elements.engineSelect, window.Constants.SUPPORTED_ENGINES, currentSettings.translatorEngine || 'deeplx');
 
         // Populate and select languages
-        const targetLangs = { ...SUPPORTED_LANGUAGES };
+        const targetLangs = { ...window.Constants.SUPPORTED_LANGUAGES };
         delete targetLangs.auto; // Target language cannot be 'auto'
-        populateSelect(elements.sourceLanguageSelect, SUPPORTED_LANGUAGES, 'auto'); // Default source to auto for now
+        populateSelect(elements.sourceLanguageSelect, window.Constants.SUPPORTED_LANGUAGES, 'auto'); // Default source to auto for now
         populateSelect(elements.targetLanguageSelect, targetLangs, currentSettings.targetLanguage || 'ZH');
 
         // Set the "Always Translate" toggle state if we have a valid tab URL

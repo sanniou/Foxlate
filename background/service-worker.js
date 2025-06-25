@@ -156,9 +156,9 @@ const messageHandlers = {
    * Handles text translation requests from content scripts.
    */
   async TRANSLATE_TEXT(request) {
-    const { text, targetLang, sourceLang } = request.payload;
+    const { text, targetLang, sourceLang } = request.payload; // sourceLang is now available
     try {
-      const translatedText = await TranslatorManager.translateText(text, targetLang, sourceLang);
+      const translatedText = await TranslatorManager.translateText(text, targetLang, sourceLang); // Pass it to the manager
       return { success: true, translatedText };
     } catch (error) {
       logError('TRANSLATE_TEXT handler', error);

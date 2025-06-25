@@ -25,9 +25,13 @@ document.addEventListener('DOMContentLoaded', () => {
         aiApiUrl: document.getElementById('aiApiUrl'),
         aiModelName: document.getElementById('aiModelName'),
         displayModeRadios: document.querySelectorAll('input[name="displayMode"]'), // Cache all display mode radios
+        precheckRuleTabs: document.getElementById('precheckRuleTabs'),
+        precheckRuleContent: document.getElementById('precheckRuleContent'),
+        mainTabButtons: document.querySelectorAll('.main-tab-button'),
     };
 
     let testPopover = null;
+    let precheckRules = {};
 
     // --- I18N Function ---
     const applyTranslations = () => {
@@ -111,7 +115,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentSettings = settings || {};
 
         elements.translatorEngine.value = currentSettings.translatorEngine || 'deeplx';
-        elements.targetLanguage.value = currentSettings.targetLanguage || 'ZH'; elements.defaultTranslationSelector.value = currentSettings.translationSelector?.default || 'p, h1, h2, h3, h4, li, a';
+        elements.targetLanguage.value = currentSettings.targetLanguage || 'ZH';
+        elements.defaultTranslationSelector.value = currentSettings.translationSelector?.default || window.Constants.DEFAULT_TRANSLATION_SELECTOR;
         elements.domainTranslationSelector.value = currentSettings.translationSelector?.rules || '';
         elements.deeplxApiUrl.value = currentSettings.deeplxApiUrl || '';
         elements.googleApiKey.value = currentSettings.googleApiKey || '';
@@ -120,7 +125,6 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.aiModelName.value = currentSettings.aiModelName || '';
 
         const displayMode = currentSettings.displayMode || 'replace';
-        // Iterate through all display mode radios to set the checked one
         elements.displayModeRadios.forEach(radio => {
             if (radio.value === displayMode) {
                 radio.checked = true;
@@ -129,6 +133,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         toggleApiFields();
         renderDomainRules(currentSettings.domainRules || {});
+        const defaultPrecheckRules = generateDefaultPrecheckRules();
+
+        const storedRules = currentSettings.precheckRules;
+        precheckRules = storedRules && Object.keys(storedRules).length > 0 ? storedRules : JSON.parse(JSON.stringify(defaultPrecheckRules));
+        renderPrecheckRulesUI();
     };
 
     const getDomainRulesFromList = () => {
@@ -154,8 +163,9 @@ document.addEventListener('DOMContentLoaded', () => {
             aiModelName: elements.aiModelName.value,
             translationSelector: {
                 default: elements.defaultTranslationSelector.value,
-                rules: getDomainRulesFromList()
+                rules: getDomainRulesFromList(),
             },
+            precheckRules: getPrecheckRulesFromUI(),
         };
 
         try {
@@ -167,23 +177,147 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const renderDomainRules = (rules) => {
-        elements.domainRulesList.innerHTML = '';
-        const alwaysTranslateText = browser.i18n.getMessage('alwaysTranslate');
-        const removeText = browser.i18n.getMessage('removeRule');
-    
-        for (const [domain, selector] of Object.entries(rules)) {
-            const listItem = document.createElement('li');
-            listItem.innerHTML = `
-              <span><strong>${domain}</strong>: ${selector}</span>
-              <button data-domain="${domain}">${removeText}</button>
-            `;
-            listItem.querySelector('button').addEventListener('click', (event) =>
-            {
-                removeDomainRule(event.target.dataset.domain);
-            });
-            elements.domainRulesList.appendChild(listItem);
+    // --- Pre-check Rules UI Logic ---
+
+    const generateDefaultPrecheckRules = () => {
+        const rules = {
+            general: [
+                { name: 'Whitespace only', regex: '^\\s*$', mode: 'blacklist', enabled: true, flags: '' },
+                { name: 'Numbers, Punctuation, Symbols', regex: '^[\\d.,\\s\\p{P}\\p{S}]+$', mode: 'blacklist', enabled: true, flags: 'u' },
+                { name: 'Single Emoji', regex: '^\\p{Emoji}$', mode: 'blacklist', enabled: true, flags: 'u' },
+            ],
+        };
+        for (const langCode in window.Constants.LANG_REGEX_MAP) {
+            if (window.Constants.SUPPORTED_LANGUAGES[langCode]) {
+                rules[langCode] = [{
+                    name: `Contains ${browser.i18n.getMessage(window.Constants.SUPPORTED_LANGUAGES[langCode]) || langCode}`,
+                    regex: window.Constants.LANG_REGEX_MAP[langCode].regex,
+                    mode: 'whitelist',
+                    enabled: true,
+                    flags: window.Constants.LANG_REGEX_MAP[langCode].flags,
+                }];
+            }
         }
+        return rules;
+    };
+
+    function renderPrecheckRulesUI() {
+        elements.precheckRuleTabs.innerHTML = '';
+        elements.precheckRuleContent.innerHTML = '';
+
+        Object.keys(precheckRules).forEach((category, index) => {
+            const tabButton = document.createElement('button');
+            tabButton.className = 'tab-button' + (index === 0 ? ' active' : '');
+            tabButton.textContent = category;
+            tabButton.dataset.category = category;
+            tabButton.addEventListener('click', () => switchPrecheckTab(category));
+            elements.precheckRuleTabs.appendChild(tabButton);
+
+            const panel = document.createElement('div');
+            panel.className = 'tab-panel' + (index === 0 ? ' active' : '');
+            panel.id = `panel-${category}`;
+
+            const ruleList = document.createElement('div');
+            ruleList.className = 'rule-list';
+            precheckRules[category].forEach(rule => {
+                ruleList.appendChild(createRuleItemElement(rule));
+            });
+            panel.appendChild(ruleList);
+
+            const addRuleBtn = document.createElement('button');
+            addRuleBtn.textContent = browser.i18n.getMessage('addRule');
+            addRuleBtn.className = 'add-rule-btn';
+            addRuleBtn.addEventListener('click', () => addRuleToCategory(category));
+            panel.appendChild(addRuleBtn);
+
+            elements.precheckRuleContent.appendChild(panel);
+        });
+    }
+
+    function createRuleItemElement(rule) {
+        const item = document.createElement('div');
+        item.className = 'rule-item';
+        item.innerHTML = `
+            <input type="text" class="rule-name" placeholder="Rule Name" value="${rule.name || ''}">
+            <input type="text" class="rule-regex" placeholder="Regular Expression" value="${rule.regex || ''}">
+            <input type="text" class="rule-flags" placeholder="flags" value="${rule.flags || ''}">
+            <select class="rule-mode">
+                <option value="blacklist" ${rule.mode === 'blacklist' ? 'selected' : ''}>Blacklist</option>
+                <option value="whitelist" ${rule.mode === 'whitelist' ? 'selected' : ''}>Whitelist</option>
+            </select>
+            <label class="rule-enabled"><input type="checkbox" ${rule.enabled ? 'checked' : ''}> Enabled</label>
+            <button class="remove-rule-btn">×</button>
+        `;
+        item.querySelector('.remove-rule-btn').addEventListener('click', (e) => e.currentTarget.closest('.rule-item').remove());
+        return item;
+    }
+
+    function addRuleToCategory(category) {
+        const newRule = { name: '', regex: '', mode: 'blacklist', enabled: true, flags: '' };
+        const ruleList = document.querySelector(`#panel-${category} .rule-list`);
+        ruleList.appendChild(createRuleItemElement(newRule));
+    }
+
+    function switchPrecheckTab(category) {
+        document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+        document.querySelector(`.tab-button[data-category="${category}"]`).classList.add('active');
+        document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
+        document.getElementById(`panel-${category}`).classList.add('active');
+    }
+
+    function getPrecheckRulesFromUI() {
+        const newRules = {};
+        document.querySelectorAll('.tab-panel').forEach(panel => {
+            const category = panel.id.replace('panel-', '');
+            newRules[category] = [];
+            panel.querySelectorAll('.rule-item').forEach(item => {
+                const name = item.querySelector('.rule-name').value.trim();
+                const regex = item.querySelector('.rule-regex').value.trim();
+                if (name && regex) {
+                    newRules[category].push({
+                        name: name,
+                        regex: regex,
+                        flags: item.querySelector('.rule-flags').value.trim(),
+                        mode: item.querySelector('.rule-mode').value,
+                        enabled: item.querySelector('.rule-enabled input').checked,
+                    });
+                }
+            });
+        });
+        return newRules;
+    }
+
+    // --- Main Tabs UI Logic ---
+    function switchMainTab(tabName) {
+        // Hide all panels
+        document.querySelectorAll('.main-tab-panel').forEach(panel => panel.classList.remove('active'));
+        // Deactivate all buttons
+        elements.mainTabButtons.forEach(button => button.classList.remove('active'));
+        // Activate the selected tab and panel
+        document.getElementById(`tab-panel-${tabName}`).classList.add('active');
+        document.querySelector(`.main-tab-button[data-tab="${tabName}"]`).classList.add('active');
+    }
+    const renderDomainRules = (rules) => {
+      elements.domainRulesList.innerHTML = "";
+      const alwaysTranslateText = browser.i18n.getMessage("alwaysTranslate");
+      const removeText = browser.i18n.getMessage("removeRule");
+  
+      for (const [domain, value] of Object.entries(rules)) {
+        const listItem = document.createElement("li");
+        const isAlways = value === "always";
+        const selectorText = isAlways
+          ? alwaysTranslateText
+          : value; // Directly use the selector string if not "always"
+  
+        listItem.innerHTML = `
+          <span><strong>${domain}</strong>: ${selectorText}</span>
+          <button data-domain="${domain}">${removeText}</button>
+        `;
+        listItem.querySelector("button").addEventListener("click", (event) => {
+          removeDomainRule(event.target.dataset.domain);
+        });
+        elements.domainRulesList.appendChild(listItem);
+      }
     };
 
     const addDomainRule = async () => {
@@ -302,6 +436,10 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.testDeepLxBtn.addEventListener('click', (e) => testConnection('deeplx', e.target));
         elements.testGoogleBtn.addEventListener('click', (e) => testConnection('google', e.target));
         elements.testAiBtn.addEventListener('click', (e) => testConnection('ai', e.target));
+        elements.mainTabButtons.forEach(button => {
+            button.addEventListener('click', () => switchMainTab(button.dataset.tab));
+        });
+
     };
 
     initialize();

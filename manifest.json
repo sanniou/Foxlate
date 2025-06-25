@@ -28,7 +28,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["lib/webextension-polyfill.js", "content/content-script.js"],
+      "js": ["lib/webextension-polyfill.js", "common/constants.js", "content/content-script.js"],
       "css": ["content/style.css"] // (可选) 为悬浮窗口等添加样式
     }
   ],

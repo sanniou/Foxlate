@@ -8,6 +8,29 @@ function logError(context, error) {
 }
 
 /**
+ * 检查一个元素在页面上是否对用户可见。
+ * @param {HTMLElement} el - 要检查的元素。
+ * @returns {boolean} 如果元素可见则返回 true，否则返回 false。
+ */
+function isElementVisible(el) {
+    if (!el) return false;
+
+    // 检查元素是否具有有效的尺寸
+    if (el.offsetWidth === 0 || el.offsetHeight === 0) return false;
+
+    const rect = el.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return false;
+
+    // 检查计算样式
+    const style = window.getComputedStyle(el);
+    if (style.display === 'none') return false;
+    if (style.visibility === 'hidden') return false;
+    if (parseFloat(style.opacity) < 0.1) return false; // 几乎透明的元素也视为不可见
+
+    return !el.hasAttribute('hidden');
+}
+
+/**
  * 初始化内容脚本，设置消息监听器。
  */
 function initializeContentScript() {
@@ -46,13 +69,29 @@ let originalContent = new Map(); // 用于存储原始文本的映射
 async function performPageTranslation() {
     try {
         const { settings } = await browser.storage.sync.get('settings');
+        const precheckRules = settings?.precheckRules || {};
         const targetLang = settings?.targetLanguage || 'ZH';
-        
+
+        // 编译所有启用的正则表达式，以提高性能
+        const compiledRules = {};
+        for (const category in precheckRules) {
+            compiledRules[category] = precheckRules[category]
+                .filter(rule => rule.enabled && rule.regex)
+                .map(rule => {
+                    try {
+                        return { ...rule, compiledRegex: new RegExp(rule.regex, rule.flags || '') };
+                    } catch (e) {
+                        logError('performPageTranslation', new Error(`Invalid regex in rule "${rule.name}": ${rule.regex}`));
+                        return null;
+                    }
+                }).filter(Boolean); // 过滤掉编译失败的规则
+        }
+
         // 获取当前页面的域名
         const currentDomain = window.location.hostname;
 
         // 确定要使用的选择器
-        let selector = settings?.translationSelector?.default || 'p, h1, h2, h3, h4, li, a'; // 默认选择器
+        let selector = settings?.translationSelector?.default || window.Constants.DEFAULT_TRANSLATION_SELECTOR; // 默认选择器
         if (settings?.translationSelector?.rules) {
             // 查找域名规则，精确匹配或根域名匹配
             const domainRules = settings.translationSelector.rules;
@@ -72,26 +111,70 @@ async function performPageTranslation() {
 
         if (originalContent.size === 0) { // 首次翻译，保存原始文本
             elements.forEach(el => {
-                originalContent.set(el, el.textContent);
+                // 只保存可见元素的原始内容，以备还原
+                if (isElementVisible(el)) {
+                    originalContent.set(el, el.textContent);
+                }
             });
         }
 
         for (const element of elements) {
-            const text = element.textContent.trim();
-            if (text) {
-                try {
-                    const translatedText = await browser.runtime.sendMessage({
-                        type: 'TRANSLATE_TEXT',
-                        payload: { text, targetLang }
-                    });
-                    if (translatedText.success) {
-                        await window.DisplayManager.apply(element, translatedText.translatedText);
-                    } else {
-                        window.DisplayManager.showError(element, translatedText.error);
-                    }
-                } catch (error) {
-                    window.DisplayManager.showError(element, error.message);
+            // --- 预校验逻辑 ---
+            // 1. 检查元素是否可见，跳过隐藏元素
+            if (!isElementVisible(element)) {
+                continue;
+            }
+
+            const text = element.textContent; // 保留内部空格，仅在需要时 trim
+            if (!text) {
+                continue;
+            }
+
+            // --- 全新的预校验逻辑 ---
+
+            // 步骤 1: 黑名单检查。如果匹配任何通用黑名单规则，则跳过。
+            let isBlacklisted = false;
+            const generalRules = compiledRules.general || [];
+            for (const rule of generalRules) {
+                if (rule.mode === 'blacklist' && rule.compiledRegex.test(text)) {
+                    isBlacklisted = true;
+                    break;
                 }
+            }
+            if (isBlacklisted) {
+                continue;
+            }
+
+            // 步骤 2: 语言白名单检查。必须匹配一个语言规则才能被翻译。
+            let sourceLang = null;
+            const langCategories = Object.keys(compiledRules).filter(c => c !== 'general');
+            for (const lang of langCategories) {
+                for (const rule of compiledRules[lang]) {
+                    if (rule.mode === 'whitelist' && rule.compiledRegex.test(text)) {
+                        sourceLang = lang.toUpperCase(); // e.g., 'zh' -> 'ZH'
+                        break;
+                    }
+                }
+                if (sourceLang) break;
+            }
+
+            // 如果未检测到源语言，或源语言与目标语言相同，则跳过。
+            if (!sourceLang || sourceLang === targetLang.toUpperCase()) {
+                continue;
+            }
+
+            try {
+                const translatedText = await browser.runtime.sendMessage({
+                    type: 'TRANSLATE_TEXT',
+                    payload: { text: text.trim(), targetLang, sourceLang }
+                });
+                if (translatedText.success) {
+                    await window.DisplayManager.apply(element, translatedText.translatedText);
+                } else {
+                    window.DisplayManager.showError(element, translatedText.error);
+                }
+            } catch (error) {
+                window.DisplayManager.showError(element, error.message);
             }
         }
     } catch (error) {
