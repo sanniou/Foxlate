@@ -25,21 +25,7 @@
     "scripts": ["background/service-worker.js"],
     "type": "module"
   },
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": [
-        "lib/webextension-polyfill.js",
-        "common/constants.js",
-        "content/strategies/hover-strategy.js",
-        "content/strategies/append-strategy.js",
-        "content/strategies/replace-strategy.js",
-        "content/display-manager.js",
-        "content/content-script.js"
-      ],
-      "css": ["content/style.css"] // (可选) 为悬浮窗口等添加样式
-    }
-  ],
+  
   "default_locale": "en",
   "action": {
     "default_popup": "popup/popup.html",

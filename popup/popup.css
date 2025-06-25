@@ -1,23 +1,34 @@
+:root {
+    --bg-color: #f8f9fa;
+    --text-color: #212529;
+    --text-color-secondary: #6c757d;
+    --primary-color: #007bff;
+    --primary-color-hover: #0069d9;
+    --border-color: #dee2e6;
+    --border-radius: 6px;
+    --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
 body {
-    width: 280px; /* 增加宽度以适应更多元素 */
+    width: 300px;
     margin: 0;
-    font-family: Arial, sans-serif;
-    background-color: #f9f9f9;
+    font-family: var(--font-family);
+    background-color: var(--bg-color);
+    color: var(--text-color);
 }
 
 .popup-container {
-    display: flex;
-    flex-direction: column;
-    padding: 15px;
+    padding: 16px;
 }
 
 header h1 {
-    font-size: 16px;
-    color: #333;
-    text-align: left; /* 标题左对齐 */
-    margin: 0 0 15px 0;
-    border-bottom: 1px solid #eee;
-    padding-bottom: 10px;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-color);
+    text-align: left;
+    margin: 0 0 16px 0;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
 }
 
 main {
@@ -28,115 +39,122 @@ main {
     width: 100%;
     padding: 12px;
     font-size: 14px;
-    font-weight: bold;
+    font-weight: 600;
     color: white;
-    background-color: #007bff;
+    background-color: var(--primary-color);
     border: none;
-    border-radius: 5px;
+    border-radius: var(--border-radius);
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    text-align: center;
+}
+
+.action-btn:hover:not(:disabled) {
+    background-color: var(--primary-color-hover);
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.25);
 }
 
 .action-btn:disabled {
     background-color: #cccccc;
     cursor: not-allowed;
-}
-
-.action-btn:hover {
-    background-color: #0056b3;
+    opacity: 0.7;
 }
 
 footer {
-    margin-top: 15px;
-    display: flex; /* 使用 flex 布局 */
-    justify-content: space-between; /* 元素之间留有空间 */
+    margin-top: 16px;
+    display: flex;
+    justify-content: space-between;
     align-items: center;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-color);
 }
 
 .footer-btn {
     background: none;
-    border: 1px solid #ccc;
-    color: #555;
-    padding: 5px 10px;
-    border-radius: 5px;
+    border: none;
+    color: var(--text-color-secondary);
+    padding: 6px;
+    border-radius: var(--border-radius);
     cursor: pointer;
     font-size: 12px;
-    white-space: nowrap; /* 防止按钮文本换行 */
+    font-weight: 500;
+    transition: background-color 0.2s, color 0.2s;
 }
 
 .footer-btn:hover {
-    background-color: #f0f0f0;
-    border-color: #bbb;
+    background-color: #e9ecef;
+    color: var(--text-color);
 }
 
 .version-display {
-    font-size: 11px;
-    color: #888;
-    flex-grow: 1; /* 占据中间剩余空间 */
+    font-size: 12px;
+    color: #adb5bd;
+    flex-grow: 1;
     text-align: center;
 }
 
-/* 新增 language-selection-row 样式，用于包含两个 language-group */
 .language-selection-row {
     display: flex;
-    justify-content: space-between;
-    gap: 10px; /* 调整间距 */
+    gap: 12px;
 }
 
-/* 调整 language-group 样式，使其在 language-selection-row 中正确显示 */
 .language-group {
-    flex: 1; /* 占据可用空间 */
-    margin-right: 10px; /* 两个下拉框之间的间距 */
+    flex: 1;
 }
 
-.language-group:last-child {
-    margin-right: 0; /* 最后一个不留右边距 */
-}
-
-/* 新增的表单组和选择器样式 */
 .section {
-    margin-bottom: 15px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #eee;
+    margin-bottom: 16px;
+    padding-bottom: 0;
+    border-bottom: none;
 }
 .section:last-of-type {
-    border-bottom: none; /* 最后一个 section 不显示下划线 */
+    margin-bottom: 12px;
 }
 
 .form-group {
-    margin-bottom: 10px;
+    margin-bottom: 0;
 }
 
 .form-group label {
     display: block;
     font-size: 13px;
-    color: #555;
-    margin-bottom: 5px;
+    font-weight: 500;
+    color: var(--text-color-secondary);
+    margin-bottom: 6px;
 }
 
 .form-group select {
     width: 100%;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
     font-size: 14px;
     background-color: #fff;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 16px 12px;
 }
 
-/* Toggle Switch 样式 */
 .toggle-section {
     display: flex;
     align-items: center;
-    justify-content: flex-start; /* 左对齐 */
-    margin-top: 15px;
+    justify-content: flex-start;
+    margin-top: 16px;
+    padding: 10px;
+    background-color: #f1f3f5;
+    border-radius: var(--border-radius);
 }
 
 .toggle-switch {
     position: relative;
     display: inline-block;
-    width: 40px;
+    width: 38px;
     height: 22px;
-    margin-right: 10px;
+    margin-right: 12px;
 }
 
 .toggle-switch input {
@@ -152,7 +170,7 @@ footer {
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: #ccc;
+    background-color: #adb5bd;
     transition: .4s;
     border-radius: 22px;
 }
@@ -160,33 +178,30 @@ footer {
 .slider:before {
     position: absolute;
     content: "";
-    height: 18px;
-    width: 18px;
-    left: 2px;
-    bottom: 2px;
+    height: 16px;
+    width: 16px;
+    left: 3px;
+    bottom: 3px;
     background-color: white;
     transition: .4s;
     border-radius: 50%;
 }
 
 input:checked + .slider {
-    background-color: #2196F3;
+    background-color: var(--primary-color);
 }
 
 input:focus + .slider {
-    box-shadow: 0 0 1px #2196F3;
+    box-shadow: 0 0 1px var(--primary-color);
 }
 
 input:checked + .slider:before {
-    transform: translateX(18px);
+    transform: translateX(16px);
 }
 
 .toggle-label {
     font-size: 13px;
-    color: #555;
-}
-
-.options-btn:hover {
-    background-color: #f0f0f0;
-    border-color: #bbb;
+    font-weight: 500;
+    color: var(--text-color);
+    cursor: pointer;
 }

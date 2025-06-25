@@ -343,3 +343,28 @@ browser.tabs.onRemoved.addListener(async (tabId) => {
     logError('tabs.onRemoved listener', error);
   }
 });
+
+// --- Automatic Translation Listener ---
+
+browser.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+    // Ensure the page is fully loaded and has a URL.
+    if (changeInfo.status !== 'complete' || !tab.url || !tab.url.startsWith('http')) {
+        return;
+    }
+
+    try {
+        const { settings } = await browser.storage.sync.get('settings');
+        const domain = new URL(tab.url).hostname;
+        const domainRules = settings?.domainRules || {};
+
+        // Check if the domain is marked for automatic translation.
+        if (domainRules[domain] === 'always') {
+            console.log(`[Auto-Translate] Domain ${domain} is marked for automatic translation. Initiating...`);
+            // Use the same logic as INITIATE_PAGE_TRANSLATION handler
+            await ensureContentScript(tabId);
+            await browser.tabs.sendMessage(tabId, { type: 'TRANSLATE_PAGE_REQUEST', payload: { tabId } });
+        }
+    } catch (error) {
+        logError('tabs.onUpdated listener (Auto-Translate)', error);
+    }
+});

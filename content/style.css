@@ -1,104 +1,115 @@
+:root {
+    --ut-bg-color: #ffffff;
+    --ut-text-color: #212529;
+    --ut-border-color: #dee2e6;
+    --ut-shadow-color: rgba(0, 0, 0, 0.15);
+    --ut-error-bg-color: #fef5f5;
+    --ut-error-border-color: #f5c2c7;
+    --ut-error-text-color: #b32d2d;
+    --ut-tooltip-bg-color: #212529;
+    --ut-tooltip-text-color: #f8f9fa;
+    --ut-border-radius: 8px;
+    --ut-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
 .universal-translator-tooltip {
-  position: absolute;
-  z-index: 2147483647; /* Use a very high z-index to ensure it's on top of everything */
-  background-color: #212529;
-  color: #f8f9fa;
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 14px;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
-  max-width: 450px;
-  pointer-events: none; /* Allows mouse events to pass through to elements below, preventing flicker */
-  display: none; /* Hidden by default */
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  line-height: 1.5;
+    position: absolute;
+    z-index: 2147483647;
+    background-color: var(--ut-tooltip-bg-color);
+    color: var(--ut-tooltip-text-color);
+    padding: 8px 12px;
+    border-radius: 6px; /* Slightly smaller radius for tooltips */
+    font-size: 14px;
+    font-family: var(--ut-font-family);
+    max-width: 450px;
+    pointer-events: none;
+    display: none;
+    box-shadow: 0 4px 12px var(--ut-shadow-color);
+    line-height: 1.5;
 }
 
 .universal-translator-error {
-  /* A subtle but clear indicator that something went wrong. */
-  text-decoration: red wavy underline;
-  text-decoration-skip-ink: none; /* Ensures the underline is continuous. */
-  cursor: help; /* Changes the cursor to indicate more info is available. */
+    text-decoration: red wavy underline;
+    text-decoration-skip-ink: none;
+    cursor: help;
 }
 
-/* 选中翻译浮动面板的样式 */
 #universal-translator-selection-panel {
-  position: absolute;
-  z-index: 2147483647;
-  background-color: #ffffff;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  padding: 16px;
-  max-width: 450px;
-  font-size: 15px;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
-  color: #202124;
-  line-height: 1.6;
-  /* Add arrow */
+    position: absolute;
+    z-index: 2147483647;
+    background-color: var(--ut-bg-color);
+    border: 1px solid var(--ut-border-color);
+    border-radius: var(--ut-border-radius);
+    box-shadow: 0 6px 16px var(--ut-shadow-color);
+    padding: 12px;
+    max-width: 480px;
+    font-size: 15px;
+    font-family: var(--ut-font-family);
+    color: var(--ut-text-color);
+    line-height: 1.6;
 }
 
 #universal-translator-selection-panel::before {
-  content: "";
-  position: absolute;
-  left: 10px; /* Adjust as needed */
-  top: -8px; /* Position above the panel */
-  border-width: 0 8px 8px 8px;
-  border-style: solid;
-  border-color: transparent transparent #e0e0e0 transparent; /* Arrow color */
+    content: "";
+    position: absolute;
+    left: 12px;
+    top: -8px;
+    border-width: 0 8px 8px 8px;
+    border-style: solid;
+    border-color: transparent transparent var(--ut-border-color) transparent;
 }
 
 #universal-translator-selection-panel::after {
-  content: "";
-  position: absolute;
-  left: 11px;
-  top: -7px;
-  border-width: 0 7px 7px 7px;
-  border-style: solid;
-  border-color: transparent transparent white transparent; /* Arrow color */
-  z-index: 1;
-  /* Optional: subtle shadow on arrow */
-  filter: drop-shadow(0px -1px 1px rgba(0, 0, 0, 0.1));
-}
-/* Adjust error panel arrow color */
-#universal-translator-selection-panel.error::before {
-  border-color: transparent transparent #f5c6cb transparent;
-}
-
-#universal-translator-selection-panel.error::after {
-  border-color: transparent transparent #fff6f6 transparent;
-}
-
-#universal-translator-selection-panel .panel-content {
-  padding-right: 20px;
-  padding-right: 20px; /* 预留关闭按钮的空间 */
-  max-height: 300px; /* 添加最大高度 */
-  overflow-y: auto; /* 允许内容滚动 */
+    content: "";
+    position: absolute;
+    left: 13px;
+    top: -7px;
+    border-width: 0 7px 7px 7px;
+    border-style: solid;
+    border-color: transparent transparent var(--ut-bg-color) transparent;
+    z-index: 1;
 }
 
 #universal-translator-selection-panel.error {
-  background-color: #fff6f6;
-  border-color: #f5c6cb;
-  color: #b32d2d;
+    background-color: var(--ut-error-bg-color);
+    border-color: var(--ut-error-border-color);
+    color: var(--ut-error-text-color);
+}
+
+#universal-translator-selection-panel.error::before {
+    border-color: transparent transparent var(--ut-error-border-color) transparent;
+}
+
+#universal-translator-selection-panel.error::after {
+    border-color: transparent transparent var(--ut-error-bg-color) transparent;
+}
+
+#universal-translator-selection-panel .panel-content {
+    padding: 4px;
+    padding-right: 28px; /* Space for the close button */
+    max-height: 300px;
+    overflow-y: auto;
 }
 
 #universal-translator-selection-panel .panel-close-btn {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  background: none;
-  border: none;
-  font-size: 22px;
-  font-weight: 300;
-  color: #9e9e9e;
-  cursor: pointer;
-  padding: 0 4px;
-  margin: 0;
-  line-height: 1;
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 28px;
+    height: 28px;
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: #9e9e9e;
+    cursor: pointer;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s, color 0.2s;
 }
 
 #universal-translator-selection-panel .panel-close-btn:hover {
-  color: #333;
+    background-color: #f1f3f5;
+    color: #333;
 }
