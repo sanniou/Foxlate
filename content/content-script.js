@@ -196,7 +196,10 @@ async function performPageTranslation(tabId) { // 接受 tabId 参数
  * 还原整页翻译，显示原始文本。
  */
 async function revertPageTranslation(tabId) { // 接受 tabId 参数
-    originalContent.forEach((text, element) => element.textContent = text);
+  const elements = document.querySelectorAll('[data-translation-strategy]');
+  elements.forEach(element => {
+    window.DisplayManager.revert(element);
+  });
     originalContent.clear();
     // 报告还原完成状态
     try {

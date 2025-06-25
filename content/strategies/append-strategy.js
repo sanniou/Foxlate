@@ -1,16 +1,28 @@
-window.appendStrategy = function(element, translatedText) {
-  if (!element.dataset.originalText) {
-    element.dataset.originalText = element.textContent;
-  }
-  // 防止重复追加
-  if (element.querySelector('.translator-appended-text')) {
-    element.querySelector('.translator-appended-text').textContent = translatedText;
-  } else {
-    const translationNode = document.createElement('span');
-    translationNode.className = 'translator-appended-text';
-    translationNode.style.color = 'gray'; // 自定义样式
-    translationNode.style.marginLeft = '8px';
-    translationNode.textContent = `(${translatedText})`;
-    element.appendChild(translationNode);
-  }
-}
+window.appendTranslationStrategy = {
+    displayTranslation: function(element, translatedText) {
+        if (!element.dataset.originalText) {
+            element.dataset.originalText = element.textContent;
+        }
+
+        // 查找已有的翻译 font 标签，有则更新，无则创建
+        let translationNode = element.querySelector('.translator-appended-text');
+        if (translationNode) {
+            translationNode.textContent = ` (${translatedText})`;
+        } else {
+            translationNode = document.createElement('font');
+            translationNode.className = 'translator-appended-text'; // 类名用于标识和还原
+            translationNode.style.marginLeft = '8px';
+            translationNode.textContent = ` (${translatedText})`;
+            element.appendChild(translationNode);
+        }
+    },
+
+    revertTranslation: function(element) {
+        const translationNode = element.querySelector('.translator-appended-text');
+        if (translationNode) {
+            translationNode.remove();
+            delete element.dataset.originalText;
+            delete element.dataset.translationStrategy;
+        }
+    }
+};

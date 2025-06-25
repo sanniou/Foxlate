@@ -55,15 +55,27 @@ window.hideTooltip = function() {
     }
 }
 
-window.hoverStrategy = function(element, translatedText) {
-    // Store original and translated text in the element's dataset for easy access.
-    if (!element.dataset.originalText) {
-        element.dataset.originalText = element.textContent;
-    }
-    element.dataset.translatedText = translatedText;
+window.hoverStrategy = {
+    displayTranslation: function(element, translatedText) {
+        // Store original and translated text in the element's dataset for easy access.
+        if (!element.dataset.originalText) {
+            element.dataset.originalText = element.textContent;
+        }
+        element.dataset.translatedText = translatedText;
 
-    // Add event listeners for mouse enter and leave to show/hide the tooltip.
-    // Use window.showTooltip and window.hideTooltip as they are now on the global scope.
-    element.addEventListener('mouseenter', (event) => window.showTooltip(event, element.dataset.translatedText));
-    element.addEventListener('mouseleave', window.hideTooltip);
-}
+        // Add event listeners for mouse enter and leave to show/hide the tooltip.
+        // Use window.showTooltip and window.hideTooltip as they are now on the global scope.
+        element.addEventListener('mouseenter', (event) => window.showTooltip(event, element.dataset.translatedText));
+        element.addEventListener('mouseleave', window.hideTooltip);
+    },
+
+    revertTranslation: function(element) {
+        // 移除事件监听器
+        element.removeEventListener('mouseenter', (event) => window.showTooltip(event, element.dataset.translatedText));
+        element.removeEventListener('mouseleave', window.hideTooltip);
+        // 移除 dataset
+        delete element.dataset.originalText;
+        delete element.dataset.translatedText;
+        delete element.dataset.translationStrategy;
+    }
+};
