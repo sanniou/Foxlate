@@ -79,9 +79,8 @@ footer {
 /* 新增 language-selection-row 样式，用于包含两个 language-group */
 .language-selection-row {
     display: flex;
-    justify-content: space-between; /* 使两个子元素左右分散 */
-    align-items: flex-end; /* 底部对齐，确保下拉框对齐 */
-    margin-bottom: 10px; /* 与下方元素保持间距 */
+    justify-content: space-between;
+    gap: 10px; /* 调整间距 */
 }
 
 /* 调整 language-group 样式，使其在 language-selection-row 中正确显示 */

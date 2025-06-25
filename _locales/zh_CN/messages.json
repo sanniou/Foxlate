@@ -1,0 +1,186 @@
+{
+  "extensionName": {
+    "message": "通用翻译",
+    "description": "扩展程序的名称。"
+  },
+  "extensionDescription": {
+    "message": "一个多功能的翻译扩展。",
+    "description": "扩展程序的描述。"
+  },
+  "settingsHeading": {
+    "message": "通用翻译设置",
+    "description": "设置页面的标题。"
+  },
+  "generalSettings": {
+    "message": "常规设置",
+    "description": "常规设置部分标题。"
+  },
+  "translationEngine": {
+    "message": "翻译引擎：",
+    "description": "翻译引擎下拉菜单的标签。"
+  },
+  "deeplx": {
+    "message": "DeepLx",
+    "description": "DeepLx 翻译引擎的选项。"
+  },
+  "googleTranslate": {
+    "message": "谷歌翻译",
+    "description": "谷歌翻译引擎的选项。"
+  },
+  "aiTranslator": {
+    "message": "AI 翻译器 (GPT)",
+    "description": "AI 翻译器引擎的选项。"
+  },
+  "aiApiKey": {
+    "message": "AI API 密钥：",
+    "description": "AI API 密钥输入框的标签。"
+  },
+  "aiApiUrl": {
+    "message": "API 终端 URL（可选）：",
+    "description": "AI API 终端 URL 输入框的标签。"
+  },
+  "aiModelName": {
+    "message": "模型名称（可选）：",
+    "description": "AI 模型名称输入框的标签。"
+  },
+  "testConnection": {
+    "message": "测试连接",
+    "description": "测试 API 连接的按钮文本。"
+  },
+  "deeplxApiUrl": {
+    "message": "DeepLx API URL：",
+    "description": "DeepLx API URL 输入框的标签。"
+  },
+  "test": {
+    "message": "测试",
+    "description": "测试按钮的文本。"
+  },
+  "googleApiKey": {
+    "message": "谷歌 API 密钥：",
+    "description": "谷歌 API 密钥输入框的标签。"
+  },
+  "targetLanguage": {
+    "message": "目标语言（例如，ZH, EN）：",
+    "description": "目标语言输入框的标签。"
+  },
+  "translationSelector": {
+    "message": "要翻译的元素（CSS 选择器）：",
+    "description": "翻译选择器输入框的标签。"
+  },
+  "selectorDescription": {
+    "message": "用于要翻译元素的逗号分隔的 CSS 选择器。",
+    "description": "翻译选择器输入框的描述。"
+  },
+  "displayFormat": {
+    "message": "显示格式",
+    "description": "显示格式设置部分标题。"
+  },
+  "displayMode": {
+    "message": "显示模式：",
+    "description": "显示模式选项的标签。"
+  },
+  "replaceOriginal": {
+    "message": "替换原文",
+    "description": "用翻译替换原文的选项。"
+  },
+  "appendTranslated": {
+    "message": "追加翻译",
+    "description": "将翻译附加到原文的选项。"
+  },
+  "hoverToDisplay": {
+    "message": "悬停显示",
+    "description": "悬停时显示翻译的选项。"
+  },
+  "domainRules": {
+    "message": "域名规则",
+    "description": "域名规则部分标题。"
+  },
+  "domain": {
+    "message": "域名：",
+    "description": "域名输入框的标签。"
+  },
+  "rule": {
+    "message": "规则：",
+    "description": "规则选择下拉菜单的标签。"
+  },
+  "manualTranslate": {
+    "message": "手动翻译",
+    "description": "手动翻译规则的选项。"
+  },
+  "alwaysTranslate": {
+    "message": "总是翻译",
+    "description": "总是翻译规则的选项。"
+  },
+  "addRule": {
+    "message": "添加规则",
+    "description": "添加新域名规则的按钮文本。"
+  },
+  "currentRules": {
+    "message": "当前域名规则：",
+    "description": "当前域名规则列表的标题。"
+  },
+  "domainSpecificRules": {
+    "message": "域名特定规则",
+    "description": "域名特定规则的标题"
+  },
+  "rulesDescription": {
+    "message": "规则适用于精确的主机名。默认为“手动翻译”。",
+    "description": "域名规则的描述。"
+  },
+  "configurationManagement": {
+    "message": "配置管理",
+    "description": "配置管理部分标题。"
+  },
+  "saveSettings": {
+    "message": "保存设置",
+    "description": "保存设置的按钮文本。"
+  },
+  "exportSettings": {
+    "message": "导出设置",
+    "description": "导出设置的按钮文本。"
+  },
+  "importSettings": {
+    "message": "导入设置：",
+    "description": "导入设置文件输入框的标签。"
+  },
+  "saveSettingsSuccess": { "message": "设置已成功保存！" },
+  "saveSettingsError": { "message": "保存设置失败。" },
+  "addRuleSuccess": { "message": "域名规则已添加。" },
+  "addRuleErrorNoDomain": { "message": "请输入一个域名。" },
+  "removeRule": { "message": "移除" },
+  "removeRuleSuccess": { "message": "域名规则已移除。" },
+  "exportSuccess": { "message": "设置已成功导出！" },
+  "importSuccess": { "message": "设置已成功导入！界面已更新。" },
+  "importError": { "message": "导入设置失败。文件可能已损坏或格式无效。" },
+  "testing": { "message": "测试中..." },
+  "testOriginal": { "message": "原文" },
+  "testTranslated": { "message": "译文" },
+  "testError": { "message": "错误" },
+  "aiApiKeyPlaceholder": { "message": "请输入您的 OpenAI 兼容 API 密钥" },
+  "aiApiUrlPlaceholder": {
+    "message": "例如：https://api.openai.com/v1/chat/completions"
+  },
+  "aiModelNamePlaceholder": { "message": "例如：gpt-3.5-turbo" },
+  "deeplxApiUrlPlaceholder": {
+    "message": "例如：https://api.deeplx.com/translate"
+  },
+  "googleApiKeyPlaceholder": { "message": "请输入您的谷歌云翻译 API 密钥" },
+  "domainPlaceholder": { "message": "例如：example.com" },
+  "popupTitle": { "message": "通用翻译" },
+  "popupSourceLanguage": { "message": "原始语言：" },
+  "popupTargetLanguage": { "message": "目标语言：" },
+  "popupTranslationService": { "message": "翻译服务：" },
+  "popupTranslatePage": { "message": "翻译此页" },
+  "popupAlwaysTranslate": { "message": "总是翻译此网站" },
+  "popupSettings": { "message": "⚙️ 设置" },
+  "popupAbout": { "message": "关于" },
+  "langAuto": { "message": "自动检测" },
+  "langEN": { "message": "英语" },
+  "langZH": { "message": "简体中文" },
+  "langJA": { "message": "日语" },
+  "langKO": { "message": "韩语" },
+  "langFR": { "message": "法语" },
+  "langDE": { "message": "德语" },
+  "langES": { "message": "西班牙语" },
+  "langRU": { "message": "俄语" }
+}

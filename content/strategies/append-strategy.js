@@ -1,4 +1,4 @@
-export function appendStrategy(element, translatedText) {
+window.appendStrategy = function(element, translatedText) {
   if (!element.dataset.originalText) {
     element.dataset.originalText = element.textContent;
   }

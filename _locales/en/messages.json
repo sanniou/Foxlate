@@ -1,0 +1,192 @@
+{
+  "extensionName": {
+    "message": "Universal Translator",
+    "description": "Name of the extension."
+  },
+  "extensionDescription": {
+    "message": "A versatile translation extension.",
+    "description": "Description of the extension."
+  },
+  "settingsHeading": {
+    "message": "Universal Translator Settings",
+    "description": "Heading for the settings page."
+  },
+  "generalSettings": {
+    "message": "General Settings",
+    "description": "Section heading for general settings."
+  },
+  "translationEngine": {
+    "message": "Translation Engine:",
+    "description": "Label for the translation engine dropdown."
+  },
+  "deeplx": {
+    "message": "DeepLx",
+    "description": "Option for DeepLx translation engine."
+  },
+  "googleTranslate": {
+    "message": "Google Translate",
+    "description": "Option for Google Translate engine."
+  },
+  "aiTranslator": {
+    "message": "AI Translator (GPT)",
+    "description": "Option for AI Translator engine."
+  },
+  "aiApiKey": {
+    "message": "AI API Key:",
+    "description": "Label for the AI API key input."
+  },
+  "aiApiUrl": {
+    "message": "API Endpoint URL (Optional):",
+    "description": "Label for the AI API endpoint URL input."
+  },
+  "aiModelName": {
+    "message": "Model Name (Optional):",
+    "description": "Label for the AI model name input."
+  },
+  "testConnection": {
+    "message": "Test Connection",
+    "description": "Button text for testing API connection."
+  },
+  "deeplxApiUrl": {
+    "message": "DeepLx API URL:",
+    "description": "Label for the DeepLx API URL input."
+  },
+  "test": {
+    "message": "Test",
+    "description": "Button text for testing."
+  },
+  "googleApiKey": {
+    "message": "Google API Key:",
+    "description": "Label for the Google API key input."
+  },
+  "targetLanguage": {
+    "message": "Target Language (e.g., ZH, EN):",
+    "description": "Label for the target language input."
+  },
+  "translationSelector": {
+    "message": "Elements to Translate (CSS Selector):",
+    "description": "Label for the translation selector input."
+  },
+  "selectorDescription": {
+    "message": "Comma-separated CSS selectors for elements to be translated.",
+    "description": "Description for the translation selector input."
+  },
+  "displayFormat": {
+    "message": "Display Format",
+    "description": "Section heading for display format settings."
+  },
+  "displayMode": {
+    "message": "Display Mode:",
+    "description": "Label for the display mode options."
+  },
+  "replaceOriginal": {
+    "message": "Replace Original",
+    "description": "Option to replace original text with translation."
+  },
+  "appendTranslated": {
+    "message": "Append Translated",
+    "description": "Option to append translation to original text."
+  },
+  "hoverToDisplay": {
+    "message": "Hover to Display",
+    "description": "Option to show translation on hover."
+  },
+  "domainRules": {
+    "message": "Domain Rules",
+    "description": "Section heading for domain rules."
+  },
+  "domain": {
+    "message": "Domain:",
+    "description": "Label for the domain input."
+  },
+  "rule": {
+    "message": "Rule:",
+    "description": "Label for the rule selection dropdown."
+  },
+  "manualTranslate": {
+    "message": "Manual Translate",
+    "description": "Option for manual translation rule."
+  },
+  "alwaysTranslate": {
+    "message": "Always Translate",
+    "description": "Option for always translate rule."
+  },
+  "addRule": {
+    "message": "Add Rule",
+    "description": "Button text to add a new domain rule."
+  },
+  "currentRules": {
+    "message": "Current Domain Rules:",
+    "description": "Heading for the list of current domain rules."
+  },
+  "domainSpecificRules": {
+    "message": "Domain-Specific Rules",
+    "description": "Heading for domain specific rules"
+  },
+  "rulesDescription": {
+    "message": "Rules apply to the exact hostname. Default is \"Manual Translate\".",
+    "description": "Description for domain rules."
+  },
+  "configurationManagement": {
+    "message": "Configuration Management",
+    "description": "Section heading for configuration management."
+  },
+  "saveSettings": {
+    "message": "Save Settings",
+    "description": "Button text to save settings."
+  },
+  "exportSettings": {
+    "message": "Export Settings",
+    "description": "Button text to export settings."
+  },
+  "importSettings": {
+    "message": "Import Settings:",
+    "description": "Label for the import settings file input."
+  },
+  "saveSettingsSuccess": { "message": "Settings saved successfully!" },
+  "saveSettingsError": { "message": "Failed to save settings." },
+  "addRuleSuccess": { "message": "Domain rule added." },
+  "addRuleErrorNoDomain": { "message": "Please enter a domain." },
+  "removeRule": { "message": "Remove" },
+  "removeRuleSuccess": { "message": "Domain rule removed." },
+  "exportSuccess": { "message": "Settings exported successfully!" },
+  "importSuccess": {
+    "message": "Settings imported successfully! UI has been updated."
+  },
+  "importError": {
+    "message": "Failed to import settings. The file might be corrupted or invalid."
+  },
+  "testing": { "message": "Testing..." },
+  "testOriginal": { "message": "Original" },
+  "testTranslated": { "message": "Translated" },
+  "testError": { "message": "Error" },
+  "aiApiKeyPlaceholder": { "message": "Enter your OpenAI-compatible API Key" },
+  "aiApiUrlPlaceholder": {
+    "message": "e.g., https://api.openai.com/v1/chat/completions"
+  },
+  "aiModelNamePlaceholder": { "message": "e.g., gpt-3.5-turbo" },
+  "deeplxApiUrlPlaceholder": {
+    "message": "e.g., https://api.deeplx.com/translate"
+  },
+  "googleApiKeyPlaceholder": {
+    "message": "Enter your Google Cloud Translation API Key"
+  },
+  "domainPlaceholder": { "message": "e.g., example.com" },
+  "popupTitle": { "message": "Universal Translator" },
+  "popupSourceLanguage": { "message": "Source Language:" },
+  "popupTargetLanguage": { "message": "Target Language:" },
+  "popupTranslationService": { "message": "Translation Service:" },
+  "popupTranslatePage": { "message": "Translate This Page" },
+  "popupAlwaysTranslate": { "message": "Always translate this site" },
+  "popupSettings": { "message": "⚙️ Settings" },
+  "popupAbout": { "message": "About" },
+  "langAuto": { "message": "Auto-Detect" },
+  "langEN": { "message": "English" },
+  "langZH": { "message": "Chinese (Simplified)" },
+  "langJA": { "message": "Japanese" },
+  "langKO": { "message": "Korean" },
+  "langFR": { "message": "French" },
+  "langDE": { "message": "German" },
+  "langES": { "message": "Spanish" },
+  "langRU": { "message": "Russian" }
+}

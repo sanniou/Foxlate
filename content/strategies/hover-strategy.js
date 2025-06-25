@@ -3,6 +3,7 @@ let tooltip = null;
 
 /**
  * Creates a single tooltip element and appends it to the body if it doesn't exist.
+ * This is a local helper function and not exposed globally.
  */
 function createTooltip() {
     // Check if the tooltip already exists to avoid creating duplicates.
@@ -18,7 +19,7 @@ function createTooltip() {
  * @param {MouseEvent} event - The mouse event to position the tooltip.
  * @param {string} text - The text to display in the tooltip.
  */
-export function showTooltip(event, text) {
+window.showTooltip = function(event, text) {
     createTooltip(); // Ensure the tooltip element exists
     const tooltipEl = document.querySelector('.universal-translator-tooltip');
     if (!tooltipEl) return;
@@ -47,14 +48,14 @@ export function showTooltip(event, text) {
 /**
  * Hides the tooltip.
  */
-export function hideTooltip() {
+window.hideTooltip = function() {
     const tooltipEl = document.querySelector('.universal-translator-tooltip');
     if (tooltipEl) {
         tooltipEl.style.display = 'none';
     }
 }
 
-export function hoverStrategy(element, translatedText) {
+window.hoverStrategy = function(element, translatedText) {
     // Store original and translated text in the element's dataset for easy access.
     if (!element.dataset.originalText) {
         element.dataset.originalText = element.textContent;
@@ -62,6 +63,7 @@ export function hoverStrategy(element, translatedText) {
     element.dataset.translatedText = translatedText;
 
     // Add event listeners for mouse enter and leave to show/hide the tooltip.
-    element.addEventListener('mouseenter', (event) => showTooltip(event, element.dataset.translatedText));
-    element.addEventListener('mouseleave', hideTooltip);
+    // Use window.showTooltip and window.hideTooltip as they are now on the global scope.
+    element.addEventListener('mouseenter', (event) => window.showTooltip(event, element.dataset.translatedText));
+    element.addEventListener('mouseleave', window.hideTooltip);
 }

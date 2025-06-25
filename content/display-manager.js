@@ -1,15 +1,15 @@
-import { replaceStrategy } from './strategies/replace-strategy.js';
-import { appendStrategy } from './strategies/append-strategy.js';
-import { hoverStrategy, showTooltip, hideTooltip } from './strategies/hover-strategy.js';
+// This script assumes that strategy functions (replaceStrategy, appendStrategy, hoverStrategy, showTooltip, hideTooltip)
+// have already been loaded and attached to the global `window` object.
 
-const strategies = {
-  replace: replaceStrategy,
-  append: appendStrategy,
-  hover: hoverStrategy,
-};
-
-export class DisplayManager {
+window.DisplayManager = class DisplayManager {
   static async apply(element, translatedText) {
+    // 从全局作用域获取策略函数
+    const strategies = {
+      replace: window.replaceStrategy,
+      append: window.appendStrategy,
+      hover: window.hoverStrategy,
+    };
+
     const { settings } = await browser.storage.sync.get('settings');
     const displayMode = settings?.displayMode || 'replace'; // 默认替换
     const strategy = strategies[displayMode];
@@ -32,7 +32,10 @@ export class DisplayManager {
     element.dataset.errorMessage = errorMessage;
 
     // Use the tooltip to show the detailed error on hover.
-    element.addEventListener('mouseenter', (event) => showTooltip(event, `Translation Error: ${element.dataset.errorMessage}`));
-    element.addEventListener('mouseleave', hideTooltip);
+    element.addEventListener('mouseenter', (event) => window.showTooltip(event, `Translation Error: ${element.dataset.errorMessage}`));
+    element.addEventListener('mouseleave', window.hideTooltip);
   }
-}
+};
+
+// Dispatch a custom event to signal that DisplayManager is ready.
+window.dispatchEvent(new Event('DisplayManagerReady'));

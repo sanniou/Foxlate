@@ -1,124 +1,160 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const sourceLanguageSelect = document.getElementById('sourceLanguageSelect');
-    const targetLanguageSelect = document.getElementById('targetLanguageSelect');
-    const engineSelect = document.getElementById('engineSelect');
-    const translatePageBtn = document.getElementById('translatePageBtn');
-    const alwaysTranslateToggle = document.getElementById('alwaysTranslateToggle');
-    const openOptionsBtn = document.getElementById('openOptionsBtn'); // 底部设置按钮
-    const versionDisplay = document.getElementById('versionDisplay');
-    const aboutBtn = document.getElementById('aboutBtn');
+    // --- Constants ---
+    const SUPPORTED_LANGUAGES = {
+        'auto': 'langAuto',
+        'EN': 'langEN',
+        'ZH': 'langZH',
+        'JA': 'langJA',
+        'KO': 'langKO',
+        'FR': 'langFR',
+        'DE': 'langDE',
+        'ES': 'langES',
+        'RU': 'langRU'
+    };
 
-    // 语言列表 (简化版)
-    const languages = [
-        { code: 'auto', name: '自动检测' },
-        { code: 'ZH', name: '中文' },
-        { code: 'EN', name: 'English' },
-        { code: 'JA', name: '日本語' },
-        { code: 'KO', name: '한국어' },
-        { code: 'FR', name: 'Français' },
-        { code: 'DE', name: 'Deutsch' },
-        { code: 'ES', name: 'Español' }
-    ];
+    const SUPPORTED_ENGINES = {
+        'deeplx': 'deeplx',
+        'google': 'googleTranslate',
+        'ai': 'aiTranslator'
+    };
 
-    // 翻译引擎列表
-    const engines = [
-        { value: 'deeplx', name: 'DeepLx' },
-        { value: 'google', name: 'Google Translate' },
-        { value: 'ai', name: 'AI Translator (GPT)' }
-    ];
+    // --- Element Cache ---
+    const elements = {
+        sourceLanguageSelect: document.getElementById('sourceLanguageSelect'),
+        targetLanguageSelect: document.getElementById('targetLanguageSelect'),
+        engineSelect: document.getElementById('engineSelect'),
+        translatePageBtn: document.getElementById('translatePageBtn'),
+        alwaysTranslateToggle: document.getElementById('alwaysTranslateToggle'),
+        openOptionsBtn: document.getElementById('openOptionsBtn'),
+        versionDisplay: document.getElementById('versionDisplay'),
+        aboutBtn: document.getElementById('aboutBtn')
+    };
 
-    // 填充语言下拉菜单
-    function populateLanguageSelect(selectElement, langList, selectedCode) {
-        selectElement.innerHTML = ''; // 清空现有选项
-        langList.forEach(lang => {
+    /**
+     * Applies localized strings to the popup UI.
+     * It finds all elements with an `i18n-text` attribute and replaces their
+     * text content with the corresponding message from the locale files.
+     */
+    const applyTranslations = () => {
+        // Set the language of the document for better accessibility and styling.
+        document.documentElement.lang = browser.i18n.getUILanguage();
+
+        // Find all elements that need translation and apply the messages.
+        const i18nElements = document.querySelectorAll('[i18n-text]');
+        i18nElements.forEach(el => {
+            const key = el.getAttribute('i18n-text');
+            const message = browser.i18n.getMessage(key);
+            if (message) {
+                el.textContent = message;
+            } else {
+                console.warn(`Missing translation for key: ${key}`);
+            }
+        });
+    };
+
+    /**
+     * Populates a <select> element with options.
+     * @param {HTMLSelectElement} selectElement The <select> element to populate.
+     * @param {Object} options An object where keys are option values and values are i18n message keys.
+     * @param {string} selectedValue The value that should be pre-selected.
+     */
+    const populateSelect = (selectElement, options, selectedValue) => {
+        selectElement.innerHTML = '';
+        for (const [value, i18nKey] of Object.entries(options)) {
             const option = document.createElement('option');
-            option.value = lang.code;
-            option.textContent = lang.name;
-            if (lang.code === selectedCode) {
+            option.value = value;
+            option.textContent = browser.i18n.getMessage(i18nKey) || i18nKey;
+            if (value === selectedValue) {
                 option.selected = true;
             }
             selectElement.appendChild(option);
-        });
-    }
+        }
+    };
 
-    // 填充引擎下拉菜单
-    function populateEngineSelect(selectElement, engineList, selectedValue) {
-        selectElement.innerHTML = ''; // 清空现有选项
-        engineList.forEach(engine => {
-            const option = document.createElement('option');
-            option.value = engine.value;
-            option.textContent = engine.name;
-            if (engine.value === selectedValue) {
-                option.selected = true;
-            }
-            selectElement.appendChild(option);
-        });
-    }
-
-    // 加载并显示设置
-    async function loadAndDisplaySettings() {
+    /**
+     * Loads settings from storage and updates the UI accordingly.
+     */
+    const loadAndApplySettings = async () => {
+        const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
         const { settings } = await browser.storage.sync.get('settings');
         const currentSettings = settings || {};
 
-        // 填充语言和引擎选择器
-        populateLanguageSelect(sourceLanguageSelect, languages, currentSettings.sourceLanguage || 'auto');
-        populateLanguageSelect(targetLanguageSelect, languages.filter(l => l.code !== 'auto'), currentSettings.targetLanguage || 'ZH'); // 目标语言不包含自动检测
-        populateEngineSelect(engineSelect, engines, currentSettings.translatorEngine || 'deeplx');
+        // Populate and select the translation engine
+        populateSelect(elements.engineSelect, SUPPORTED_ENGINES, currentSettings.translatorEngine || 'deeplx');
 
-        // 设置“总是翻译此网站”开关状态
-        const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-        if (tabs[0] && tabs[0].url) {
-            const url = new URL(tabs[0].url);
-            const hostname = url.hostname;
+        // Populate and select languages
+        const targetLangs = { ...SUPPORTED_LANGUAGES };
+        delete targetLangs.auto; // Target language cannot be 'auto'
+        populateSelect(elements.sourceLanguageSelect, SUPPORTED_LANGUAGES, 'auto'); // Default source to auto for now
+        populateSelect(elements.targetLanguageSelect, targetLangs, currentSettings.targetLanguage || 'ZH');
+
+        // Set the "Always Translate" toggle state if we have a valid tab URL
+        if (tab && tab.url && !tab.url.startsWith('about:')) {
+            const domain = new URL(tab.url).hostname;
             const domainRules = currentSettings.domainRules || {};
-            alwaysTranslateToggle.checked = domainRules[hostname] === 'always';
+            elements.alwaysTranslateToggle.checked = domainRules[domain] === 'always';
         } else {
-            alwaysTranslateToggle.disabled = true; // 如果无法获取 hostname，禁用开关
+            // Disable the toggle for special pages
+            elements.alwaysTranslateToggle.disabled = true;
+            elements.alwaysTranslateToggle.parentElement.parentElement.style.opacity = '0.5';
         }
+    };
 
-        // 显示版本号
-        versionDisplay.textContent = `v${browser.runtime.getManifest().version}`;
-    }
-
-    // 保存设置
-    async function saveSetting(key, value) {
-        const { settings } = await browser.storage.sync.get('settings');
-        const newSettings = { ...settings, [key]: value };
+    /**
+     * Saves the current UI state for select dropdowns to storage.
+     */
+    const saveCurrentSettings = async () => {
+        const { settings: oldSettings } = await browser.storage.sync.get('settings');
+        const newSettings = {
+            ...oldSettings,
+            translatorEngine: elements.engineSelect.value,
+            targetLanguage: elements.targetLanguageSelect.value,
+        };
         await browser.storage.sync.set({ settings: newSettings });
-    }
+    };
 
-    // 事件监听器
-    sourceLanguageSelect.addEventListener('change', (event) => saveSetting('sourceLanguage', event.target.value));
-    targetLanguageSelect.addEventListener('change', (event) => saveSetting('targetLanguage', event.target.value));
-    engineSelect.addEventListener('change', (event) => saveSetting('translatorEngine', event.target.value));
+    /**
+     * Initializes the popup, sets up event listeners, and loads initial state.
+     */
+    const initialize = async () => {
+        // Apply translations as the first step.
+        applyTranslations();
 
-    translatePageBtn.addEventListener('click', async () => {
-        const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-        if (tabs[0]) {
-            // 暂时只打印消息，不实际翻译页面，避免引入 DisplayManager 错误
-            console.log("Popup: Requesting page translation for tab:", tabs[0].id);
-            browser.tabs.sendMessage(tabs[0].id, { type: 'TRANSLATE_PAGE_REQUEST' })
-                .catch(error => console.error("Error sending page translation request:", error));
-            // 可以在这里添加一个简单的UI反馈，例如按钮文字变为“翻译中...”
-        }
-    });
+        // Load settings and populate UI elements.
+        await loadAndApplySettings();
 
-    alwaysTranslateToggle.addEventListener('change', async (event) => {
-        const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-        if (tabs[0] && tabs[0].url) {
-            const url = new URL(tabs[0].url);
-            const hostname = url.hostname;
-            const rule = event.target.checked ? 'always' : 'manual';
+        // --- Event Listeners ---
+        elements.openOptionsBtn.addEventListener('click', () => {
+            browser.runtime.openOptionsPage();
+        });
+
+        elements.translatePageBtn.addEventListener('click', async () => {
+            const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+            if (tab && tab.id) {
+                browser.runtime.sendMessage({ type: 'INITIATE_PAGE_TRANSLATION', payload: { tabId: tab.id } });
+                window.close();
+            }
+        });
+
+        // Save settings when the user changes a dropdown
+        elements.engineSelect.addEventListener('change', saveCurrentSettings);
+        elements.targetLanguageSelect.addEventListener('change', saveCurrentSettings);
+
+        elements.alwaysTranslateToggle.addEventListener('change', async () => {
+            const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+            const domain = new URL(tab.url).hostname;
             const { settings } = await browser.storage.sync.get('settings');
-            const newDomainRules = { ...(settings?.domainRules || {}), [hostname]: rule };
-            await saveSetting('domainRules', newDomainRules);
-            console.log(`Domain rule for ${hostname} set to: ${rule}`);
-        }
-    });
+            const currentSettings = settings || {};
+            currentSettings.domainRules = currentSettings.domainRules || {};
 
-    openOptionsBtn.addEventListener('click', () => browser.runtime.openOptionsPage());
-    aboutBtn.addEventListener('click', () => alert("Universal Translator\n版本: " + browser.runtime.getManifest().version + "\n作者: Your Name/Team Name\n感谢使用！"));
+            currentSettings.domainRules[domain] = elements.alwaysTranslateToggle.checked ? 'always' : 'manual';
+            await browser.storage.sync.set({ settings: currentSettings });
+        });
 
-    // 初始化加载
-    loadAndDisplaySettings();
+        // Display the extension version.
+        elements.versionDisplay.textContent = `v${browser.runtime.getManifest().version}`;
+    };
+
+    // Run the initialization logic.
+    initialize();
 });

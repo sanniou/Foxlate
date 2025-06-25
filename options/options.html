@@ -2,112 +2,125 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">    
     <title>Universal Translator Settings</title>
     <link rel="stylesheet" href="options.css">
 </head>
 <body>
     <div class="container">
-        <h1>Universal Translator Settings</h1>
+        <h1 i18n-text="settingsHeading">Universal Translator Settings</h1>
 
         <section class="settings-section">
-            <h2>General Settings</h2>
+            <h2 i18n-text="generalSettings">General Settings</h2>
             <div class="form-group">
-                <label for="translatorEngine">Translation Engine:</label>
+                <label for="translatorEngine" i18n-text="translationEngine">Translation Engine:</label>
                 <select id="translatorEngine">
-                    <option value="deeplx">DeepLx</option>
-                    <option value="google">Google Translate</option>
-                    <option value="ai">AI Translator (GPT)</option>
+                    <option value="deeplx" i18n-text="deeplx">DeepLx</option>
+                    <option value="google" i18n-text="googleTranslate">Google Translate</option>
+                    <option value="ai" i18n-text="aiTranslator">AI Translator (GPT)</option>
                     <!-- Add more options as you implement more translators -->
                 </select>
             </div>
             <!-- API fields for AI Translator -->
             <div class="form-group" id="aiApiGroup" style="display: none;">
-                <label for="aiApiKey">AI API Key:</label>
-                <input type="password" id="aiApiKey" placeholder="Enter your OpenAI-compatible API Key">
-                <label for="aiApiUrl">API Endpoint URL (Optional):</label>
-                <input type="text" id="aiApiUrl" placeholder="e.g., https://api.openai.com/v1/chat/completions">
-                <label for="aiModelName">Model Name (Optional):</label>
-                <input type="text" id="aiModelName" placeholder="e.g., gpt-3.5-turbo">
-                <button id="testAiBtn" class="test-btn" style="margin-top: 10px;">Test Connection</button>
+                <label for="aiApiKey" i18n-text="aiApiKey">AI API Key:</label>
+                <input type="password" id="aiApiKey" i18n-placeholder="aiApiKeyPlaceholder">
+                <label for="aiApiUrl" i18n-text="aiApiUrl">API Endpoint URL (Optional):</label>
+                <input type="text" id="aiApiUrl" i18n-placeholder="aiApiUrlPlaceholder">
+                <label for="aiModelName" i18n-text="aiModelName">Model Name (Optional):</label>
+                <input type="text" id="aiModelName" i18n-placeholder="aiModelNamePlaceholder">
+                <button id="testAiBtn" class="test-btn" style="margin-top: 10px;" i18n-text="testConnection">Test Connection</button>
             </div>
             <!-- API URL field for DeepLx -->
             <div class="form-group" id="deeplxUrlGroup">
-                <label for="deeplxApiUrl">DeepLx API URL:</label>
+                <label for="deeplxApiUrl" i18n-text="deeplxApiUrl">DeepLx API URL:</label>
                 <div class="input-with-button">
-                    <input type="text" id="deeplxApiUrl" placeholder="e.g., https://api.deeplx.com/translate">
-                    <button id="testDeepLxBtn" class="test-btn">Test</button>
+                    <input type="text" id="deeplxApiUrl" i18n-placeholder="deeplxApiUrlPlaceholder">
+                    <button id="testDeepLxBtn" class="test-btn" i18n-text="test">Test</button>
                 </div>
             </div>
             <!-- API Key field for Google Translate, hidden by default -->
             <div class="form-group" id="googleApiKeyGroup" style="display: none;">
-                <label for="googleApiKey">Google API Key:</label>
+                <label for="googleApiKey" i18n-text="googleApiKey">Google API Key:</label>
                 <div class="input-with-button">
-                    <input type="password" id="googleApiKey" placeholder="Enter your Google Cloud Translation API Key">
-                    <button id="testGoogleBtn" class="test-btn">Test</button>
+                    <input type="password" id="googleApiKey" i18n-placeholder="googleApiKeyPlaceholder">
+                    <button id="testGoogleBtn" class="test-btn" i18n-text="test">Test</button>
                 </div>
             </div>
             <div class="form-group">
-                <label for="targetLanguage">Target Language (e.g., ZH, EN):</label>
+                <label for="targetLanguage" i18n-text="targetLanguage">Target Language (e.g., ZH, EN):</label>
                 <input type="text" id="targetLanguage" value="ZH">
             </div>
             <div class="form-group">
-                <label for="translationSelector">Elements to Translate (CSS Selector):</label>
-                <textarea id="translationSelector" rows="3">p, h1, h2, h3, h4, li, a</textarea>
-                <small>Comma-separated CSS selectors for elements to be translated.</small>
+                <label for="defaultTranslationSelector" i18n-text="translationSelector">
+                    Elements to Translate (CSS Selector):
+                </label>
+                <textarea id="defaultTranslationSelector" rows="3">p, h1, h2, h3, h4, li, a</textarea>
+                <small i18n-text="selectorDescription">Comma-separated CSS selectors for elements to be translated.</small>
             </div>
+
+            <h3 i18n-text="domainSpecificRules">Domain-Specific Rules</h3>
+
         </section>
 
         <section class="settings-section">
-            <h2>Display Format</h2>
+            <h2 i18n-text="displayFormat">Display Format</h2>
             <div class="form-group">
-                <label>Display Mode:</label>
+                <label i18n-text="displayMode">Display Mode:</label>
                 <div class="radio-group">
-                    <input type="radio" id="displayReplace" name="displayMode" value="replace" checked>
-                    <label for="displayReplace">Replace Original</label>
+                    <input type="radio" id="displayReplace" name="displayMode" value="replace" checked />
+                    <label for="displayReplace" i18n-text="replaceOriginal">
+                        Replace Original
+                    </label>
                 </div>
                 <div class="radio-group">
                     <input type="radio" id="displayAppend" name="displayMode" value="append">
-                    <label for="displayAppend">Append Translated</label>
+                    <label for="displayAppend" i18n-text="appendTranslated">Append Translated</label>
                 </div>
                 <div class="radio-group">
                     <input type="radio" id="displayHover" name="displayMode" value="hover">
-                    <label for="displayHover">Hover to Display</label>
+                    <label for="displayHover" i18n-text="hoverToDisplay">Hover to Display</label>
                 </div>
             </div>
         </section>
 
         <section class="settings-section">
-            <h2>Domain Rules</h2>
+            <h2 i18n-text="domainRules">Domain Rules</h2>
             <div class="form-group">
-                <label for="newDomain">Domain:</label>
-                <input type="text" id="newDomain" placeholder="e.g., example.com">
-                <label for="newDomainRule">Rule:</label>
-                <select id="newDomainRule">
-                    <option value="manual">Manual Translate</option>
-                    <option value="always">Always Translate</option>
-                </select>
-                <button id="addDomainRuleBtn">Add Rule</button>
+              <label for="newDomain" i18n-text="domain">Domain:</label>
+              <input type="text" id="newDomain" i18n-placeholder="domainPlaceholder" />
+              <label for="domainTranslationSelector" i18n-text="translationSelector">
+                Elements to Translate (CSS Selector):
+              </label>
+              <textarea
+                id="domainTranslationSelector"
+                rows="3"
+                i18n-placeholder="selectorPlaceholder"
+              ></textarea>
+              <button id="addDomainRuleBtn" i18n-text="addRule">Add Rule</button>
             </div>
             <div class="domain-rules-list">
-                <h3>Current Rules:</h3>
+                <h3 i18n-text="currentRules">Current Rules:</h3>
                 <ul id="domainRulesList">
-                    <!-- Domain rules will be dynamically added here -->
+                  <!-- Domain rules will be dynamically added here -->
                 </ul>
-                <small>Rules apply to the exact hostname. Default is "Manual Translate".</small>
+                <small i18n-text="rulesDescription">
+                  Rules apply to the exact hostname. Domain-specific rules override
+                  the default rule.
+                </small>
             </div>
         </section>
 
         <section class="settings-section">
-            <h2>Configuration Management</h2>
+            <h2 i18n-text="configurationManagement">Configuration Management</h2>
             <div class="form-group">
-                <button id="saveSettingsBtn">Save Settings</button>
+                <button id="saveSettingsBtn" i18n-text="saveSettings">Save Settings</button>
             </div>
             <div class="form-group">
-                <button id="export-btn">Export Settings</button>
+                <button id="export-btn" i18n-text="exportSettings">Export Settings</button>
             </div>
             <div class="form-group">
-                <label for="import-input">Import Settings:</label>
+                <label for="import-input" i18n-text="importSettings">Import Settings:</label>
                 <input type="file" id="import-input" accept=".json">
             </div>
         </section>
@@ -117,5 +130,5 @@
 
     <script src="../lib/webextension-polyfill.js"></script>
     <script src="options.js"></script>
-</body>
+</html>
 </html>
