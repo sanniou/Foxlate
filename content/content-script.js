@@ -34,25 +34,19 @@ function isElementVisible(el) {
  * 初始化内容脚本，设置消息监听器。
  */
 function initializeContentScript() {
-    // 等待 DisplayManagerReady 事件
-    window.addEventListener('DisplayManagerReady', () => {
-        console.log("[Universal Translator] Content script loaded and initializing...");
-
-        // 使用 try-catch 块确保即使监听器设置失败，也能记录错误
-        try {
-            browser.runtime.onMessage.addListener(handleMessage);
-            console.log("[Universal Translator] Message listener set up successfully.");
-        } catch (error) {
-            logError('initializeContentScript', new Error("Failed to set up message listener: " + error.message));
-        }
-    }, { once: true }); // 使用 once: true 确保监听器只执行一次
-
-    // 如果 DisplayManager 未能及时加载，添加一个超时处理
-    setTimeout(() => {
-        if (!window.DisplayManager) {
-            logError('initializeContentScript', new Error("DisplayManagerReady event not received in time. Potential loading issue."));
-        }
-    }, 5000); // 5秒超时
+    console.log("[Universal Translator] Content script loaded and initializing...");
+    // 由于 display-manager.js 在 content-script.js 之前注入，
+    // window.DisplayManager 应该已经可用。
+    if (!window.DisplayManager) {
+        logError('initializeContentScript', new Error("DisplayManager is not available. This indicates an injection order issue."));
+        return; // 阻止后续可能依赖 DisplayManager 的操作
+    }
+    try {
+        browser.runtime.onMessage.addListener(handleMessage);
+        console.log("[Universal Translator] Message listener set up successfully.");
+    } catch (error) {
+        logError('initializeContentScript', new Error("Failed to set up message listener: " + error.message));
+    }
 }
 
 /**
@@ -66,7 +60,12 @@ let originalContent = new Map(); // 用于存储原始文本的映射
 /**
  * 执行整页翻译。
  */
-async function performPageTranslation() {
+async function performPageTranslation(tabId) { // 接受 tabId 参数
+    // 报告翻译开始状态
+    browser.runtime.sendMessage({
+        type: 'TRANSLATION_STATUS_UPDATE',
+        payload: { status: 'loading', tabId: tabId } // 使用传入的 tabId
+    }).catch(e => logError('reportTranslationStatus (loading)', e));
     try {
         const { settings } = await browser.storage.sync.get('settings');
         const precheckRules = settings?.precheckRules || {};
@@ -177,8 +176,18 @@ async function performPageTranslation() {
                 window.DisplayManager.showError(element, error.message);
             }
         }
+        // 报告翻译完成状态
+        browser.runtime.sendMessage({
+            type: 'TRANSLATION_STATUS_UPDATE',
+            payload: { status: 'translated', tabId: tabId } // 使用传入的 tabId
+        }).catch(e => logError('reportTranslationStatus (translated)', e));
     } catch (error) {
         logError('performPageTranslation', error);
+        // 报告翻译失败状态
+        browser.runtime.sendMessage({
+            type: 'TRANSLATION_STATUS_UPDATE',
+            payload: { status: 'original', tabId: tabId } // 使用传入的 tabId
+        }).catch(e => logError('reportTranslationStatus (failed)', e));
         throw error; // 重新抛出错误，让调用者处理
     }
 }
@@ -186,9 +195,16 @@ async function performPageTranslation() {
 /**
  * 还原整页翻译，显示原始文本。
  */
-function revertPageTranslation() {
+async function revertPageTranslation(tabId) { // 接受 tabId 参数
     originalContent.forEach((text, element) => element.textContent = text);
     originalContent.clear();
+    // 报告还原完成状态
+    try {
+        browser.runtime.sendMessage({ type: 'TRANSLATION_STATUS_UPDATE', payload: { status: 'original', tabId: tabId } }) // 使用传入的 tabId
+            .catch(e => logError('reportTranslationStatus (reverted)', e));
+    } catch (e) {
+        logError('revertPageTranslation', e);
+    }
 }
 
 /**
@@ -291,17 +307,22 @@ async function handleMessage(request, sender, sendResponse) {
                 return; // UI 操作，同步完成，不需要响应，也不需要返回 true
 
             case 'TRANSLATE_PAGE_REQUEST':
-                await performPageTranslation();
+                const translateTabId = request.payload?.tabId; // 从 payload 获取 tabId
+                if (!translateTabId) {
+                    throw new Error("tabId not provided in TRANSLATE_PAGE_REQUEST payload.");
+                }
+                // 仅触发翻译，状态更新由 performPageTranslation 内部报告
+                await performPageTranslation(translateTabId); // 传递 tabId
                 sendResponse({ success: true });
-                // 这是唯一的异步情况，但由于我们已经 await 了，sendResponse 也是同步调用的。
-                // 不过，为了代码清晰和未来扩展，明确返回 true 仍然是好的。
-                // 但更标准的做法是将 sendResponse 逻辑放在一个 .then() 中，或者像现在这样 await 之后调用。
-                // 在这种 await 模式下，返回 true 严格来说不是必须的，但无害。
                 return;
 
             case 'REVERT_PAGE_TRANSLATION':
-                revertPageTranslation();
-                return; // UI 操作，同步完成
+                const revertTabId = request.payload?.tabId; // 从 payload 获取 tabId
+                if (!revertTabId) {
+                    throw new Error("tabId not provided in REVERT_PAGE_TRANSLATION payload.");
+                }
+                await revertPageTranslation(revertTabId); // 传递 tabId
+                return; // UI 操作，现在是异步完成
 
             default:
                 console.warn(`[Universal Translator] Unknown message type: ${request.type}`);

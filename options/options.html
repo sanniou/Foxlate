@@ -66,21 +66,12 @@
         <section class="settings-section">
             <h2 i18n-text="displayFormat">Display Format</h2>
             <div class="form-group">
-                <label i18n-text="displayMode">Display Mode:</label>
-                <div class="radio-group">
-                    <input type="radio" id="displayReplace" name="displayMode" value="replace" checked />
-                    <label for="displayReplace" i18n-text="replaceOriginal">
-                        Replace Original
-                    </label>
-                </div>
-                <div class="radio-group">
-                    <input type="radio" id="displayAppend" name="displayMode" value="append">
-                    <label for="displayAppend" i18n-text="appendTranslated">Append Translated</label>
-                </div>
-                <div class="radio-group">
-                    <input type="radio" id="displayHover" name="displayMode" value="hover">
-                    <label for="displayHover" i18n-text="hoverToDisplay">Hover to Display</label>
-                </div>
+                <label for="displayModeSelect" i18n-text="displayMode">Display Mode:</label>
+                <select id="displayModeSelect">
+                    <option value="replace" i18n-text="replaceOriginal">Replace Original</option>
+                    <option value="append" i18n-text="appendTranslated">Append Translated</option>
+                    <option value="hover" i18n-text="hoverToDisplay">Hover to Display</option>
+                </select>
             </div>
         </section>
 

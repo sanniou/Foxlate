@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
         aiApiKey: document.getElementById('aiApiKey'),
         aiApiUrl: document.getElementById('aiApiUrl'),
         aiModelName: document.getElementById('aiModelName'),
-        displayModeRadios: document.querySelectorAll('input[name="displayMode"]'), // Cache all display mode radios
+        displayModeSelect: document.getElementById('displayModeSelect'), // Cache the display mode select element
         precheckRuleTabs: document.getElementById('precheckRuleTabs'),
         precheckRuleContent: document.getElementById('precheckRuleContent'),
         mainTabButtons: document.querySelectorAll('.main-tab-button'),
@@ -124,12 +124,7 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.aiApiUrl.value = currentSettings.aiApiUrl || '';
         elements.aiModelName.value = currentSettings.aiModelName || '';
 
-        const displayMode = currentSettings.displayMode || 'replace';
-        elements.displayModeRadios.forEach(radio => {
-            if (radio.value === displayMode) {
-                radio.checked = true;
-            }
-        });
+        elements.displayModeSelect.value = currentSettings.displayMode || 'replace'; // Set the value for the select element
 
         toggleApiFields();
         renderDomainRules(currentSettings.domainRules || {});
@@ -155,7 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const settings = {
             translatorEngine: elements.translatorEngine.value,
             targetLanguage: elements.targetLanguage.value,
-            displayMode: document.querySelector('input[name="displayMode"]:checked').value,
+            displayMode: elements.displayModeSelect.value, // Get value from the select element
             deeplxApiUrl: elements.deeplxApiUrl.value,
             googleApiKey: elements.googleApiKey.value,
             aiApiKey: elements.aiApiKey.value,

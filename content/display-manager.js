@@ -36,6 +36,3 @@ window.DisplayManager = class DisplayManager {
     element.addEventListener('mouseleave', window.hideTooltip);
   }
 };
-
-// Dispatch a custom event to signal that DisplayManager is ready.
-window.dispatchEvent(new Event('DisplayManagerReady'));

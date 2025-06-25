@@ -104,6 +104,25 @@ async function ensureContentScript(tabId) {
   }
 }
 
+/**
+ * Sets the translation state for a specific tab in session storage.
+ * @param {number} tabId The ID of the tab.
+ * @param {'original' | 'translated'} state The translation state.
+ * @returns {Promise<void>}
+ */
+const setTabTranslationState = async (tabId, state) => {
+    const { tabTranslationStates = {} } = await browser.storage.session.get('tabTranslationStates');
+    if (state === 'original') {
+        delete tabTranslationStates[tabId];
+        console.log(`[Service Worker] Tab ${tabId} state set to 'original' (deleted). Current states:`, tabTranslationStates);
+    } else {
+        tabTranslationStates[tabId] = state;
+        console.log(`[Service Worker] Tab ${tabId} state set to '${state}'. Current states:`, tabTranslationStates);
+    }
+    await browser.storage.session.set({ tabTranslationStates });
+    console.log(`[Service Worker] Tab ${tabId} state saved to session storage.`);
+};
+
 
 // --- Message Handlers ---
 
@@ -210,11 +229,42 @@ const messageHandlers = {
     try {
       await ensureContentScript(tabId);
       // Forward the request to the now-ready content script and return its response.
-      return await browser.tabs.sendMessage(tabId, { type: 'TRANSLATE_PAGE_REQUEST' });
+      // 内容脚本现在会自己报告状态，所以这里不再等待响应来更新状态
+      await browser.tabs.sendMessage(tabId, { type: 'TRANSLATE_PAGE_REQUEST', payload: { tabId } });
+      return { success: true }; // 仅表示请求已发送
     } catch (error) {
       logError('INITIATE_PAGE_TRANSLATION handler', error);
+      // On error, ensure state is reset to avoid inconsistent UI.
+      await setTabTranslationState(tabId, 'original');
       return { success: false, error: error.message };
     }
+  },
+
+  async REVERT_PAGE_TRANSLATION_REQUEST(request) {
+    const { tabId } = request.payload;
+    // 立即将状态设置为原始，因为还原通常很快，且内容脚本会再次确认
+    await setTabTranslationState(tabId, 'original');
+    try {
+      await ensureContentScript(tabId);
+      await browser.tabs.sendMessage(tabId, { type: 'REVERT_PAGE_TRANSLATION', payload: { tabId } });
+      return { success: true };
+    } catch (error) {
+      logError('REVERT_PAGE_TRANSLATION_REQUEST handler', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  /**
+   * Handles status updates from the content script regarding translation progress.
+   */
+  async TRANSLATION_STATUS_UPDATE(request) {
+    const { status, tabId } = request.payload;
+    if (tabId) {
+      await setTabTranslationState(tabId, status);
+    } else {
+      logError('TRANSLATION_STATUS_UPDATE', new Error('Missing tabId in status update payload.'));
+    }
+    return { success: true };
   },
 
   /**
@@ -249,15 +299,10 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
  * 当标签页关闭时，清理其持久化的翻译状态，以防止存储无限增长。
  */
 browser.tabs.onRemoved.addListener(async (tabId) => {
-  const TRANSLATION_STATE_KEY = 'tabTranslationStates';
   try {
-    const data = await browser.storage.session.get(TRANSLATION_STATE_KEY);
-    const states = data[TRANSLATION_STATE_KEY];
-    if (states && states[tabId] !== undefined) {
-      delete states[tabId];
-      await browser.storage.session.set({ [TRANSLATION_STATE_KEY]: states });
-      console.log(`Cleaned up translation state for closed tab ${tabId}.`);
-    }
+    // Setting state to 'original' effectively removes it from our state object.
+    await setTabTranslationState(tabId, 'original');
+    console.log(`Cleaned up translation state for closed tab ${tabId}.`);
   } catch (error) {
     logError('tabs.onRemoved listener', error);
   }

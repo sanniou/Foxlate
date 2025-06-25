@@ -53,6 +53,24 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     /**
+     * Updates the main action button's text and state based on the page's translation status.
+     * @param {'original' | 'translated' | 'loading'} state The current translation state.
+     */
+    const updateTranslateButtonState = (state = 'original') => {
+        elements.translatePageBtn.disabled = false;
+        elements.translatePageBtn.dataset.state = state;
+
+        if (state === 'translated') {
+            elements.translatePageBtn.textContent = browser.i18n.getMessage('popupShowOriginal');
+        } else if (state === 'loading') {
+            elements.translatePageBtn.textContent = browser.i18n.getMessage('popupTranslating');
+            elements.translatePageBtn.disabled = true;
+        } else { // 'original'
+            elements.translatePageBtn.textContent = browser.i18n.getMessage('popupTranslatePage');
+        }
+    };
+
+    /**
      * Loads settings from storage and updates the UI accordingly.
      */
     const loadAndApplySettings = async () => {
@@ -79,6 +97,13 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.alwaysTranslateToggle.disabled = true;
             elements.alwaysTranslateToggle.parentElement.parentElement.style.opacity = '0.5';
         }
+
+        // Set the main translate button's state.
+        // 注意：这里不需要 await，因为我们只需要初始状态，不需要等待设置完成。
+        const { tabTranslationStates = {} } = await browser.storage.session.get('tabTranslationStates');
+        const currentState = tab ? tabTranslationStates[tab.id] : 'original';
+        updateTranslateButtonState(currentState);
+        // 不需要 await browser.storage.session.get(...)
     };
 
     /**
@@ -109,11 +134,20 @@ document.addEventListener('DOMContentLoaded', () => {
             browser.runtime.openOptionsPage();
         });
 
-        elements.translatePageBtn.addEventListener('click', async () => {
+        elements.translatePageBtn.addEventListener('click', async (event) => {
             const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-            if (tab && tab.id) {
+            if (!tab || !tab.id) return;
+
+            const currentState = event.target.dataset.state;
+
+            if (currentState === 'original') {
+                updateTranslateButtonState('loading');
+                // Send translation request and close popup. The service worker will handle state updates.
                 browser.runtime.sendMessage({ type: 'INITIATE_PAGE_TRANSLATION', payload: { tabId: tab.id } });
-                window.close();
+            } else if (currentState === 'translated') {
+                // For revert, update UI immediately for better feedback and send request.
+                updateTranslateButtonState('original');
+                browser.runtime.sendMessage({ type: 'REVERT_PAGE_TRANSLATION_REQUEST', payload: { tabId: tab.id } });
             }
         });
 

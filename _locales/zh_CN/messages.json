@@ -170,7 +170,15 @@
   "popupSourceLanguage": { "message": "原始语言：" },
   "popupTargetLanguage": { "message": "目标语言：" },
   "popupTranslationService": { "message": "翻译服务：" },
-  "popupTranslatePage": { "message": "翻译此页" },
+  "popupTranslatePage": {
+    "message": "翻译此页",
+    "description": "翻译当前页面的按钮文本。"
+  },
+  "popupShowOriginal": {
+    "message": "显示原文",
+    "description": "将页面恢复到原始状态的按钮文本。"
+  },
+  "popupTranslating": { "message": "正在翻译..." },
   "popupAlwaysTranslate": { "message": "总是翻译此网站" },
   "popupSettings": { "message": "⚙️ 设置" },
   "popupAbout": { "message": "关于" },
