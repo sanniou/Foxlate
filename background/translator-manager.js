@@ -38,6 +38,57 @@ function postProcess(text) {
     return text;
 }
 
+// A standalone function to generate default pre-check rules without relying on `window` or `self`.
+function generateDefaultPrecheckRules() {
+    // This structure mirrors the one in options.js but is self-contained.
+    const LANG_REGEX_MAP = {
+        'ZH': { regex: '\p{Script=Han}', flags: 'u' },
+        'EN': { regex: '[a-zA-Z]', flags: '' },
+        'JA': { regex: '[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]', flags: 'u' },
+        'KO': { regex: '\p{Script=Hangul}', flags: 'u' },
+        'FR': { regex: '[a-zA-Z]', flags: '' },
+        'DE': { regex: '[a-zA-Z]', flags: '' },
+        'ES': { regex: '[a-zA-Z]', flags: '' },
+        'RU': { regex: '\p{Script=Cyrillic}', flags: 'u' },
+    };
+
+    const SUPPORTED_LANGUAGES = {
+        'auto': 'langAuto',
+        'EN': 'langEN',
+        'ZH': 'langZH',
+        'JA': 'langJA',
+        'KO': 'langKO',
+        'FR': 'langFR',
+        'DE': 'langDE',
+        'ES': 'langES',
+        'RU': 'langRU'
+    };
+
+    const rules = {
+        general: [
+            { name: 'Whitespace only', regex: '^\s*'
+, mode: 'blacklist', enabled: true, flags: '' },
+            { name: 'Numbers, Punctuation, Symbols', regex: '^[\d.,\s\p{P}\p{S}]+'
+, mode: 'blacklist', enabled: true, flags: 'u' },
+            { name: 'Single Emoji', regex: '^\p{Emoji}'
+, mode: 'blacklist', enabled: true, flags: 'u' },
+        ],
+    };
+
+    for (const langCode in LANG_REGEX_MAP) {
+        if (SUPPORTED_LANGUAGES[langCode]) {
+            rules[langCode] = [{
+                name: `Contains ${langCode}`, // Simplified name, as i18n is not available here
+                regex: LANG_REGEX_MAP[langCode].regex,
+                mode: 'whitelist',
+                enabled: true,
+                flags: LANG_REGEX_MAP[langCode].flags,
+            }];
+        }
+    }
+    return rules;
+};
+
 export class TranslatorManager {
   /**
    * Gets the translator instance based on user's preferred engine from sync storage.
@@ -51,39 +102,97 @@ export class TranslatorManager {
   }
 
   static async translateText(text, targetLang, sourceLang = 'auto') {
+    console.log(`[Debug] translateText called with: text="${text}", targetLang="${targetLang}", sourceLang="${sourceLang}"`);
+
+    if (sourceLang !== 'auto' && sourceLang === targetLang) {
+      console.log(`[Debug] Skipping translation because sourceLang (${sourceLang}) and targetLang (${targetLang}) are the same.`);
+      return text;
+    }
+
     const processedText = preProcess(text);
+    console.log(`[Debug] Pre-processed text: "${processedText}"`);
+
     if (!processedText) {
+        console.log("[Debug] Processed text is empty. Returning empty string.");
         return ""; // Return empty if text is empty after processing
     }
 
-    const cacheKey = `${sourceLang}:${targetLang}:${processedText}`;
+    // --- Pre-check Rule Implementation (Corrected) ---
+    console.log("[Debug] Starting pre-check to see if text is already in the target language.");
+    
+    // 1. Load settings from storage
+    const { settings } = await browser.storage.sync.get('settings');
+    let precheckRules = settings?.precheckRules;
 
-    // 1. Check cache first
+    // 2. If no rules in storage, generate defaults
+    if (!precheckRules || Object.keys(precheckRules).length === 0) {
+        console.log("[Debug] No precheck rules found in storage. Generating default rules.");
+        precheckRules = generateDefaultPrecheckRules();
+    } else {
+        console.log("[Debug] Loaded precheck rules from storage.");
+    }
+
+    // 3. Find the relevant whitelist rule for the target language
+    const whitelistRule = precheckRules[targetLang]?.find(rule => rule.mode === 'whitelist' && rule.enabled);
+    console.log(`[Debug] Whitelist rule for ${targetLang}:`, whitelistRule);
+
+    if (whitelistRule) {
+        try {
+            const letterChars = processedText.match(/\p{L}/gu);
+            if (!letterChars) {
+                console.log(`[Debug] [Pre-check] Text contains no letters. Skipping translation.`);
+                return text;
+            }
+            const allLettersString = letterChars.join('');
+            
+            const langRegex = new RegExp(whitelistRule.regex, whitelistRule.flags + 'g');
+            const remainingChars = allLettersString.replace(langRegex, '');
+            console.log(`[Debug] Characters remaining after removing ${targetLang} script: "${remainingChars}"`);
+
+            if (remainingChars.length === 0) {
+                console.log(`[Debug] [Pre-check] Text is already in target language (${targetLang}). Skipping translation.`);
+                return text;
+            }
+        } catch (e) {
+            console.error("[Debug] [Pre-check] Error applying language regex:", e);
+        }
+    } else {
+        console.log(`[Debug] No enabled whitelist rule found for targetLang "${targetLang}". Skipping pre-check.`);
+    }
+
+    const cacheKey = `${sourceLang}:${targetLang}:${processedText}`;
+    console.log(`[Debug] Cache key: "${cacheKey}"`);
+
     if (translationCache.has(cacheKey)) {
         const cachedResult = translationCache.get(cacheKey);
+        console.log(`[Debug] Cache hit. Returning cached result: "${cachedResult}"`);
         return postProcess(cachedResult);
     }
+    console.log("[Debug] Cache miss.");
 
-    // 2. If not in cache, call the translator
     const translator = await this.getTranslator();
     if (!translator) {
+        console.error('[Debug] No valid translator could be selected.');
         throw new Error('No valid translator selected.');
     }
+    console.log(`[Debug] Using translator: "${translator.constructor.name}"`);
     
     try {
+        console.log(`[Debug] Calling translator.translate with text: "${processedText}", targetLang: "${targetLang}", sourceLang: "${sourceLang}"`);
         const translatedText = await translator.translate(processedText, targetLang, sourceLang);
+        console.log(`[Debug] Translation result from translator: "${translatedText}"`);
         
-        // 3. Store result in cache if translation was successful
         if (translatedText) {
+            console.log(`[Debug] Caching result: "${translatedText}" for key: "${cacheKey}"`);
             translationCache.set(cacheKey, translatedText);
         }
 
-        // 4. Post-process and return
-        return postProcess(translatedText);
+        const finalResult = postProcess(translatedText);
+        console.log(`[Debug] Final result after post-processing: "${finalResult}"`);
+        return finalResult;
 
     } catch (error) {
-        console.error(`Translation error with ${translator.name}:`, error);
-        // Do not cache errors, re-throw to be handled by the caller
+        console.error(`[Debug] Translation error with ${translator.name}:`, error);
         throw error;
     }
   }
