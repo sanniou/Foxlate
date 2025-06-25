@@ -185,6 +185,18 @@ const messageHandlers = {
     }
   },
 
+  async TRANSLATE_TEXT_BATCH(request) {
+    const { texts, targetLang, sourceLang } = request.payload;
+    try {
+      // For now, we translate texts one by one. A future optimization could be a batch translate method in the TranslatorManager.
+      const translatedTexts = await Promise.all(texts.map(text => TranslatorManager.translateText(text, targetLang, sourceLang)));
+      return { success: true, translatedTexts };
+    } catch (error) {
+      logError('TRANSLATE_TEXT_BATCH handler', error);
+      return { success: false, error: error.message };
+    }
+  },
+
   /**
    * Handles requests from the options page to test a translator's connection.
    * NOTE: This uses a temporary override (monkey-patching) of `browser.storage.sync.get`.

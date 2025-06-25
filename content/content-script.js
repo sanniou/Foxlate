@@ -12,22 +12,73 @@ function logError(context, error) {
  * @param {HTMLElement} el - 要检查的元素。
  * @returns {boolean} 如果元素可见则返回 true，否则返回 false。
  */
-function isElementVisible(el) {
-    if (!el) return false;
+function isElementVisible(element) {
+    if (!element) return false;
 
-    // 检查元素是否具有有效的尺寸
-    if (el.offsetWidth === 0 || el.offsetHeight === 0) return false;
+    // 递归检查祖先元素的可见性
+    // 如果元素的 offsetParent 是 null，且 position 是 fixed，则它仍然可能是可见的。
+    // 但一个更简单的递归检查是：如果任何一个父元素是 display: none，则子元素一定不可见。
+    let current = element;
+    while (current && current !== document.body) {
+        const style = window.getComputedStyle(current);
+        if (style.display === 'none') {
+            return false;
+        }
+        current = current.parentElement;
+    }
+    
+    const style = window.getComputedStyle(element);
+    // 检查 display 和 visibility
+    if (style.display === 'none' || style.visibility === 'hidden') {
+        return false;
+    }
+    // 检查透明度
+    if (parseFloat(style.opacity) < 0.01) {
+        return false;
+    }
+    // 检查尺寸 (getBoundingClientRect 更可靠)
+    const rect = element.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) {
+        // 例外：某些SVG元素或没有内容的内联元素可能尺寸为0但其后代可见，
+        // 但对于文本节点的父元素，这个判断通常是准确的。
+        return false;
+    }
 
-    const rect = el.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return false;
+    return true;
+}
 
-    // 检查计算样式
-    const style = window.getComputedStyle(el);
-    if (style.display === 'none') return false;
-    if (style.visibility === 'hidden') return false;
-    if (parseFloat(style.opacity) < 0.1) return false; // 几乎透明的元素也视为不可见
+/**
+ * 使用 TreeWalker 查找并返回一个元素下的所有非空文本节点。
+ * @param {Node} rootNode - 开始遍历的根节点。
+ * @returns {Text[]} 文本节点数组。
+ */
+function findTextNodes(rootNode) {
+    const textNodes = [];
+    const walker = document.createTreeWalker(
+        rootNode,
+        NodeFilter.SHOW_TEXT, // 只接受文本节点
+        {
+            acceptNode: function(node) {
+                // 排除 <script>, <style>, 和 <textarea> 的内容
+                const parentTag = node.parentElement.tagName.toLowerCase();
+                if (['script', 'style', 'noscript', 'textarea'].includes(parentTag)) {
+                    return NodeFilter.FILTER_REJECT;
+                }
+                // 排除只包含空白的文本节点
+                if (node.nodeValue.trim() === '') {
+                    return NodeFilter.FILTER_REJECT;
+                }
+                return NodeFilter.FILTER_ACCEPT;
+            }
+        },
+        false
+    );
 
-    return !el.hasAttribute('hidden');
+    let node;
+    while (node = walker.nextNode()) {
+        textNodes.push(node);
+    }
+    return textNodes;
 }
 
 /**
@@ -60,135 +111,65 @@ let originalContent = new Map(); // 用于存储原始文本的映射
 /**
  * 执行整页翻译。
  */
-async function performPageTranslation(tabId) { // 接受 tabId 参数
-    // 报告翻译开始状态
+async function performPageTranslation(tabId) {
     browser.runtime.sendMessage({
         type: 'TRANSLATION_STATUS_UPDATE',
-        payload: { status: 'loading', tabId: tabId } // 使用传入的 tabId
+        payload: { status: 'loading', tabId: tabId }
     }).catch(e => logError('reportTranslationStatus (loading)', e));
+
     try {
         const { settings } = await browser.storage.sync.get('settings');
-        const precheckRules = settings?.precheckRules || {};
         const targetLang = settings?.targetLanguage || 'ZH';
 
-        // 编译所有启用的正则表达式，以提高性能
-        const compiledRules = {};
-        for (const category in precheckRules) {
-            compiledRules[category] = precheckRules[category]
-                .filter(rule => rule.enabled && rule.regex)
-                .map(rule => {
-                    try {
-                        return { ...rule, compiledRegex: new RegExp(rule.regex, rule.flags || '') };
-                    } catch (e) {
-                        logError('performPageTranslation', new Error(`Invalid regex in rule "${rule.name}": ${rule.regex}`));
-                        return null;
-                    }
-                }).filter(Boolean); // 过滤掉编译失败的规则
-        }
-
-        // 获取当前页面的域名
-        const currentDomain = window.location.hostname;
-
-        // 确定要使用的选择器
-        let selector = settings?.translationSelector?.default || window.Constants.DEFAULT_TRANSLATION_SELECTOR; // 默认选择器
-        if (settings?.translationSelector?.rules) {
-            // 查找域名规则，精确匹配或根域名匹配
-            const domainRules = settings.translationSelector.rules;
-            if (domainRules[currentDomain]) {
-                // 优先使用完全匹配的域名规则
-                selector = domainRules[currentDomain];
-            } else {
-                // 尝试匹配根域名（去除子域名）
-                const rootDomain = currentDomain.split('.').slice(-2).join('.');
-                if (domainRules[rootDomain]) {
-                    selector = domainRules[rootDomain];
-                }
-            }
-        }
-
-        const elements = document.querySelectorAll(selector);
+        const allTextNodes = findTextNodes(document.body);
+        const visibleTextNodes = allTextNodes.filter(node => isElementVisible(node.parentElement));
 
         if (originalContent.size === 0) { // 首次翻译，保存原始文本
-            elements.forEach(el => {
-                // 只保存可见元素的原始内容，以备还原
-                if (isElementVisible(el)) {
-                    originalContent.set(el, el.textContent);
-                }
+            visibleTextNodes.forEach(node => {
+                originalContent.set(node, node.nodeValue);
             });
         }
 
-        for (const element of elements) {
-            // --- 预校验逻辑 ---
-            // 1. 检查元素是否可见，跳过隐藏元素
-            if (!isElementVisible(element)) {
-                continue;
-            }
+        const textsToTranslate = visibleTextNodes.map(node => node.nodeValue);
 
-            const text = element.textContent; // 保留内部空格，仅在需要时 trim
-            if (!text) {
-                continue;
-            }
-
-            // --- 全新的预校验逻辑 ---
-
-            // 步骤 1: 黑名单检查。如果匹配任何通用黑名单规则，则跳过。
-            let isBlacklisted = false;
-            const generalRules = compiledRules.general || [];
-            for (const rule of generalRules) {
-                if (rule.mode === 'blacklist' && rule.compiledRegex.test(text)) {
-                    isBlacklisted = true;
-                    break;
-                }
-            }
-            if (isBlacklisted) {
-                continue;
-            }
-
-            // 步骤 2: 语言白名单检查。必须匹配一个语言规则才能被翻译。
-            let sourceLang = null;
-            const langCategories = Object.keys(compiledRules).filter(c => c !== 'general');
-            for (const lang of langCategories) {
-                for (const rule of compiledRules[lang]) {
-                    if (rule.mode === 'whitelist' && rule.compiledRegex.test(text)) {
-                        sourceLang = lang.toUpperCase(); // e.g., 'zh' -> 'ZH'
-                        break;
-                    }
-                }
-                if (sourceLang) break;
-            }
-
-            // 如果未检测到源语言，或源语言与目标语言相同，则跳过。
-            if (!sourceLang || sourceLang === targetLang.toUpperCase()) {
-                continue;
-            }
-
-            try {
-                const translatedText = await browser.runtime.sendMessage({
-                    type: 'TRANSLATE_TEXT',
-                    payload: { text: text.trim(), targetLang, sourceLang }
-                });
-                if (translatedText.success) {
-                    await window.DisplayManager.apply(element, translatedText.translatedText);
-                } else {
-                    window.DisplayManager.showError(element, translatedText.error);
-                }
-            } catch (error) {
-                window.DisplayManager.showError(element, error.message);
-            }
+        if (textsToTranslate.length === 0) {
+            browser.runtime.sendMessage({
+                type: 'TRANSLATION_STATUS_UPDATE',
+                payload: { status: 'translated', tabId: tabId }
+            }).catch(e => logError('reportTranslationStatus (no text)', e));
+            return;
         }
-        // 报告翻译完成状态
+
+        const translationResults = await browser.runtime.sendMessage({
+            type: 'TRANSLATE_TEXT_BATCH',
+            payload: { texts: textsToTranslate, targetLang, sourceLang: 'auto' } // Assuming auto-detection for sourceLang in batch mode
+        });
+
+        if (translationResults.success) {
+            translationResults.translatedTexts.forEach((translatedText, index) => {
+                const node = visibleTextNodes[index];
+                if (node) {
+                    window.DisplayManager.apply(node.parentElement, translatedText);
+                }
+            });
+        } else {
+            logError('performPageTranslation', new Error(translationResults.error));
+        }
+
         browser.runtime.sendMessage({
             type: 'TRANSLATION_STATUS_UPDATE',
-            payload: { status: 'translated', tabId: tabId } // 使用传入的 tabId
+            payload: { status: 'translated', tabId: tabId }
         }).catch(e => logError('reportTranslationStatus (translated)', e));
+
+        startObserver(); // Start observing for dynamic content
+
     } catch (error) {
         logError('performPageTranslation', error);
-        // 报告翻译失败状态
         browser.runtime.sendMessage({
             type: 'TRANSLATION_STATUS_UPDATE',
-            payload: { status: 'original', tabId: tabId } // 使用传入的 tabId
+            payload: { status: 'original', tabId: tabId }
         }).catch(e => logError('reportTranslationStatus (failed)', e));
-        throw error; // 重新抛出错误，让调用者处理
+        throw error;
     }
 }
 
@@ -196,9 +177,11 @@ async function performPageTranslation(tabId) { // 接受 tabId 参数
  * 还原整页翻译，显示原始文本。
  */
 async function revertPageTranslation(tabId) { // 接受 tabId 参数
+  stopObserver(); // Stop observing before reverting changes
   const elements = document.querySelectorAll('[data-translation-strategy]');
   elements.forEach(element => {
     window.DisplayManager.revert(element);
+    delete element.dataset.translated;
   });
     originalContent.clear();
     // 报告还原完成状态
@@ -343,3 +326,91 @@ async function handleMessage(request, sender, sendResponse) {
 
 // 启动脚本
 initializeContentScript();
+
+// --- MutationObserver for Dynamic Content ---
+
+let observer = null;
+
+/**
+ * Debounced function to handle incremental translation of new nodes.
+ */
+const debouncedTranslateMutations = debounce(async (mutations) => {
+    let nodesToTranslate = [];
+    for (const mutation of mutations) {
+        if (mutation.type === 'childList') {
+            for (const node of mutation.addedNodes) {
+                // Ignore nodes that are already translated or are part of a translated element.
+                if (node.nodeType === Node.ELEMENT_NODE && node.closest('[data-translated="true"]')) {
+                    continue;
+                }
+
+                // We only care about element nodes, as text nodes can't have children.
+                if (node.nodeType === Node.ELEMENT_NODE) {
+                    nodesToTranslate.push(...findTextNodes(node));
+                }
+            }
+        }
+    }
+
+    if (nodesToTranslate.length > 0) {
+        const visibleTextNodes = nodesToTranslate.filter(node => isElementVisible(node.parentElement));
+        const textsToTranslate = visibleTextNodes.map(node => node.nodeValue);
+
+        if (textsToTranslate.length > 0) {
+            const { settings } = await browser.storage.sync.get('settings');
+            const targetLang = settings?.targetLanguage || 'ZH';
+
+            const translationResults = await browser.runtime.sendMessage({
+                type: 'TRANSLATE_TEXT_BATCH',
+                payload: { texts: textsToTranslate, targetLang, sourceLang: 'auto' }
+            });
+
+            if (translationResults.success) {
+                translationResults.translatedTexts.forEach((translatedText, index) => {
+                    const node = visibleTextNodes[index];
+                    if (node) {
+                        // Using DisplayManager to apply translation, assuming it handles node-level or element-level application.
+                        window.DisplayManager.apply(node.parentElement, translatedText);
+                    }
+                });
+            }
+        }
+    }
+}, 500); // 500ms debounce interval
+
+function startObserver() {
+    if (observer) return; // Already running
+
+    observer = new MutationObserver(debouncedTranslateMutations);
+
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+
+    console.log("[Universal Translator] MutationObserver started.");
+}
+
+function stopObserver() {
+    if (observer) {
+        observer.disconnect();
+        observer = null;
+        console.log("[Universal Translator] MutationObserver stopped.");
+    }
+}
+
+/**
+ * Simple debounce function.
+ * @param {Function} func The function to debounce.
+ * @param {number} wait The debounce interval in milliseconds.
+ * @returns {Function} The debounced function.
+ */
+function debounce(func, wait) {
+    let timeout;
+    return function(...args) {
+        const context = this;
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(context, args), wait);
+    };
+}
+

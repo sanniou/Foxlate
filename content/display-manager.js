@@ -18,6 +18,7 @@ window.DisplayManager = class DisplayManager {
       strategy.displayTranslation(element, translatedText); // 调用 displayTranslation 方法
       // Store the strategy used on the element itself for accurate reversion.
       element.dataset.translationStrategy = displayMode;
+      element.dataset.translated = "true"; // Mark as translated
     }
   }
 
