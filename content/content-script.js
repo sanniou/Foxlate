@@ -107,11 +107,24 @@ function initializeContentScript() {
 let activePanelClickHandler = null;
 
 let originalContent = new Map(); // 用于存储原始文本的映射
+let translationJob = {
+    totalChunks: 0,
+    completedChunks: 0,
+    tabId: null,
+};
 
 /**
- * 执行整页翻译。
+ * 执行整页翻译的新实现，采用分块并行处理。
  */
 async function performPageTranslation(tabId) {
+    // 1. 初始化/重置翻译任务状态
+    translationJob = {
+        totalChunks: 0,
+        completedChunks: 0,
+        tabId: tabId,
+    };
+
+    // 2. 立即向UI报告加载状态
     browser.runtime.sendMessage({
         type: 'TRANSLATION_STATUS_UPDATE',
         payload: { status: 'loading', tabId: tabId }
@@ -120,9 +133,13 @@ async function performPageTranslation(tabId) {
     try {
         const { settings } = await browser.storage.sync.get('settings');
         const targetLang = settings?.targetLanguage || 'ZH';
+        const CHUNK_SIZE = settings?.parallelRequests || 2; // 从设置中读取并行数，默认为2
 
+        // 3. 查找所有可见的文本节点
         const allTextNodes = findTextNodes(document.body);
-        const visibleTextNodes = allTextNodes.filter(node => isElementVisible(node.parentElement));
+        const visibleTextNodes = allTextNodes.filter(node =>
+            isElementVisible(node.parentElement) && !node.parentElement.closest('[data-translated="true"]')
+        );
 
         if (originalContent.size === 0) { // 首次翻译，保存原始文本
             visibleTextNodes.forEach(node => {
@@ -130,9 +147,8 @@ async function performPageTranslation(tabId) {
             });
         }
 
-        const textsToTranslate = visibleTextNodes.map(node => node.nodeValue);
-
-        if (textsToTranslate.length === 0) {
+        if (visibleTextNodes.length === 0) {
+            // 如果没有需要翻译的文本，直接报告完成
             browser.runtime.sendMessage({
                 type: 'TRANSLATION_STATUS_UPDATE',
                 payload: { status: 'translated', tabId: tabId }
@@ -140,28 +156,40 @@ async function performPageTranslation(tabId) {
             return;
         }
 
-        const translationResults = await browser.runtime.sendMessage({
-            type: 'TRANSLATE_TEXT_BATCH',
-            payload: { texts: textsToTranslate, targetLang, sourceLang: 'auto' } // Assuming auto-detection for sourceLang in batch mode
+        // 4. 分块并发送翻译请求
+        const chunks = [];
+        for (let i = 0; i < visibleTextNodes.length; i += CHUNK_SIZE) {
+            chunks.push(visibleTextNodes.slice(i, i + CHUNK_SIZE));
+        }
+        translationJob.totalChunks = chunks.length;
+
+        chunks.forEach(chunk => {
+            const texts = [];
+            const ids = [];
+            chunk.forEach(node => {
+                const parent = node.parentElement;
+                // 确保每个待翻译元素都有一个唯一的ID
+                if (!parent.dataset.translationId) {
+                    parent.dataset.translationId = `ut-${crypto.randomUUID()}`;
+                }
+                texts.push(node.nodeValue);
+                ids.push(parent.dataset.translationId);
+            });
+
+            // 5. 发送块进行翻译 (Fire-and-forget)
+            browser.runtime.sendMessage({
+                type: 'TRANSLATE_TEXT_CHUNK',
+                payload: {
+                    texts,
+                    ids,
+                    targetLang,
+                    sourceLang: 'auto',
+                    tabId: tabId
+                }
+            }).catch(e => logError('performPageTranslation (send chunk)', e));
         });
 
-        if (translationResults.success) {
-            translationResults.translatedTexts.forEach((translatedText, index) => {
-                const node = visibleTextNodes[index];
-                if (node) {
-                    window.DisplayManager.apply(node.parentElement, translatedText);
-                }
-            });
-        } else {
-            logError('performPageTranslation', new Error(translationResults.error));
-        }
-
-        browser.runtime.sendMessage({
-            type: 'TRANSLATION_STATUS_UPDATE',
-            payload: { status: 'translated', tabId: tabId }
-        }).catch(e => logError('reportTranslationStatus (translated)', e));
-
-        startObserver(); // Start observing for dynamic content
+        startObserver(); // 启动 MutationObserver 以处理动态内容
 
     } catch (error) {
         logError('performPageTranslation', error);
@@ -173,21 +201,31 @@ async function performPageTranslation(tabId) {
     }
 }
 
+
 /**
  * 还原整页翻译，显示原始文本。
  */
-async function revertPageTranslation(tabId) { // 接受 tabId 参数
-  stopObserver(); // Stop observing before reverting changes
-  const elements = document.querySelectorAll('[data-translation-strategy]');
-  elements.forEach(element => {
-    window.DisplayManager.revert(element);
-    delete element.dataset.translated;
-  });
-    originalContent.clear();
+async function revertPageTranslation(tabId) {
+    stopObserver(); // 停止观察DOM变化
+    const elements = document.querySelectorAll('[data-translation-strategy]');
+    elements.forEach(element => {
+        window.DisplayManager.revert(element);
+        // 清理所有与翻译相关的标记
+        delete element.dataset.translated;
+        delete element.dataset.translationStrategy;
+        delete element.dataset.translationId; // 新增：移除唯一ID
+        // 如果有错误提示，也一并移除
+        element.classList.remove('universal-translator-error');
+        delete element.dataset.errorMessage;
+    });
+    originalContent.clear(); // 清空原始文本缓存
+
     // 报告还原完成状态
     try {
-        browser.runtime.sendMessage({ type: 'TRANSLATION_STATUS_UPDATE', payload: { status: 'original', tabId: tabId } }) // 使用传入的 tabId
-            .catch(e => logError('reportTranslationStatus (reverted)', e));
+        await browser.runtime.sendMessage({
+            type: 'TRANSLATION_STATUS_UPDATE',
+            payload: { status: 'original', tabId: tabId }
+        });
     } catch (e) {
         logError('revertPageTranslation', e);
     }
@@ -271,15 +309,11 @@ function hideSelectionTranslationPanel() {
  * 处理来自 background 或 popup 的消息。
  */
 async function handleMessage(request, sender, sendResponse) {
-    // 推荐的做法是明确处理异步和同步消息。
-    // 对于异步操作，返回 true 以保持 sendResponse 通道打开。
-    // 对于同步操作，可以不返回任何内容（即 undefined）。
-
     try {
         switch (request.type) {
             case 'PING':
                 sendResponse({ status: 'PONG' });
-                return; // 同步响应，不需要返回 true
+                break;
 
             case 'DISPLAY_SELECTION_TRANSLATION':
                 const { success, translatedText, error, isLoading } = request.payload;
@@ -290,38 +324,55 @@ async function handleMessage(request, sender, sendResponse) {
                 } else {
                     showSelectionTranslationPanel(`翻译失败: ${error || 'Unknown error'}`, true);
                 }
-                return; // UI 操作，同步完成，不需要响应，也不需要返回 true
+                break;
 
             case 'TRANSLATE_PAGE_REQUEST':
-                const translateTabId = request.payload?.tabId; // 从 payload 获取 tabId
+                const translateTabId = request.payload?.tabId;
                 if (!translateTabId) {
                     throw new Error("tabId not provided in TRANSLATE_PAGE_REQUEST payload.");
                 }
-                // 仅触发翻译，状态更新由 performPageTranslation 内部报告
-                await performPageTranslation(translateTabId); // 传递 tabId
+                await performPageTranslation(translateTabId);
                 sendResponse({ success: true });
-                return;
+                break;
 
             case 'REVERT_PAGE_TRANSLATION':
-                const revertTabId = request.payload?.tabId; // 从 payload 获取 tabId
+                const revertTabId = request.payload?.tabId;
                 if (!revertTabId) {
                     throw new Error("tabId not provided in REVERT_PAGE_TRANSLATION payload.");
                 }
-                await revertPageTranslation(revertTabId); // 传递 tabId
-                return; // UI 操作，现在是异步完成
+                await revertPageTranslation(revertTabId);
+                break;
+
+            case 'TRANSLATION_CHUNK_RESULT':
+                const { id, success: chunkSuccess, translatedText: chunkText, error: chunkError } = request.payload;
+                const element = document.querySelector(`[data-translation-id='${id}']`);
+                if (element) {
+                    if (chunkSuccess) {
+                        window.DisplayManager.apply(element, chunkText);
+                    } else {
+                        window.DisplayManager.showError(element, chunkError);
+                    }
+                }
+
+                // 检查是否所有块都已完成
+                translationJob.completedChunks++;
+                if (translationJob.completedChunks >= translationJob.totalChunks) {
+                    browser.runtime.sendMessage({
+                        type: 'TRANSLATION_STATUS_UPDATE',
+                        payload: { status: 'translated', tabId: translationJob.tabId }
+                    }).catch(e => logError('reportTranslationStatus (all chunks done)', e));
+                }
+                break;
 
             default:
                 console.warn(`[Universal Translator] Unknown message type: ${request.type}`);
         }
     } catch (error) {
         logError(`handleMessage (type: ${request.type})`, error);
-        sendResponse({ success: false, error: error.message });
-        // 发生错误时，我们已经同步调用了 sendResponse，所以不需要返回 true。
-        return;
+        // 对于异步消息，我们不能在这里安全地调用 sendResponse
     }
-    // 注意：Chrome V3 manifest 中，onMessage 的返回值被忽略。
-    // 但为了兼容性和良好实践，我们仍然遵循 Firefox 的规则：异步操作返回 true。
-    // 在这个重构后的版本中，没有分支会到达这里，所有路径都已明确返回。
+    // 始终返回 true，因为许多处理程序是异步的，并且不会立即调用 sendResponse。
+    return true;
 }
 
 // 启动脚本
@@ -337,46 +388,69 @@ let observer = null;
 const debouncedTranslateMutations = debounce(async (mutations) => {
     let nodesToTranslate = [];
     for (const mutation of mutations) {
-        if (mutation.type === 'childList') {
-            for (const node of mutation.addedNodes) {
-                // Ignore nodes that are already translated or are part of a translated element.
-                if (node.nodeType === Node.ELEMENT_NODE && node.closest('[data-translated="true"]')) {
-                    continue;
-                }
+        if (mutation.type !== 'childList') continue;
 
-                // We only care about element nodes, as text nodes can't have children.
-                if (node.nodeType === Node.ELEMENT_NODE) {
-                    nodesToTranslate.push(...findTextNodes(node));
-                }
+        for (const node of mutation.addedNodes) {
+            if (node.nodeType !== Node.ELEMENT_NODE || node.closest('[data-translated="true"]')) {
+                continue;
             }
+            // 只处理元素节点，并从中查找文本节点
+            nodesToTranslate.push(...findTextNodes(node));
         }
     }
 
-    if (nodesToTranslate.length > 0) {
-        const visibleTextNodes = nodesToTranslate.filter(node => isElementVisible(node.parentElement));
-        const textsToTranslate = visibleTextNodes.map(node => node.nodeValue);
+    if (nodesToTranslate.length === 0) {
+        return;
+    }
 
-        if (textsToTranslate.length > 0) {
-            const { settings } = await browser.storage.sync.get('settings');
-            const targetLang = settings?.targetLanguage || 'ZH';
+    const visibleTextNodes = nodesToTranslate.filter(node => isElementVisible(node.parentElement));
+    if (visibleTextNodes.length === 0) {
+        return;
+    }
 
-            const translationResults = await browser.runtime.sendMessage({
-                type: 'TRANSLATE_TEXT_BATCH',
-                payload: { texts: textsToTranslate, targetLang, sourceLang: 'auto' }
+    try {
+        const { settings } = await browser.storage.sync.get('settings');
+        const targetLang = settings?.targetLanguage || 'ZH';
+        const CHUNK_SIZE = settings?.parallelRequests || 2;
+        const tabId = translationJob.tabId; // 从全局任务对象获取 tabId
+
+        if (!tabId) return; // 如果没有 tabId，则无法继续
+
+        // 使用与 performPageTranslation 相同的分块逻辑
+        const chunks = [];
+        for (let i = 0; i < visibleTextNodes.length; i += CHUNK_SIZE) {
+            chunks.push(visibleTextNodes.slice(i, i + CHUNK_SIZE));
+        }
+
+        // 为动态内容增加总块数
+        translationJob.totalChunks += chunks.length;
+
+        chunks.forEach(chunk => {
+            const texts = [];
+            const ids = [];
+            chunk.forEach(node => {
+                const parent = node.parentElement;
+                if (!parent.dataset.translationId) {
+                    parent.dataset.translationId = `ut-${crypto.randomUUID()}`;
+                }
+                // 保存原始文本以供还原
+                if (!originalContent.has(node)) {
+                    originalContent.set(node, node.nodeValue);
+                }
+                texts.push(node.nodeValue);
+                ids.push(parent.dataset.translationId);
             });
 
-            if (translationResults.success) {
-                translationResults.translatedTexts.forEach((translatedText, index) => {
-                    const node = visibleTextNodes[index];
-                    if (node) {
-                        // Using DisplayManager to apply translation, assuming it handles node-level or element-level application.
-                        window.DisplayManager.apply(node.parentElement, translatedText);
-                    }
-                });
-            }
-        }
+            browser.runtime.sendMessage({
+                type: 'TRANSLATE_TEXT_CHUNK',
+                payload: { texts, ids, targetLang, sourceLang: 'auto', tabId }
+            }).catch(e => logError('debouncedTranslateMutations (send chunk)', e));
+        });
+
+    } catch (error) {
+        logError('debouncedTranslateMutations', error);
     }
-}, 500); // 500ms debounce interval
+}, 500);
 
 function startObserver() {
     if (observer) return; // Already running

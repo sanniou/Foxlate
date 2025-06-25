@@ -185,16 +185,40 @@ const messageHandlers = {
     }
   },
 
-  async TRANSLATE_TEXT_BATCH(request) {
-    const { texts, targetLang, sourceLang } = request.payload;
-    try {
-      // For now, we translate texts one by one. A future optimization could be a batch translate method in the TranslatorManager.
-      const translatedTexts = await Promise.all(texts.map(text => TranslatorManager.translateText(text, targetLang, sourceLang)));
-      return { success: true, translatedTexts };
-    } catch (error) {
-      logError('TRANSLATE_TEXT_BATCH handler', error);
-      return { success: false, error: error.message };
+  async TRANSLATE_TEXT_CHUNK(request) {
+    const { texts, ids, targetLang, sourceLang, tabId } = request.payload;
+    if (!texts || !ids || !tabId || texts.length !== ids.length) {
+        logError('TRANSLATE_TEXT_CHUNK', new Error('Invalid payload for chunk translation.'));
+        return; // Invalid payload, do nothing.
     }
+
+    const translationPromises = texts.map(text => 
+        TranslatorManager.translateText(text, targetLang, sourceLang)
+    );
+
+    const results = await Promise.allSettled(translationPromises);
+
+    results.forEach((result, index) => {
+        const payload = {
+            id: ids[index],
+            success: result.status === 'fulfilled',
+            translatedText: result.status === 'fulfilled' ? result.value : null,
+            error: result.status === 'rejected' ? result.reason.message : null,
+        };
+
+        browser.tabs.sendMessage(tabId, {
+            type: 'TRANSLATION_CHUNK_RESULT',
+            payload: payload
+        }).catch(e => {
+            // This can happen if the tab was closed before the result arrived.
+            if (!e.message.includes("Receiving end does not exist")) {
+                 logError('TRANSLATE_TEXT_CHUNK (sending result)', e);
+            }
+        });
+    });
+
+    // This handler does not return a value to the original caller.
+    // It streams results back to the content script.
   },
 
   /**
