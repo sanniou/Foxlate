@@ -19,6 +19,7 @@ window.DisplayManager = class DisplayManager {
       // Store the strategy used on the element itself for accurate reversion.
       element.dataset.translationStrategy = displayMode;
       element.dataset.translated = "true"; // Mark as translated
+      element.dataset.translatedText = translatedText; // Store the translation
     }
   }
 
@@ -53,5 +54,26 @@ window.DisplayManager = class DisplayManager {
     // Use the tooltip to show the detailed error on hover.
     element.addEventListener('mouseenter', (event) => window.showTooltip(event, `Translation Error: ${element.dataset.errorMessage}`));
     element.addEventListener('mouseleave', window.hideTooltip);
+  }
+
+  static async updateDisplayMode(newDisplayMode) {
+    const translatedElements = document.querySelectorAll('[data-translated="true"]');
+    for (const element of translatedElements) {
+        const translatedText = element.dataset.translatedText;
+        if (translatedText) {
+            this.revert(element);
+            // Temporarily set the new display mode for the apply function
+            const strategies = {
+                replace: window.replaceStrategy,
+                append: window.appendTranslationStrategy,
+                hover: window.hoverStrategy,
+            };
+            const strategy = strategies[newDisplayMode];
+            if (strategy) {
+                strategy.displayTranslation(element, translatedText);
+                element.dataset.translationStrategy = newDisplayMode;
+            }
+        }
+    }
   }
 };

@@ -327,13 +327,13 @@ function hideSelectionTranslationPanel() {
  */
 async function handleMessage(request, sender, sendResponse) {
     try {
+        const { id, success, translatedText, wasTranslated, error } = request.payload;
         switch (request.type) {
             case 'PING':
                 sendResponse({ status: 'PONG' });
                 break;
 
             case 'DISPLAY_SELECTION_TRANSLATION':
-                const { success, translatedText, error, isLoading } = request.payload;
                 if (isLoading) {
                     showSelectionTranslationPanel("", false, true);
                 } else if (success) {
@@ -361,14 +361,14 @@ async function handleMessage(request, sender, sendResponse) {
                 break;
 
             case 'TRANSLATION_CHUNK_RESULT':
-                const { id, success: chunkSuccess, translatedText: chunkText, error: chunkError } = request.payload;
                 const element = document.querySelector(`[data-translation-id='${id}']`);
                 if (element) {
-                    if (chunkSuccess) {
-                        window.DisplayManager.apply(element, chunkText);
-                    } else {
-                        window.DisplayManager.showError(element, chunkError);
+                    if (success && wasTranslated) {
+                        window.DisplayManager.apply(element, translatedText);
+                    } else if (!success) {
+                        window.DisplayManager.showError(element, error);
                     }
+                    // If success is true but wasTranslated is false, we do nothing.
                 }
 
                 // 检查是否所有块都已完成
@@ -378,6 +378,13 @@ async function handleMessage(request, sender, sendResponse) {
                         type: 'TRANSLATION_STATUS_UPDATE',
                         payload: { status: 'translated', tabId: translationJob.tabId }
                     }).catch(e => logError('reportTranslationStatus (all chunks done)', e));
+                }
+                break;
+
+            case 'UPDATE_DISPLAY_MODE':
+                const { displayMode } = request.payload;
+                if (displayMode) {
+                    window.DisplayManager.updateDisplayMode(displayMode);
                 }
                 break;
 

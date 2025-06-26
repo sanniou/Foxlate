@@ -218,10 +218,14 @@ const messageHandlers = {
     const results = await Promise.allSettled(translationPromises);
 
     results.forEach((result, index) => {
+        const wasFulfilled = result.status === 'fulfilled';
+        const translationResult = wasFulfilled ? result.value : null;
+
         const payload = {
             id: ids[index],
-            success: result.status === 'fulfilled',
-            translatedText: result.status === 'fulfilled' ? result.value : null,
+            success: wasFulfilled,
+            translatedText: wasFulfilled ? translationResult.text : null,
+            wasTranslated: wasFulfilled ? translationResult.translated : false,
             error: result.status === 'rejected' ? result.reason.message : null,
             isManual: isManual
         };
@@ -230,7 +234,6 @@ const messageHandlers = {
             type: 'TRANSLATION_CHUNK_RESULT',
             payload: payload
         }).catch(e => {
-            // This can happen if the tab was closed before the result arrived.
             if (!e.message.includes("Receiving end does not exist")) {
                  logError('TRANSLATE_TEXT_CHUNK (sending result)', e);
             }

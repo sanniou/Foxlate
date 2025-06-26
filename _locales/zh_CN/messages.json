@@ -182,6 +182,10 @@
   "popupSourceLanguage": { "message": "原始语言：" },
   "popupTargetLanguage": { "message": "目标语言：" },
   "popupTranslationService": { "message": "翻译服务：" },
+  "popupDisplayMode": { "message": "显示模式：" },
+  "popupDisplayModeReplace": { "message": "替换模式" },
+  "popupDisplayModeAppend": { "message": "追加模式" },
+  "popupDisplayModeHover": { "message": "悬停模式" },
   "popupTranslatePage": {
     "message": "翻译此页",
     "description": "翻译当前页面的按钮文本。"

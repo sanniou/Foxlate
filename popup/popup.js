@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sourceLanguageSelect: document.getElementById('sourceLanguageSelect'),
         targetLanguageSelect: document.getElementById('targetLanguageSelect'),
         engineSelect: document.getElementById('engineSelect'),
+        displayModeSelect: document.getElementById('displayModeSelect'),
         translatePageBtn: document.getElementById('translatePageBtn'),
         alwaysTranslateToggle: document.getElementById('alwaysTranslateToggle'),
         openOptionsBtn: document.getElementById('openOptionsBtn'),
@@ -22,9 +23,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const key = el.getAttribute('i18n-text');
             const message = browser.i18n.getMessage(key);
             if (message) {
-                // For the main button, we have a nested span
-                const textElement = el.querySelector('.btn-text') || el;
-                textElement.textContent = message;
+                const textElement = el.matches('button') ? el.querySelector('.btn-text') : el;
+                if (textElement) {
+                    textElement.textContent = message;
+                }
             }
         });
     };
@@ -82,11 +84,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const { settings } = await browser.storage.sync.get('settings');
         const currentSettings = settings || {};
 
+        // Populate all select elements
         populateSelect(elements.engineSelect, window.Constants.SUPPORTED_ENGINES, currentSettings.translatorEngine || 'deeplx');
-        const targetLangs = { ...window.Constants.SUPPORTED_LANGUAGES };
-        delete targetLangs.auto;
         populateSelect(elements.sourceLanguageSelect, window.Constants.SUPPORTED_LANGUAGES, 'auto');
+        const targetLangs = { ...window.Constants.SUPPORTED_LANGUAGES };
+        delete targetLangs.auto; // Target language cannot be 'auto'
         populateSelect(elements.targetLanguageSelect, targetLangs, currentSettings.targetLanguage || 'ZH');
+        elements.displayModeSelect.value = currentSettings.displayMode || 'replace';
 
         if (tab.url && !tab.url.startsWith('about:')) {
             const domain = new URL(tab.url).hostname;
@@ -102,7 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     /**
-     * Saves dropdown settings.
+     * Saves all relevant settings from the popup UI to storage.
      */
     const saveCurrentSettings = async () => {
         const { settings: oldSettings } = await browser.storage.sync.get('settings');
@@ -110,6 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ...oldSettings,
             translatorEngine: elements.engineSelect.value,
             targetLanguage: elements.targetLanguageSelect.value,
+            displayMode: elements.displayModeSelect.value,
         };
         await browser.storage.sync.set({ settings: newSettings });
     };
@@ -122,11 +127,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const currentState = elements.translatePageBtn.dataset.state;
         if (currentState === 'original') {
-            updateTranslateButtonState('loading'); // Optimistic UI update
+            updateTranslateButtonState('loading');
             browser.runtime.sendMessage({ type: 'INITIATE_PAGE_TRANSLATION', payload: { tabId: activeTabId } });
         } else {
-            updateTranslateButtonState('original'); // Optimistic UI update
+            updateTranslateButtonState('original');
             browser.runtime.sendMessage({ type: 'REVERT_PAGE_TRANSLATION_REQUEST', payload: { tabId: activeTabId } });
+        }
+    }
+
+    /**
+     * Handles changes to the display mode dropdown.
+     */
+    async function handleDisplayModeChange() {
+        await saveCurrentSettings();
+
+        const { tabTranslationStates = {} } = await browser.storage.session.get('tabTranslationStates');
+        const currentState = tabTranslationStates[activeTabId];
+
+        if (currentState === 'translated') {
+            browser.tabs.sendMessage(activeTabId, {
+                type: 'UPDATE_DISPLAY_MODE',
+                payload: { displayMode: elements.displayModeSelect.value }
+            }).catch(e => console.error("Failed to send display mode update:", e));
         }
     }
 
@@ -164,8 +186,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- Event Listeners ---
         elements.openOptionsBtn.addEventListener('click', () => browser.runtime.openOptionsPage());
         elements.translatePageBtn.addEventListener('click', handleTranslateButtonClick);
+        
+        // Listen for changes on dropdowns
         elements.engineSelect.addEventListener('change', saveCurrentSettings);
         elements.targetLanguageSelect.addEventListener('change', saveCurrentSettings);
+        elements.displayModeSelect.addEventListener('change', handleDisplayModeChange);
+
         elements.alwaysTranslateToggle.addEventListener('change', handleAlwaysTranslateToggleChange);
         browser.runtime.onMessage.addListener(handleStatusBroadcast);
 
