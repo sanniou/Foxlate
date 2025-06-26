@@ -121,6 +121,17 @@ const setTabTranslationState = async (tabId, state) => {
     }
     await browser.storage.session.set({ tabTranslationStates });
     console.log(`[Service Worker] Tab ${tabId} state saved to session storage.`);
+
+    // Broadcast the state change to other parts of the extension (like the popup)
+    browser.runtime.sendMessage({
+        type: 'TRANSLATION_STATUS_BROADCAST',
+        payload: { tabId, status: state }
+    }).catch(e => {
+        // This error is expected if the popup is not open.
+        if (!e.message.includes("Could not establish connection. Receiving end does not exist.")) {
+            console.warn(`[Service Worker] Error broadcasting status for tab ${tabId}:`, e);
+        }
+    });
 };
 
 

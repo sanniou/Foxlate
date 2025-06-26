@@ -47,7 +47,36 @@ main {
     cursor: pointer;
     transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
     text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
 }
+
+.action-btn .btn-text {
+    flex-grow: 1;
+}
+
+.action-btn .loader {
+    display: none;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+.action-btn.loading .loader {
+    display: block;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 
 .action-btn:hover:not(:disabled) {
     background-color: var(--primary-color-hover);
