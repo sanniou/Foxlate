@@ -172,6 +172,22 @@
   "aiApiUrlPlaceholder": {
     "message": "例如：https://api.openai.com/v1/chat/completions"
   },
+  "aiCustomPrompt": {
+    "message": "自定义提示词：",
+    "description": "AI 翻译器自定义提示词文本区域的标签。"
+  },
+  "aiCustomPromptPlaceholder": {
+    "message": "你是一个翻译助手。请将用户的文本从 {sourceLang} 翻译成 {targetLang}。只输出翻译后的文本。变量 {sourceLang} 和 {targetLang} 会被替换为语言代码（如 EN, ZH）。",
+    "description": "自定义提示词文本区域的占位符。"
+  },
+  "aiApiUrlMissingError": {
+    "message": "AI API 终端 URL 未在设置中配置，请前往设置。",
+    "description": "当 AI API 终端 URL 缺失时的错误信息。"
+  },
+  "aiModelNameMissingError": {
+    "message": "AI 模型名称未在设置中配置，请前往设置。",
+    "description": "当 AI 模型名称缺失时的错误信息。"
+  },
   "aiModelNamePlaceholder": { "message": "例如：gpt-3.5-turbo" },
   "deeplxApiUrlPlaceholder": {
     "message": "例如：https://api.deeplx.com/translate"
@@ -370,5 +386,9 @@
   "logEntryTranslationError": {
     "message": "[错误] {0}",
     "description": "Log entry for translation failure. Placeholder: [errorMessage]"
+  },
+  "aiCustomPromptMissingError": {
+    "message": "AI 自定义提示词未在设置中配置，请前往设置。",
+    "description": "当 AI 自定义提示词缺失时的错误信息。"
   }
 }

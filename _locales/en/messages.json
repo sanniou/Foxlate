@@ -176,6 +176,22 @@
   "aiApiUrlPlaceholder": {
     "message": "e.g., https://api.openai.com/v1/chat/completions"
   },
+  "aiCustomPrompt": {
+    "message": "Custom Prompt:",
+    "description": "Label for the custom prompt textarea for AI translator."
+  },
+  "aiCustomPromptPlaceholder": {
+    "message": "You are a translation assistant. Translate the user's text from {sourceLang} to {targetLang}. Output only the translated text. Variables {sourceLang} and {targetLang} will be replaced with language codes (e.g., EN, ZH).",
+    "description": "Placeholder for the custom prompt textarea."
+  },
+  "aiApiUrlMissingError": {
+    "message": "AI API Endpoint URL is not configured in settings. Please set it up.",
+    "description": "Error message when the AI API URL is missing."
+  },
+  "aiModelNameMissingError": {
+    "message": "AI Model Name is not configured in settings. Please set it up.",
+    "description": "Error message when the AI Model Name is missing."
+  },
   "aiModelNamePlaceholder": { "message": "e.g., gpt-3.5-turbo" },
   "deeplxApiUrlPlaceholder": {
     "message": "e.g., https://api.deeplx.com/translate"
@@ -368,5 +384,9 @@
   "logEntryTranslationError": {
     "message": "[Error] {0}",
     "description": "Log entry for translation failure. Placeholder: [errorMessage]"
+  },
+  "aiCustomPromptMissingError": {
+    "message": "AI Custom Prompt is not configured in settings. Please set it up.",
+    "description": "Error message when the AI custom prompt is missing."
   }
 }

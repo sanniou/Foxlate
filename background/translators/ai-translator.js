@@ -8,18 +8,34 @@ export class AITranslator extends BaseTranslator {
   async translate(text, targetLang, sourceLang = 'auto') {
     const log = []; // 为当前翻译操作创建本地日志
     const { settings } = await browser.storage.sync.get('settings');
-    const apiKey = settings?.aiApiKey;
-    const apiUrl = settings?.aiApiUrl || 'https://api.openai.com/v1/chat/completions';
-    const model = settings?.aiModelName || 'gpt-3.5-turbo';
+    const apiKey = settings?.aiApiKey; // No default, must be set
+    const apiUrl = settings?.aiApiUrl; // No default, must be set
+    const model = settings?.aiModelName; // No default, must be set
+    const customPromptTemplate = settings?.aiCustomPrompt;
 
     if (!apiKey) {
       throw new Error('AI API Key not set in options');
     }
 
+    if (!customPromptTemplate || customPromptTemplate.trim() === '') {
+      throw new Error(browser.i18n.getMessage('aiCustomPromptMissingError'));
+    }
+    
+    if (!apiUrl || apiUrl.trim() === '') {
+      throw new Error(browser.i18n.getMessage('aiApiUrlMissingError'));
+    }
+
+    if (!model || model.trim() === '') {
+      throw new Error(browser.i18n.getMessage('aiModelNameMissingError'));
+    }
+
     log.push(browser.i18n.getMessage('logEntryApiRequest', this.name));
     log.push(`[API URL] ${apiUrl}`); // 记录实际调用的 URL
 
-    const systemPrompt = `You are a translation assistant. Translate the user's text to ${targetLang}. Output only the translated text, without any additional explanations or context.`;
+    // Replace both {targetLang} and {sourceLang} in the custom prompt
+    const systemPrompt = customPromptTemplate
+      .replace('{targetLang}', targetLang)
+      .replace('{sourceLang}', sourceLang);
 
     try {
       const response = await fetch(apiUrl, {

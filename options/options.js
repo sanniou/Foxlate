@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
         aiApiKey: document.getElementById('aiApiKey'),
         aiApiUrl: document.getElementById('aiApiUrl'),
         aiModelName: document.getElementById('aiModelName'),
+        aiCustomPrompt: document.getElementById('aiCustomPrompt'),
         displayModeSelect: document.getElementById('displayModeSelect'),
         mainTabButtons: document.querySelectorAll('.main-tab-button'),
     };
@@ -82,6 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.aiApiKey.value = currentSettings.aiApiKey || '';
         elements.aiApiUrl.value = currentSettings.aiApiUrl || '';
         elements.aiModelName.value = currentSettings.aiModelName || '';
+        elements.aiCustomPrompt.value = currentSettings.aiCustomPrompt || '';
 
         elements.displayModeSelect.value = currentSettings.displayMode || 'replace';
 
@@ -114,6 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
             aiApiKey: elements.aiApiKey.value,
             aiApiUrl: elements.aiApiUrl.value,
             aiModelName: elements.aiModelName.value,
+            aiCustomPrompt: elements.aiCustomPrompt.value,
             translationSelector: {
                 default: elements.defaultTranslationSelector.value,
                 rules: getDomainRulesFromList(),
