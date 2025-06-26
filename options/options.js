@@ -3,7 +3,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const elements = {
         translatorEngine: document.getElementById('translatorEngine'),
         deeplxUrlGroup: document.getElementById('deeplxUrlGroup'),
-        googleApiKeyGroup: document.getElementById('googleApiKeyGroup'),
         aiApiGroup: document.getElementById('aiApiGroup'),
         saveSettingsBtn: document.getElementById('saveSettingsBtn'),
         addDomainRuleBtn: document.getElementById('addDomainRuleBtn'),
@@ -18,7 +17,6 @@ document.addEventListener('DOMContentLoaded', () => {
         defaultTranslationSelector: document.getElementById('defaultTranslationSelector'),
         deeplxApiUrl: document.getElementById('deeplxApiUrl'),
         domainTranslationSelector: document.getElementById('domainTranslationSelector'),
-        googleApiKey: document.getElementById('googleApiKey'),
         aiApiKey: document.getElementById('aiApiKey'),
         aiApiUrl: document.getElementById('aiApiUrl'),
         aiModelName: document.getElementById('aiModelName'),
@@ -63,11 +61,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const toggleApiFields = () => {
         const engine = elements.translatorEngine.value;
         elements.deeplxUrlGroup.style.display = 'none';
-        elements.googleApiKeyGroup.style.display = 'none';
         elements.aiApiGroup.style.display = 'none';
 
         if (engine === 'deeplx') elements.deeplxUrlGroup.style.display = 'block';
-        else if (engine === 'google') elements.googleApiKeyGroup.style.display = 'block';
         else if (engine === 'ai') elements.aiApiGroup.style.display = 'block';
     };
 
@@ -81,7 +77,6 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.defaultTranslationSelector.value = currentSettings.translationSelector?.default || window.Constants.DEFAULT_TRANSLATION_SELECTOR;
         elements.domainTranslationSelector.value = currentSettings.translationSelector?.rules || '';
         elements.deeplxApiUrl.value = currentSettings.deeplxApiUrl || '';
-        elements.googleApiKey.value = currentSettings.googleApiKey || '';
         elements.aiApiKey.value = currentSettings.aiApiKey || '';
         elements.aiApiUrl.value = currentSettings.aiApiUrl || '';
         elements.aiModelName.value = currentSettings.aiModelName || '';
@@ -114,7 +109,6 @@ document.addEventListener('DOMContentLoaded', () => {
             targetLanguage: elements.targetLanguage.value,
             displayMode: elements.displayModeSelect.value,
             deeplxApiUrl: elements.deeplxApiUrl.value,
-            googleApiKey: elements.googleApiKey.value,
             aiApiKey: elements.aiApiKey.value,
             aiApiUrl: elements.aiApiUrl.value,
             aiModelName: elements.aiModelName.value,

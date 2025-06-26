@@ -3,44 +3,37 @@ import { BaseTranslator } from './base-translator.js';
 export class GoogleTranslator extends BaseTranslator {
   constructor() {
     super('Google');
-    this.apiUrl = 'https://translation.googleapis.com/language/translate/v2';
+    // 使用谷歌翻译网页版使用的免费、非官方API端点
+    this.apiUrl = 'https://translate.googleapis.com/translate_a/single';
   }
 
   async translate(text, targetLang, sourceLang = 'auto') {
-    const { settings } = await browser.storage.sync.get('settings');
-    const apiKey = settings?.googleApiKey;
-
-    if (!apiKey) {
-      throw new Error('API Key not set in options');
-    }
-
+    // 这个免费API不需要API Key
     const url = new URL(this.apiUrl);
-    url.searchParams.append('key', apiKey);
-
-    const body = {
-      q: text,
-      target: targetLang,
-    };
-
-    if (sourceLang && sourceLang !== 'auto') {
-      body.source = sourceLang;
-    }
+    url.searchParams.append('client', 'gtx'); // 或者 't', 'webapp'
+    url.searchParams.append('sl', sourceLang); // source language
+    url.searchParams.append('tl', targetLang); // target language
+    url.searchParams.append('dt', 't'); // return translation
+    url.searchParams.append('q', text); // query text
 
     try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      });
+      // 该API使用GET请求
+      const response = await fetch(url.toString());
 
       if (!response.ok) {
-        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+        // 429 Too Many Requests 是一个常见的错误
+        if (response.status === 429) {
+          throw new Error('Rate limit exceeded. Please try again later.');
+        }
+        throw new Error(`API Error: ${response.status} ${response.statusText}.`);
       }
 
       const data = await response.json();
-      return data.data.translations[0].translatedText;
+      // 免费API的响应是一个复杂的嵌套数组
+      // data[0] 是一个包含所有翻译片段的数组
+      // 每个片段的第一个元素是翻译后的文本
+      // 我们需要将所有片段连接起来
+      return data[0]?.map(chunk => chunk[0]).join('') || '';
     } catch (error) {
       console.error(`Google Translation Error: ${error.message}`);
       throw new Error(`Google translation failed: ${error.message}`);
