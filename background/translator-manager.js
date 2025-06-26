@@ -38,57 +38,6 @@ function postProcess(text) {
     return text;
 }
 
-// A standalone function to generate default pre-check rules without relying on `window` or `self`.
-function generateDefaultPrecheckRules() {
-    // This structure mirrors the one in options.js but is self-contained.
-    const LANG_REGEX_MAP = {
-        'ZH': { regex: '\p{Script=Han}', flags: 'u' },
-        'EN': { regex: '[a-zA-Z]', flags: '' },
-        'JA': { regex: '[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]', flags: 'u' },
-        'KO': { regex: '\p{Script=Hangul}', flags: 'u' },
-        'FR': { regex: '[a-zA-Z]', flags: '' },
-        'DE': { regex: '[a-zA-Z]', flags: '' },
-        'ES': { regex: '[a-zA-Z]', flags: '' },
-        'RU': { regex: '\p{Script=Cyrillic}', flags: 'u' },
-    };
-
-    const SUPPORTED_LANGUAGES = {
-        'auto': 'langAuto',
-        'EN': 'langEN',
-        'ZH': 'langZH',
-        'JA': 'langJA',
-        'KO': 'langKO',
-        'FR': 'langFR',
-        'DE': 'langDE',
-        'ES': 'langES',
-        'RU': 'langRU'
-    };
-
-    const rules = {
-        general: [
-            { name: 'Whitespace only', regex: '^\s*'
-, mode: 'blacklist', enabled: true, flags: '' },
-            { name: 'Numbers, Punctuation, Symbols', regex: '^[\d.,\s\p{P}\p{S}]+'
-, mode: 'blacklist', enabled: true, flags: 'u' },
-            { name: 'Single Emoji', regex: '^\p{Emoji}'
-, mode: 'blacklist', enabled: true, flags: 'u' },
-        ],
-    };
-
-    for (const langCode in LANG_REGEX_MAP) {
-        if (SUPPORTED_LANGUAGES[langCode]) {
-            rules[langCode] = [{
-                name: `Contains ${langCode}`, // Simplified name, as i18n is not available here
-                regex: LANG_REGEX_MAP[langCode].regex,
-                mode: 'whitelist',
-                enabled: true,
-                flags: LANG_REGEX_MAP[langCode].flags,
-            }];
-        }
-    }
-    return rules;
-};
-
 export class TranslatorManager {
   /**
    * Gets the translator instance based on user's preferred engine from sync storage.
@@ -125,14 +74,31 @@ export class TranslatorManager {
     let precheckRules = settings?.precheckRules;
 
     // 2. If no rules in storage, generate defaults
+    // Pre-check rules should always be present in storage, as the options page
+    // initializes them on first load/save. If they are missing, it indicates
+    // a configuration issue.
     if (!precheckRules || Object.keys(precheckRules).length === 0) {
-        console.log("[Debug] No precheck rules found in storage. Generating default rules.");
-        precheckRules = generateDefaultPrecheckRules();
-    } else {
-        console.log("[Debug] Loaded precheck rules from storage.");
+        throw new Error("预检查规则未配置。请打开扩展选项页面并保存设置以完成初始化。");
     }
 
-    // 3. Find the relevant whitelist rule for the target language
+    // 3. Apply general blacklist rules first. These rules prevent translation of things like code, numbers, or single words.
+    if (precheckRules.general) {
+        for (const rule of precheckRules.general) {
+            if (rule.enabled && rule.mode === 'blacklist') {
+                try {
+                    const regex = new RegExp(rule.regex, rule.flags);
+                    if (regex.test(processedText)) {
+                        console.log(`[Debug] [Pre-check] Text matched blacklist rule "${rule.name}". Skipping translation.`);
+                        return text; // Return original, untrimmed text
+                    }
+                } catch (e) {
+                    console.error(`[Debug] [Pre-check] Error applying blacklist rule "${rule.name}":`, e);
+                }
+            }
+        }
+    }
+
+    // 4. Find and apply the relevant whitelist rule for the target language. This is to check if the text is already in the target language.
     const whitelistRule = precheckRules[targetLang]?.find(rule => rule.mode === 'whitelist' && rule.enabled);
     console.log(`[Debug] Whitelist rule for ${targetLang}:`, whitelistRule);
 

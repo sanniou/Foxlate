@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
         newDomainRuleSelect: document.getElementById('newDomainRule'),
         exportBtn: document.getElementById('export-btn'),
         importInput: document.getElementById('import-input'),
+        resetSettingsBtn: document.getElementById('reset-settings-btn'),
         statusMessage: document.getElementById('statusMessage'),
         targetLanguage: document.getElementById('targetLanguage'),
         defaultTranslationSelector: document.getElementById('defaultTranslationSelector'),
@@ -90,14 +91,14 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleApiFields();
         renderDomainRules(currentSettings.domainRules || {});
         const defaultPrecheckRules = generateDefaultPrecheckRules();
-
         const storedRules = currentSettings.precheckRules;
         precheckRules = storedRules && Object.keys(storedRules).length > 0 ? storedRules : JSON.parse(JSON.stringify(defaultPrecheckRules));
         renderPrecheckRulesUI();
     };
 
     const getDomainRulesFromList = () => {
-        const rules = {};
+        const rules = {};    
+
         const alwaysTranslateText = browser.i18n.getMessage('alwaysTranslate');
         elements.domainRulesList.querySelectorAll('li').forEach(item => {
             const domain = item.querySelector('strong').textContent;
@@ -133,20 +134,47 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const resetSettings = async () => {
+        const confirmationMessage = browser.i18n.getMessage('resetSettingsConfirm') || 'Are you sure you want to reset all settings to their default values? This action cannot be undone.';
+        if (window.confirm(confirmationMessage)) {
+            try {
+                await browser.storage.sync.remove('settings');
+                // After removing, reload the settings, which will apply the defaults.
+                await loadSettings();
+                showStatusMessage(browser.i18n.getMessage('resetSettingsSuccess'));
+            } catch (error) {
+                console.error('Error resetting settings:', error);
+                showStatusMessage(browser.i18n.getMessage('resetSettingsError'), true);
+            }
+        }
+    };
+
+
     // --- Pre-check Rules UI Logic ---
 
-    const generateDefaultPrecheckRules = () => {
-        const rules = {
-            general: [
-                { name: browser.i18n.getMessage('precheckRuleWhitespace') || 'Whitespace only', regex: '^\s*$', mode: 'blacklist', enabled: true, flags: '' },
-                { name: browser.i18n.getMessage('precheckRulePunctuation') || 'Numbers, Punctuation, Symbols', regex: '^[\d.,\s\p{P}\p{S}]+$', mode: 'blacklist', enabled: true, flags: 'u' },
-                { name: browser.i18n.getMessage('precheckRuleEmoji') || 'Single Emoji', regex: '^\p{Emoji}$', mode: 'blacklist', enabled: true, flags: 'u' },
-            ],
-        };
+    /**
+     * Generates the full set of default pre-check rules, including internationalized names.
+     * This function is called when initializing settings for the first time.
+     * It combines general rules from constants with dynamically generated language-specific rules.
+     * @returns {object} The complete default pre-check rules object.
+     */
+    function generateDefaultPrecheckRules() { 
+        // Start with a deep copy of the general rules from constants.
+        const defaultRules = JSON.parse(JSON.stringify(window.Constants.DEFAULT_PRECHECK_RULES));
+
+        // 1. Internationalize the names of the general rules using the stable `nameKey`.
+        if (defaultRules.general) {
+            defaultRules.general.forEach(rule => {
+                rule.name = browser.i18n.getMessage(rule.nameKey) || rule.name; // Use nameKey for i18n
+                delete rule.nameKey; // Clean up the temporary key
+            });
+        }
+
+        // 2. Dynamically generate and add language-specific whitelist rules.
         for (const langCode in window.Constants.LANG_REGEX_MAP) {
             if (window.Constants.SUPPORTED_LANGUAGES[langCode]) {
                 const langName = browser.i18n.getMessage(window.Constants.SUPPORTED_LANGUAGES[langCode]) || langCode;
-                rules[langCode] = [{
+                defaultRules[langCode] = [{
                     name: `${browser.i18n.getMessage('precheckRuleContains') || 'Contains '} ${langName}`,
                     regex: window.Constants.LANG_REGEX_MAP[langCode].regex,
                     mode: 'whitelist',
@@ -155,8 +183,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }];
             }
         }
-        return rules;
-    };
+        return defaultRules;
+    }
 
     function renderPrecheckRulesUI() {
         const container = document.getElementById('precheck-rules-container');
@@ -467,6 +495,7 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.addDomainRuleBtn.addEventListener('click', addDomainRule);
         elements.exportBtn.addEventListener('click', exportSettings);
         elements.importInput.addEventListener('change', importSettings);
+        elements.resetSettingsBtn.addEventListener('click', resetSettings);
         
         const testTranslationBtn = document.getElementById('testTranslationBtn');
         if(testTranslationBtn) testTranslationBtn.addEventListener('click', toggleTestArea);

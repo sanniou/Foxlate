@@ -156,6 +156,18 @@
   "importError": {
     "message": "Failed to import settings. The file might be corrupted or invalid."
   },
+  "resetSettings": {
+    "message": "Reset Settings",
+    "description": "Button text to reset all settings to default."
+  },
+  "resetSettingsConfirm": {
+    "message": "Are you sure you want to reset all settings to their default values? This action cannot be undone.",
+    "description": "Confirmation message before resetting settings."
+  },
+  "resetSettingsSuccess": {
+    "message": "Settings have been reset to default.",
+    "description": "Status message after successfully resetting settings."
+  },
   "testing": { "message": "Testing..." },
   "testOriginal": { "message": "Original" },
   "testTranslated": { "message": "Translated" },
@@ -212,6 +224,14 @@
   "precheckRuleEmoji": {
     "message": "Single Emoji",
     "description": "Name of the default rule that matches a single emoji."
+  },
+  "precheckRuleSingleWord": {
+    "message": "Single English Word",
+    "description": "Name of the default rule that matches a single English word."
+  },
+  "precheckRuleCommonAcronyms": {
+    "message": "Common Acronyms",
+    "description": "Name of the default rule that matches common acronyms like AI, WHO, etc."
   },
   "precheckRuleContains": {
     "message": "Contains",

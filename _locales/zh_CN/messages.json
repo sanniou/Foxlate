@@ -153,6 +153,18 @@
   "importSuccess": { "message": "设置已成功导入！界面已更新。" },
   "importError": { "message": "导入设置失败。文件可能已损坏或格式无效。" },
   "testing": { "message": "测试中..." },
+  "resetSettings": {
+    "message": "重置设置",
+    "description": "Button text to reset all settings to default."
+  },
+  "resetSettingsConfirm": {
+    "message": "您确定要将所有设置重置为默认值吗？此操作无法撤销。",
+    "description": "Confirmation message before resetting settings."
+  },
+  "resetSettingsSuccess": {
+    "message": "设置已重置为默认值。",
+    "description": "Status message after successfully resetting settings."
+  },
   "testOriginal": { "message": "原文" },
   "testTranslated": { "message": "译文" },
   "testError": { "message": "错误" },
@@ -214,6 +226,14 @@
   "precheckRuleEmoji": {
     "message": "单个表情符号",
     "description": "Name of the default rule that matches a single emoji."
+  },
+  "precheckRuleSingleWord": {
+    "message": "单个英文单词",
+    "description": "Name of the default rule that matches a single English word."
+  },
+  "precheckRuleCommonAcronyms": {
+    "message": "常用缩写词",
+    "description": "Name of the default rule that matches common acronyms like AI, WHO, etc."
   },
   "precheckRuleContains": {
     "message": "包含",

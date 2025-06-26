@@ -8,6 +8,23 @@ function logError(context, error) {
 }
 
 /**
+ * Generates a v4 UUID.
+ * Uses crypto.randomUUID() if available, otherwise falls back to a polyfill.
+ * This is necessary for compatibility with environments like older Firefox versions
+ * where crypto.randomUUID might not be available in content scripts.
+ * @returns {string} A UUID.
+ */
+function generateUUID() {
+    if (self.crypto && self.crypto.randomUUID) {
+        return self.crypto.randomUUID();
+    }
+    // A fallback for environments without crypto.randomUUID that uses the widely supported crypto.getRandomValues.
+    return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+      (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+    );
+}
+
+/**
  * 检查一个元素在页面上是否对用户可见。
  * @param {HTMLElement} el - 要检查的元素。
  * @returns {boolean} 如果元素可见则返回 true，否则返回 false。
@@ -170,7 +187,7 @@ async function performPageTranslation(tabId) {
                 const parent = node.parentElement;
                 // 确保每个待翻译元素都有一个唯一的ID
                 if (!parent.dataset.translationId) {
-                    parent.dataset.translationId = `ut-${crypto.randomUUID()}`;
+                    parent.dataset.translationId = `ut-${generateUUID()}`;
                 }
                 texts.push(node.nodeValue);
                 ids.push(parent.dataset.translationId);
@@ -431,7 +448,7 @@ const debouncedTranslateMutations = debounce(async (mutations) => {
             chunk.forEach(node => {
                 const parent = node.parentElement;
                 if (!parent.dataset.translationId) {
-                    parent.dataset.translationId = `ut-${crypto.randomUUID()}`;
+                    parent.dataset.translationId = `ut-${generateUUID()}`;
                 }
                 // 保存原始文本以供还原
                 if (!originalContent.has(node)) {
@@ -487,4 +504,3 @@ function debounce(func, wait) {
         timeout = setTimeout(() => func.apply(context, args), wait);
     };
 }
-
