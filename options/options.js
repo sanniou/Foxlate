@@ -481,6 +481,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
+            console.log('[Options Page Debug] Received response from service worker:', JSON.parse(JSON.stringify(response))); // Debug log
+
             // 显示日志
             if (response.log && response.log.length > 0) {
                 elements.logContent.textContent = response.log.join('\n');

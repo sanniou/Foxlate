@@ -228,8 +228,8 @@
     "description": "Name of the default rule that matches a single emoji."
   },
   "precheckRuleSingleWord": {
-    "message": "单个英文单词",
-    "description": "Name of the default rule that matches a single English word."
+    "message": "单个英文字母",
+    "description": "Name of the default rule that matches a single English letter."
   },
   "precheckRuleCommonAcronyms": {
     "message": "常用缩写词",
@@ -310,5 +310,65 @@
   "precheckRulePunctuation": {
     "message": "数字、标点、符号",
     "description": "Name of the default rule that matches numbers, punctuation, and symbols."
+  },
+  "hideLogButton": {
+    "message": "隐藏日志",
+    "description": "Button text to hide the translation log."
+  },
+  "testLogButton": {
+    "message": "显示日志",
+    "description": "Button text to show the translation log."
+  },
+  "testLogTitle": {
+    "message": "翻译日志",
+    "description": "Title for the translation log area."
+  },
+  "logEntryStart": {
+    "message": "[开始] 翻译 \"{0}\" 从 {1} 到 {2}",
+    "description": "Log entry for start of translation. Placeholders: [text, sourceLang, targetLang]"
+  },
+  "logEntryPrecheckStart": {
+    "message": "[预检查] 开始评估预检查规则。",
+    "description": "Log entry for the start of pre-check rules."
+  },
+  "logEntryPrecheckMatch": {
+    "message": "[预检查] 规则 \"{0}\" ({1}) 匹配。文本将不被翻译。",
+    "description": "Log entry when a pre-check rule matches and prevents translation. Placeholders: [ruleName, ruleMode]"
+  },
+  "logEntryPrecheckNoMatch": {
+    "message": "[预检查] 规则 \"{0}\" ({1}) 未匹配。",
+    "description": "Log entry when a pre-check rule does not match. Placeholders: [ruleName, ruleMode]"
+  },
+  "logEntryPrecheckNoTranslation": {
+    "message": "[预检查] 文本被判定无需翻译。返回原文。",
+    "description": "Log entry when pre-check determines no translation is needed."
+  },
+  "logEntryPrecheckError": {
+    "message": "[预检查] 错误: {0}",
+    "description": "Log entry for a pre-check configuration error. Placeholder: [errorMessage]"
+  },
+  "logEntryEngineUsed": {
+    "message": "[引擎] 使用翻译引擎：{0}",
+    "description": "Log entry for the chosen translation engine. Placeholder: [engineName]"
+  },
+  "logEntryApiRequest": {
+    "message": "[API 调用] 请求 {0} API 翻译。",
+    "description": "Log entry for API call initiation. Placeholder: [translatorName]"
+  },
+  "logEntryApiResponseSuccess": {
+    "message": "[API 响应] 成功。原始数据（部分）：{0}",
+    "description": "Log entry for successful API response. Placeholder: [partialData]"
+  },
+  "logEntryApiResponseError": {
+    "message": "[API 响应] 错误：{0} {1}",
+    "description": "Log entry for API response error. Placeholders: [statusCode, statusText]"
+  },
+  "logEntryTranslationSuccess": {
+    "message": "[成功] 翻译完成。",
+    "description": "Log entry for successful translation."
+  },
+  "logEntryTranslationError": {
+    "message": "[错误] {0}",
+    "description": "Log entry for translation failure. Placeholder: [errorMessage]"
   }
 }

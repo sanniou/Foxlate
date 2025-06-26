@@ -226,8 +226,8 @@
     "description": "Name of the default rule that matches a single emoji."
   },
   "precheckRuleSingleWord": {
-    "message": "Single English Word",
-    "description": "Name of the default rule that matches a single English word."
+    "message": "Single English Letter",
+    "description": "Name of the default rule that matches a single English letter."
   },
   "precheckRuleCommonAcronyms": {
     "message": "Common Acronyms",
@@ -308,5 +308,65 @@
   "precheckRulePunctuation": {
     "message": "Numbers, Punctuation, Symbols",
     "description": "Name of the default rule that matches numbers, punctuation, and symbols."
+  },
+  "hideLogButton": {
+    "message": "Hide Log",
+    "description": "Button text to hide the translation log."
+  },
+  "testLogButton": {
+    "message": "Show Log",
+    "description": "Button text to show the translation log."
+  },
+  "testLogTitle": {
+    "message": "Translation Log",
+    "description": "Title for the translation log area."
+  },
+  "logEntryStart": {
+    "message": "[Start] Translating \"{0}\" from {1} to {2}",
+    "description": "Log entry for start of translation. Placeholders: [text, sourceLang, targetLang]"
+  },
+  "logEntryPrecheckStart": {
+    "message": "[Pre-check] Starting pre-check rules evaluation.",
+    "description": "Log entry for the start of pre-check rules."
+  },
+  "logEntryPrecheckMatch": {
+    "message": "[Pre-check] Rule \"{0}\" ({1}) matched. Text will not be translated.",
+    "description": "Log entry when a pre-check rule matches and prevents translation. Placeholders: [ruleName, ruleMode]"
+  },
+  "logEntryPrecheckNoMatch": {
+    "message": "[Pre-check] Rule \"{0}\" ({1}) did not match.",
+    "description": "Log entry when a pre-check rule does not match. Placeholders: [ruleName, ruleMode]"
+  },
+  "logEntryPrecheckNoTranslation": {
+    "message": "[Pre-check] Text determined not to require translation. Returning original text.",
+    "description": "Log entry when pre-check determines no translation is needed."
+  },
+  "logEntryPrecheckError": {
+    "message": "[Pre-check] Error: {0}",
+    "description": "Log entry for a pre-check configuration error. Placeholder: [errorMessage]"
+  },
+  "logEntryEngineUsed": {
+    "message": "[Engine] Using translation engine: {0}",
+    "description": "Log entry for the chosen translation engine. Placeholder: [engineName]"
+  },
+  "logEntryApiRequest": {
+    "message": "[API Call] Requesting translation from {0} API.",
+    "description": "Log entry for API call initiation. Placeholder: [translatorName]"
+  },
+  "logEntryApiResponseSuccess": {
+    "message": "[API Response] Success. Raw data (partial): {0}",
+    "description": "Log entry for successful API response. Placeholder: [partialData]"
+  },
+  "logEntryApiResponseError": {
+    "message": "[API Response] Error: {0} {1}",
+    "description": "Log entry for API response error. Placeholders: [statusCode, statusText]"
+  },
+  "logEntryTranslationSuccess": {
+    "message": "[Success] Translation completed.",
+    "description": "Log entry for successful translation."
+  },
+  "logEntryTranslationError": {
+    "message": "[Error] {0}",
+    "description": "Log entry for translation failure. Placeholder: [errorMessage]"
   }
 }

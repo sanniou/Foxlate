@@ -190,22 +190,27 @@ const messageHandlers = {
     // TranslatorManager.translateText now always resolves and never throws.
     // It returns an object with an optional 'error' property.
     const result = await TranslatorManager.translateText(text, targetLang, sourceLang);
+    console.log('[Service Worker Debug] Received from TranslatorManager:', JSON.parse(JSON.stringify(result))); // Debug log
 
     if (result.error) {
       logError('TRANSLATE_TEXT handler', new Error(result.error));
-      return {
+      const errorResponse = {
         success: false,
         error: result.error,
         // Also return the partial log and state
         translatedText: { text: result.text, translated: result.translated },
         log: result.log
       };
+      console.log('[Service Worker Debug] Sending error response:', JSON.parse(JSON.stringify(errorResponse))); // Debug log
+      return errorResponse;
     } else {
-      return {
+      const successResponse = {
         success: true,
         translatedText: { text: result.text, translated: result.translated },
         log: result.log
       };
+      console.log('[Service Worker Debug] Sending success response:', JSON.parse(JSON.stringify(successResponse))); // Debug log
+      return successResponse;
     }
   },
 
