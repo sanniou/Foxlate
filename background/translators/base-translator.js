@@ -14,7 +14,8 @@ export class BaseTranslator {
    * @param {string} sourceLang - 源语言 (可选)
    * @returns {Promise<string>} - 翻译后的文本
    */
-  async translate(text, targetLang, sourceLang = 'auto') {
-    throw new Error("Method 'translate()' must be implemented.");
+ // 翻译方法现在应该返回一个包含翻译文本和日志的 Promise
+  async translate(text, targetLang, sourceLang = 'auto') { // log 参数不再直接传递，而是由每个翻译器内部管理
+    throw new Error('Translate method must be implemented by subclass and return { text: string, log: string[] }');
   }
 }

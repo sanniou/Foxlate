@@ -188,10 +188,6 @@
   "popupSourceLanguage": { "message": "Source Language:" },
   "popupTargetLanguage": { "message": "Target Language:" },
   "popupTranslationService": { "message": "Translation Service:" },
-  "popupDisplayMode": { "message": "Display Mode:" },
-  "popupDisplayModeReplace": { "message": "Replace" },
-  "popupDisplayModeAppend": { "message": "Append" },
-  "popupDisplayModeHover": { "message": "Hover" },
   "popupTranslatePage": { "message": "Translate This Page" },
   "popupAlwaysTranslate": { "message": "Always translate this site" },
   "popupSettings": { "message": "⚙️ Settings" },
@@ -277,8 +273,40 @@
     "message": "Please enter text to translate.",
     "description": "Error message when the test source text is empty."
   },
+  "testNotTranslated": {
+    "message": "Original text (not translated due to pre-check rule or same language):",
+    "description": "Message for test translation when text is not translated due to pre-check rules or same language."
+  },
   "translateButtonText": {
     "message": "Translate",
     "description": "Text for the manual translate button in the content script."
+  },
+  "logEntryPrecheckRuleError": {
+    "message": "[Pre-check] Error in rule \"{0}\": {1}",
+    "description": "Log entry for error during pre-check rule application. Placeholders: [ruleName, errorMessage]"
+  },
+  "logEntryPrecheckNoWhitelistRule": {
+    "message": "[Pre-check] No enabled whitelist rule found for target language {0}. Translation will proceed.",
+    "description": "Log entry when no whitelist rule is found for the target language."
+  },
+  "logEntryCacheHit": {
+    "message": "[Cache] Translation found in cache.",
+    "description": "Log entry for cache hit."
+  },
+  "logEntryCacheMiss": {
+    "message": "[Cache] Translation not found in cache. Proceeding with API call.",
+    "description": "Log entry for cache miss."
+  },
+  "logEntryNoTranslator": {
+    "message": "[Error] No valid translator selected or initialized.",
+    "description": "Log entry when no translator is available."
+  },
+  "precheckRuleSameLanguage": {
+    "message": "Same Language",
+    "description": "Name for the pre-check rule: source and target language are the same."
+  },
+  "precheckRulePunctuation": {
+    "message": "Numbers, Punctuation, Symbols",
+    "description": "Name of the default rule that matches numbers, punctuation, and symbols."
   }
 }

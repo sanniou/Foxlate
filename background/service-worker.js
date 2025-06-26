@@ -112,7 +112,7 @@ async function ensureContentScript(tabId) {
  */
 const setTabTranslationState = async (tabId, state) => {
     const { tabTranslationStates = {} } = await browser.storage.session.get('tabTranslationStates');
-    if (state === 'original') {
+    if (state === 'original' || !state) { // 确保处理 undefined 或 null
         delete tabTranslationStates[tabId];
         console.log(`[Service Worker] Tab ${tabId} state set to 'original' (deleted). Current states:`, tabTranslationStates);
     } else {
@@ -186,13 +186,26 @@ const messageHandlers = {
    * Handles text translation requests from content scripts.
    */
   async TRANSLATE_TEXT(request) {
-    const { text, targetLang, sourceLang } = request.payload; // sourceLang is now available
-    try {
-      const translatedText = await TranslatorManager.translateText(text, targetLang, sourceLang); // Pass it to the manager
-      return { success: true, translatedText };
-    } catch (error) {
-      logError('TRANSLATE_TEXT handler', error);
-      return { success: false, error: error.message };
+    const { text, targetLang, sourceLang } = request.payload;
+    // TranslatorManager.translateText now always resolves and never throws.
+    // It returns an object with an optional 'error' property.
+    const result = await TranslatorManager.translateText(text, targetLang, sourceLang);
+
+    if (result.error) {
+      logError('TRANSLATE_TEXT handler', new Error(result.error));
+      return {
+        success: false,
+        error: result.error,
+        // Also return the partial log and state
+        translatedText: { text: result.text, translated: result.translated },
+        log: result.log
+      };
+    } else {
+      return {
+        success: true,
+        translatedText: { text: result.text, translated: result.translated },
+        log: result.log
+      };
     }
   },
 

@@ -182,10 +182,6 @@
   "popupSourceLanguage": { "message": "原始语言：" },
   "popupTargetLanguage": { "message": "目标语言：" },
   "popupTranslationService": { "message": "翻译服务：" },
-  "popupDisplayMode": { "message": "显示模式：" },
-  "popupDisplayModeReplace": { "message": "替换模式" },
-  "popupDisplayModeAppend": { "message": "追加模式" },
-  "popupDisplayModeHover": { "message": "悬停模式" },
   "popupTranslatePage": {
     "message": "翻译此页",
     "description": "翻译当前页面的按钮文本。"
@@ -279,8 +275,40 @@
     "message": "请输入要翻译的文本。",
     "description": "Error message when the test source text is empty."
   },
+  "testNotTranslated": {
+    "message": "原文（未翻译，可能由于预检查规则或语言相同）：",
+    "description": "Message for test translation when text is not translated due to pre-check rules or same language."
+  },
   "translateButtonText": {
     "message": "翻译",
     "description": "Text for the manual translate button in the content script."
+  },
+  "logEntryPrecheckRuleError": {
+    "message": "[预检查] 规则 \"{0}\" 错误：{1}",
+    "description": "Log entry for error during pre-check rule application. Placeholders: [ruleName, errorMessage]"
+  },
+  "logEntryPrecheckNoWhitelistRule": {
+    "message": "[预检查] 未找到目标语言 {0} 的启用白名单规则。将继续翻译。",
+    "description": "Log entry when no whitelist rule is found for the target language."
+  },
+  "logEntryCacheHit": {
+    "message": "[缓存] 翻译结果在缓存中找到。",
+    "description": "Log entry for cache hit."
+  },
+  "logEntryCacheMiss": {
+    "message": "[缓存] 翻译结果未在缓存中找到。将进行 API 调用。",
+    "description": "Log entry for cache miss."
+  },
+  "logEntryNoTranslator": {
+    "message": "[错误] 未选择或初始化有效的翻译器。",
+    "description": "Log entry when no translator is available."
+  },
+  "precheckRuleSameLanguage": {
+    "message": "相同语言",
+    "description": "Name for the pre-check rule: source and target language are the same."
+  },
+  "precheckRulePunctuation": {
+    "message": "数字、标点、符号",
+    "description": "Name of the default rule that matches numbers, punctuation, and symbols."
   }
 }

@@ -23,6 +23,8 @@ document.addEventListener('DOMContentLoaded', () => {
         displayModeSelect: document.getElementById('displayModeSelect'),
         mainTabButtons: document.querySelectorAll('.main-tab-button'),
     };
+    elements.toggleLogBtn = document.getElementById('toggleLogBtn');
+    elements.logContent = document.getElementById('log-content');
 
     let precheckRules = {};
 
@@ -441,6 +443,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const toggleLogArea = () => {
+        const logArea = document.getElementById('test-log-area');
+        const button = document.getElementById('toggleLogBtn');
+        const isHidden = logArea.style.display === 'none';
+
+        if (isHidden) {
+            logArea.style.display = 'block';
+            button.textContent = browser.i18n.getMessage('hideLogButton') || 'Hide Log';
+        } else {
+            logArea.style.display = 'none';
+            button.textContent = browser.i18n.getMessage('testLogButton') || 'Show Log';
+            elements.logContent.textContent = ''; // Clear log when hidden
+        }
+    };
     const performTestTranslation = async () => {
         const sourceText = document.getElementById('test-source-text').value.trim();
         const resultArea = document.getElementById('test-result-area');
@@ -455,6 +471,7 @@ document.addEventListener('DOMContentLoaded', () => {
         resultArea.className = 'test-result-area';
 
         try {
+            // 发送消息到后台服务工作线程进行翻译，并请求返回日志
             const response = await browser.runtime.sendMessage({
                 type: 'TRANSLATE_TEXT',
                 payload: {
@@ -464,15 +481,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            if (response.success) {
-                resultArea.textContent = response.translatedText;
+            // 显示日志
+            if (response.log && response.log.length > 0) {
+                elements.logContent.textContent = response.log.join('\n');
+                document.getElementById('test-log-area').style.display = 'block'; // 确保日志区域可见
+                elements.toggleLogBtn.textContent = browser.i18n.getMessage('hideLogButton') || 'Hide Log';
+            } else {
+                elements.logContent.textContent = 'No detailed logs available.';
+            }
+
+            if (response.success) { // 处理翻译结果
+                if (response.translatedText.translated) {
+                    resultArea.textContent = response.translatedText.text; // 从嵌套对象中获取实际文本
+                } else {
+                    resultArea.textContent = `${browser.i18n.getMessage('testNotTranslated')} ${response.translatedText.text}`;
+                }
                 resultArea.className = 'test-result-area success';
             } else {
                 resultArea.textContent = `Error: ${response.error}`;
                 resultArea.className = 'test-result-area error';
             }
         } catch (error) {
-            console.error('Translation test error:', error);
+            console.error('Translation test error:', error); // 捕获并显示测试翻译过程中的错误
             resultArea.textContent = `Error: ${error.message}`;
             resultArea.className = 'test-result-area error';
         }
@@ -493,6 +523,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const testTranslationBtn = document.getElementById('testTranslationBtn');
         if(testTranslationBtn) testTranslationBtn.addEventListener('click', toggleTestArea);
+        elements.toggleLogBtn.addEventListener('click', toggleLogArea);
 
         const sourceTextArea = document.getElementById('test-source-text');
         const manualTranslateBtn = document.getElementById('manual-test-translate-btn');
