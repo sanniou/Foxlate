@@ -185,12 +185,20 @@ const messageHandlers = {
     }
   },
 
-  async TRANSLATE_TEXT_CHUNK(request) {
+  async TRANSLATE_TEXT_CHUNK(request, sender) {
     const { texts, ids, targetLang, sourceLang, tabId } = request.payload;
     if (!texts || !ids || !tabId || texts.length !== ids.length) {
         logError('TRANSLATE_TEXT_CHUNK', new Error('Invalid payload for chunk translation.'));
         return; // Invalid payload, do nothing.
     }
+
+    // Get domain rule for the tab
+    const tab = await browser.tabs.get(tabId);
+    const domain = new URL(tab.url).hostname;
+    const { settings } = await browser.storage.sync.get('settings');
+    const domainRules = settings?.domainRules || {};
+    const rule = domainRules[domain] || 'manual'; // Default to manual
+    const isManual = rule === 'manual';
 
     const translationPromises = texts.map(text => 
         TranslatorManager.translateText(text, targetLang, sourceLang)
@@ -204,6 +212,7 @@ const messageHandlers = {
             success: result.status === 'fulfilled',
             translatedText: result.status === 'fulfilled' ? result.value : null,
             error: result.status === 'rejected' ? result.reason.message : null,
+            isManual: isManual
         };
 
         browser.tabs.sendMessage(tabId, {

@@ -60,7 +60,7 @@
     "description": "谷歌 API 密钥输入框的标签。"
   },
   "targetLanguage": {
-    "message": "目标语言（例如，ZH, EN）：",
+    "message": "目标语言：",
     "description": "目标语言输入框的标签。"
   },
   "translationSelector": {
@@ -190,5 +190,73 @@
   "langFR": { "message": "法语" },
   "langDE": { "message": "德语" },
   "langES": { "message": "西班牙语" },
-  "langRU": { "message": "俄语" }
+  "langRU": { "message": "俄语" },
+  "precheckRulesTitle": {
+    "message": "翻译预检查规则",
+    "description": "Title for the Pre-check Rules section."
+  },
+  "precheckRulesDescription": {
+    "message": "配置规则以包含（白名单）或排除（黑名单）文本的翻译。黑名单规则优先执行。文本必须匹配一个已启用的语言白名单规则才会被翻译。",
+    "description": "Description for the Pre-check Rules section."
+  },
+  "precheckTab_general": {
+    "message": "通用",
+    "description": "Tab title for general pre-check rules."
+  },
+  "precheckRuleWhitespace": {
+    "message": "仅空白字符",
+    "description": "Name of the default rule that matches whitespace."
+  },
+  "precheckRulePunctuation": {
+    "message": "数字、标点、符号",
+    "description": "Name of the default rule that matches numbers, punctuation, and symbols."
+  },
+  "precheckRuleEmoji": {
+    "message": "单个表情符号",
+    "description": "Name of the default rule that matches a single emoji."
+  },
+  "precheckRuleContains": {
+    "message": "包含",
+    "description": "Prefix for language-specific rules, e.g., 'Contains English'."
+  },
+  "ruleNamePlaceholder": {
+    "message": "规则名称",
+    "description": "Placeholder for the rule name input."
+  },
+  "regexPlaceholder": {
+    "message": "正则表达式",
+    "description": "Placeholder for the regex input."
+  },
+  "flagsPlaceholder": {
+    "message": "标志",
+    "description": "Placeholder for the regex flags input."
+  },
+  "blacklist": {
+    "message": "黑名单",
+    "description": "Option for blacklist mode in a rule."
+  },
+  "whitelist": {
+    "message": "白名单",
+    "description": "Option for whitelist mode in a rule."
+  },
+  "enabled": {
+    "message": "启用",
+    "description": "Checkbox label to enable a rule."
+  },
+  "collapseTest": {
+    "message": "收起",
+    "description": "Button text to collapse the test area."
+  },
+  "testSourcePlaceholder": {
+    "message": "在此输入要翻译的文本...",
+    "description": "Placeholder for the test translation source text area."
+  },
+  "testSourceEmpty": {
+    "message": "请输入要翻译的文本。",
+    "description": "Error message when the test source text is empty."
+  },
+  "translateButtonText": {
+    "message": "翻译",
+    "description": "Text for the manual translate button in the content script."
+  }
 }

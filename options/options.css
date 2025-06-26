@@ -104,7 +104,8 @@ h2 {
     gap: 10px;
 }
 
-.input-with-button input {
+.input-with-button input,
+.input-with-button select {
     flex-grow: 1;
 }
 
@@ -118,6 +119,7 @@ button, .test-btn {
     font-size: 14px;
     font-weight: 500;
     transition: background-color 0.2s, box-shadow 0.2s;
+    flex-shrink: 0;
 }
 
 button:hover, .test-btn:hover {
@@ -127,7 +129,6 @@ button:hover, .test-btn:hover {
 
 .test-btn {
     background-color: var(--text-color-secondary);
-    flex-shrink: 0;
 }
 .test-btn:hover { background-color: #5a6268; }
 
@@ -188,4 +189,162 @@ small {
     margin-top: 8px;
     font-size: 13px;
     line-height: 1.4;
+}
+
+/* --- Tab Styles --- */
+.tab-buttons {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 20px;
+}
+
+.tab-button {
+    padding: 10px 20px;
+    cursor: pointer;
+    border: none;
+    background-color: transparent;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px; /* Align with the container's border */
+    font-size: 14px;
+    color: var(--text-color-secondary);
+}
+
+.tab-button.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+    font-weight: 600;
+}
+
+.tab-panel {
+    display: none; /* Hide panels by default */
+}
+
+.tab-panel.active {
+    display: block; /* Show active panel */
+}
+
+.rule-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.rule-item {
+    display: grid;
+    grid-template-columns: 1fr 2fr 0.5fr 1fr auto auto;
+    gap: 10px;
+    align-items: center;
+    padding: 10px;
+    border-radius: 6px;
+    background-color: var(--bg-color);
+    border: 1px solid var(--border-color);
+}
+
+.rule-item input, .rule-item select {
+    width: 100%;
+}
+
+.rule-enabled {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+}
+
+.remove-rule-btn {
+    background-color: var(--danger-color);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+}
+
+.remove-rule-btn:hover {
+    background-color: var(--danger-color-hover);
+}
+
+.add-rule-btn {
+    margin-top: 15px;
+}
+
+/* --- Test Translation Area --- */
+#test-translation-container {
+  margin-top: 20px;
+}
+
+.translation-row {
+  display: flex;
+  gap: 10px;
+  align-items: center; /* 垂直居中对齐 */
+}
+
+.translation-col {
+  flex: 1; /* 输入和输出列将平均分配空间 */
+  display: flex;
+}
+
+.button-col {
+  flex: 0 0 auto; /* 按钮列不拉伸 */
+}
+
+#test-source-text,
+#test-result-area {
+  width: 100%;
+  min-height: 100px; /* 高度减半 */
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  font-family: var(--font-family);
+  font-size: 14px;
+  box-sizing: border-box;
+  resize: vertical;
+}
+
+#test-result-area {
+  background-color: var(--bg-color); /* 灰色背景表示不可编辑 */
+  overflow-y: auto;
+  word-break: break-word;
+}
+
+.test-result-area.success {
+  color: #0f5132;
+}
+
+.test-result-area.error {
+  color: var(--danger-color);
+}
+
+#manual-test-translate-btn {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 50%; /* 正圆形 */
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: background-color 0.2s, box-shadow 0.2s;
+  flex-shrink: 0;
+  font-size: 0; /* 隐藏按钮上的原始文字 (例如 "翻译") */
+}
+
+#manual-test-translate-btn::before {
+  content: '→';
+  font-size: 24px; /* 设置箭头符号的大小 */
+  line-height: 1;
+}
+
+.manual-translate-btn:hover {
+  background-color: var(--primary-color-hover);
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.2);
 }

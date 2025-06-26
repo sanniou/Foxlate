@@ -13,9 +13,6 @@ document.addEventListener('DOMContentLoaded', () => {
         exportBtn: document.getElementById('export-btn'),
         importInput: document.getElementById('import-input'),
         statusMessage: document.getElementById('statusMessage'),
-        testDeepLxBtn: document.getElementById('testDeepLxBtn'),
-        testGoogleBtn: document.getElementById('testGoogleBtn'),
-        testAiBtn: document.getElementById('testAiBtn'), // Cache all form inputs for consistency and performance
         targetLanguage: document.getElementById('targetLanguage'),
         defaultTranslationSelector: document.getElementById('defaultTranslationSelector'),
         deeplxApiUrl: document.getElementById('deeplxApiUrl'),
@@ -24,13 +21,10 @@ document.addEventListener('DOMContentLoaded', () => {
         aiApiKey: document.getElementById('aiApiKey'),
         aiApiUrl: document.getElementById('aiApiUrl'),
         aiModelName: document.getElementById('aiModelName'),
-        displayModeSelect: document.getElementById('displayModeSelect'), // Cache the display mode select element
-        precheckRuleTabs: document.getElementById('precheckRuleTabs'),
-        precheckRuleContent: document.getElementById('precheckRuleContent'),
+        displayModeSelect: document.getElementById('displayModeSelect'),
         mainTabButtons: document.querySelectorAll('.main-tab-button'),
     };
 
-    let testPopover = null;
     let precheckRules = {};
 
     // --- I18N Function ---
@@ -76,39 +70,6 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (engine === 'ai') elements.aiApiGroup.style.display = 'block';
     };
 
-    // --- Test Connection UI ---
-    const removeTestPopover = () => {
-        if (testPopover) {
-            testPopover.remove();
-            testPopover = null;
-        }
-        document.removeEventListener('click', closePopoverOnClickOutside, true);
-    };
-
-    const closePopoverOnClickOutside = (event) => {
-        if (testPopover && !testPopover.contains(event.target) && !event.target.classList.contains('test-btn')) {
-            removeTestPopover();
-        }
-    };
-
-    const showTestPopover = (buttonElement, content) => {
-        removeTestPopover();
-        testPopover = document.createElement('div');
-        testPopover.className = 'test-result-popover';
-        testPopover.innerHTML = content;
-        document.body.appendChild(testPopover);
-
-        const btnRect = buttonElement.getBoundingClientRect();
-        const popoverRect = testPopover.getBoundingClientRect();
-        let left = btnRect.left;
-        if (left + popoverRect.width > window.innerWidth - 10) {
-            left = window.innerWidth - popoverRect.width - 10;
-        }
-        testPopover.style.left = `${left}px`;
-        testPopover.style.top = `${window.scrollY + btnRect.top - popoverRect.height - 8}px`;
-        setTimeout(() => document.addEventListener('click', closePopoverOnClickOutside, true), 0);
-    };
-
     // --- Core Logic Functions ---
     const loadSettings = async () => {
         const { settings } = await browser.storage.sync.get('settings');
@@ -124,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.aiApiUrl.value = currentSettings.aiApiUrl || '';
         elements.aiModelName.value = currentSettings.aiModelName || '';
 
-        elements.displayModeSelect.value = currentSettings.displayMode || 'replace'; // Set the value for the select element
+        elements.displayModeSelect.value = currentSettings.displayMode || 'replace';
 
         toggleApiFields();
         renderDomainRules(currentSettings.domainRules || {});
@@ -150,7 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const settings = {
             translatorEngine: elements.translatorEngine.value,
             targetLanguage: elements.targetLanguage.value,
-            displayMode: elements.displayModeSelect.value, // Get value from the select element
+            displayMode: elements.displayModeSelect.value,
             deeplxApiUrl: elements.deeplxApiUrl.value,
             googleApiKey: elements.googleApiKey.value,
             aiApiKey: elements.aiApiKey.value,
@@ -177,15 +138,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const generateDefaultPrecheckRules = () => {
         const rules = {
             general: [
-                { name: 'Whitespace only', regex: '^\\s*$', mode: 'blacklist', enabled: true, flags: '' },
-                { name: 'Numbers, Punctuation, Symbols', regex: '^[\\d.,\\s\\p{P}\\p{S}]+$', mode: 'blacklist', enabled: true, flags: 'u' },
-                { name: 'Single Emoji', regex: '^\\p{Emoji}$', mode: 'blacklist', enabled: true, flags: 'u' },
+                { name: browser.i18n.getMessage('precheckRuleWhitespace') || 'Whitespace only', regex: '^\s*$', mode: 'blacklist', enabled: true, flags: '' },
+                { name: browser.i18n.getMessage('precheckRulePunctuation') || 'Numbers, Punctuation, Symbols', regex: '^[\d.,\s\p{P}\p{S}]+$', mode: 'blacklist', enabled: true, flags: 'u' },
+                { name: browser.i18n.getMessage('precheckRuleEmoji') || 'Single Emoji', regex: '^\p{Emoji}$', mode: 'blacklist', enabled: true, flags: 'u' },
             ],
         };
         for (const langCode in window.Constants.LANG_REGEX_MAP) {
             if (window.Constants.SUPPORTED_LANGUAGES[langCode]) {
+                const langName = browser.i18n.getMessage(window.Constants.SUPPORTED_LANGUAGES[langCode]) || langCode;
                 rules[langCode] = [{
-                    name: `Contains ${browser.i18n.getMessage(window.Constants.SUPPORTED_LANGUAGES[langCode]) || langCode}`,
+                    name: `${browser.i18n.getMessage('precheckRuleContains') || 'Contains '} ${langName}`,
                     regex: window.Constants.LANG_REGEX_MAP[langCode].regex,
                     mode: 'whitelist',
                     enabled: true,
@@ -197,50 +159,85 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     function renderPrecheckRulesUI() {
-        elements.precheckRuleTabs.innerHTML = '';
-        elements.precheckRuleContent.innerHTML = '';
+        const container = document.getElementById('precheck-rules-container');
+        if (!container) return;
+        container.innerHTML = ''; // Clear previous content
 
-        Object.keys(precheckRules).forEach((category, index) => {
+        const tabButtons = document.createElement('div');
+        tabButtons.className = 'tab-buttons';
+
+        const tabContent = document.createElement('div');
+        tabContent.className = 'tab-content';
+
+        const categories = Object.keys(precheckRules);
+        const sortedCategories = ['general', ...categories.filter(c => c !== 'general').sort()];
+
+        sortedCategories.forEach((category, index) => {
+            // Create Tab Button
             const tabButton = document.createElement('button');
-            tabButton.className = 'tab-button' + (index === 0 ? ' active' : '');
-            tabButton.textContent = category;
+            tabButton.className = 'tab-button';
+            const categoryKey = `precheckTab_${category}`;
+            const categoryDisplayName = browser.i18n.getMessage(categoryKey) || category;
+            tabButton.textContent = categoryDisplayName;
             tabButton.dataset.category = category;
             tabButton.addEventListener('click', () => switchPrecheckTab(category));
-            elements.precheckRuleTabs.appendChild(tabButton);
+            tabButtons.appendChild(tabButton);
 
+            // Create Tab Panel
             const panel = document.createElement('div');
-            panel.className = 'tab-panel' + (index === 0 ? ' active' : '');
+            panel.className = 'tab-panel';
             panel.id = `panel-${category}`;
+            panel.dataset.category = category;
 
+            // Create Rule List
             const ruleList = document.createElement('div');
             ruleList.className = 'rule-list';
-            precheckRules[category].forEach(rule => {
-                ruleList.appendChild(createRuleItemElement(rule));
-            });
+            if(precheckRules[category]) {
+                precheckRules[category].forEach(rule => {
+                    ruleList.appendChild(createRuleItemElement(rule));
+                });
+            }
             panel.appendChild(ruleList);
 
+            // Create 'Add Rule' Button
             const addRuleBtn = document.createElement('button');
             addRuleBtn.textContent = browser.i18n.getMessage('addRule');
             addRuleBtn.className = 'add-rule-btn';
             addRuleBtn.addEventListener('click', () => addRuleToCategory(category));
             panel.appendChild(addRuleBtn);
 
-            elements.precheckRuleContent.appendChild(panel);
+            tabContent.appendChild(panel);
+
+            // Set first tab as active
+            if (index === 0) {
+                tabButton.classList.add('active');
+                panel.classList.add('active');
+            }
         });
+
+        container.appendChild(tabButtons);
+        container.appendChild(tabContent);
     }
 
     function createRuleItemElement(rule) {
         const item = document.createElement('div');
         item.className = 'rule-item';
+        const ruleNamePlaceholder = browser.i18n.getMessage('ruleNamePlaceholder') || 'Rule Name';
+        const regexPlaceholder = browser.i18n.getMessage('regexPlaceholder') || 'Regular Expression';
+        const flagsPlaceholder = browser.i18n.getMessage('flagsPlaceholder') || 'flags';
+        const blacklistText = browser.i18n.getMessage('blacklist') || 'Blacklist';
+        const whitelistText = browser.i18n.getMessage('whitelist') || 'Whitelist';
+        const enabledText = browser.i18n.getMessage('enabled') || 'Enabled';
+
         item.innerHTML = `
-            <input type="text" class="rule-name" placeholder="Rule Name" value="${rule.name || ''}">
-            <input type="text" class="rule-regex" placeholder="Regular Expression" value="${rule.regex || ''}">
-            <input type="text" class="rule-flags" placeholder="flags" value="${rule.flags || ''}">
+            <input type="text" class="rule-name" placeholder="${ruleNamePlaceholder}" value="${rule.name || ''}">
+            <input type="text" class="rule-regex" placeholder="${regexPlaceholder}" value="${rule.regex || ''}">
+            <input type="text" class="rule-flags" placeholder="${flagsPlaceholder}" value="${rule.flags || ''}">
             <select class="rule-mode">
-                <option value="blacklist" ${rule.mode === 'blacklist' ? 'selected' : ''}>Blacklist</option>
-                <option value="whitelist" ${rule.mode === 'whitelist' ? 'selected' : ''}>Whitelist</option>
+                <option value="blacklist" ${rule.mode === 'blacklist' ? 'selected' : ''}>${blacklistText}</option>
+                <option value="whitelist" ${rule.mode === 'whitelist' ? 'selected' : ''}>${whitelistText}</option>
             </select>
-            <label class="rule-enabled"><input type="checkbox" ${rule.enabled ? 'checked' : ''}> Enabled</label>
+            <label class="rule-enabled"><input type="checkbox" ${rule.enabled ? 'checked' : ''}> ${enabledText}</label>
             <button class="remove-rule-btn">×</button>
         `;
         item.querySelector('.remove-rule-btn').addEventListener('click', (e) => e.currentTarget.closest('.rule-item').remove());
@@ -250,20 +247,32 @@ document.addEventListener('DOMContentLoaded', () => {
     function addRuleToCategory(category) {
         const newRule = { name: '', regex: '', mode: 'blacklist', enabled: true, flags: '' };
         const ruleList = document.querySelector(`#panel-${category} .rule-list`);
-        ruleList.appendChild(createRuleItemElement(newRule));
+        if (ruleList) {
+            ruleList.appendChild(createRuleItemElement(newRule));
+        }
     }
 
     function switchPrecheckTab(category) {
-        document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-        document.querySelector(`.tab-button[data-category="${category}"]`).classList.add('active');
-        document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
-        document.getElementById(`panel-${category}`).classList.add('active');
+        const container = document.getElementById('precheck-rules-container');
+        if (!container) return;
+
+        container.querySelectorAll('.tab-button').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.category === category);
+        });
+        container.querySelectorAll('.tab-panel').forEach(panel => {
+            panel.classList.toggle('active', panel.dataset.category === category);
+        });
     }
 
     function getPrecheckRulesFromUI() {
         const newRules = {};
-        document.querySelectorAll('.tab-panel').forEach(panel => {
-            const category = panel.id.replace('panel-', '');
+        const container = document.getElementById('precheck-rules-container');
+        if (!container) return precheckRules; // Return old rules if UI not found
+
+        container.querySelectorAll('.tab-panel').forEach(panel => {
+            const category = panel.dataset.category;
+            if (!category) return;
+
             newRules[category] = [];
             panel.querySelectorAll('.rule-item').forEach(item => {
                 const name = item.querySelector('.rule-name').value.trim();
@@ -377,50 +386,80 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.readAsText(file);
     };
 
-    const testConnection = async (engine, buttonElement) => {
-        let settingsPayload = {};
-        if (engine === 'deeplx') {
-            settingsPayload = { deeplxApiUrl: elements.deeplxApiUrl.value };
-        } else if (engine === 'google') {
-            settingsPayload = { googleApiKey: elements.googleApiKey.value };
-        } else if (engine === 'ai') {
-            settingsPayload = {
-                aiApiKey: elements.aiApiKey.value,
-                aiApiUrl: elements.aiApiUrl.value,
-                aiModelName: elements.aiModelName.value,
-            };
+    const populateLanguageOptions = () => {
+        const select = elements.targetLanguage;
+        if (!select) return;
+
+        for (const code in window.Constants.SUPPORTED_LANGUAGES) {
+            const option = document.createElement('option');
+            option.value = code;
+            const langKey = window.Constants.SUPPORTED_LANGUAGES[code];
+            option.textContent = browser.i18n.getMessage(langKey) || code;
+            select.appendChild(option);
+        }
+    };
+
+    const toggleTestArea = async () => {
+        const container = document.getElementById('test-translation-container');
+        const button = document.getElementById('testTranslationBtn');
+        const sourceTextArea = document.getElementById('test-source-text');
+        const resultArea = document.getElementById('test-result-area');
+
+        const isHidden = container.style.display === 'none';
+
+        if (isHidden) {
+            container.style.display = 'block';
+            button.textContent = browser.i18n.getMessage('collapseTest') || 'Collapse';
+            sourceTextArea.focus();
+        } else {
+            container.style.display = 'none';
+            button.textContent = browser.i18n.getMessage('test') || 'Test';
+            sourceTextArea.value = '';
+            resultArea.innerHTML = '';
+        }
+    };
+
+    const performTestTranslation = async () => {
+        const sourceText = document.getElementById('test-source-text').value.trim();
+        const resultArea = document.getElementById('test-result-area');
+        
+        if (!sourceText) {
+            resultArea.textContent = browser.i18n.getMessage('testSourceEmpty') || 'Please enter text to translate.';
+            resultArea.className = 'test-result-area error';
+            return;
         }
 
-        const originalButtonText = buttonElement.textContent;
-        buttonElement.disabled = true;
-        buttonElement.textContent = browser.i18n.getMessage('testing');
-        removeTestPopover();
+        resultArea.textContent = browser.i18n.getMessage('testing') || 'Translating...';
+        resultArea.className = 'test-result-area';
 
         try {
             const response = await browser.runtime.sendMessage({
-                type: 'TEST_CONNECTION',
-                payload: { engine, settings: settingsPayload }
+                type: 'TRANSLATE_TEXT',
+                payload: {
+                    text: sourceText,
+                    targetLang: elements.targetLanguage.value,
+                    sourceLang: 'auto'
+                }
             });
-            const originalTitle = browser.i18n.getMessage('testOriginal');
-            const translatedTitle = browser.i18n.getMessage('testTranslated');
-            const errorTitle = browser.i18n.getMessage('testError');
 
             if (response.success) {
-                showTestPopover(buttonElement, `<div class="result-item"><span class="result-title">${originalTitle}:</span><code class="result-text">test</code></div><div class="result-item"><span class="result-title">${translatedTitle}:</span><code class="result-text success">${response.translatedText}</code></div>`);
+                resultArea.textContent = response.translatedText;
+                resultArea.className = 'test-result-area success';
             } else {
-                showTestPopover(buttonElement, `<div class="result-item"><span class="result-title">${errorTitle}:</span><code class="result-text error">${response.error}</code></div>`);
+                resultArea.textContent = `Error: ${response.error}`;
+                resultArea.className = 'test-result-area error';
             }
         } catch (error) {
-            showTestPopover(buttonElement, `<div class="result-item"><span class="result-title">${browser.i18n.getMessage('testError')}:</span><code class="result-text error">${error.message}</code></div>`);
-        } finally {
-            buttonElement.disabled = false;
-            buttonElement.textContent = originalButtonText;
+            console.error('Translation test error:', error);
+            resultArea.textContent = `Error: ${error.message}`;
+            resultArea.className = 'test-result-area error';
         }
     };
 
     // --- Initialization and Event Listeners ---
     const initialize = async () => {
         applyTranslations();
+        populateLanguageOptions();
         await loadSettings();
 
         elements.translatorEngine.addEventListener('change', toggleApiFields);
@@ -428,13 +467,17 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.addDomainRuleBtn.addEventListener('click', addDomainRule);
         elements.exportBtn.addEventListener('click', exportSettings);
         elements.importInput.addEventListener('change', importSettings);
-        elements.testDeepLxBtn.addEventListener('click', (e) => testConnection('deeplx', e.target));
-        elements.testGoogleBtn.addEventListener('click', (e) => testConnection('google', e.target));
-        elements.testAiBtn.addEventListener('click', (e) => testConnection('ai', e.target));
+        
+        const testTranslationBtn = document.getElementById('testTranslationBtn');
+        if(testTranslationBtn) testTranslationBtn.addEventListener('click', toggleTestArea);
+
+        const sourceTextArea = document.getElementById('test-source-text');
+        const manualTranslateBtn = document.getElementById('manual-test-translate-btn');
+        if(manualTranslateBtn) manualTranslateBtn.addEventListener('click', performTestTranslation);
+
         elements.mainTabButtons.forEach(button => {
             button.addEventListener('click', () => switchMainTab(button.dataset.tab));
         });
-
     };
 
     initialize();

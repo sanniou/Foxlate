@@ -60,7 +60,7 @@
     "description": "Label for the Google API key input."
   },
   "targetLanguage": {
-    "message": "Target Language (e.g., ZH, EN):",
+    "message": "Target Language:",
     "description": "Label for the target language input."
   },
   "translationSelector": {
@@ -188,5 +188,73 @@
   "langFR": { "message": "French" },
   "langDE": { "message": "German" },
   "langES": { "message": "Spanish" },
-  "langRU": { "message": "Russian" }
+  "langRU": { "message": "Russian" },
+  "precheckRulesTitle": {
+    "message": "Translation Pre-check Rules",
+    "description": "Title for the Pre-check Rules section."
+  },
+  "precheckRulesDescription": {
+    "message": "Configure rules to include (whitelist) or exclude (blacklist) text from translation. Blacklist rules are checked first. Text must match an enabled language whitelist rule to be translated.",
+    "description": "Description for the Pre-check Rules section."
+  },
+  "precheckTab_general": {
+    "message": "General",
+    "description": "Tab title for general pre-check rules."
+  },
+  "precheckRuleWhitespace": {
+    "message": "Whitespace only",
+    "description": "Name of the default rule that matches whitespace."
+  },
+  "precheckRulePunctuation": {
+    "message": "Numbers, Punctuation, Symbols",
+    "description": "Name of the default rule that matches numbers, punctuation, and symbols."
+  },
+  "precheckRuleEmoji": {
+    "message": "Single Emoji",
+    "description": "Name of the default rule that matches a single emoji."
+  },
+  "precheckRuleContains": {
+    "message": "Contains",
+    "description": "Prefix for language-specific rules, e.g., 'Contains English'."
+  },
+  "ruleNamePlaceholder": {
+    "message": "Rule Name",
+    "description": "Placeholder for the rule name input."
+  },
+  "regexPlaceholder": {
+    "message": "Regular Expression",
+    "description": "Placeholder for the regex input."
+  },
+  "flagsPlaceholder": {
+    "message": "flags",
+    "description": "Placeholder for the regex flags input."
+  },
+  "blacklist": {
+    "message": "Blacklist",
+    "description": "Option for blacklist mode in a rule."
+  },
+  "whitelist": {
+    "message": "Whitelist",
+    "description": "Option for whitelist mode in a rule."
+  },
+  "enabled": {
+    "message": "Enabled",
+    "description": "Checkbox label to enable a rule."
+  },
+  "collapseTest": {
+    "message": "Collapse",
+    "description": "Button text to collapse the test area."
+  },
+  "testSourcePlaceholder": {
+    "message": "Enter text to translate here...",
+    "description": "Placeholder for the test translation source text area."
+  },
+  "testSourceEmpty": {
+    "message": "Please enter text to translate.",
+    "description": "Error message when the test source text is empty."
+  },
+  "translateButtonText": {
+    "message": "Translate",
+    "description": "Text for the manual translate button in the content script."
+  }
 }
