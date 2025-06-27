@@ -3,13 +3,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const elements = {
         translatorEngine: document.getElementById('translatorEngine'),
         deeplxUrlGroup: document.getElementById('deeplxUrlGroup'),
-        aiApiGroup: document.getElementById('aiApiGroup'),
-        saveSettingsBtn: document.getElementById('saveSettingsBtn'),
+        aiApiGroup: document.getElementById('aiApiGroup'),        
         addDomainRuleBtn: document.getElementById('addDomainRuleBtn'),
         domainRulesList: document.getElementById('domainRulesList'),
         newDomainInput: document.getElementById('newDomain'),
         newDomainRuleSelect: document.getElementById('newDomainRule'),
         exportBtn: document.getElementById('export-btn'),
+        importBtn: document.getElementById('import-btn'),
         importInput: document.getElementById('import-input'),
         resetSettingsBtn: document.getElementById('reset-settings-btn'),
         statusMessage: document.getElementById('statusMessage'),
@@ -23,8 +23,10 @@ document.addEventListener('DOMContentLoaded', () => {
         aiCustomPrompt: document.getElementById('aiCustomPrompt'),
         displayModeSelect: document.getElementById('displayModeSelect'),
         mainTabButtons: document.querySelectorAll('.main-tab-button'),
-        // Add a reference to the save button for visual feedback
         saveSettingsBtn: document.getElementById('saveSettingsBtn'),
+        fabIconSave: document.getElementById('fab-icon-save'),
+        fabIconLoading: document.getElementById('fab-icon-loading'),
+        fabIconSuccess: document.getElementById('fab-icon-success'),
     };
     elements.toggleLogBtn = document.getElementById('toggleLogBtn');
     elements.logContent = document.getElementById('log-content');
@@ -33,7 +35,6 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.logContent.style.whiteSpace = 'pre-wrap'; // 保留换行符和空格，并自动换行
         elements.logContent.style.wordBreak = 'break-all';   // 允许在长单词或URL内部断开，防止溢出
     }
-    let originalSaveBtnText = elements.saveSettingsBtn.textContent; // Store original text
 
     // --- Unsaved Changes Tracking ---
     let hasUnsavedChanges = false;
@@ -41,19 +42,133 @@ document.addEventListener('DOMContentLoaded', () => {
     const markAsChanged = () => {
         if (!hasUnsavedChanges) {
             hasUnsavedChanges = true;
-            // 可选：在保存按钮上添加一个视觉指示器
-            elements.saveSettingsBtn.classList.add('unsaved-changes-indicator');
+            elements.saveSettingsBtn.classList.add('visible');
         }
     };
 
     const markAsSaved = () => {
         hasUnsavedChanges = false;
-        // 确保在保存成功后移除未保存更改的指示器
-        // 即使按钮文本临时变为“已保存”，指示器也应该消失
-        if (elements.saveSettingsBtn) {
-            elements.saveSettingsBtn.classList.remove('unsaved-changes-indicator');
-        }
+        // Visibility is now handled by the saveSettings function
     };
+
+    /**
+     * Tests a regular expression against a given input and displays the result.
+     * @param {HTMLInputElement} regexInput - The input element containing the regex.
+     * @param {HTMLInputElement} flagsInput - The input element containing the regex flags.
+     * @param {HTMLElement} resultElement - The element to display the test result.
+     */
+    function testRegex(regexInput, flagsInput, resultElement) {
+        const regexValue = regexInput.value.trim();
+        const flagsValue = flagsInput.value.trim();
+        const testTextInputElement = document.getElementById('testTextInput');
+        const testText = testTextInputElement ? testTextInputElement.value : ''; // Ensure testText is always a string
+
+        resultElement.classList.remove('show'); // 隐藏之前的测试结果
+        resultElement.innerHTML = ''; // 清空之前的 HTML 内容
+
+        if (!regexValue) {
+            resultElement.textContent = '请输入正则表达式'; // Please enter a regex
+            resultElement.classList.add('show');
+            return;
+        }
+
+        if (testText === '') {
+            resultElement.textContent = browser.i18n.getMessage('enterTestText') || '请输入测试文本。'; // New message for empty test text
+            resultElement.classList.add('show');
+            return;
+        }
+
+        try {
+            // 确保全局标志 'g' 被设置，以便 matchAll 返回所有匹配项。
+            // 这不会修改用户实际保存的 flags。
+            let effectiveFlags = flagsValue.includes('g') ? flagsValue : flagsValue + 'g';
+            const regex = new RegExp(regexValue, effectiveFlags);
+
+            const matches = [...testText.matchAll(regex)]; // 获取所有匹配项
+
+            if (matches.length === 0) {
+                resultElement.textContent = '不匹配';
+                resultElement.classList.add('show');
+            } else {
+                let lastIndex = 0;
+                let highlightedHtml = '';
+
+                matches.forEach(match => {
+                    const startIndex = match.index;
+                    const endIndex = startIndex + match[0].length;
+
+                    // 添加当前匹配项之前的部分，并进行 HTML 转义
+                    highlightedHtml += escapeHtml(testText.substring(lastIndex, startIndex));
+                    // 添加高亮显示的匹配项，并进行 HTML 转义
+                    highlightedHtml += `<span class="regex-highlight">${escapeHtml(match[0])}</span>`;
+                    lastIndex = endIndex;
+                });
+
+                // 添加最后一个匹配项之后的部分，并进行 HTML 转义
+                highlightedHtml += escapeHtml(testText.substring(lastIndex));
+
+                resultElement.innerHTML = highlightedHtml; // 使用 innerHTML 来渲染高亮
+                resultElement.classList.add('show');
+            }
+        } catch (e) {
+            // 捕获无效正则表达式的错误
+            resultElement.textContent = `无效的正则表达式: ${e.message}`; // Invalid Regex
+            resultElement.classList.add('show');
+            // 重新验证输入框以显示错误状态
+            validateRegexInput(regexInput, flagsInput);
+        }
+    }
+
+    // 辅助函数：对 HTML 字符串进行转义，防止 XSS 攻击
+    function escapeHtml(text) {
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+    }
+
+    /**
+     * Validates a regular expression and its flags.
+     * Adds/removes 'is-invalid' class and sets 'title' attribute for error messages.
+     * @param {HTMLInputElement} regexInput - The input element containing the regex string.
+     * @param {HTMLInputElement} flagsInput - The input element containing the regex flags.
+     * @returns {boolean} True if the regex is valid, false otherwise.
+     */
+    function validateRegexInput(regexInput, flagsInput) {
+        const regexValue = regexInput.value.trim();
+        const flagsValue = flagsInput.value.trim();
+        let isValid = true;
+        let errorMessage = '';
+
+        // An empty regex is technically valid (matches everything), but we should clear any error state.
+        if (regexValue === '') {
+            regexInput.classList.remove('is-invalid');
+            regexInput.removeAttribute('title');
+            flagsInput.classList.remove('is-invalid');
+            flagsInput.removeAttribute('title');
+            return true;
+        }
+
+        try {
+            new RegExp(regexValue, flagsValue); // Attempt to create a RegExp object
+            regexInput.classList.remove('is-invalid');
+            regexInput.removeAttribute('title');
+            flagsInput.classList.remove('is-invalid');
+            flagsInput.removeAttribute('title');
+        } catch (e) {
+            isValid = false;
+            errorMessage = e.message;
+            regexInput.classList.add('is-invalid');
+            regexInput.title = `无效的正则表达式: ${errorMessage}`; // Tooltip for error
+            flagsInput.classList.add('is-invalid'); // Mark flags input as invalid too, as the error might be a combination or related.
+            flagsInput.title = `无效的正则表达式标志: ${errorMessage}`;
+        }
+        return isValid;
+    }
 
     let precheckRules = {};
 
@@ -121,7 +236,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const storedRules = currentSettings.precheckRules;
         precheckRules = storedRules && Object.keys(storedRules).length > 0 ? storedRules : JSON.parse(JSON.stringify(defaultPrecheckRules));
         renderPrecheckRulesUI();
-        markAsSaved(); // 初始加载后，标记为已保存
+        hasUnsavedChanges = false;
+        elements.saveSettingsBtn.classList.remove('visible'); // Ensure FAB is hidden on initial load
     };
 
     const getDomainRulesFromList = () => {
@@ -137,11 +253,25 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const saveSettings = async () => {
-        // 1. 改变按钮状态为“保存中...”
-        originalSaveBtnText = elements.saveSettingsBtn.textContent; // 确保获取最新的原始文本
-        elements.saveSettingsBtn.textContent = browser.i18n.getMessage('saving') || '保存中...';
-        elements.saveSettingsBtn.disabled = true; // 禁用按钮防止重复点击
-        elements.saveSettingsBtn.classList.remove('unsaved-changes-indicator'); // 立即移除未保存指示器
+        // First, validate all pre-check rules before attempting to save
+        // This call also updates the UI with validation feedback
+        const precheckRulesToSave = getPrecheckRulesFromUI();
+        let hasInvalidRegex = false;
+        document.querySelectorAll('.rule-item input.is-invalid').forEach(() => {
+            hasInvalidRegex = true;
+        });
+
+        if (hasInvalidRegex) {
+            showStatusMessage(browser.i18n.getMessage('invalidRegexWarning'), true);
+            elements.saveSettingsBtn.classList.add('error-shake');
+            setTimeout(() => elements.saveSettingsBtn.classList.remove('error-shake'), 500);
+            return; // Prevent saving if there are invalid regexes
+        }
+        // --- State: Saving ---
+        elements.saveSettingsBtn.disabled = true;
+        elements.fabIconSave.classList.remove('active');
+        elements.fabIconLoading.classList.add('active');
+        elements.fabIconSuccess.classList.remove('active');
 
         const settings = {
             translatorEngine: elements.translatorEngine.value,
@@ -155,27 +285,41 @@ document.addEventListener('DOMContentLoaded', () => {
             translationSelector: {
                 default: elements.defaultTranslationSelector.value,
                 rules: getDomainRulesFromList(), // 确保这里获取的是最新的规则
-            },
-            precheckRules: getPrecheckRulesFromUI(),
+            }, // Use the already validated rules
+            precheckRules: precheckRulesToSave,
         };
 
         try {
             await browser.storage.sync.set({ settings });
             showStatusMessage(browser.i18n.getMessage('saveSettingsSuccess'));
-            markAsSaved(); // 保存成功后，标记为已保存
+            markAsSaved(); // Set the flag
 
-            // 2. 成功后显示“已保存”并短暂延迟后恢复
-            elements.saveSettingsBtn.textContent = browser.i18n.getMessage('saved') || '已保存';
+            // --- State: Success ---
+            elements.saveSettingsBtn.classList.add('success');
+            elements.fabIconLoading.classList.remove('active');
+            elements.fabIconSuccess.classList.add('active');
+
+            // --- State: Disappear and Reset ---
             setTimeout(() => {
-                elements.saveSettingsBtn.textContent = originalSaveBtnText; // 恢复原始文本
-                elements.saveSettingsBtn.disabled = false; // 重新启用按钮
-            }, 2000); // 显示“已保存”2秒
+                elements.saveSettingsBtn.classList.remove('visible'); // Start fade out animation
+
+                // Wait for animation to finish before resetting the button's internal state
+                setTimeout(() => {
+                    elements.saveSettingsBtn.disabled = false;
+                    elements.saveSettingsBtn.classList.remove('success');
+                    elements.fabIconSuccess.classList.remove('active');
+                    elements.fabIconSave.classList.add('active');
+                }, 300); // This timeout should match the CSS transition duration
+            }, 1000); // 1-second success display
         } catch (error) {
             console.error('Error saving settings:', error);
             showStatusMessage(browser.i18n.getMessage('saveSettingsError'), true);
-            // 3. 失败后恢复原始文本并重新启用按钮，并重新标记为未保存
-            elements.saveSettingsBtn.textContent = originalSaveBtnText;
+            // --- State: Error/Reset ---
             elements.saveSettingsBtn.disabled = false;
+            elements.fabIconLoading.classList.remove('active');
+            elements.fabIconSave.classList.add('active');
+            elements.saveSettingsBtn.classList.add('error-shake');
+            setTimeout(() => elements.saveSettingsBtn.classList.remove('error-shake'), 500);
             markAsChanged(); // 保存失败，仍然有未保存的更改
         }
     };
@@ -314,13 +458,48 @@ document.addEventListener('DOMContentLoaded', () => {
             </select>
             <label class="rule-enabled"><input type="checkbox" ${rule.enabled ? 'checked' : ''}> ${enabledText}</label>
             <button class="remove-rule-btn">×</button>
+            <button class="test-rule-btn">Test</button> <!-- Test button -->
         `;
+
+        const regexInput = item.querySelector('.rule-regex');
+        const flagsInput = item.querySelector('.rule-flags');
+
+        // Add event listeners for real-time validation and marking as changed
+        const validateAndMarkChanged = () => {
+            // Hide the test result whenever the regex or flags are edited,
+            // as the result is now stale.
+            const testResultElement = item.querySelector('.rule-test-result');
+            if (testResultElement) {
+                testResultElement.classList.remove('show');
+            }
+            validateRegexInput(regexInput, flagsInput); // Perform validation
+            markAsChanged(); // Any change in rule content marks as unsaved
+        };
+        regexInput.addEventListener('input', validateAndMarkChanged);
+        flagsInput.addEventListener('input', validateAndMarkChanged);
+        item.querySelector('.rule-mode').addEventListener('change', markAsChanged);
+        item.querySelector('.rule-enabled input').addEventListener('change', markAsChanged);
+
         item.querySelector('.remove-rule-btn').addEventListener('click', (e) => {
             e.currentTarget.closest('.rule-item').remove();
-            markAsChanged(); // 移除规则也算作更改
+            markAsChanged(); // Removing a rule counts as a change.
+        });
+
+        // Add test result element (initially hidden)
+        const testResultElement = document.createElement('div');
+        testResultElement.className = 'rule-test-result';
+        item.appendChild(testResultElement);
+
+        // Add event listener for the "Test" button
+        item.querySelector('.test-rule-btn').addEventListener('click', () => {
+            const testResultElement = item.querySelector('.rule-test-result'); // Get the result display area
+            testRegex(regexInput, flagsInput, testResultElement);
         });
         return item;
     }
+
+    // Initial validation when the element is created (after it's appended to DOM)
+    // This is handled by the call to createRuleItemElement inside renderPrecheckRulesUI
 
     function addRuleToCategory(category) {
         const newRule = { name: '', regex: '', mode: 'blacklist', enabled: true, flags: '' };
@@ -348,6 +527,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const container = document.getElementById('precheck-rules-container');
         if (!container) return precheckRules; // Return old rules if UI not found
 
+        let allRulesValid = true; // Flag to track overall validity
         container.querySelectorAll('.tab-panel').forEach(panel => {
             const category = panel.dataset.category;
             if (!category) return;
@@ -355,12 +535,20 @@ document.addEventListener('DOMContentLoaded', () => {
             newRules[category] = [];
             panel.querySelectorAll('.rule-item').forEach(item => {
                 const name = item.querySelector('.rule-name').value.trim();
-                const regex = item.querySelector('.rule-regex').value.trim();
+                const regexInput = item.querySelector('.rule-regex');
+                const flagsInput = item.querySelector('.rule-flags');
+
+                // Validate each regex/flags pair when extracting from UI
+                const isCurrentRuleValid = validateRegexInput(regexInput, flagsInput);
+                if (!isCurrentRuleValid) {
+                    allRulesValid = false; // Mark that at least one rule is invalid
+                }
+                const regex = regexInput.value.trim();
                 if (name && regex) {
                     newRules[category].push({
                         name: name,
-                        regex: regex,
-                        flags: item.querySelector('.rule-flags').value.trim(),
+                        regex: regex, // Store potentially invalid regex for user to fix
+                        flags: flagsInput.value.trim(),
                         mode: item.querySelector('.rule-mode').value,
                         enabled: item.querySelector('.rule-enabled input').checked,
                     });
@@ -368,6 +556,10 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
         return newRules;
+        // Note: The `allRulesValid` flag is not returned here, but it's used by `saveSettings`
+        // by querying the DOM for `.is-invalid` class. This ensures the UI state is the source of truth.
+        // If you wanted to return it, you'd need to modify the return type of this function.
+        // For now, the DOM query in saveSettings is sufficient.
     }
 
     // --- Main Tabs UI Logic ---
@@ -572,11 +764,24 @@ document.addEventListener('DOMContentLoaded', () => {
         populateLanguageOptions();
         await loadSettings();
 
-        elements.translatorEngine.addEventListener('change', toggleApiFields);
+        elements.translatorEngine.addEventListener('change', markAsChanged);
+        elements.translatorEngine.addEventListener('change', toggleApiFields); // Keep separate from unsaved changes
         elements.saveSettingsBtn.addEventListener('click', saveSettings);
+        elements.resetSettingsBtn.addEventListener('click', resetSettings);
         elements.addDomainRuleBtn.addEventListener('click', addDomainRule);
         elements.exportBtn.addEventListener('click', exportSettings);
+        elements.importBtn.addEventListener('click', () => elements.importInput.click());
         elements.importInput.addEventListener('change', importSettings);
+        
+        const testTextInput = document.getElementById('testTextInput');
+        if (testTextInput) {
+            testTextInput.addEventListener('focus', () => {
+                // Hide all visible test results when the main test text input gets focus
+                document.querySelectorAll('.rule-test-result.show').forEach(resultEl => {
+                    resultEl.classList.remove('show');
+                });
+            });
+        }
         
         // --- Event Listeners for Unsaved Changes ---
         // 监听所有输入框、选择框和文本域的变化

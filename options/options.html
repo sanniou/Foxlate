@@ -7,10 +7,20 @@
     <link rel="stylesheet" href="options.css">
 </head>
 <body>
+    <!-- Material Design Floating Action Button for Save -->
+    <button id="saveSettingsBtn" class="fab">
+        <span id="fab-icon-save" class="fab-icon active">
+            <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm2 16H5V5h11.17L19 7.83V19zM12 12c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3zM6 6h9v4H6z"/></svg>
+        </span>
+        <span id="fab-icon-loading" class="fab-icon">
+            <div class="spinner"></div>
+        </span>
+        <span id="fab-icon-success" class="fab-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
+        </span>
+    </button>
+
     <div class="container">
-        <div class="save-button-wrapper">
-            <button id="saveSettingsBtn" class="save-btn" i18n-text="saveSettings">Save Settings</button>
-        </div>
         <h1 i18n-text="settingsHeading">Universal Translator Settings</h1>
 
         <section class="settings-section">
@@ -83,8 +93,6 @@
                 <small i18n-text="selectorDescription">Comma-separated CSS selectors for elements to be translated.</small>
             </div>
 
-            <h3 i18n-text="domainSpecificRules">Domain-Specific Rules</h3>
-
         </section>
 
         <section class="settings-section">
@@ -100,10 +108,16 @@
         </section>
 
         <section class="settings-section">
-            <h2 i18n-text="domainRules">Domain Rules</h2>
+            <h2 i18n-text="domainSpecificRules">Domain-Specific Rules</h2>
             <div class="form-group">
               <label for="newDomain" i18n-text="domain">Domain:</label>
               <input type="text" id="newDomain" i18n-placeholder="domainPlaceholder" />
+              <!-- Missing Rule Type Selector -->
+              <label for="newDomainRule" i18n-text="rule">Rule:</label>
+              <select id="newDomainRule">
+                  <option value="manual" i18n-text="manualTranslate"></option>
+                  <option value="always" i18n-text="alwaysTranslate"></option>
+              </select>
               <label for="domainTranslationSelector" i18n-text="translationSelector">
                 Elements to Translate (CSS Selector):
               </label>
@@ -128,23 +142,28 @@
 
         <section class="settings-section">
             <h2 i18n-text="precheckRulesTitle">Translation Pre-check Rules</h2>
-            <div id="precheck-rules-container">
+            <small i18n-text="precheckRulesDescription">配置规则以包含（白名单）或排除（黑名单）文本的翻译。黑名单规则优先执行。文本必须匹配一个已启用的语言白名单规则才会被翻译。</small>
+            
+            <!-- Test Text Input - Moved outside precheck-rules-container -->
+            <div class="form-group">
+                <label for="testTextInput" i18n-text="testRegexInputLabel">测试文本:</label>
+                <textarea id="testTextInput" rows="2" i18n-placeholder="testRegexInputPlaceholder"></textarea>
+                <small i18n-text="testRegexInputDescription">在此输入文本以测试您的正则表达式规则。</small>
+            </div>
+
+            <div id="precheck-rules-container">                
                 <!-- Tabs will be dynamically generated here -->
             </div>
-            <small i18n-text="precheckRulesDescription">配置规则以包含（白名单）或排除（黑名单）文本的翻译。黑名单规则优先执行。文本必须匹配一个已启用的语言白名单规则才会被翻译。</small>
         </section>
 
         <section class="settings-section">
             <h2 i18n-text="configurationManagement">Configuration Management</h2>
-            <div class="form-group">
+            <div class="form-group button-group">
                 <button id="export-btn" i18n-text="exportSettings">Export Settings</button>
-            </div>
-            <div class="form-group">
-                <button id="reset-settings-btn" class="button danger" i18n-text="resetSettings">Reset Settings</button>
-            </div>
-            <div class="form-group">
-                <label for="import-input" i18n-text="importSettings">Import Settings:</label>
-                <input type="file" id="import-input" accept=".json">
+                <!-- The button triggers the hidden file input -->
+                <button id="import-btn" i18n-text="importSettings">Import Settings</button>
+                <input type="file" id="import-input" accept=".json" style="display: none;">
+                <button id="reset-settings-btn" class="danger" i18n-text="resetSettings">Reset Settings</button>
             </div>
         </section>
 

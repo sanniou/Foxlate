@@ -127,13 +127,24 @@ button:hover, .test-btn:hover {
     box-shadow: 0 2px 8px rgba(0, 123, 255, 0.2);
 }
 
-.test-btn {
-    background-color: var(--text-color-secondary);
+.button-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
 }
-.test-btn:hover { background-color: #5a6268; }
 
-#saveSettingsBtn {
-    min-width: 150px;
+button.danger {
+    background-color: var(--danger-color);
+}
+button.danger:hover {
+    background-color: var(--danger-color-hover);
+}
+
+/* Style for invalid input fields (e.g., invalid regex) */
+.form-group input.is-invalid,
+.rule-item input.is-invalid {
+    border-color: var(--danger-color); /* Red border for invalid input */
+    box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.25); /* Red glow */
 }
 
 .status-message {
@@ -191,6 +202,43 @@ small {
     line-height: 1.4;
 }
 
+/* Styles for Pre-check Rules Section */
+#precheck-rules-container {
+    margin-top: 15px;
+}
+
+#testTextInput {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    margin-bottom: 10px;
+    box-sizing: border-box; /* Ensure padding doesn't affect overall width */
+}
+
+.rule-test-result {
+    display: none; /* Hidden by default */
+    padding: 8px;
+    margin-top: 5px;
+    border-left: 3px solid var(--primary-color);
+    background-color: var(--bg-color);
+    border-radius: 0 4px 4px 0;
+}
+
+.rule-test-result.show {
+    display: block;
+}
+
+/* Style for highlighted regex matches */
+.regex-highlight {
+    background-color: #ffff00; /* 亮黄色背景 */
+    font-weight: bold;
+    padding: 1px 0; /* 少量内边距，视觉效果更好 */
+    border-radius: 2px;
+}
+
+
+
 /* --- Tab Styles --- */
 .tab-buttons {
     display: flex;
@@ -231,7 +279,7 @@ small {
 
 .rule-item {
     display: grid;
-    grid-template-columns: 1fr 2fr 0.5fr 1fr auto auto;
+    grid-template-columns: 1fr 2fr 0.5fr 1fr auto auto 1fr; /* Added space for test button */
     gap: 10px;
     align-items: center;
     padding: 10px;
@@ -348,53 +396,87 @@ small {
   background-color: var(--primary-color-hover);
   box-shadow: 0 2px 8px rgba(0, 123, 255, 0.2);
 }
-
-/* New wrapper for the save button to align it */
-.save-button-wrapper {
-    display: flex;
-    justify-content: flex-end; /* Push button to the right */
-    margin-bottom: 20px; /* Space below the button */
-    padding-top: 10px; /* Some space from the top of the container */
-    /* container 内部的 settings-section 有 24px 的 padding，这里也加上以对齐 */
-    padding-right: 24px;
+/* --- Floating Action Button (Save) --- */
+.fab {
+  position: fixed;
+  bottom: 40px;
+  /* Default for narrow screens: 24px body padding + 24px inset */
+  right: 48px;
+  width: 56px;
+  height: 56px;
+  background-color: #28a745; /* Green for save */
+  border-radius: 50%;
+  border: none;
+  box-shadow: 0 6px 10px 0 rgba(0,0,0,0.14), 0 1px 18px 0 rgba(0,0,0,0.12), 0 3px 5px -1px rgba(0,0,0,0.2);
+  z-index: 1000;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s, background-color 0.2s, box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: scale(0);
+  opacity: 0;
 }
 
-/* Styles for the save button itself */
-.save-btn { /* Renamed from .sticky-save-btn */
-    padding: 8px 16px; /* Smaller padding */
-    font-size: 0.9em; /* Smaller font size */
-    background-color: #28a745; /* 漂亮的绿色，表示成功/保存 */
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Smaller shadow */
-    transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out, box-shadow 0.2s;
+/* For viewports wider than the container (800px) + body padding (2*24px) */
+@media (min-width: 848px) {
+    .fab {
+        right: calc((100vw - 800px) / 2 + 24px);
+    }
 }
 
-.save-btn:hover {
-    background-color: #218838; /* 鼠标悬停时颜色变深 */
-    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+.fab.visible {
+  transform: scale(1);
+  opacity: 1;
 }
 
-.save-btn:active {
-    transform: translateY(1px); /* 点击时有轻微下沉效果 */
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+.fab:hover:not(:disabled) {
+  background-color: #218838;
+  /* MD elevation increases on hover (from 6dp to 12dp) */
+  box-shadow: 0 12px 17px 2px rgba(0,0,0,0.14), 0 5px 22px 4px rgba(0,0,0,0.12), 0 7px 8px -4px rgba(0,0,0,0.2);
 }
 
-/* Visual indicator for unsaved changes */
-.save-btn.unsaved-changes-indicator { /* Renamed from .sticky-save-btn.unsaved-changes-indicator */
-    position: relative;
-    /* 可以改变按钮颜色，或者添加一个点 */
-    /* background-color: var(--danger-color); */ /* 示例：变为红色 */
+.fab:disabled {
+  cursor: not-allowed;
+  background-color: #757575; /* Grey when saving */
 }
 
-.save-btn.unsaved-changes-indicator::after { /* Renamed from .sticky-save-btn.unsaved-changes-indicator::after */
-    content: '•'; /* Unicode bullet point */
-    color: var(--danger-color); /* 红色点 */
-    font-size: 2em; /* 点的大小 */
-    position: absolute;
-    top: -5px; /* 调整点的位置 */
-    right: -5px; /* 调整点的位置 */
-    line-height: 1;
+.fab.success {
+  background-color: #4caf50; /* A slightly different green for success */
+  transform: scale(1.1);
+}
+
+.fab.error-shake {
+  animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+  background-color: var(--danger-color);
+}
+
+@keyframes shake {
+  10%, 90% { transform: translate3d(-1px, 0, 0) scale(1); }
+  20%, 80% { transform: translate3d(2px, 0, 0) scale(1); }
+  30%, 50%, 70% { transform: translate3d(-4px, 0, 0) scale(1); }
+  40%, 60% { transform: translate3d(4px, 0, 0) scale(1); }
+}
+
+.fab-icon {
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.fab-icon.active {
+  display: flex;
+}
+
+.fab .spinner {
+  width: 28px;
+  height: 28px;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #ffffff;
+  animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }

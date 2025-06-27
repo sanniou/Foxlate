@@ -148,8 +148,8 @@
     "description": "导出设置的按钮文本。"
   },
   "importSettings": {
-    "message": "导入设置：",
-    "description": "导入设置文件输入框的标签。"
+    "message": "导入设置",
+    "description": "导入设置的按钮文本。"
   },
   "saveSettingsSuccess": { "message": "设置已成功保存！" },
   "saveSettingsError": { "message": "保存设置失败。" },
@@ -161,6 +161,10 @@
   "importSuccess": { "message": "设置已成功导入！界面已更新。" },
   "importError": { "message": "导入设置失败。文件可能已损坏或格式无效。" },
   "testing": { "message": "测试中..." },
+  "invalidRegexWarning": {
+    "message": "部分预检查规则包含无效的正则表达式。请在保存前修正它们。",
+    "description": "Warning message when pre-check rules have invalid regexes."
+  },
   "resetSettings": {
     "message": "重置设置",
     "description": "Button text to reset all settings to default."
@@ -398,5 +402,9 @@
   "aiCustomPromptMissingError": {
     "message": "AI 自定义提示词未在设置中配置，请前往设置。",
     "description": "当 AI 自定义提示词缺失时的错误信息。"
+  },
+  "enterTestText": {
+    "message": "请输入测试文本。",
+    "description": "Message when test text input is empty."
   }
 }

@@ -140,8 +140,8 @@
     "description": "Button text to export settings."
   },
   "importSettings": {
-    "message": "Import Settings:",
-    "description": "Label for the import settings file input."
+    "message": "Import Settings",
+    "description": "Button text to import settings."
   },
   "saveSettingsSuccess": { "message": "Settings saved successfully!" },
   "saveSettingsError": { "message": "Failed to save settings." },
@@ -155,6 +155,10 @@
   },
   "importError": {
     "message": "Failed to import settings. The file might be corrupted or invalid."
+  },
+  "invalidRegexWarning": {
+    "message": "Some pre-check rules contain invalid regular expressions. Please fix them before saving.",
+    "description": "Warning message when pre-check rules have invalid regexes."
   },
   "resetSettings": {
     "message": "Reset Settings",
@@ -388,5 +392,9 @@
   "aiCustomPromptMissingError": {
     "message": "AI Custom Prompt is not configured in settings. Please set it up.",
     "description": "Error message when the AI custom prompt is missing."
+  },
+  "enterTestText": {
+    "message": "Please enter test text.",
+    "description": "Message when test text input is empty."
   }
 }
