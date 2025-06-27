@@ -825,17 +825,13 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const populateAiEngineOptions = () => {
-        // Remove existing AI options
-        elements.translatorEngine.querySelectorAll('option[value^="ai:"]').forEach(option => option.remove());
-
         // Add new AI options
         aiEngines.forEach(engine => {
             const option = document.createElement('option');
             option.value = `ai:${engine.id}`;
-            option.textContent = `${browser.i18n.getMessage('aiTranslator')} (${engine.name})`;
+            option.textContent = engine.name; // Use the user-defined name directly.
             elements.translatorEngine.appendChild(option);
         });
-
     };
 
 

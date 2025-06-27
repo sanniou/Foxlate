@@ -85,7 +85,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentSettings = settings || {};
 
         // Populate all select elements
-        populateSelect(elements.engineSelect, window.Constants.SUPPORTED_ENGINES, currentSettings.translatorEngine || 'deeplx');
+        // Start with all supported engines from Constants
+        const allSupportedEngines = { ...window.Constants.SUPPORTED_ENGINES };
+        const aiEngines = currentSettings.aiEngines || [];
+        // Add custom AI engines to the list
+        aiEngines.forEach(engine => {
+            // The value is 'ai:engineId', and the text is the user-defined engine name.
+            allSupportedEngines[`ai:${engine.id}`] = engine.name;
+        });
+        populateSelect(elements.engineSelect, allSupportedEngines, currentSettings.translatorEngine || 'deeplx');
         populateSelect(elements.sourceLanguageSelect, window.Constants.SUPPORTED_LANGUAGES, 'auto');
         const targetLangs = { ...window.Constants.SUPPORTED_LANGUAGES };
         delete targetLangs.auto; // Target language cannot be 'auto'

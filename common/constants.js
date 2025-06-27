@@ -18,8 +18,7 @@ window.Constants = {
 
     SUPPORTED_ENGINES: {
         'deeplx': 'deeplx',
-        'google': 'googleTranslate',
-        'ai': 'aiTranslator'
+        'google': 'googleTranslate'
     },
 
     // Maps language codes to their corresponding script regex for pre-check rules.
