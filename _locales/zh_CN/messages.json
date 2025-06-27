@@ -135,6 +135,14 @@
     "message": "保存设置",
     "description": "保存设置的按钮文本。"
   },
+  "saving": {
+    "message": "保存中...",
+    "description": "Text displayed when settings are being saved"
+  },
+  "saved": {
+    "message": "已保存",
+    "description": "Text displayed after settings are successfully saved"
+  },
   "exportSettings": {
     "message": "导出设置",
     "description": "导出设置的按钮文本。"
@@ -300,11 +308,11 @@
     "description": "Text for the manual translate button in the content script."
   },
   "logEntryPrecheckRuleError": {
-    "message": "[预检查] 规则 \"{0}\" 错误：{1}",
+    "message": "[预检查] 规则 \"$1\" 错误：$2",
     "description": "Log entry for error during pre-check rule application. Placeholders: [ruleName, errorMessage]"
   },
   "logEntryPrecheckNoWhitelistRule": {
-    "message": "[预检查] 未找到目标语言 {0} 的启用白名单规则。将继续翻译。",
+    "message": "[预检查] 未找到目标语言 $1 的启用白名单规则。将继续翻译。",
     "description": "Log entry when no whitelist rule is found for the target language."
   },
   "logEntryCacheHit": {
@@ -340,7 +348,7 @@
     "description": "Title for the translation log area."
   },
   "logEntryStart": {
-    "message": "[开始] 翻译 \"{0}\" 从 {1} 到 {2}",
+    "message": "[开始] 翻译 \"$1\" 从 $2 到 $3",
     "description": "Log entry for start of translation. Placeholders: [text, sourceLang, targetLang]"
   },
   "logEntryPrecheckStart": {
@@ -348,11 +356,11 @@
     "description": "Log entry for the start of pre-check rules."
   },
   "logEntryPrecheckMatch": {
-    "message": "[预检查] 规则 \"{0}\" ({1}) 匹配。文本将不被翻译。",
+    "message": "[预检查] 规则 \"$1\" ($2) 匹配。文本将不被翻译。",
     "description": "Log entry when a pre-check rule matches and prevents translation. Placeholders: [ruleName, ruleMode]"
   },
   "logEntryPrecheckNoMatch": {
-    "message": "[预检查] 规则 \"{0}\" ({1}) 未匹配。",
+    "message": "[预检查] 规则 \"$1\" ($2) 未匹配。",
     "description": "Log entry when a pre-check rule does not match. Placeholders: [ruleName, ruleMode]"
   },
   "logEntryPrecheckNoTranslation": {
@@ -360,23 +368,23 @@
     "description": "Log entry when pre-check determines no translation is needed."
   },
   "logEntryPrecheckError": {
-    "message": "[预检查] 错误: {0}",
+    "message": "[预检查] 错误: $1",
     "description": "Log entry for a pre-check configuration error. Placeholder: [errorMessage]"
   },
   "logEntryEngineUsed": {
-    "message": "[引擎] 使用翻译引擎：{0}",
+    "message": "[引擎] 使用翻译引擎：$1",
     "description": "Log entry for the chosen translation engine. Placeholder: [engineName]"
   },
   "logEntryApiRequest": {
-    "message": "[API 调用] 请求 {0} API 翻译。",
+    "message": "[API 调用] 请求 $1 API 翻译。",
     "description": "Log entry for API call initiation. Placeholder: [translatorName]"
   },
   "logEntryApiResponseSuccess": {
-    "message": "[API 响应] 成功。原始数据（部分）：{0}",
+    "message": "[API 响应] 成功。原始数据（部分）：$1",
     "description": "Log entry for successful API response. Placeholder: [partialData]"
   },
   "logEntryApiResponseError": {
-    "message": "[API 响应] 错误：{0} {1}",
+    "message": "[API 响应] 错误：$1 $2",
     "description": "Log entry for API response error. Placeholders: [statusCode, statusText]"
   },
   "logEntryTranslationSuccess": {
@@ -384,7 +392,7 @@
     "description": "Log entry for successful translation."
   },
   "logEntryTranslationError": {
-    "message": "[错误] {0}",
+    "message": "[错误] $1",
     "description": "Log entry for translation failure. Placeholder: [errorMessage]"
   },
   "aiCustomPromptMissingError": {

@@ -348,3 +348,53 @@ small {
   background-color: var(--primary-color-hover);
   box-shadow: 0 2px 8px rgba(0, 123, 255, 0.2);
 }
+
+/* New wrapper for the save button to align it */
+.save-button-wrapper {
+    display: flex;
+    justify-content: flex-end; /* Push button to the right */
+    margin-bottom: 20px; /* Space below the button */
+    padding-top: 10px; /* Some space from the top of the container */
+    /* container 内部的 settings-section 有 24px 的 padding，这里也加上以对齐 */
+    padding-right: 24px;
+}
+
+/* Styles for the save button itself */
+.save-btn { /* Renamed from .sticky-save-btn */
+    padding: 8px 16px; /* Smaller padding */
+    font-size: 0.9em; /* Smaller font size */
+    background-color: #28a745; /* 漂亮的绿色，表示成功/保存 */
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Smaller shadow */
+    transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out, box-shadow 0.2s;
+}
+
+.save-btn:hover {
+    background-color: #218838; /* 鼠标悬停时颜色变深 */
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+}
+
+.save-btn:active {
+    transform: translateY(1px); /* 点击时有轻微下沉效果 */
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Visual indicator for unsaved changes */
+.save-btn.unsaved-changes-indicator { /* Renamed from .sticky-save-btn.unsaved-changes-indicator */
+    position: relative;
+    /* 可以改变按钮颜色，或者添加一个点 */
+    /* background-color: var(--danger-color); */ /* 示例：变为红色 */
+}
+
+.save-btn.unsaved-changes-indicator::after { /* Renamed from .sticky-save-btn.unsaved-changes-indicator::after */
+    content: '•'; /* Unicode bullet point */
+    color: var(--danger-color); /* 红色点 */
+    font-size: 2em; /* 点的大小 */
+    position: absolute;
+    top: -5px; /* 调整点的位置 */
+    right: -5px; /* 调整点的位置 */
+    line-height: 1;
+}

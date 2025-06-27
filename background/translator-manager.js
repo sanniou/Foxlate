@@ -129,16 +129,15 @@ export class TranslatorManager {
                   return { text: text, translated: false, log: log };
               }
               const allLettersString = letterChars.join('');
-              // IMPORTANT: Ensure 'g' flag is only added if needed, or if it's part of the stored flags.
-              // If whitelistRule.flags already contains 'g', adding it again is redundant.
-              // If it doesn't, and the regex is meant to match globally, it should be added.
-              // For simplicity, let's assume whitelistRule.flags contains all necessary flags.
-              const langRegex = new RegExp(whitelistRule.regex, whitelistRule.flags);
+              // Ensure the global flag 'g' is present for the replacement logic to check all letters.
+              const flags = whitelistRule.flags || '';
+              const globalFlags = flags.includes('g') ? flags : flags + 'g';
+              const langRegex = new RegExp(whitelistRule.regex, globalFlags);
               console.log(`[TM Debug] Whitelist regex created: ${langRegex}`); // Debug log
               const remainingChars = allLettersString.replace(langRegex, '');
               console.log(`[TM Debug] Remaining chars after whitelist regex: "${remainingChars}"`); // Debug log
               if (remainingChars.length === 0) {
-                  log.push(browser.i18n.getMessage('logEntryPrecheckMatch', [browser.i18n.getMessage(whitelistRule.nameKey), 'whitelist'])); // 使用 i18n 获取规则名称
+                  log.push(browser.i18n.getMessage('logEntryPrecheckMatch', [whitelistRule.name, 'whitelist']));
                   log.push(browser.i18n.getMessage('logEntryPrecheckNoTranslation'));
                   console.log(`[TM Debug] Pre-check: Whitelist rule "${whitelistRule.name}" matched. Returning early.`); // Debug log
                   return { text: text, translated: false, log: log };

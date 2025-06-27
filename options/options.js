@@ -23,9 +23,37 @@ document.addEventListener('DOMContentLoaded', () => {
         aiCustomPrompt: document.getElementById('aiCustomPrompt'),
         displayModeSelect: document.getElementById('displayModeSelect'),
         mainTabButtons: document.querySelectorAll('.main-tab-button'),
+        // Add a reference to the save button for visual feedback
+        saveSettingsBtn: document.getElementById('saveSettingsBtn'),
     };
     elements.toggleLogBtn = document.getElementById('toggleLogBtn');
     elements.logContent = document.getElementById('log-content');
+    // 为日志内容区域设置样式，以确保其能够正确换行
+    if (elements.logContent) {
+        elements.logContent.style.whiteSpace = 'pre-wrap'; // 保留换行符和空格，并自动换行
+        elements.logContent.style.wordBreak = 'break-all';   // 允许在长单词或URL内部断开，防止溢出
+    }
+    let originalSaveBtnText = elements.saveSettingsBtn.textContent; // Store original text
+
+    // --- Unsaved Changes Tracking ---
+    let hasUnsavedChanges = false;
+
+    const markAsChanged = () => {
+        if (!hasUnsavedChanges) {
+            hasUnsavedChanges = true;
+            // 可选：在保存按钮上添加一个视觉指示器
+            elements.saveSettingsBtn.classList.add('unsaved-changes-indicator');
+        }
+    };
+
+    const markAsSaved = () => {
+        hasUnsavedChanges = false;
+        // 确保在保存成功后移除未保存更改的指示器
+        // 即使按钮文本临时变为“已保存”，指示器也应该消失
+        if (elements.saveSettingsBtn) {
+            elements.saveSettingsBtn.classList.remove('unsaved-changes-indicator');
+        }
+    };
 
     let precheckRules = {};
 
@@ -93,6 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const storedRules = currentSettings.precheckRules;
         precheckRules = storedRules && Object.keys(storedRules).length > 0 ? storedRules : JSON.parse(JSON.stringify(defaultPrecheckRules));
         renderPrecheckRulesUI();
+        markAsSaved(); // 初始加载后，标记为已保存
     };
 
     const getDomainRulesFromList = () => {
@@ -108,6 +137,12 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const saveSettings = async () => {
+        // 1. 改变按钮状态为“保存中...”
+        originalSaveBtnText = elements.saveSettingsBtn.textContent; // 确保获取最新的原始文本
+        elements.saveSettingsBtn.textContent = browser.i18n.getMessage('saving') || '保存中...';
+        elements.saveSettingsBtn.disabled = true; // 禁用按钮防止重复点击
+        elements.saveSettingsBtn.classList.remove('unsaved-changes-indicator'); // 立即移除未保存指示器
+
         const settings = {
             translatorEngine: elements.translatorEngine.value,
             targetLanguage: elements.targetLanguage.value,
@@ -119,7 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
             aiCustomPrompt: elements.aiCustomPrompt.value,
             translationSelector: {
                 default: elements.defaultTranslationSelector.value,
-                rules: getDomainRulesFromList(),
+                rules: getDomainRulesFromList(), // 确保这里获取的是最新的规则
             },
             precheckRules: getPrecheckRulesFromUI(),
         };
@@ -127,9 +162,21 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             await browser.storage.sync.set({ settings });
             showStatusMessage(browser.i18n.getMessage('saveSettingsSuccess'));
+            markAsSaved(); // 保存成功后，标记为已保存
+
+            // 2. 成功后显示“已保存”并短暂延迟后恢复
+            elements.saveSettingsBtn.textContent = browser.i18n.getMessage('saved') || '已保存';
+            setTimeout(() => {
+                elements.saveSettingsBtn.textContent = originalSaveBtnText; // 恢复原始文本
+                elements.saveSettingsBtn.disabled = false; // 重新启用按钮
+            }, 2000); // 显示“已保存”2秒
         } catch (error) {
             console.error('Error saving settings:', error);
             showStatusMessage(browser.i18n.getMessage('saveSettingsError'), true);
+            // 3. 失败后恢复原始文本并重新启用按钮，并重新标记为未保存
+            elements.saveSettingsBtn.textContent = originalSaveBtnText;
+            elements.saveSettingsBtn.disabled = false;
+            markAsChanged(); // 保存失败，仍然有未保存的更改
         }
     };
 
@@ -139,6 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 await browser.storage.sync.remove('settings');
                 // After removing, reload the settings, which will apply the defaults.
+                // loadSettings will call markAsSaved()
                 await loadSettings();
                 showStatusMessage(browser.i18n.getMessage('resetSettingsSuccess'));
             } catch (error) {
@@ -267,7 +315,10 @@ document.addEventListener('DOMContentLoaded', () => {
             <label class="rule-enabled"><input type="checkbox" ${rule.enabled ? 'checked' : ''}> ${enabledText}</label>
             <button class="remove-rule-btn">×</button>
         `;
-        item.querySelector('.remove-rule-btn').addEventListener('click', (e) => e.currentTarget.closest('.rule-item').remove());
+        item.querySelector('.remove-rule-btn').addEventListener('click', (e) => {
+            e.currentTarget.closest('.rule-item').remove();
+            markAsChanged(); // 移除规则也算作更改
+        });
         return item;
     }
 
@@ -276,6 +327,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const ruleList = document.querySelector(`#panel-${category} .rule-list`);
         if (ruleList) {
             ruleList.appendChild(createRuleItemElement(newRule));
+            markAsChanged(); // 添加规则也算作更改
         }
     }
 
@@ -403,6 +455,7 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const settings = JSON.parse(e.target.result);
                 await browser.storage.sync.set({ settings });
+                // loadSettings will call markAsSaved()
                 showStatusMessage(browser.i18n.getMessage('importSuccess'));
                 await loadSettings();
             } catch (error) {
@@ -524,7 +577,23 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.addDomainRuleBtn.addEventListener('click', addDomainRule);
         elements.exportBtn.addEventListener('click', exportSettings);
         elements.importInput.addEventListener('change', importSettings);
-        elements.resetSettingsBtn.addEventListener('click', resetSettings);
+        
+        // --- Event Listeners for Unsaved Changes ---
+        // 监听所有输入框、选择框和文本域的变化
+        document.querySelector('.container').addEventListener('input', (event) => {
+            const target = event.target;
+            // 排除按钮和文件输入，因为它们触发的是动作而不是设置值更改
+            if (target.matches('input:not([type="button"]):not([type="submit"]):not([type="file"]), textarea, select')) {
+                markAsChanged();
+            }
+        });
+        // 监听复选框和选择框的change事件
+        document.querySelector('.container').addEventListener('change', (event) => {
+            const target = event.target;
+            if (target.matches('input[type="checkbox"], select')) {
+                markAsChanged();
+            }
+        });
         
         const testTranslationBtn = document.getElementById('testTranslationBtn');
         if(testTranslationBtn) testTranslationBtn.addEventListener('click', toggleTestArea);
@@ -536,6 +605,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         elements.mainTabButtons.forEach(button => {
             button.addEventListener('click', () => switchMainTab(button.dataset.tab));
+        });
+
+        // --- Before Unload Listener ---
+        window.addEventListener('beforeunload', (event) => {
+            if (hasUnsavedChanges) {
+                // 现代浏览器通常会显示一个通用的提示信息，而不是自定义的字符串
+                event.preventDefault(); // 阻止默认行为，触发提示
+                event.returnValue = ''; // 某些浏览器需要设置此属性
+                return ''; // 某些浏览器需要返回一个字符串
+            }
         });
     };
 

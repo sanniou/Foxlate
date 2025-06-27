@@ -298,11 +298,11 @@
     "description": "Text for the manual translate button in the content script."
   },
   "logEntryPrecheckRuleError": {
-    "message": "[Pre-check] Error in rule \"{0}\": {1}",
+    "message": "[Pre-check] Error in rule \"$1\": $2",
     "description": "Log entry for error during pre-check rule application. Placeholders: [ruleName, errorMessage]"
   },
   "logEntryPrecheckNoWhitelistRule": {
-    "message": "[Pre-check] No enabled whitelist rule found for target language {0}. Translation will proceed.",
+    "message": "[Pre-check] No enabled whitelist rule found for target language $1. Translation will proceed.",
     "description": "Log entry when no whitelist rule is found for the target language."
   },
   "logEntryCacheHit": {
@@ -338,7 +338,7 @@
     "description": "Title for the translation log area."
   },
   "logEntryStart": {
-    "message": "[Start] Translating \"{0}\" from {1} to {2}",
+    "message": "[Start] Translating \"$1\" from $2 to $3",
     "description": "Log entry for start of translation. Placeholders: [text, sourceLang, targetLang]"
   },
   "logEntryPrecheckStart": {
@@ -346,11 +346,11 @@
     "description": "Log entry for the start of pre-check rules."
   },
   "logEntryPrecheckMatch": {
-    "message": "[Pre-check] Rule \"{0}\" ({1}) matched. Text will not be translated.",
+    "message": "[Pre-check] Rule \"$1\" ($2) matched. Text will not be translated.",
     "description": "Log entry when a pre-check rule matches and prevents translation. Placeholders: [ruleName, ruleMode]"
   },
   "logEntryPrecheckNoMatch": {
-    "message": "[Pre-check] Rule \"{0}\" ({1}) did not match.",
+    "message": "[Pre-check] Rule \"$1\" ($2) did not match.",
     "description": "Log entry when a pre-check rule does not match. Placeholders: [ruleName, ruleMode]"
   },
   "logEntryPrecheckNoTranslation": {
@@ -358,23 +358,23 @@
     "description": "Log entry when pre-check determines no translation is needed."
   },
   "logEntryPrecheckError": {
-    "message": "[Pre-check] Error: {0}",
+    "message": "[Pre-check] Error: $1",
     "description": "Log entry for a pre-check configuration error. Placeholder: [errorMessage]"
   },
   "logEntryEngineUsed": {
-    "message": "[Engine] Using translation engine: {0}",
+    "message": "[Engine] Using translation engine: $1",
     "description": "Log entry for the chosen translation engine. Placeholder: [engineName]"
   },
   "logEntryApiRequest": {
-    "message": "[API Call] Requesting translation from {0} API.",
+    "message": "[API Call] Requesting translation from $1 API.",
     "description": "Log entry for API call initiation. Placeholder: [translatorName]"
   },
   "logEntryApiResponseSuccess": {
-    "message": "[API Response] Success. Raw data (partial): {0}",
+    "message": "[API Response] Success. Raw data (partial): $1",
     "description": "Log entry for successful API response. Placeholder: [partialData]"
   },
   "logEntryApiResponseError": {
-    "message": "[API Response] Error: {0} {1}",
+    "message": "[API Response] Error: $1 $2",
     "description": "Log entry for API response error. Placeholders: [statusCode, statusText]"
   },
   "logEntryTranslationSuccess": {
@@ -382,7 +382,7 @@
     "description": "Log entry for successful translation."
   },
   "logEntryTranslationError": {
-    "message": "[Error] {0}",
+    "message": "[Error] $1",
     "description": "Log entry for translation failure. Placeholder: [errorMessage]"
   },
   "aiCustomPromptMissingError": {
