@@ -187,31 +187,38 @@
             <div id="aiEngineForm" class="form-group" style="display: none;">
                 <h3><span id="aiFormTitle"></span> AI Engine</h3>
                 <div class="m3-form-field filled">
-                    <label for="aiEngineName" i18n-text="aiEngineName">Engine Name:</label>
+                    <label for="aiEngineName" i18n-text="aiEngineName">Engine Name:<span class="required-indicator">*</span></label>
                     <input type="text" id="aiEngineName" placeholder="My GPT-3.5">
+                    <div class="error-message" id="aiEngineNameError"></div>
                 </div>
                 <div class="m3-form-field filled">
-                    <label for="aiApiKey" i18n-text="aiApiKey">AI API Key:</label>
+                    <label for="aiApiKey" i18n-text="aiApiKey">AI API Key:<span class="required-indicator">*</span></label>
                     <input type="password" id="aiApiKey" i18n-placeholder="aiApiKeyPlaceholder">
+                    <div class="error-message" id="aiApiKeyError"></div>
                 </div>
                 <div class="m3-form-field filled">
-                    <label for="aiApiUrl" i18n-text="aiApiUrl">API Endpoint URL (Optional):</label>
+                    <label for="aiApiUrl" i18n-text="aiApiUrl">API Endpoint URL:<span class="required-indicator">*</span></label>
                     <input type="text" id="aiApiUrl" i18n-placeholder="aiApiUrlPlaceholder">
+                    <div class="error-message" id="aiApiUrlError"></div>
                 </div>
                 <div class="m3-form-field filled">
-                    <label for="aiModelName" i18n-text="aiModelName">Model Name (Optional):</label>
+                    <label for="aiModelName" i18n-text="aiModelName">Model Name:<span class="required-indicator">*</span></label>
                     <input type="text" id="aiModelName" i18n-placeholder="aiModelNamePlaceholder">
+                    <div class="error-message" id="aiModelNameError"></div>
                 </div>
                 <div class="m3-form-field filled">
-                    <label for="aiCustomPrompt" i18n-text="aiCustomPrompt">Custom Prompt:</label>
+                    <label for="aiCustomPrompt" i18n-text="aiCustomPrompt">Custom Prompt:<span class="required-indicator">*</span></label>
                     <textarea id="aiCustomPrompt" rows="4" i18n-placeholder="aiCustomPromptPlaceholder"></textarea>
+                    <div class="error-message" id="aiCustomPromptError"></div>
                 </div>
-                <div class="button-group">
-                    <button id="saveAiEngineBtn" class="m3-button filled" i18n-text="saveSettings">Save AI Engine</button>
-                    <button id="cancelAiEngineBtn" class="m3-button text">Cancel</button>
+                <div class="button-group ai-engine-form-buttons">
                     <button id="testAiEngineBtn" class="m3-button filled" i18n-text="test">Test Connection</button>
+                    <div class="action-buttons">
+                        <button id="cancelAiEngineBtn" class="m3-button text">Cancel</button>
+                        <button id="saveAiEngineBtn" class="m3-button filled" i18n-text="saveSettings">Save AI Engine</button>
+                    </div>
                 </div>
-                <div id="aiTestResult" class="status-message"></div>
+                <div id="aiTestResult" class="status-message ai-test-result-message"></div>
             </div>
         </div>
     </div>

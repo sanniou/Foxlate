@@ -30,6 +30,12 @@ document.addEventListener('DOMContentLoaded', () => {
         aiApiUrlInput: document.getElementById('aiApiUrl'),
         aiModelNameInput: document.getElementById('aiModelName'),
         aiCustomPromptInput: document.getElementById('aiCustomPrompt'),
+        // AI Engine Form Error Elements
+        aiEngineNameError: document.getElementById('aiEngineNameError'),
+        aiApiKeyError: document.getElementById('aiApiKeyError'),
+        aiApiUrlError: document.getElementById('aiApiUrlError'),
+        aiModelNameError: document.getElementById('aiModelNameError'),
+        aiCustomPromptError: document.getElementById('aiCustomPromptError'),
         saveAiEngineBtn: document.getElementById('saveAiEngineBtn'),
         cancelAiEngineBtn: document.getElementById('cancelAiEngineBtn'),
         testAiEngineBtn: document.getElementById('testAiEngineBtn'),
@@ -752,6 +758,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const showAiEngineForm = (engine = {}) => {
+        clearAiFormErrors(); // 每次显示表单时清除所有错误提示
         elements.aiEngineForm.style.display = 'block';
         elements.aiTestResult.style.display = 'none';
         elements.aiFormTitle.textContent = engine.id ? (browser.i18n.getMessage('edit') || 'Edit') : (browser.i18n.getMessage('addRule') || 'Add');
@@ -761,6 +768,39 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.aiModelNameInput.value = engine.model || '';
         elements.aiCustomPromptInput.value = engine.customPrompt || '';
         currentEditingAiEngineId = engine.id || null;
+    };
+
+    /**
+     * Clears all validation error messages and invalid states from the AI engine form.
+     */
+    const clearAiFormErrors = () => {
+        const fields = ['aiEngineName', 'aiApiKey', 'aiApiUrl', 'aiModelName', 'aiCustomPrompt'];
+        fields.forEach(field => {
+            const input = elements[`${field}Input`];
+            const errorDiv = elements[`${field}Error`];
+            if (input && errorDiv) {
+                input.closest('.m3-form-field').classList.remove('is-invalid');
+                errorDiv.textContent = '';
+            }
+        });
+    };
+
+    /**
+     * Validates a single AI form field.
+     * @param {HTMLInputElement|HTMLTextAreaElement} inputElement The input or textarea element.
+     * @param {HTMLElement} errorElement The div to display the error message.
+     * @param {string} i18nKey The i18n key for the field's name.
+     * @returns {boolean} True if valid, false otherwise.
+     */
+    const validateAiFormField = (inputElement, errorElement, i18nKey) => {
+        if (inputElement.value.trim() === '') {
+            inputElement.closest('.m3-form-field').classList.add('is-invalid');
+            errorElement.textContent = `${browser.i18n.getMessage(i18nKey) || i18nKey} ${browser.i18n.getMessage('isRequired') || 'is required.'}`;
+            return false;
+        }
+        inputElement.closest('.m3-form-field').classList.remove('is-invalid');
+        errorElement.textContent = ''; // 修复：将 errorDiv 改为 errorElement
+        return true;
     };
 
     const addAiEngine = () => {
@@ -775,14 +815,23 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const saveAiEngine = async () => {
+        clearAiFormErrors(); // Clear previous errors before validating
+
         const name = elements.aiEngineNameInput.value.trim();
         const apiKey = elements.aiApiKeyInput.value.trim();
         const apiUrl = elements.aiApiUrlInput.value.trim();
         const model = elements.aiModelNameInput.value.trim();
         const customPrompt = elements.aiCustomPromptInput.value.trim();
 
-        if (!name || !apiKey) {
-            showStatusMessage(browser.i18n.getMessage('aiEngineName') + ' and ' + browser.i18n.getMessage('aiApiKey') + ' are required.', true); // Need better i18n for this
+        let isValid = true;
+        isValid = validateAiFormField(elements.aiEngineNameInput, elements.aiEngineNameError, 'aiEngineName') && isValid;
+        isValid = validateAiFormField(elements.aiApiKeyInput, elements.aiApiKeyError, 'aiApiKey') && isValid;
+        isValid = validateAiFormField(elements.aiApiUrlInput, elements.aiApiUrlError, 'aiApiUrl') && isValid;
+        isValid = validateAiFormField(elements.aiModelNameInput, elements.aiModelNameError, 'aiModelName') && isValid;
+        isValid = validateAiFormField(elements.aiCustomPromptInput, elements.aiCustomPromptError, 'aiCustomPrompt') && isValid;
+
+        if (!isValid) {
+            showStatusMessage(browser.i18n.getMessage('fillAllRequiredFields') || 'Please fill in all required fields.', true);
             return;
         }
 
@@ -801,6 +850,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderAiEngineList();
         populateAiEngineOptions(); // Update main dropdown
         elements.aiEngineForm.style.display = 'none';
+        clearAiFormErrors(); // Clear errors after successful save
         currentEditingAiEngineId = null;
     };
 
@@ -960,21 +1010,30 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const testAiEngineConnection = async () => {
+        clearAiFormErrors(); // Clear previous errors before validating
+
         const name = elements.aiEngineNameInput.value.trim();
         const apiKey = elements.aiApiKeyInput.value.trim();
         const apiUrl = elements.aiApiUrlInput.value.trim();
         const model = elements.aiModelNameInput.value.trim();
         const customPrompt = elements.aiCustomPromptInput.value.trim();
 
+        let isValid = true;
+        isValid = validateAiFormField(elements.aiEngineNameInput, elements.aiEngineNameError, 'aiEngineName') && isValid;
+        isValid = validateAiFormField(elements.aiApiKeyInput, elements.aiApiKeyError, 'aiApiKey') && isValid;
+        isValid = validateAiFormField(elements.aiApiUrlInput, elements.aiApiUrlError, 'aiApiUrl') && isValid;
+        isValid = validateAiFormField(elements.aiModelNameInput, elements.aiModelNameError, 'aiModelName') && isValid;
+        isValid = validateAiFormField(elements.aiCustomPromptInput, elements.aiCustomPromptError, 'aiCustomPrompt') && isValid;
+
+        if (!isValid) {
+            elements.aiTestResult.style.display = 'none'; // Hide test result if validation fails
+            showStatusMessage(browser.i18n.getMessage('fillAllRequiredFields') || 'Please fill in all required fields for testing.', true);
+            return;
+        }
+
         elements.aiTestResult.textContent = browser.i18n.getMessage('testing') || 'Testing...';
         elements.aiTestResult.className = 'status-message';
         elements.aiTestResult.style.display = 'block';
-
-        if (!name || !apiKey || !apiUrl || !model || !customPrompt) {
-            elements.aiTestResult.textContent = browser.i18n.getMessage('aiApiUrlMissingError') || 'AI API Key, URL, Model, and Custom Prompt are required for testing.';
-            elements.aiTestResult.className = 'status-message error';
-            return;
-        }
 
         try {
             const response = await browser.runtime.sendMessage({
@@ -1019,6 +1078,7 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.manageAiEnginesBtn.addEventListener('click', openAiEngineModal);
         elements.closeAiEngineModalBtn.addEventListener('click', closeAiEngineModal);
         elements.addAiEngineBtn.addEventListener('click', addAiEngine);
+        elements.aiEngineForm.addEventListener('input', clearAiFormErrors); // Clear errors on input
         elements.saveAiEngineBtn.addEventListener('click', saveAiEngine);
         elements.cancelAiEngineBtn.addEventListener('click', () => elements.aiEngineForm.style.display = 'none');
         elements.testAiEngineBtn.addEventListener('click', testAiEngineConnection);

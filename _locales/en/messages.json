@@ -48,11 +48,11 @@
     "description": "Label for the AI API key input."
   },
   "aiApiUrl": {
-    "message": "API Endpoint URL (Optional):",
+    "message": "API Endpoint URL:",
     "description": "Label for the AI API endpoint URL input."
   },
   "aiModelName": {
-    "message": "Model Name (Optional):",
+    "message": "Model Name:",
     "description": "Label for the AI model name input."
   },
   "testConnection": {
@@ -432,5 +432,13 @@
   "enterTestText": {
     "message": "Please enter test text.",
     "description": "Message when test text input is empty."
+  },
+  "isRequired": {
+    "message": "is required.",
+    "description": "Suffix for required field error messages."
+  },
+  "fillAllRequiredFields": {
+    "message": "Please fill in all required fields.",
+    "description": "General message for missing required fields."
   }
 }

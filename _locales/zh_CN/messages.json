@@ -48,11 +48,11 @@
     "description": "AI API 密钥输入框的标签。"
   },
   "aiApiUrl": {
-    "message": "API 终端 URL（可选）：",
+    "message": "API 终端 URL：",
     "description": "AI API 终端 URL 输入框的标签。"
   },
   "aiModelName": {
-    "message": "模型名称（可选）：",
+    "message": "模型名称：",
     "description": "AI 模型名称输入框的标签。"
   },
   "testConnection": {
@@ -438,6 +438,14 @@
   "aiCustomPromptMissingError": {
     "message": "AI 自定义提示词未在设置中配置，请前往设置。",
     "description": "当 AI 自定义提示词缺失时的错误信息。"
+  },
+  "isRequired": {
+    "message": "是必填项。",
+    "description": "Suffix for required field error messages."
+  },
+  "fillAllRequiredFields": {
+    "message": "请填写所有必填项。",
+    "description": "General message for missing required fields."
   },
   "enterTestText": {
     "message": "请输入测试文本。",

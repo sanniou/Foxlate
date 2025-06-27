@@ -145,6 +145,25 @@ h3 {
     margin-bottom: -1px;
 }
 
+/* Required field indicator */
+.required-indicator {
+    color: var(--md-sys-color-error);
+    margin-left: 4px;
+    font-size: var(--md-sys-typescale-body-small-font-size); /* Match label font size */
+}
+
+/* Error messages below form fields */
+.m3-form-field .error-message {
+    color: var(--md-sys-color-error);
+    font-size: var(--md-sys-typescale-body-small-font-size);
+    margin-top: 4px;
+    padding-left: 16px; /* Align with label padding */
+    display: none; /* Hidden by default */
+}
+.m3-form-field.is-invalid .error-message {
+    display: block; /* Show when invalid */
+}
+
 .m3-form-field.filled.with-button {
     display: flex;
     gap: 10px;
@@ -568,6 +587,12 @@ button.m3-icon-button.danger:hover {
   line-height: 1;
 }
 
+.test-actions {
+  display: flex;
+  justify-content: flex-end; /* 将按钮对齐到右侧 */
+  margin-top: 12px; /* 增加与上方翻译区域的间距 */
+}
+
 .manual-translate-btn:hover {
   background-color: color-mix(in srgb, var(--md-sys-color-primary), var(--md-sys-state-hover-on-primary));}
 .fab {
@@ -591,6 +616,26 @@ button.m3-icon-button.danger:hover {
   opacity: 0;
 }
 
+/* Styles for AI Engine Form Buttons */
+.ai-engine-form-buttons {
+    display: flex;
+    justify-content: space-between; /* Pushes test button to left, save/cancel to right */
+    align-items: center; /* Vertically align items */
+    flex-wrap: wrap; /* Allow wrapping on smaller screens */
+    gap: 10px; /* Gap between main groups */
+    margin-top: 24px; /* 增加与上方表单元素的间距 */
+}
+
+.ai-engine-form-buttons .action-buttons {
+    display: flex;
+    gap: 10px; /* Gap between save and cancel */
+    flex-wrap: wrap; /* Allow wrapping within action buttons */
+}
+
+/* Spacing for AI test result message */
+.ai-test-result-message {
+    margin-top: 20px; /* Add space above the test result message */
+}
 /* For viewports wider than the container (800px) + body padding (2*24px) */
 @media (min-width: 848px) {
     .fab {
