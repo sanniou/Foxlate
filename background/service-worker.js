@@ -286,7 +286,13 @@ const messageHandlers = {
     try {
       const originalGet = browser.storage.sync.get;
       browser.storage.sync.get = async () => ({ settings });
-      const translatedText = await translator.translate('test', 'EN', 'auto');
+      let translatedText;
+      if (engine === 'ai') {
+        // For AI, the 'settings' payload directly contains the AI config to test
+        translatedText = await translator.translate('test', 'EN', 'auto', settings);
+      } else {
+        translatedText = await translator.translate('test', 'EN', 'auto');
+      }
       return { success: true, translatedText };
     } catch (error) {
       logError('TEST_CONNECTION handler', error);

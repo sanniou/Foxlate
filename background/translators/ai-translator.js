@@ -5,15 +5,10 @@ export class AITranslator extends BaseTranslator {
     super('AI');
   }
 
-  async translate(text, targetLang, sourceLang = 'auto') {
+  async translate(text, targetLang, sourceLang = 'auto', aiConfig = {}) {
     const log = []; // 为当前翻译操作创建本地日志
-    const { settings } = await browser.storage.sync.get('settings');
-    const apiKey = settings?.aiApiKey; // No default, must be set
-    const apiUrl = settings?.aiApiUrl; // No default, must be set
-    const model = settings?.aiModelName; // No default, must be set
-    const customPromptTemplate = settings?.aiCustomPrompt;
-
-    if (!apiKey) {
+    const { apiKey, apiUrl, model, customPrompt: customPromptTemplate } = aiConfig;
+    if (!apiKey || apiKey.trim() === '') {
       throw new Error('AI API Key not set in options');
     }
 

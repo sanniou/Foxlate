@@ -31,6 +31,18 @@
     "message": "AI Translator (GPT)",
     "description": "Option for AI Translator engine."
   },
+  "aiEngineProfiles": {
+    "message": "AI Engine Profiles",
+    "description": "Title for the AI Engine Profiles section."
+  },
+  "aiEngineName": {
+    "message": "Engine Name:",
+    "description": "Label for the AI engine name input."
+  },
+  "noRulesFound": {
+    "message": "No engines configured.",
+    "description": "Message when no AI engines are configured."
+  },
   "aiApiKey": {
     "message": "AI API Key:",
     "description": "Label for the AI API key input."
@@ -70,6 +82,10 @@
   "selectorDescription": {
     "message": "Comma-separated CSS selectors for elements to be translated.",
     "description": "Description for the translation selector input."
+  },
+  "ruleManagement": {
+    "message": "Rule Management",
+    "description": "Rule Management section title."
   },
   "displayFormat": {
     "message": "Display Format",

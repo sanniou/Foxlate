@@ -31,31 +31,14 @@
                     <select id="translatorEngine">
                         <option value="deeplx" i18n-text="deeplx">DeepLx</option>
                         <option value="google" i18n-text="googleTranslate">Google Translate</option>
-                        <option value="ai" i18n-text="aiTranslator">AI Translator (GPT)</option>
                     </select>
                 </div>
             </div>
 
-            <!-- API fields for AI Translator -->
-            <div class="form-group" id="aiApiGroup" style="display: none;">
-                <div class="m3-form-field filled">
-                    <label for="aiApiKey" i18n-text="aiApiKey">AI API Key:</label>
-                    <input type="password" id="aiApiKey" i18n-placeholder="aiApiKeyPlaceholder">
-                </div>
-                <div class="m3-form-field filled">
-                    <label for="aiApiUrl" i18n-text="aiApiUrl">API Endpoint URL (Optional):</label>
-                    <input type="text" id="aiApiUrl" i18n-placeholder="aiApiUrlPlaceholder">
-                </div>
-                <div class="m3-form-field filled">
-                    <label for="aiModelName" i18n-text="aiModelName">Model Name (Optional):</label>
-                    <input type="text" id="aiModelName" i18n-placeholder="aiModelNamePlaceholder">
-                </div>
-                <div class="m3-form-field filled">
-                    <label for="aiCustomPrompt" i18n-text="aiCustomPrompt">Custom Prompt:</label>
-                    <textarea id="aiCustomPrompt" rows="4" i18n-placeholder="aiCustomPromptPlaceholder"></textarea>
-                </div>
+            <!-- AI Engine Management Section -->
+            <div class="form-group" id="aiEngineManagementGroup">
+                <button id="manageAiEnginesBtn" class="m3-button filled" i18n-text="aiEngineProfiles">Manage AI Engine Profiles</button>
             </div>
-
             <!-- API URL field for DeepLx -->
             <div class="form-group" id="deeplxUrlGroup">
                 <div class="m3-form-field filled">
@@ -99,6 +82,10 @@
                 </div>
             </div>
 
+        </section>
+
+        <section class="settings-section">
+            <h2 i18n-text="ruleManagement">Rule Management</h2>
             <div class="form-group">
                 <label for="defaultTranslationSelector" i18n-text="translationSelector">
                     Elements to Translate (CSS Selector):
@@ -108,7 +95,6 @@
                     <small i18n-text="selectorDescription">Comma-separated CSS selectors for elements to be translated.</small>
                 </div>
             </div>
-
         </section>
 
         <section class="settings-section">
@@ -126,7 +112,7 @@
         </section>
 
         <section class="settings-section">
-            <h2 i18n-text="domainSpecificRules">Domain-Specific Rules</h2>
+            <h3 i18n-text="domainSpecificRules">Domain-Specific Rules</h3>
             <div class="form-group add-domain-rule-form">
                 <div class="m3-form-field filled">
                     <label for="newDomain" i18n-text="domain">Domain:</label>
@@ -190,6 +176,109 @@
         <div id="statusMessage" class="status-message"></div>
     </div>
 
+    <!-- AI Engine Management Modal -->
+    <div id="aiEngineModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h2 i18n-text="aiEngineProfiles">AI Engine Profiles</h2>
+            <div id="aiEngineList" class="ai-engine-list">
+                <!-- AI engines will be dynamically added here -->
+            </div>
+            <button id="addAiEngineBtn" class="m3-button filled" i18n-text="addRule">Add New AI Engine</button>
+
+            <div id="aiEngineForm" class="form-group" style="display: none;">
+                <h3><span id="aiFormTitle"></span> AI Engine</h3>
+                <div class="m3-form-field filled">
+                    <label for="aiEngineName" i18n-text="aiEngineName">Engine Name:</label>
+                    <input type="text" id="aiEngineName" placeholder="My GPT-3.5">
+                </div>
+                <div class="m3-form-field filled">
+                    <label for="aiApiKey" i18n-text="aiApiKey">AI API Key:</label>
+                    <input type="password" id="aiApiKey" i18n-placeholder="aiApiKeyPlaceholder">
+                </div>
+                <div class="m3-form-field filled">
+                    <label for="aiApiUrl" i18n-text="aiApiUrl">API Endpoint URL (Optional):</label>
+                    <input type="text" id="aiApiUrl" i18n-placeholder="aiApiUrlPlaceholder">
+                </div>
+                <div class="m3-form-field filled">
+                    <label for="aiModelName" i18n-text="aiModelName">Model Name (Optional):</label>
+                    <input type="text" id="aiModelName" i18n-placeholder="aiModelNamePlaceholder">
+                </div>
+                <div class="m3-form-field filled">
+                    <label for="aiCustomPrompt" i18n-text="aiCustomPrompt">Custom Prompt:</label>
+                    <textarea id="aiCustomPrompt" rows="4" i18n-placeholder="aiCustomPromptPlaceholder"></textarea>
+                </div>
+                <div class="button-group">
+                    <button id="saveAiEngineBtn" class="m3-button filled" i18n-text="saveSettings">Save AI Engine</button>
+                    <button id="cancelAiEngineBtn" class="m3-button text">Cancel</button>
+                    <button id="testAiEngineBtn" class="m3-button filled" i18n-text="test">Test Connection</button>
+                </div>
+                <div id="aiTestResult" class="status-message"></div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        /* Modal Styles */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 1000; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto; /* 15% from the top and centered */
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%; /* Could be more or less, depending on screen size */
+            max-width: 800px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            position: relative;
+        }
+
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close-button:hover,
+        .close-button:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .ai-engine-list ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .ai-engine-list li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .ai-engine-list li:last-child {
+            border-bottom: none;
+        }
+
+        .ai-engine-list li .actions button {
+            margin-left: 8px;
+        }
+    </style>
     <script src="../lib/webextension-polyfill.js"></script>
     <script src="../common/constants.js"></script>
     <script src="options.js"></script>

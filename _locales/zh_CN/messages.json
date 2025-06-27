@@ -31,6 +31,18 @@
     "message": "AI 翻译器 (GPT)",
     "description": "AI 翻译器引擎的选项。"
   },
+  "aiEngineProfiles": {
+    "message": "AI 引擎配置",
+    "description": "AI 引擎配置部分的标题。"
+  },
+  "aiEngineName": {
+    "message": "引擎名称：",
+    "description": "AI 引擎名称输入框的标签。"
+  },
+  "noRulesFound": {
+    "message": "未配置任何引擎。",
+    "description": "Message when no AI engines are configured."
+  },
   "aiApiKey": {
     "message": "AI API 密钥：",
     "description": "AI API 密钥输入框的标签。"
@@ -70,6 +82,10 @@
   "selectorDescription": {
     "message": "用于要翻译元素的逗号分隔的 CSS 选择器。",
     "description": "翻译选择器输入框的描述。"
+  },
+  "ruleManagement": {
+    "message": "规则管理",
+    "description": "Rule Management section title."
   },
   "displayFormat": {
     "message": "显示格式",

@@ -46,7 +46,12 @@ export class TranslatorManager {
    */
   static async getTranslator() {
     const { settings } = await browser.storage.sync.get('settings');
-    const engine = settings?.translatorEngine || 'deeplx'; // 默认使用 deeplx
+    let engine = settings?.translatorEngine || 'deeplx'; // 默认使用 deeplx
+    // If a custom AI engine is selected (e.g., "ai:some-id"),
+    // we need to normalize the engine name to "ai" to get the correct translator class instance.
+    if (engine.startsWith('ai:')) {
+      engine = 'ai';
+    }
     return translators[engine];
   }
 
@@ -177,9 +182,25 @@ export class TranslatorManager {
       log.push(browser.i18n.getMessage('logEntryEngineUsed', translator.name));
       console.log(`[TM Debug] Using translator: ${translator.name}`); // Debug log
       
+      let translatedResult;
+      let translatorLog;
+
       // 7. 调用具体翻译器进行翻译
-      console.log(`[TM Debug] Calling ${translator.name}.translate()`); // Debug log
-      const { text: translatedResult, log: translatorLog } = await translator.translate(processedText, targetLang, sourceLang);
+      if (translator.name === 'AI') {
+        // For AI translator, we need to pass the specific AI engine configuration
+        const { settings } = await browser.storage.sync.get('settings');
+        const selectedEngineId = settings?.translatorEngine.split(':')[1]; // e.g., "ai:someId"
+        const aiConfig = settings?.aiEngines?.find(engine => engine.id === selectedEngineId);
+
+        if (!aiConfig) {
+          throw new Error('Selected AI engine configuration not found.');
+        }
+        console.log(`[TM Debug] Calling ${translator.name}.translate() with AI config:`, aiConfig); // Debug log
+        ({ text: translatedResult, log: translatorLog } = await translator.translate(processedText, targetLang, sourceLang, aiConfig));
+      } else {
+        console.log(`[TM Debug] Calling ${translator.name}.translate()`); // Debug log
+        ({ text: translatedResult, log: translatorLog } = await translator.translate(processedText, targetLang, sourceLang));
+      }
       log.push(...translatorLog); // 追加翻译器特有的日志
       log.push(browser.i18n.getMessage('logEntryTranslationSuccess'));
       

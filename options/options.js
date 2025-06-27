@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const elements = {
         translatorEngine: document.getElementById('translatorEngine'),
         deeplxUrlGroup: document.getElementById('deeplxUrlGroup'),
-        aiApiGroup: document.getElementById('aiApiGroup'),        
+        aiEngineManagementGroup: document.getElementById('aiEngineManagementGroup'), // New AI management group   
         addDomainRuleBtn: document.getElementById('addDomainRuleBtn'),
         domainRulesList: document.getElementById('domainRulesList'),
         newDomainInput: document.getElementById('newDomain'),
@@ -16,11 +16,24 @@ document.addEventListener('DOMContentLoaded', () => {
         targetLanguage: document.getElementById('targetLanguage'),
         defaultTranslationSelector: document.getElementById('defaultTranslationSelector'),
         deeplxApiUrl: document.getElementById('deeplxApiUrl'),
-        domainTranslationSelector: document.getElementById('domainTranslationSelector'),
-        aiApiKey: document.getElementById('aiApiKey'),
-        aiApiUrl: document.getElementById('aiApiUrl'),
-        aiModelName: document.getElementById('aiModelName'),
-        aiCustomPrompt: document.getElementById('aiCustomPrompt'),
+        domainTranslationSelector: document.getElementById('domainTranslationSelector'), // This seems to be a typo in the original HTML, it should be for domain-specific selectors, not rules.
+        // AI Engine Modal Elements
+        aiEngineModal: document.getElementById('aiEngineModal'),
+        closeAiEngineModalBtn: document.querySelector('#aiEngineModal .close-button'),
+        manageAiEnginesBtn: document.getElementById('manageAiEnginesBtn'),
+        aiEngineList: document.getElementById('aiEngineList'),
+        addAiEngineBtn: document.getElementById('addAiEngineBtn'),
+        aiEngineForm: document.getElementById('aiEngineForm'),
+        aiFormTitle: document.getElementById('aiFormTitle'),
+        aiEngineNameInput: document.getElementById('aiEngineName'),
+        aiApiKeyInput: document.getElementById('aiApiKey'),
+        aiApiUrlInput: document.getElementById('aiApiUrl'),
+        aiModelNameInput: document.getElementById('aiModelName'),
+        aiCustomPromptInput: document.getElementById('aiCustomPrompt'),
+        saveAiEngineBtn: document.getElementById('saveAiEngineBtn'),
+        cancelAiEngineBtn: document.getElementById('cancelAiEngineBtn'),
+        testAiEngineBtn: document.getElementById('testAiEngineBtn'),
+        aiTestResult: document.getElementById('aiTestResult'),
         displayModeSelect: document.getElementById('displayModeSelect'),
         mainTabButtons: document.querySelectorAll('.main-tab-button'),
         saveSettingsBtn: document.getElementById('saveSettingsBtn'),
@@ -206,11 +219,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const toggleApiFields = () => {
         const engine = elements.translatorEngine.value;
-        elements.deeplxUrlGroup.style.display = 'none';
-        elements.aiApiGroup.style.display = 'none';
+        elements.deeplxUrlGroup.style.display = 'none'; // 默认隐藏 DeepLx API URL
+        // elements.aiEngineManagementGroup.style.display is now always 'block' from HTML
 
-        if (engine === 'deeplx') elements.deeplxUrlGroup.style.display = 'block';
-        else if (engine === 'ai') elements.aiApiGroup.style.display = 'block';
+
+        if (engine === 'deeplx') elements.deeplxUrlGroup.style.display = 'block'; // Show DeepLx if selected
+        else if (engine.startsWith('ai:')) elements.aiEngineManagementGroup.style.display = 'block'; // Show AI management if any AI engine is selected
     };
 
     // --- Core Logic Functions ---
@@ -220,15 +234,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         elements.translatorEngine.value = currentSettings.translatorEngine || 'deeplx';
         elements.targetLanguage.value = currentSettings.targetLanguage || 'ZH';
+        // Default translation selector
         elements.defaultTranslationSelector.value = currentSettings.translationSelector?.default || window.Constants.DEFAULT_TRANSLATION_SELECTOR;
-        elements.domainTranslationSelector.value = currentSettings.translationSelector?.rules || '';
+         // Domain-specific translation selector (Note: This field is currently not used in the logic for domain rules)
+        elements.domainTranslationSelector.value = currentSettings.domainTranslationSelector || ''; // Assuming a new setting for this
         elements.deeplxApiUrl.value = currentSettings.deeplxApiUrl || '';
-        elements.aiApiKey.value = currentSettings.aiApiKey || '';
-        elements.aiApiUrl.value = currentSettings.aiApiUrl || '';
-        elements.aiModelName.value = currentSettings.aiModelName || '';
-        elements.aiCustomPrompt.value = currentSettings.aiCustomPrompt || '';
 
         elements.displayModeSelect.value = currentSettings.displayMode || 'replace';
+
+        // Load AI Engines
+        aiEngines = currentSettings.aiEngines || [];
+        populateAiEngineOptions(); // Populate the main dropdown
 
         toggleApiFields();
         renderDomainRules(currentSettings.domainRules || {});
@@ -278,10 +294,8 @@ document.addEventListener('DOMContentLoaded', () => {
             targetLanguage: elements.targetLanguage.value,
             displayMode: elements.displayModeSelect.value,
             deeplxApiUrl: elements.deeplxApiUrl.value,
-            aiApiKey: elements.aiApiKey.value,
-            aiApiUrl: elements.aiApiUrl.value,
-            aiModelName: elements.aiModelName.value,
-            aiCustomPrompt: elements.aiCustomPrompt.value,
+            // The aiEngines array is the source of truth for all AI configurations.
+            aiEngines: aiEngines,
             translationSelector: {
                 default: elements.defaultTranslationSelector.value,
                 rules: getDomainRulesFromList(), // 确保这里获取的是最新的规则
@@ -691,6 +705,140 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.readAsText(file);
     };
 
+        // --- AI Engine Management Logic ---
+    let aiEngines = []; // Array to hold AI engine configurations
+    let currentEditingAiEngineId = null; // To track which engine is being edited
+
+    const openAiEngineModal = () => {
+        elements.aiEngineModal.style.display = 'block';
+        renderAiEngineList();
+        elements.aiEngineForm.style.display = 'none'; // Hide form initially
+        elements.aiTestResult.style.display = 'none'; // Hide test result
+    };
+
+    const closeAiEngineModal = () => {
+        elements.aiEngineModal.style.display = 'none';
+        elements.aiEngineForm.style.display = 'none';
+        elements.aiTestResult.style.display = 'none';
+        currentEditingAiEngineId = null;
+    };
+
+    const renderAiEngineList = () => {
+        elements.aiEngineList.innerHTML = '';
+        if (aiEngines.length === 0) {
+            elements.aiEngineList.innerHTML = `<p>${browser.i18n.getMessage('noRulesFound') || 'No AI engines configured.'}</p>`; // Need a new i18n key
+            return;
+        }
+        const ul = document.createElement('ul');
+        aiEngines.forEach(engine => {
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <span>${escapeHtml(engine.name)}</span>
+                <div class="actions">
+                    <button class="m3-button text edit-ai-engine-btn" data-id="${engine.id}">${browser.i18n.getMessage('edit') || 'Edit'}</button>
+                    <button class="m3-button text danger remove-ai-engine-btn" data-id="${engine.id}">${browser.i18n.getMessage('removeRule') || 'Remove'}</button>
+                </div>
+            `;
+            ul.appendChild(li);
+        });
+        elements.aiEngineList.appendChild(ul);
+
+        ul.querySelectorAll('.edit-ai-engine-btn').forEach(button => {
+            button.addEventListener('click', (e) => editAiEngine(e.target.dataset.id));
+        });
+        ul.querySelectorAll('.remove-ai-engine-btn').forEach(button => {
+            button.addEventListener('click', (e) => removeAiEngine(e.target.dataset.id));
+        });
+    };
+
+    const showAiEngineForm = (engine = {}) => {
+        elements.aiEngineForm.style.display = 'block';
+        elements.aiTestResult.style.display = 'none';
+        elements.aiFormTitle.textContent = engine.id ? (browser.i18n.getMessage('edit') || 'Edit') : (browser.i18n.getMessage('addRule') || 'Add');
+        elements.aiEngineNameInput.value = engine.name || '';
+        elements.aiApiKeyInput.value = engine.apiKey || '';
+        elements.aiApiUrlInput.value = engine.apiUrl || '';
+        elements.aiModelNameInput.value = engine.model || '';
+        elements.aiCustomPromptInput.value = engine.customPrompt || '';
+        currentEditingAiEngineId = engine.id || null;
+    };
+
+    const addAiEngine = () => {
+        showAiEngineForm();
+    };
+
+    const editAiEngine = (id) => {
+        const engine = aiEngines.find(e => e.id === id);
+        if (engine) {
+            showAiEngineForm(engine);
+        }
+    };
+
+    const saveAiEngine = async () => {
+        const name = elements.aiEngineNameInput.value.trim();
+        const apiKey = elements.aiApiKeyInput.value.trim();
+        const apiUrl = elements.aiApiUrlInput.value.trim();
+        const model = elements.aiModelNameInput.value.trim();
+        const customPrompt = elements.aiCustomPromptInput.value.trim();
+
+        if (!name || !apiKey) {
+            showStatusMessage(browser.i18n.getMessage('aiEngineName') + ' and ' + browser.i18n.getMessage('aiApiKey') + ' are required.', true); // Need better i18n for this
+            return;
+        }
+
+        if (currentEditingAiEngineId) {
+            // Edit existing
+            const index = aiEngines.findIndex(e => e.id === currentEditingAiEngineId);
+            if (index !== -1) {
+                aiEngines[index] = { id: currentEditingAiEngineId, name, apiKey, apiUrl, model, customPrompt };
+            }
+        } else {
+            // Add new
+            const newId = `ai-${Date.now()}`; // Simple unique ID
+            aiEngines.push({ id: newId, name, apiKey, apiUrl, model, customPrompt });
+        }
+        markAsChanged(); // Mark settings as changed
+        renderAiEngineList();
+        populateAiEngineOptions(); // Update main dropdown
+        elements.aiEngineForm.style.display = 'none';
+        currentEditingAiEngineId = null;
+    };
+
+    const removeAiEngine = (id) => {
+        if (window.confirm(browser.i18n.getMessage('confirmDeleteRule') || 'Are you sure you want to remove this AI engine?')) { // Need new i18n key
+            aiEngines = aiEngines.filter(e => e.id !== id);
+            markAsChanged(); // Mark settings as changed
+            renderAiEngineList();
+            populateAiEngineOptions(); // Update main dropdown
+            // If the removed engine was selected, reset the main dropdown
+            if (elements.translatorEngine.value === `ai:${id}`) {
+                                // 这部分逻辑需要调整，确保在没有 AI 引擎时，下拉菜单显示正确的默认选项
+                if (aiEngines.length > 0) {
+                    // 如果还有其他 AI 引擎，则选择第一个
+                    elements.translatorEngine.value = `ai:${aiEngines[0].id}`;
+                } else {
+                elements.translatorEngine.value = 'deeplx';
+                toggleApiFields();
+                }
+            }
+        }
+    };
+
+    const populateAiEngineOptions = () => {
+        // Remove existing AI options
+        elements.translatorEngine.querySelectorAll('option[value^="ai:"]').forEach(option => option.remove());
+
+        // Add new AI options
+        aiEngines.forEach(engine => {
+            const option = document.createElement('option');
+            option.value = `ai:${engine.id}`;
+            option.textContent = `${browser.i18n.getMessage('aiTranslator')} (${engine.name})`;
+            elements.translatorEngine.appendChild(option);
+        });
+
+    };
+
+
     const populateLanguageOptions = () => {
         const select = elements.targetLanguage;
         if (!select) return;
@@ -742,6 +890,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const sourceText = document.getElementById('test-source-text').value.trim();
         const resultArea = document.getElementById('test-result-area');
         
+        elements.aiTestResult.style.display = 'none'; // Hide AI test result if testing from main area
         if (!sourceText) {
             resultArea.textContent = browser.i18n.getMessage('testSourceEmpty') || 'Please enter text to translate.';
             resultArea.className = 'test-result-area error';
@@ -752,13 +901,36 @@ document.addEventListener('DOMContentLoaded', () => {
         resultArea.className = 'test-result-area';
 
         try {
-            // 发送消息到后台服务工作线程进行翻译，并请求返回日志
+            let aiConfigToTest = null;
+            const selectedEngineValue = elements.translatorEngine.value;
+            if (selectedEngineValue.startsWith('ai:')) {
+                const selectedEngineId = selectedEngineValue.split(':')[1];
+                aiConfigToTest = aiEngines.find(e => e.id === selectedEngineId);
+                if (!aiConfigToTest) {
+                    throw new Error(browser.i18n.getMessage('aiModelNameMissingError') || 'Selected AI engine configuration not found.');
+                }
+            }
+
+            const payload = {
+                text: sourceText,
+                targetLang: elements.targetLanguage.value,
+                sourceLang: 'auto',
+                // Pass the specific AI config if an AI engine is selected
+                aiConfig: aiConfigToTest
+            };
+
+            // If testing an AI engine, ensure the AI API Key, URL, Model, Prompt are available
+            if (selectedEngineValue.startsWith('ai:') && (!aiConfigToTest.apiKey || !aiConfigToTest.apiUrl || !aiConfigToTest.model || !aiConfigToTest.customPrompt)) {
+                throw new Error(browser.i18n.getMessage('aiApiUrlMissingError') || 'AI API Key, URL, Model, and Custom Prompt are required for the selected AI engine.');
+            }
+
+            // Send message to background service worker for translation
             const response = await browser.runtime.sendMessage({
                 type: 'TRANSLATE_TEXT',
-                payload: {
-                    text: sourceText,
-                    targetLang: elements.targetLanguage.value,
-                    sourceLang: 'auto'
+                payload: { // The payload structure for TRANSLATE_TEXT is handled by TranslatorManager
+                    text: sourceText, // This is the text to translate
+                    targetLang: elements.targetLanguage.value, // Target language
+                    sourceLang: 'auto', // Source language
                 }
             });
 
@@ -791,12 +963,54 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const testAiEngineConnection = async () => {
+        const name = elements.aiEngineNameInput.value.trim();
+        const apiKey = elements.aiApiKeyInput.value.trim();
+        const apiUrl = elements.aiApiUrlInput.value.trim();
+        const model = elements.aiModelNameInput.value.trim();
+        const customPrompt = elements.aiCustomPromptInput.value.trim();
+
+        elements.aiTestResult.textContent = browser.i18n.getMessage('testing') || 'Testing...';
+        elements.aiTestResult.className = 'status-message';
+        elements.aiTestResult.style.display = 'block';
+
+        if (!name || !apiKey || !apiUrl || !model || !customPrompt) {
+            elements.aiTestResult.textContent = browser.i18n.getMessage('aiApiUrlMissingError') || 'AI API Key, URL, Model, and Custom Prompt are required for testing.';
+            elements.aiTestResult.className = 'status-message error';
+            return;
+        }
+
+        try {
+            const response = await browser.runtime.sendMessage({
+                type: 'TEST_CONNECTION',
+                payload: {
+                    engine: 'ai',
+                    settings: { apiKey, apiUrl, model, customPrompt } // Pass the specific AI config to test
+                }
+            });
+
+            if (response.success) {
+                elements.aiTestResult.textContent = `${browser.i18n.getMessage('testOriginal')}: test, ${browser.i18n.getMessage('testTranslated')}: ${response.translatedText.text}`;
+                elements.aiTestResult.className = 'status-message success';
+            } else {
+                elements.aiTestResult.textContent = `${browser.i18n.getMessage('testError')}: ${response.error}`;
+                elements.aiTestResult.className = 'status-message error';
+            }
+        } catch (error) {
+            console.error('AI connection test error:', error);
+            elements.aiTestResult.textContent = `${browser.i18n.getMessage('testError')}: ${error.message}`;
+            elements.aiTestResult.className = 'status-message error';
+        }
+    };
+
+
     // --- Initialization and Event Listeners ---
     const initialize = async () => {
         applyTranslations();
         populateLanguageOptions();
         await loadSettings();
 
+         // Main settings listeners
         elements.translatorEngine.addEventListener('change', markAsChanged);
         elements.translatorEngine.addEventListener('change', toggleApiFields); // Keep separate from unsaved changes
         elements.saveSettingsBtn.addEventListener('click', saveSettings);
@@ -804,6 +1018,16 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.addDomainRuleBtn.addEventListener('click', addDomainRule);
         elements.exportBtn.addEventListener('click', exportSettings);
         elements.importBtn.addEventListener('click', () => elements.importInput.click());
+
+        // AI Engine Modal Listeners
+        elements.manageAiEnginesBtn.addEventListener('click', openAiEngineModal);
+        elements.closeAiEngineModalBtn.addEventListener('click', closeAiEngineModal);
+        elements.addAiEngineBtn.addEventListener('click', addAiEngine);
+        elements.saveAiEngineBtn.addEventListener('click', saveAiEngine);
+        elements.cancelAiEngineBtn.addEventListener('click', () => elements.aiEngineForm.style.display = 'none');
+        elements.testAiEngineBtn.addEventListener('click', testAiEngineConnection);
+
+        // Other listeners
         elements.importInput.addEventListener('change', importSettings);
         
         const testTextInput = document.getElementById('testTextInput');
@@ -820,7 +1044,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // 监听所有输入框、选择框和文本域的变化
         document.querySelector('.container').addEventListener('input', (event) => {
             const target = event.target;
-            // 排除按钮和文件输入，因为它们触发的是动作而不是设置值更改
+            // 排除按钮、文件输入和AI模态框内的输入，因为它们触发的是动作而不是设置值更改
             if (target.matches('input:not([type="button"]):not([type="submit"]):not([type="file"]), textarea, select')) {
                 markAsChanged();
             }
@@ -829,6 +1053,17 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelector('.container').addEventListener('change', (event) => {
             const target = event.target;
             if (target.matches('input[type="checkbox"], select')) {
+                markAsChanged();
+            }
+        });
+
+        // Listen for changes within the AI engine form to mark as changed
+        elements.aiEngineForm.addEventListener('input', (event) => {
+            const target = event.target;
+            if (target.matches('input:not([type="button"]):not([type="submit"]), textarea')) {
+                markAsChanged();
+            }
+            if (target.matches('select')) {
                 markAsChanged();
             }
         });
