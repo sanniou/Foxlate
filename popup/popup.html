@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <title>Universal Translator</title>
     <link rel="stylesheet" href="popup.css">
 </head>
+
 <body>
     <div class="popup-container">
         <main>
@@ -42,10 +44,10 @@
                     <span class="btn-text" i18n-text="popupTranslatePage">翻译此页</span>
                     <div class="spinner"></div>
                 </button>
-                <div class="m3-switch"> <!-- The container for the label and the switch control -->
+                <div class="m3-switch">
                     <span class="switch-label" i18n-text="popupAlwaysTranslate">总是翻译此网站</span>
-                    <input type="checkbox" id="alwaysTranslateToggle">
-                    <label for="alwaysTranslateToggle" class="switch-track">
+                    <input type="checkbox" id="autoTranslate">
+                    <label for="autoTranslate" class="switch-track">
                         <span class="switch-thumb"></span>
                     </label>
                 </div>
@@ -53,7 +55,10 @@
         </main>
         <footer>
             <button id="openOptionsBtn" class="m3-button text" i18n-text="popupSettings">设置</button>
-            <span id="versionDisplay" class="version-display"></span>
+            <div class="footer-info">
+                <span id="currentRuleIndicator" class="rule-indicator"></span>
+                <span id="versionDisplay" class="version-display"></span>
+            </div>
             <button id="aboutBtn" class="m3-button text" i18n-text="popupAbout">关于</button>
         </footer>
     </div>
@@ -61,4 +66,5 @@
     <script src="../common/constants.js"></script>
     <script src="popup.js"></script>
 </body>
+
 </html>

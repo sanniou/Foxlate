@@ -16,7 +16,6 @@ document.addEventListener('DOMContentLoaded', () => {
         targetLanguage: document.getElementById('targetLanguage'),
         defaultTranslationSelector: document.getElementById('defaultTranslationSelector'),
         deeplxApiUrl: document.getElementById('deeplxApiUrl'),
-        domainTranslationSelector: document.getElementById('domainTranslationSelector'), // This seems to be a typo in the original HTML, it should be for domain-specific selectors, not rules.
         // AI Engine Modal Elements
         aiEngineModal: document.getElementById('aiEngineModal'),
         closeAiEngineModalBtn: document.querySelector('#aiEngineModal .close-button'),
@@ -46,6 +45,21 @@ document.addEventListener('DOMContentLoaded', () => {
         fabIconSave: document.getElementById('fab-icon-save'),
         fabIconLoading: document.getElementById('fab-icon-loading'),
         fabIconSuccess: document.getElementById('fab-icon-success'),
+        // Domain Rule Modal Elements
+        domainRuleModal: document.getElementById('domainRuleModal'),
+        closeDomainRuleModalBtn: document.querySelector('#domainRuleModal .close-button'),
+        domainRuleFormTitle: document.getElementById('domainRuleFormTitle'),
+        editingDomainInput: document.getElementById('editingDomain'),
+        ruleDomainInput: document.getElementById('ruleDomain'),
+        ruleApplyToSubdomainsCheckbox: document.getElementById('ruleApplyToSubdomains'),
+        ruleAutoTranslateSelect: document.getElementById('ruleAutoTranslate'),
+        ruleTranslatorEngineSelect: document.getElementById('ruleTranslatorEngine'),
+        ruleTargetLanguageSelect: document.getElementById('ruleTargetLanguage'),
+        ruleDisplayModeSelect: document.getElementById('ruleDisplayMode'),
+        ruleCssSelectorTextarea: document.getElementById('ruleCssSelector'),
+        ruleCssSelectorOverrideCheckbox: document.getElementById('ruleCssSelectorOverride'),
+        cancelDomainRuleBtn: document.getElementById('cancelDomainRuleBtn'),
+        saveDomainRuleBtn: document.getElementById('saveDomainRuleBtn'),
     };
     elements.toggleLogBtn = document.getElementById('toggleLogBtn');
     elements.logContent = document.getElementById('log-content');
@@ -290,8 +304,6 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.targetLanguage.value = currentSettings.targetLanguage || 'ZH';
         // Default translation selector
         elements.defaultTranslationSelector.value = currentSettings.translationSelector?.default || window.Constants.DEFAULT_TRANSLATION_SELECTOR;
-         // Domain-specific translation selector (Note: This field is currently not used in the logic for domain rules)
-        elements.domainTranslationSelector.value = currentSettings.domainTranslationSelector || ''; // Assuming a new setting for this
         elements.deeplxApiUrl.value = currentSettings.deeplxApiUrl || '';
 
         elements.displayModeSelect.value = currentSettings.displayMode || 'replace';
@@ -308,18 +320,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderPrecheckRulesUI();
         hasUnsavedChanges = false;
         elements.saveSettingsBtn.classList.remove('visible'); // Ensure FAB is hidden on initial load
-    };
-
-    const getDomainRulesFromList = () => {
-        const rules = {};    
-
-        const alwaysTranslateText = browser.i18n.getMessage('alwaysTranslate');
-        elements.domainRulesList.querySelectorAll('li').forEach(item => {
-            const domain = item.querySelector('strong').textContent;
-            const ruleText = item.querySelector('span').textContent;
-            rules[domain] = ruleText.includes(alwaysTranslateText) ? 'always' : 'manual';
-        });
-        return rules;
     };
 
     const saveSettings = async () => {
@@ -343,22 +343,26 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.fabIconLoading.classList.add('active');
         elements.fabIconSuccess.classList.remove('active');
 
-        const settings = {
+        const { settings: existingSettings } = await browser.storage.sync.get('settings');
+        const currentSettings = existingSettings || {};
+
+        const settingsToSave = {
+            ...currentSettings, // Preserve existing settings like domainRules
             translatorEngine: elements.translatorEngine.value,
             targetLanguage: elements.targetLanguage.value,
             displayMode: elements.displayModeSelect.value,
             deeplxApiUrl: elements.deeplxApiUrl.value,
             // The aiEngines array is the source of truth for all AI configurations.
             aiEngines: aiEngines,
-            translationSelector: {
-                default: elements.defaultTranslationSelector.value,
-                rules: getDomainRulesFromList(), // 确保这里获取的是最新的规则
-            }, // Use the already validated rules
+            // The `translationSelector` object is now simplified as domain rules are managed separately
+            translationSelector: { 
+                default: elements.defaultTranslationSelector.value 
+            },
             precheckRules: precheckRulesToSave,
         };
 
         try {
-            await browser.storage.sync.set({ settings });
+            await browser.storage.sync.set({ settings: settingsToSave });
             showStatusMessage(browser.i18n.getMessage('saveSettingsSuccess'));
             markAsSaved(); // Set the flag
 
@@ -682,51 +686,37 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const renderDomainRules = (rules) => {
       elements.domainRulesList.innerHTML = "";
-      const alwaysTranslateText = browser.i18n.getMessage("alwaysTranslate");
-      const removeText = browser.i18n.getMessage("removeRule");
-  
-      for (const [domain, value] of Object.entries(rules)) {
-        const listItem = document.createElement("li"); // Each li will be an M3 list item/card
-        listItem.className = 'm3-list-item'; // Add class for styling
-
-        const isAlways = value === "always";
-        const selectorText = isAlways
-          ? alwaysTranslateText
-          : value; // Use the actual selector string if not "always"
-  
-        listItem.innerHTML = `
-          <div class="m3-list-item-content">
-            <span class="m3-list-item-headline">${escapeHtml(domain)}</span>
-            <span class="m3-list-item-supporting-text">${escapeHtml(selectorText)}</span>
-          </div>
-          <button class="remove-domain-rule-btn m3-icon-button danger" data-domain="${domain}">
-            <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-          </button>
-        `;
-        listItem.querySelector(".remove-domain-rule-btn").addEventListener("click", (event) => {
-          removeDomainRule(event.target.dataset.domain);
-        });
-        elements.domainRulesList.appendChild(listItem);
-      }
-    };
-
-    const addDomainRule = async () => {
-        const domain = elements.newDomainInput.value.trim();
-        const rule = elements.newDomainRuleSelect.value;
-
-        if (domain) {
-            const { settings } = await browser.storage.sync.get('settings');
-            const currentSettings = settings || {};
-            currentSettings.domainRules = currentSettings.domainRules || {};
-            currentSettings.domainRules[domain] = rule;
-            await browser.storage.sync.set({ settings: currentSettings });
-            renderDomainRules(currentSettings.domainRules);
-            elements.newDomainInput.value = '';
-            showStatusMessage(browser.i18n.getMessage('addRuleSuccess'));
-        } else {
-            showStatusMessage(browser.i18n.getMessage('addRuleErrorNoDomain'), true);
+        const rulesArray = Object.entries(rules).map(([domain, rule]) => ({ domain, ...rule }));
+        if (rulesArray.length === 0) {
+            elements.domainRulesList.innerHTML = `<p>${browser.i18n.getMessage('noRulesFound') || 'No domain rules configured.'}</p>`;
+            return;
         }
+        const ul = document.createElement('ul');
+        rulesArray.forEach(rule => {
+            const li = document.createElement('li');
+            li.className = 'domain-rule-item'; // Add a class for easier selection
+            li.dataset.domain = rule.domain; // Store domain in dataset for easy access
+
+            li.innerHTML = `
+            <span>${escapeHtml(rule.domain)}</span>
+            <div class="rule-actions">
+                <button class="edit-rule-btn m3-button text" data-domain="${rule.domain}">${browser.i18n.getMessage('edit') || 'Edit'}</button>
+                <button class="delete-rule-btn m3-button text danger" data-domain="${rule.domain}">${browser.i18n.getMessage('removeRule') || 'Delete'}</button>
+            </div>`;
+            ul.appendChild(li);
+        });
+        elements.domainRulesList.appendChild(ul);
+
+        // Attach event listeners to the buttons
+        ul.querySelectorAll('.edit-rule-btn').forEach(button => {
+            button.addEventListener('click', (e) => editDomainRule(e.target.dataset.domain));
+        });
+        ul.querySelectorAll('.delete-rule-btn').forEach(button => {
+            button.addEventListener('click', (e) => removeDomainRule(e.target.dataset.domain));
+        });
     };
+
+
 
     const removeDomainRule = async (domainToRemove) => {
         const { settings } = await browser.storage.sync.get('settings');
@@ -737,6 +727,77 @@ document.addEventListener('DOMContentLoaded', () => {
             renderDomainRules(currentSettings.domainRules);
             showStatusMessage(browser.i18n.getMessage('removeRuleSuccess'));
         }
+    };
+
+    const editDomainRule = (domain) => {
+        // Find the rule data in the rendered list
+        const ruleItem = elements.domainRulesList.querySelector(`li[data-domain="${domain}"]`);
+        if (ruleItem) {
+            // Extract rule data and open modal for editing
+            browser.storage.sync.get('settings').then(({ settings }) => {
+                const currentSettings = settings || {};
+                if (currentSettings.domainRules && currentSettings.domainRules[domain]) {
+                    openDomainRuleModal({ domain, ...currentSettings.domainRules[domain] });
+                }
+            });
+            
+        }
+    };
+
+    const saveDomainRule = async () => {
+        const newDomain = elements.ruleDomainInput.value.trim();
+        const originalDomain = elements.editingDomainInput.value;
+
+        // --- 1. Validation ---
+        if (!newDomain) {
+            showStatusMessage(browser.i18n.getMessage('domainCannotBeEmpty') || 'Domain cannot be empty.', true);
+            elements.ruleDomainInput.closest('.m3-form-field').classList.add('is-invalid');
+            return;
+        }
+        elements.ruleDomainInput.closest('.m3-form-field').classList.remove('is-invalid');
+
+        // --- 2. Construct rule object, excluding default values for efficiency ---
+        const rule = {};
+        // The default for applyToSubdomains is true, so only save the value if it's false.
+        if (!elements.ruleApplyToSubdomainsCheckbox.checked) {
+            rule.applyToSubdomains = false;
+        }
+        if (elements.ruleAutoTranslateSelect.value !== 'default') {
+            rule.autoTranslate = elements.ruleAutoTranslateSelect.value;
+        }
+        if (elements.ruleTranslatorEngineSelect.value !== 'default') {
+            rule.translatorEngine = elements.ruleTranslatorEngineSelect.value;
+        }
+        if (elements.ruleTargetLanguageSelect.value !== 'default') {
+            rule.targetLanguage = elements.ruleTargetLanguageSelect.value;
+        }
+        if (elements.ruleDisplayModeSelect.value !== 'default') {
+            rule.displayMode = elements.ruleDisplayModeSelect.value;
+        }
+        const cssSelector = elements.ruleCssSelectorTextarea.value.trim();
+        if (cssSelector) {
+            rule.cssSelector = cssSelector;
+            // Always be explicit about the override state if a selector is present.
+            // This is more robust than only saving the 'true' case.
+            rule.cssSelectorOverride = elements.ruleCssSelectorOverrideCheckbox.checked;
+        } else if (elements.ruleCssSelectorOverrideCheckbox.checked) {
+            // If no selector is entered, but override is checked, save the override state.
+            rule.cssSelectorOverride = true;
+        }
+        // --- 3. Save to storage ---
+        const { settings } = await browser.storage.sync.get('settings');
+        const currentSettings = settings || {};
+        currentSettings.domainRules = currentSettings.domainRules || {};
+
+        if (originalDomain && originalDomain !== newDomain) {
+            delete currentSettings.domainRules[originalDomain];
+        }
+        currentSettings.domainRules[newDomain] = rule;
+
+        await browser.storage.sync.set({ settings: currentSettings });
+        closeDomainRuleModal();
+        renderDomainRules(currentSettings.domainRules);
+        showStatusMessage(browser.i18n.getMessage('saveRuleSuccess') || 'Rule saved successfully.');
     };
 
     const exportSettings = async () => {
@@ -807,6 +868,45 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.aiEngineForm.style.display = 'none';
         elements.aiTestResult.style.display = 'none';
         currentEditingAiEngineId = null;
+    };
+    /**
+     * Opens the domain rule modal, optionally populating it for editing.
+     * @param {Object} [ruleData] - The rule data to populate the form with for editing.
+     */
+    const openDomainRuleModal = (ruleData = {}) => {
+        elements.domainRuleModal.style.display = 'flex'; // Show overlay with flex for centering
+        // Force reflow to ensure CSS transition applies
+        elements.domainRuleModal.offsetWidth;
+        elements.domainRuleModal.classList.add('is-visible'); // Trigger content transition
+
+        // Populate dropdowns with options (including "Use Default")
+
+        // Set form title and initial values
+        elements.domainRuleFormTitle.textContent = ruleData.domain ? browser.i18n.getMessage('editDomainRule') || 'Edit Domain Rule' : browser.i18n.getMessage('addDomainRule') || 'Add Domain Rule';
+        elements.editingDomainInput.value = ruleData.domain || ''; // Store the original domain for editing
+        elements.ruleDomainInput.value = ruleData.domain || '';
+        elements.ruleApplyToSubdomainsCheckbox.checked = ruleData.applyToSubdomains !== undefined ? ruleData.applyToSubdomains : true; // Default to true
+        elements.ruleAutoTranslateSelect.value = ruleData.autoTranslate || 'default';
+        elements.ruleTranslatorEngineSelect.value = ruleData.translatorEngine || 'default';
+        elements.ruleTargetLanguageSelect.value = ruleData.targetLanguage || 'default';
+        elements.ruleDisplayModeSelect.value = ruleData.displayMode || 'default';
+        elements.ruleCssSelectorTextarea.value = ruleData.cssSelector || '';
+        // The checkbox should be unchecked by default unless cssSelectorOverride is explicitly true
+        elements.ruleCssSelectorOverrideCheckbox.checked = ruleData.cssSelectorOverride === true;
+    };
+
+    const closeDomainRuleModal = () => {
+        elements.domainRuleModal.classList.remove('is-visible'); // Trigger content transition back
+        const modalContent = elements.domainRuleModal.querySelector('.modal-content');
+        // Listen for the transition end on the modal-content
+        const onTransitionEnd = (e) => {
+            // Ensure it's the transition of the modal-content's transform/opacity
+            if (e.propertyName === 'transform' || e.propertyName === 'opacity') {
+                elements.domainRuleModal.style.display = 'none'; // Hide overlay after content transition
+                modalContent.removeEventListener('transitionend', onTransitionEnd);
+            }
+        };
+        modalContent.addEventListener('transitionend', onTransitionEnd);
     };
 
     const renderAiEngineList = () => {
@@ -975,7 +1075,39 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
+    /**
+     * Populates the dropdowns within the domain rule modal.
+     * This includes translation engines, target languages, and display modes.
+     */
+    const populateModalDropdowns = () => {
+        // Populate Translator Engine dropdown
+        const engineSelect = elements.ruleTranslatorEngineSelect;
+        engineSelect.innerHTML = `<option value="default">${browser.i18n.getMessage('useDefaultSetting')}</option>`;
+        for (const key in window.Constants.SUPPORTED_ENGINES) {
+            const option = document.createElement('option');
+            option.value = key;
+            option.textContent = browser.i18n.getMessage(window.Constants.SUPPORTED_ENGINES[key]);
+            engineSelect.appendChild(option);
+        }
+        aiEngines.forEach(engine => {
+            const option = document.createElement('option');
+            option.value = `ai:${engine.id}`;
+            option.textContent = engine.name;
+            engineSelect.appendChild(option);
+        });
 
+        // Populate Target Language dropdown
+        const langSelect = elements.ruleTargetLanguageSelect;
+        langSelect.innerHTML = `<option value="default">${browser.i18n.getMessage('useDefaultSetting')}</option>`;
+        for (const code in window.Constants.SUPPORTED_LANGUAGES) {
+            if (code === 'auto') continue; // 'auto' is not a target language
+            const option = document.createElement('option');
+            option.value = code;
+            option.textContent = browser.i18n.getMessage(window.Constants.SUPPORTED_LANGUAGES[code]);
+            langSelect.appendChild(option);
+        }
+        // Display Mode dropdown is already static in HTML with 'default' option
+    };
     const populateLanguageOptions = () => {
         const select = elements.targetLanguage;
         if (!select) return;
@@ -1156,9 +1288,10 @@ document.addEventListener('DOMContentLoaded', () => {
         populateLanguageOptions();
         await loadSettings();
         manageSelectLabels(); // Ensure select labels are correctly positioned on load and on change
+        populateModalDropdowns(); // Populate modal dropdowns on initialization
         // Apply ripple effect to all static M3 buttons (excluding FAB for now)
         document.querySelectorAll('.m3-button:not(#saveSettingsBtn)').forEach(addRippleEffect);
-        addRippleEffect(elements.addDomainRuleBtn); // Ensure this one gets it too
+        addRippleEffect(elements.addDomainRuleBtn); // Ensure this one gets it too (for opening the modal)
 
 
          // Main settings listeners
@@ -1166,7 +1299,6 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.translatorEngine.addEventListener('change', toggleApiFields); // Keep separate from unsaved changes
         elements.saveSettingsBtn.addEventListener('click', saveSettings);
         elements.resetSettingsBtn.addEventListener('click', resetSettings);
-        elements.addDomainRuleBtn.addEventListener('click', addDomainRule);
         elements.exportBtn.addEventListener('click', exportSettings);
         elements.importBtn.addEventListener('click', () => elements.importInput.click());
 
@@ -1178,6 +1310,12 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.saveAiEngineBtn.addEventListener('click', saveAiEngine);
         elements.cancelAiEngineBtn.addEventListener('click', () => elements.aiEngineForm.style.display = 'none');
         elements.testAiEngineBtn.addEventListener('click', testAiEngineConnection);
+
+        // Domain Rule Modal Listeners
+        elements.addDomainRuleBtn.addEventListener('click', () => openDomainRuleModal()); // Open modal for adding new rule
+        elements.closeDomainRuleModalBtn.addEventListener('click', closeDomainRuleModal);
+        elements.cancelDomainRuleBtn.addEventListener('click', closeDomainRuleModal);
+        elements.saveDomainRuleBtn.addEventListener('click', saveDomainRule); // This function will be implemented next
 
         // Other listeners
         elements.importInput.addEventListener('change', importSettings);

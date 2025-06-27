@@ -128,8 +128,64 @@
     "description": "总是翻译规则的选项。"
   },
   "addRule": {
-    "message": "添加规则",
+    "message": "添加域名规则",
     "description": "添加新域名规则的按钮文本。"
+  },
+  "edit": {
+    "message": "编辑",
+    "description": "通用编辑按钮文本。"
+  },
+  "addDomainRule": {
+    "message": "添加域名规则",
+    "description": "打开域名规则模态框以进行添加的按钮。"
+  },
+  "editDomainRule": {
+    "message": "编辑域名规则",
+    "description": "编辑域名规则时模态框的标题。"
+  },
+  "domainRuleModalTitle": {
+    "message": "域名规则设置",
+    "description": "域名规则模态框的通用标题。"
+  },
+  "cancel": {
+    "message": "取消",
+    "description": "通用取消按钮文本。"
+  },
+  "saveRule": {
+    "message": "保存规则",
+    "description": "保存域名规则的按钮文本。"
+  },
+  "applyToSubdomains": {
+    "message": "应用于所有子域名",
+    "description": "域名规则模态框中子域名开关的标签。"
+  },
+  "useDefaultSetting": {
+    "message": "使用默认设置",
+    "description": "下拉菜单中继承全局设置的选项。"
+  },
+  "selectorPlaceholderDomain": {
+    "message": "例如：.content, #main-article",
+    "description": "域名特定CSS选择器文本区域的占位符。"
+  },
+  "selectorDescriptionDomain": {
+    "message": "使用 , 分隔多个选择器。留空则使用默认选择器。",
+    "description": "域名特定CSS选择器的辅助文本。"
+  },
+  "overrideDefaultSelectors": {
+    "message": "覆盖默认选择器",
+    "description": "CSS覆盖开关的标签。"
+  },
+  "domainCannotBeEmpty": {
+    "message": "域名不能为空。",
+    "description": "域名输入为空时的错误消息。"
+  },
+  "saveRuleSuccess": {
+    "message": "规则已成功保存。",
+    "description": "保存域名规则后的状态消息。"
+  },
+  "confirmDeleteRule": {
+    "message": "您确定要删除此规则吗？",
+    "description": "删除域名规则前的确认消息。"
   },
   "currentRules": {
     "message": "当前域名规则：",
@@ -138,10 +194,6 @@
   "domainSpecificRules": {
     "message": "域名特定规则",
     "description": "域名特定规则的标题"
-  },
-  "domainSelectorDescription": {
-    "message": "可选。仅为此域名覆盖默认选择器。（注意：此功能尚未完全实现）",
-    "description": "域名特定 CSS 选择器输入框的描述。"
   },
   "rulesDescription": {
     "message": "规则适用于精确的主机名。默认为“手动翻译”。",

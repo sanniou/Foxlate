@@ -396,6 +396,19 @@ button.m3-button.danger:hover {
     margin-top: 16px;
 }
 
+.domain-rules-list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.domain-rules-list .rule-actions {
+    display: flex;
+    gap: 8px;
+}
+
 .m3-list-item {
     background-color: var(--md-sys-color-surface-container-highest);
     border: 1px solid var(--md-sys-color-outline-variant);

@@ -131,6 +131,58 @@
     "message": "Add Rule",
     "description": "Button text to add a new domain rule."
   },
+  "edit": {
+    "message": "Edit",
+    "description": "Generic edit button text."
+  },
+  "addDomainRule": {
+    "message": "Add Domain Rule",
+    "description": "Button to open the domain rule modal for adding."
+  },
+  "editDomainRule": {
+    "message": "Edit Domain Rule",
+    "description": "Title for the domain rule modal when editing."
+  },
+  "domainRuleModalTitle": {
+    "message": "Domain Rule Settings",
+    "description": "Generic title for the domain rule modal."
+  },
+  "cancel": {
+    "message": "Cancel",
+    "description": "Generic cancel button text."
+  },
+  "saveRule": {
+    "message": "Save Rule",
+    "description": "Button to save a domain rule."
+  },
+  "applyToSubdomains": {
+    "message": "Apply to all subdomains",
+    "description": "Label for the subdomain switch in the domain rule modal."
+  },
+  "useDefaultSetting": {
+    "message": "Use Default",
+    "description": "Option in dropdowns to inherit from global settings."
+  },
+  "selectorPlaceholderDomain": {
+    "message": "e.g., .content, #main-article",
+    "description": "Placeholder for the domain-specific CSS selector textarea."
+  },
+  "overrideDefaultSelectors": {
+    "message": "Override default selectors",
+    "description": "Label for the CSS override switch."
+  },
+  "domainCannotBeEmpty": {
+    "message": "Domain cannot be empty.",
+    "description": "Error message for empty domain input."
+  },
+  "saveRuleSuccess": {
+    "message": "Rule saved successfully.",
+    "description": "Status message after saving a domain rule."
+  },
+  "confirmDeleteRule": {
+    "message": "Are you sure you want to delete this rule?",
+    "description": "Confirmation message before deleting a domain rule."
+  },
   "currentRules": {
     "message": "Current Domain Rules:",
     "description": "Heading for the list of current domain rules."
@@ -140,8 +192,8 @@
     "description": "Heading for domain specific rules"
   },
   "domainSelectorDescription": {
-    "message": "Optional. Overrides the default selector for this domain. (Note: This feature is not yet fully implemented)",
-    "description": "Description for the domain-specific CSS selector input."
+    "message": "Use , to separate multiple selectors. Leave empty to use default selectors.",
+    "description": "Helper text for the domain-specific CSS selector."
   },
   "rulesDescription": {
     "message": "Rules apply to the exact hostname. Default is \"Manual Translate\".",

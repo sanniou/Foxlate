@@ -111,33 +111,23 @@
             </div>
 
             <h3 i18n-text="domainSpecificRules">Domain-Specific Rules</h3>
-            <div class="form-group add-domain-rule-form">
-                <div class="m3-form-field filled">
-                    <input type="text" id="newDomain" i18n-placeholder="domainPlaceholder" placeholder=" "/>
-                    <label for="newDomain" i18n-text="domain">Domain:</label>
-                </div>
-                <div class="m3-form-field filled">
-                    <select id="newDomainRule">
-                        <option value="manual" i18n-text="manualTranslate"></option>
-                        <option value="always" i18n-text="alwaysTranslate"></option>
-                    </select>
-                    <label for="newDomainRule" i18n-text="rule">Rule:</label>
-                </div>
-                <button id="addDomainRuleBtn" class="m3-button filled" i18n-text="addRule">Add Rule</button>
-            </div>
             <div class="form-group">
-                <div class="m3-form-field filled">
-                    <textarea id="domainTranslationSelector" rows="1" i18n-placeholder="selectorPlaceholder" placeholder=" "></textarea>
-                    <label for="domainTranslationSelector" i18n-text="translationSelector">Elements to Translate (CSS Selector):</label>
-                </div>
-                <div class="m3-helper-text">
-                    <small i18n-text="domainSelectorDescription"></small>
-                </div>
+                <button id="addDomainRuleBtn" class="m3-button filled" i18n-text="addDomainRule">Add Domain Rule</button>
             </div>
+
             <div class="domain-rules-list">
                 <h3 i18n-text="currentRules">Current Domain Rules:</h3>
                 <ul id="domainRulesList">
                   <!-- Domain rules will be dynamically added here -->
+                  <!-- Example of a rule item:
+                  <li class="domain-rule-item" data-domain="example.com">
+                      <span>example.com</span>
+                      <div class="rule-actions">
+                          <button class="edit-rule-btn m3-button text">Edit</button>
+                          <button class="delete-rule-btn m3-button text danger">Delete</button>
+                      </div>
+                  </li>
+                  -->
                 </ul>
             </div>
             <div class="m3-helper-text">
@@ -222,11 +212,84 @@
                 <div class="button-group ai-engine-form-buttons">
                     <button id="testAiEngineBtn" class="m3-button filled" i18n-text="test">Test Connection</button>
                     <div class="action-buttons">
-                        <button id="cancelAiEngineBtn" class="m3-button text">Cancel</button>
+                        <button id="cancelAiEngineBtn" class="m3-button text" i18n-text="cancel">Cancel</button>
                         <button id="saveAiEngineBtn" class="m3-button filled" i18n-text="saveSettings">Save AI Engine</button>
                     </div>
                 </div>
                 <div id="aiTestResult" class="status-message ai-test-result-message"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Domain Rule Management Modal -->
+    <div id="domainRuleModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h2 id="domainRuleFormTitle" i18n-text="domainRuleModalTitle">Domain Rule Settings</h2>
+
+            <div id="domainRuleForm" class="form-group">
+                <input type="hidden" id="editingDomain" value="">
+                <div class="m3-form-field filled">
+                    <input type="text" id="ruleDomain" placeholder="e.g., example.com" required>
+                    <label for="ruleDomain" i18n-text="domain">Domain:<span class="required-indicator">*</span></label>
+                </div>
+                <div class="m3-switch">
+                    <input type="checkbox" id="ruleApplyToSubdomains" checked>
+                    <label for="ruleApplyToSubdomains" class="switch-track">
+                        <span class="switch-thumb"></span>
+                    </label>
+                    <label for="ruleApplyToSubdomains" class="switch-label" i18n-text="applyToSubdomains">Apply to all subdomains</label>
+                </div>
+                <div class="m3-form-field filled">
+                    <select id="ruleAutoTranslate">
+                        <option value="default" i18n-text="useDefaultSetting">Use Default</option>
+                        <option value="always" i18n-text="alwaysTranslate">Always Translate</option>
+                        <option value="manual" i18n-text="manualTranslate">Manual Translate</option>
+                    </select>
+                    <label for="ruleAutoTranslate" i18n-text="autoTranslate">Auto Translate:</label>
+                </div>
+                <div class="m3-form-field filled">
+                    <select id="ruleTranslatorEngine">
+                        <option value="default" i18n-text="useDefaultSetting">Use Default</option>
+                        <!-- Other engines will be populated by JS -->
+                    </select>
+                    <label for="ruleTranslatorEngine" i18n-text="translationEngine">Translation Engine:</label>
+                </div>
+                <div class="m3-form-field filled">
+                    <select id="ruleTargetLanguage">
+                        <option value="default" i18n-text="useDefaultSetting">Use Default</option>
+                        <!-- Other languages will be populated by JS -->
+                    </select>
+                    <label for="ruleTargetLanguage" i18n-text="targetLanguage">Target Language:</label>
+                </div>
+                <div class="m3-form-field filled">
+                    <select id="ruleDisplayMode">
+                        <option value="default" i18n-text="useDefaultSetting">Use Default</option>
+                        <option value="replace" i18n-text="replaceOriginal">Replace Original</option>
+                        <option value="append" i18n-text="appendTranslated">Append Translated</option>
+                        <option value="hover" i18n-text="hoverToDisplay">Hover to Display</option>
+                    </select>
+                    <label for="ruleDisplayMode" i18n-text="displayMode">Display Mode:</label>
+                </div>
+                <div class="m3-form-field filled">
+                    <textarea id="ruleCssSelector" rows="3" i18n-placeholder="selectorPlaceholderDomain" placeholder=" "></textarea>
+                    <label for="ruleCssSelector" i18n-text="translationSelector">Elements to Translate (CSS Selector):</label>
+                </div>
+                <div class="m3-switch">
+                    <input type="checkbox" id="ruleCssSelectorOverride">
+                    <label for="ruleCssSelectorOverride" class="switch-track">
+                        <span class="switch-thumb"></span>
+                    </label>
+                    <label for="ruleCssSelectorOverride" class="switch-label" i18n-text="overrideDefaultSelectors">Override default selectors</label>
+                </div>
+                <div class="m3-helper-text">
+                    <small i18n-text="selectorDescriptionDomain">Use , to separate multiple selectors. Leave empty to use default selectors.</small>
+                </div>
+
+                <div class="button-group modal-actions">
+                    <button id="cancelDomainRuleBtn" class="m3-button text" i18n-text="cancel">Cancel</button>
+                    <button id="saveDomainRuleBtn" class="m3-button filled" i18n-text="saveRule">Save Rule</button>
+                </div>
             </div>
         </div>
     </div>

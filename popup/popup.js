@@ -6,12 +6,15 @@ document.addEventListener('DOMContentLoaded', () => {
         engineSelect: document.getElementById('engineSelect'),
         displayModeSelect: document.getElementById('displayModeSelect'),
         translatePageBtn: document.getElementById('translatePageBtn'),
-        alwaysTranslateToggle: document.getElementById('alwaysTranslateToggle'),
+        autoTranslateCheckbox: document.getElementById('autoTranslate'),
+        currentRuleIndicator: document.getElementById('currentRuleIndicator'), // 新增元素
         openOptionsBtn: document.getElementById('openOptionsBtn'),
         versionDisplay: document.getElementById('versionDisplay'),
         aboutBtn: document.getElementById('aboutBtn')
     };
     let activeTabId = null;
+    let currentHostname = null;
+    let currentRuleSource = 'default';
 
     /**
      * Applies localized strings to the popup UI.
@@ -106,49 +109,117 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentSettings = settings || {};
 
         // Populate all select elements
-        // Start with all supported engines from Constants
         const allSupportedEngines = { ...window.Constants.SUPPORTED_ENGINES };
         const aiEngines = currentSettings.aiEngines || [];
-        // Add custom AI engines to the list
+
         aiEngines.forEach(engine => {
-            // The value is 'ai:engineId', and the text is the user-defined engine name.
             allSupportedEngines[`ai:${engine.id}`] = engine.name;
         });
         populateSelect(elements.engineSelect, allSupportedEngines, currentSettings.translatorEngine || 'deeplx');
         populateSelect(elements.sourceLanguageSelect, window.Constants.SUPPORTED_LANGUAGES, 'auto');
         const targetLangs = { ...window.Constants.SUPPORTED_LANGUAGES };
         delete targetLangs.auto; // Target language cannot be 'auto'
+
         populateSelect(elements.targetLanguageSelect, targetLangs, currentSettings.targetLanguage || 'ZH');
         elements.displayModeSelect.value = currentSettings.displayMode || 'replace';
 
-        if (tab.url && !tab.url.startsWith('about:')) {
-            const domain = new URL(tab.url).hostname;
+        // --- Rule Application Logic ---
+        currentHostname = getHostname(tab.url);
+        elements.autoTranslateCheckbox.disabled = !currentHostname;
+
+        const defaultSettings = { // Define the global settings as the base
+            autoTranslate: currentSettings.autoTranslate ? 'always' : 'manual',
+            translatorEngine: currentSettings.translatorEngine || 'deeplx',
+            targetLanguage: currentSettings.targetLanguage || 'ZH',
+            displayMode: currentSettings.displayMode || 'replace',
+        };
+
+        let finalRule = { ...defaultSettings };
+        currentRuleSource = 'default';
+
+        if (currentHostname) {
             const domainRules = currentSettings.domainRules || {};
-            elements.alwaysTranslateToggle.checked = domainRules[domain] === 'always';
-        } else {
-            elements.alwaysTranslateToggle.disabled = true;
-            elements.alwaysTranslateToggle.parentElement.parentElement.style.opacity = '0.5';
+            const domainParts = currentHostname.split('.');
+            let matchedDomain = null;
+
+            // 1. Check for exact hostname match (e.g., 'sub.example.com')
+            if (domainRules[currentHostname]) {
+                matchedDomain = currentHostname;
+            } else {
+                // 2. Check for parent domains (e.g., 'example.com' for 'sub.example.com')
+                for (let i = 1; i < domainParts.length; i++) {
+                    const parentDomain = domainParts.slice(i).join('.');
+                    if (domainRules[parentDomain] && domainRules[parentDomain].applyToSubdomains !== false) {
+                        matchedDomain = parentDomain;
+                        break; // Found the most specific applicable parent rule
+                    }
+                }
+            }
+
+            if (matchedDomain) {
+                currentRuleSource = matchedDomain;
+                finalRule = { ...defaultSettings, ...domainRules[matchedDomain] };
+            }
         }
 
+        // Apply the final, merged rule to the UI
+        elements.autoTranslateCheckbox.checked = finalRule.autoTranslate === 'always';
+        elements.engineSelect.value = finalRule.translatorEngine;
+        elements.targetLanguageSelect.value = finalRule.targetLanguage;
+        elements.displayModeSelect.value = finalRule.displayMode;
+
+        // Update UI indicators
+        elements.currentRuleIndicator.style.display = 'inline';
+        elements.currentRuleIndicator.textContent = `Rule: ${currentRuleSource}`;
         const { tabTranslationStates = {} } = await browser.storage.session.get('tabTranslationStates');
         updateTranslateButtonState(tabTranslationStates[activeTabId] || 'original');
-
+        
         // After populating and setting values, manage the labels
         manageSelectLabels();
     };
 
+    const getCurrentTab = async () => {
+        let queryOptions = { active: true, currentWindow: true };
+        let [tab] = await browser.tabs.query(queryOptions);
+        return tab;
+    };
+
+    const getHostname = (url) => {
+        try {
+            if (!url || url.startsWith('about:') || url.startsWith('moz-extension:')) return null;
+            return new URL(url).hostname;
+        } catch (e) {
+            console.error("Invalid URL:", url);
+            return null;
+        }
+    };
+
     /**
-     * Saves all relevant settings from the popup UI to storage.
+     * Saves a specific setting change to the correct rule (domain or global).
+     * @param {string} key The setting key to change (e.g., 'targetLanguage').
+     * @param {any} value The new value for the setting.
      */
-    const saveCurrentSettings = async () => {
-        const { settings: oldSettings } = await browser.storage.sync.get('settings');
-        const newSettings = {
-            ...oldSettings,
-            translatorEngine: elements.engineSelect.value,
-            targetLanguage: elements.targetLanguageSelect.value,
-            displayMode: elements.displayModeSelect.value,
-        };
-        await browser.storage.sync.set({ settings: newSettings });
+    const saveChangeToRule = async (key, value) => {
+        if (!currentHostname) return;
+
+        const { settings } = await browser.storage.sync.get('settings');
+        const currentSettings = settings || {};
+        currentSettings.domainRules = currentSettings.domainRules || {};
+
+        let domainToUpdate = currentRuleSource;
+
+        // If the current rule is the default, create a new rule for the specific hostname.
+        if (domainToUpdate === 'default') {
+            domainToUpdate = currentHostname;
+            if (!currentSettings.domainRules[domainToUpdate]) {
+                currentSettings.domainRules[domainToUpdate] = {};
+            }
+        }
+
+        currentSettings.domainRules[domainToUpdate][key] = value;
+
+        await browser.storage.sync.set({ settings: currentSettings });
+        await loadAndApplySettings(); // Reload to reflect the change
     };
 
     /**
@@ -168,38 +239,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Handles changes to the display mode dropdown.
-     */
-    async function handleDisplayModeChange() {
-        await saveCurrentSettings();
-
-        const { tabTranslationStates = {} } = await browser.storage.session.get('tabTranslationStates');
-        const currentState = tabTranslationStates[activeTabId];
-
-        if (currentState === 'translated') {
-            browser.tabs.sendMessage(activeTabId, {
-                type: 'UPDATE_DISPLAY_MODE',
-                payload: { displayMode: elements.displayModeSelect.value }
-            }).catch(e => console.error("Failed to send display mode update:", e));
-        }
-    }
-
-    /**
-     * Handles changes to the "Always Translate" toggle.
-     */
-    async function handleAlwaysTranslateToggleChange() {
-        const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-        if (!tab || !tab.url || tab.url.startsWith('about:')) return;
-
-        const domain = new URL(tab.url).hostname;
-        const { settings } = await browser.storage.sync.get('settings');
-        const currentSettings = settings || {};
-        currentSettings.domainRules = currentSettings.domainRules || {};
-        currentSettings.domainRules[domain] = elements.alwaysTranslateToggle.checked ? 'always' : 'manual';
-        await browser.storage.sync.set({ settings: currentSettings });
-    }
-
-    /**
      * Handles status broadcasts from the service worker.
      */
     const handleStatusBroadcast = (request) => {
@@ -212,22 +251,46 @@ document.addEventListener('DOMContentLoaded', () => {
      * Initializes the popup.
      */
     const initialize = async () => {
+        // 1. Initial UI setup
         applyTranslations();
+        manageSelectLabels();
+        elements.versionDisplay.textContent = `v${browser.runtime.getManifest().version}`;
+
+        // 2. Load settings and apply rules to UI
         await loadAndApplySettings();
 
-        // --- Event Listeners ---
+        // 3. Add event listeners
         elements.openOptionsBtn.addEventListener('click', () => browser.runtime.openOptionsPage());
         elements.translatePageBtn.addEventListener('click', handleTranslateButtonClick);
-        
-        // Listen for changes on dropdowns
-        elements.engineSelect.addEventListener('change', saveCurrentSettings);
-        elements.targetLanguageSelect.addEventListener('change', saveCurrentSettings);
-        elements.displayModeSelect.addEventListener('change', handleDisplayModeChange);
 
-        elements.alwaysTranslateToggle.addEventListener('change', handleAlwaysTranslateToggleChange);
+        // Listeners for settings changes that save to rules
+        elements.autoTranslateCheckbox.addEventListener('change', (e) => {
+            saveChangeToRule('autoTranslate', e.target.checked ? 'always' : 'manual');
+        });
+        elements.engineSelect.addEventListener('change', (e) => {
+            saveChangeToRule('translatorEngine', e.target.value);
+        });
+        elements.targetLanguageSelect.addEventListener('change', (e) => {
+            saveChangeToRule('targetLanguage', e.target.value);
+        });
+        elements.displayModeSelect.addEventListener('change', async (e) => {
+            const newDisplayMode = e.target.value;
+            await saveChangeToRule('displayMode', newDisplayMode);
+
+            // Handle live update on the page if it's already translated
+            const { tabTranslationStates = {} } = await browser.storage.session.get('tabTranslationStates');
+            const currentState = tabTranslationStates[activeTabId];
+
+            if (currentState === 'translated') {
+                browser.tabs.sendMessage(activeTabId, {
+                    type: 'UPDATE_DISPLAY_MODE',
+                    payload: { displayMode: newDisplayMode }
+                }).catch(err => console.error("Failed to send display mode update:", err));
+            }
+        });
+
+        // Listener for broadcasts from service worker
         browser.runtime.onMessage.addListener(handleStatusBroadcast);
-
-        elements.versionDisplay.textContent = `v${browser.runtime.getManifest().version}`;
     };
 
     initialize();
