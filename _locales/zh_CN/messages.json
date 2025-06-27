@@ -123,6 +123,10 @@
     "message": "域名特定规则",
     "description": "域名特定规则的标题"
   },
+  "domainSelectorDescription": {
+    "message": "可选。仅为此域名覆盖默认选择器。（注意：此功能尚未完全实现）",
+    "description": "域名特定 CSS 选择器输入框的描述。"
+  },
   "rulesDescription": {
     "message": "规则适用于精确的主机名。默认为“手动翻译”。",
     "description": "域名规则的描述。"

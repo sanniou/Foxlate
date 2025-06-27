@@ -448,17 +448,42 @@ document.addEventListener('DOMContentLoaded', () => {
         const whitelistText = browser.i18n.getMessage('whitelist') || 'Whitelist';
         const enabledText = browser.i18n.getMessage('enabled') || 'Enabled';
 
+    // Unique ID for connecting labels and inputs, crucial for accessibility
+    const randomId = `rule-${Math.random().toString(36).substr(2, 9)}`;
+
         item.innerHTML = `
-            <input type="text" class="rule-name" placeholder="${ruleNamePlaceholder}" value="${rule.name || ''}">
-            <input type="text" class="rule-regex" placeholder="${regexPlaceholder}" value="${rule.regex || ''}">
-            <input type="text" class="rule-flags" placeholder="${flagsPlaceholder}" value="${rule.flags || ''}">
-            <select class="rule-mode">
+        <div class="m3-form-field filled rule-name-field">
+            <label for="${randomId}-name">${ruleNamePlaceholder}</label>
+            <input type="text" id="${randomId}-name" class="rule-name" value="${rule.name || ''}">
+        </div>
+        <div class="m3-form-field filled rule-regex-field">
+            <label for="${randomId}-regex">${regexPlaceholder}</label>
+            <input type="text" id="${randomId}-regex" class="rule-regex" value="${rule.regex || ''}">
+        </div>
+        <div class="m3-form-field filled rule-flags-field">
+            <label for="${randomId}-flags">${flagsPlaceholder}</label>
+            <input type="text" id="${randomId}-flags" class="rule-flags" value="${rule.flags || ''}">
+        </div>
+        <div class="m3-form-field filled rule-mode-field">
+            <label for="${randomId}-mode">${browser.i18n.getMessage('rule')}</label>
+            <select id="${randomId}-mode" class="rule-mode">
                 <option value="blacklist" ${rule.mode === 'blacklist' ? 'selected' : ''}>${blacklistText}</option>
                 <option value="whitelist" ${rule.mode === 'whitelist' ? 'selected' : ''}>${whitelistText}</option>
             </select>
-            <label class="rule-enabled"><input type="checkbox" ${rule.enabled ? 'checked' : ''}> ${enabledText}</label>
-            <button class="remove-rule-btn">×</button>
-            <button class="test-rule-btn">Test</button> <!-- Test button -->
+        </div>
+        <div class="rule-item-controls">
+            <div class="m3-switch">
+                <input type="checkbox" id="${randomId}-enabled" class="rule-enabled-checkbox" ${rule.enabled ? 'checked' : ''}>
+                <label for="${randomId}-enabled" class="switch-track">
+                    <span class="switch-thumb"></span>
+                </label>
+                <label for="${randomId}-enabled" class="switch-label">${enabledText}</label>
+            </div>
+            <button class="test-rule-btn m3-button text">${browser.i18n.getMessage('test')}</button>
+            <button class="remove-rule-btn m3-icon-button danger">
+                <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+            </button>
+        </div>
         `;
 
         const regexInput = item.querySelector('.rule-regex');
@@ -475,10 +500,11 @@ document.addEventListener('DOMContentLoaded', () => {
             validateRegexInput(regexInput, flagsInput); // Perform validation
             markAsChanged(); // Any change in rule content marks as unsaved
         };
+    item.querySelector('.rule-name').addEventListener('input', markAsChanged);
         regexInput.addEventListener('input', validateAndMarkChanged);
         flagsInput.addEventListener('input', validateAndMarkChanged);
         item.querySelector('.rule-mode').addEventListener('change', markAsChanged);
-        item.querySelector('.rule-enabled input').addEventListener('change', markAsChanged);
+    item.querySelector('.rule-enabled-checkbox').addEventListener('change', markAsChanged);
 
         item.querySelector('.remove-rule-btn').addEventListener('click', (e) => {
             e.currentTarget.closest('.rule-item').remove();
@@ -550,7 +576,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         regex: regex, // Store potentially invalid regex for user to fix
                         flags: flagsInput.value.trim(),
                         mode: item.querySelector('.rule-mode').value,
-                        enabled: item.querySelector('.rule-enabled input').checked,
+                        enabled: item.querySelector('.rule-enabled-checkbox').checked,
                     });
                 }
             });
@@ -578,17 +604,24 @@ document.addEventListener('DOMContentLoaded', () => {
       const removeText = browser.i18n.getMessage("removeRule");
   
       for (const [domain, value] of Object.entries(rules)) {
-        const listItem = document.createElement("li");
+        const listItem = document.createElement("li"); // Each li will be an M3 list item/card
+        listItem.className = 'm3-list-item'; // Add class for styling
+
         const isAlways = value === "always";
         const selectorText = isAlways
           ? alwaysTranslateText
-          : value; // Directly use the selector string if not "always"
+          : value; // Use the actual selector string if not "always"
   
         listItem.innerHTML = `
-          <span><strong>${domain}</strong>: ${selectorText}</span>
-          <button data-domain="${domain}">${removeText}</button>
+          <div class="m3-list-item-content">
+            <span class="m3-list-item-headline">${escapeHtml(domain)}</span>
+            <span class="m3-list-item-supporting-text">${escapeHtml(selectorText)}</span>
+          </div>
+          <button class="remove-domain-rule-btn m3-icon-button danger" data-domain="${domain}">
+            <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+          </button>
         `;
-        listItem.querySelector("button").addEventListener("click", (event) => {
+        listItem.querySelector(".remove-domain-rule-btn").addEventListener("click", (event) => {
           removeDomainRule(event.target.dataset.domain);
         });
         elements.domainRulesList.appendChild(listItem);

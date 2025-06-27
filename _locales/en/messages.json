@@ -123,6 +123,10 @@
     "message": "Domain-Specific Rules",
     "description": "Heading for domain specific rules"
   },
+  "domainSelectorDescription": {
+    "message": "Optional. Overrides the default selector for this domain. (Note: This feature is not yet fully implemented)",
+    "description": "Description for the domain-specific CSS selector input."
+  },
   "rulesDescription": {
     "message": "Rules apply to the exact hostname. Default is \"Manual Translate\".",
     "description": "Description for domain rules."

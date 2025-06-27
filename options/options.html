@@ -26,39 +26,53 @@
         <section class="settings-section">
             <h2 i18n-text="generalSettings">General Settings</h2>
             <div class="form-group">
-                <label for="translatorEngine" i18n-text="translationEngine">Translation Engine:</label>
-                <select id="translatorEngine">
-                    <option value="deeplx" i18n-text="deeplx">DeepLx</option>
-                    <option value="google" i18n-text="googleTranslate">Google Translate</option>
-                    <option value="ai" i18n-text="aiTranslator">AI Translator (GPT)</option>
-                </select>
+                <div class="m3-form-field filled">
+                    <label for="translatorEngine" i18n-text="translationEngine">Translation Engine:</label>
+                    <select id="translatorEngine">
+                        <option value="deeplx" i18n-text="deeplx">DeepLx</option>
+                        <option value="google" i18n-text="googleTranslate">Google Translate</option>
+                        <option value="ai" i18n-text="aiTranslator">AI Translator (GPT)</option>
+                    </select>
+                </div>
             </div>
 
             <!-- API fields for AI Translator -->
             <div class="form-group" id="aiApiGroup" style="display: none;">
-                <label for="aiApiKey" i18n-text="aiApiKey">AI API Key:</label>
-                <input type="password" id="aiApiKey" i18n-placeholder="aiApiKeyPlaceholder">
-                <label for="aiApiUrl" i18n-text="aiApiUrl">API Endpoint URL (Optional):</label>
-                <input type="text" id="aiApiUrl" i18n-placeholder="aiApiUrlPlaceholder">
-                <label for="aiModelName" i18n-text="aiModelName">Model Name (Optional):</label>
-                <input type="text" id="aiModelName" i18n-placeholder="aiModelNamePlaceholder">
-                <label for="aiCustomPrompt" i18n-text="aiCustomPrompt">Custom Prompt:</label>
-                <textarea id="aiCustomPrompt" rows="4" i18n-placeholder="aiCustomPromptPlaceholder"></textarea>
+                <div class="m3-form-field filled">
+                    <label for="aiApiKey" i18n-text="aiApiKey">AI API Key:</label>
+                    <input type="password" id="aiApiKey" i18n-placeholder="aiApiKeyPlaceholder">
+                </div>
+                <div class="m3-form-field filled">
+                    <label for="aiApiUrl" i18n-text="aiApiUrl">API Endpoint URL (Optional):</label>
+                    <input type="text" id="aiApiUrl" i18n-placeholder="aiApiUrlPlaceholder">
+                </div>
+                <div class="m3-form-field filled">
+                    <label for="aiModelName" i18n-text="aiModelName">Model Name (Optional):</label>
+                    <input type="text" id="aiModelName" i18n-placeholder="aiModelNamePlaceholder">
+                </div>
+                <div class="m3-form-field filled">
+                    <label for="aiCustomPrompt" i18n-text="aiCustomPrompt">Custom Prompt:</label>
+                    <textarea id="aiCustomPrompt" rows="4" i18n-placeholder="aiCustomPromptPlaceholder"></textarea>
+                </div>
             </div>
 
             <!-- API URL field for DeepLx -->
             <div class="form-group" id="deeplxUrlGroup">
-                <label for="deeplxApiUrl" i18n-text="deeplxApiUrl">DeepLx API URL:</label>
-                <input type="text" id="deeplxApiUrl" i18n-placeholder="deeplxApiUrlPlaceholder">
+                <div class="m3-form-field filled">
+                    <label for="deeplxApiUrl" i18n-text="deeplxApiUrl">DeepLx API URL:</label>
+                    <input type="text" id="deeplxApiUrl" i18n-placeholder="deeplxApiUrlPlaceholder">
+                </div>
             </div>
 
             <div class="form-group">
                 <label for="targetLanguage" i18n-text="targetLanguage">Target Language:</label>
-                <div class="input-with-button">
-                    <select id="targetLanguage">
-                        <!-- Options will be populated by options.js -->
-                    </select>
-                    <button id="testTranslationBtn" class="test-btn" i18n-text="test">Test</button>
+                <div class="m3-form-field filled with-button">
+                    <div class="m3-input-wrapper">
+                        <select id="targetLanguage">
+                            <!-- Options will be populated by options.js -->
+                        </select>
+                    </div>
+                    <button id="testTranslationBtn" class="m3-button filled" i18n-text="test">Test</button>
                 </div>
             </div>
 
@@ -89,8 +103,10 @@
                 <label for="defaultTranslationSelector" i18n-text="translationSelector">
                     Elements to Translate (CSS Selector):
                 </label>
-                <textarea id="defaultTranslationSelector" rows="3"></textarea>
-                <small i18n-text="selectorDescription">Comma-separated CSS selectors for elements to be translated.</small>
+                <div class="m3-form-field filled">
+                    <textarea id="defaultTranslationSelector" rows="3"></textarea>
+                    <small i18n-text="selectorDescription">Comma-separated CSS selectors for elements to be translated.</small>
+                </div>
             </div>
 
         </section>
@@ -98,38 +114,40 @@
         <section class="settings-section">
             <h2 i18n-text="displayFormat">Display Format</h2>
             <div class="form-group">
-                <label for="displayModeSelect" i18n-text="displayMode">Display Mode:</label>
-                <select id="displayModeSelect">
-                    <option value="replace" i18n-text="replaceOriginal">Replace Original</option>
-                    <option value="append" i18n-text="appendTranslated">Append Translated</option>
-                    <option value="hover" i18n-text="hoverToDisplay">Hover to Display</option>
-                </select>
+                <div class="m3-form-field filled">
+                    <label for="displayModeSelect" i18n-text="displayMode">Display Mode:</label>
+                    <select id="displayModeSelect">
+                        <option value="replace" i18n-text="replaceOriginal">Replace Original</option>
+                        <option value="append" i18n-text="appendTranslated">Append Translated</option>
+                        <option value="hover" i18n-text="hoverToDisplay">Hover to Display</option>
+                    </select>
+                </div>
             </div>
         </section>
 
         <section class="settings-section">
             <h2 i18n-text="domainSpecificRules">Domain-Specific Rules</h2>
-            <div class="form-group">
-              <label for="newDomain" i18n-text="domain">Domain:</label>
-              <input type="text" id="newDomain" i18n-placeholder="domainPlaceholder" />
-              <!-- Missing Rule Type Selector -->
-              <label for="newDomainRule" i18n-text="rule">Rule:</label>
-              <select id="newDomainRule">
-                  <option value="manual" i18n-text="manualTranslate"></option>
-                  <option value="always" i18n-text="alwaysTranslate"></option>
-              </select>
-              <label for="domainTranslationSelector" i18n-text="translationSelector">
-                Elements to Translate (CSS Selector):
-              </label>
-              <textarea
-                id="domainTranslationSelector"
-                rows="3"
-                i18n-placeholder="selectorPlaceholder"
-              ></textarea>
-              <button id="addDomainRuleBtn" i18n-text="addRule">Add Rule</button>
+            <div class="form-group add-domain-rule-form">
+                <div class="m3-form-field filled">
+                    <label for="newDomain" i18n-text="domain">Domain:</label>
+                    <input type="text" id="newDomain" i18n-placeholder="domainPlaceholder" />
+                </div>
+                <div class="m3-form-field filled">
+                    <label for="newDomainRule" i18n-text="rule">Rule:</label>
+                    <select id="newDomainRule">
+                        <option value="manual" i18n-text="manualTranslate"></option>
+                        <option value="always" i18n-text="alwaysTranslate"></option>
+                    </select>
+                </div>
+                <button id="addDomainRuleBtn" class="m3-button filled" i18n-text="addRule">Add Rule</button>
+            </div>
+            <div class="form-group m3-form-field filled">
+                <label for="domainTranslationSelector" i18n-text="translationSelector">Elements to Translate (CSS Selector):</label>
+                <textarea id="domainTranslationSelector" rows="1" i18n-placeholder="selectorPlaceholder"></textarea>
+                <small i18n-text="domainSelectorDescription"></small>
             </div>
             <div class="domain-rules-list">
-                <h3 i18n-text="currentRules">Current Rules:</h3>
+                <h3 i18n-text="currentRules">Current Domain Rules:</h3>
                 <ul id="domainRulesList">
                   <!-- Domain rules will be dynamically added here -->
                 </ul>
@@ -146,9 +164,11 @@
             
             <!-- Test Text Input - Moved outside precheck-rules-container -->
             <div class="form-group">
-                <label for="testTextInput" i18n-text="testRegexInputLabel">测试文本:</label>
-                <textarea id="testTextInput" rows="2" i18n-placeholder="testRegexInputPlaceholder"></textarea>
-                <small i18n-text="testRegexInputDescription">在此输入文本以测试您的正则表达式规则。</small>
+                <div class="m3-form-field filled">
+                    <label for="testTextInput" i18n-text="testRegexInputLabel">测试文本:</label>
+                    <textarea id="testTextInput" rows="2" i18n-placeholder="testRegexInputPlaceholder"></textarea>
+                    <small i18n-text="testRegexInputDescription">在此输入文本以测试您的正则表达式规则。</small>
+                </div>
             </div>
 
             <div id="precheck-rules-container">                
