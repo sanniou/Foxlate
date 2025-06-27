@@ -1,236 +1,240 @@
 :root {
-    --bg-color: #f8f9fa;
-    --text-color: #212529;
-    --text-color-secondary: #6c757d;
-    --primary-color: #007bff;
-    --primary-color-hover: #0069d9;
-    --border-color: #dee2e6;
-    --border-radius: 6px;
-    --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    /* M3 Expressive Color Palette (Blue Theme) - from options.css */
+    --md-sys-color-primary: #3964e8;
+    --md-sys-color-on-primary: #ffffff;
+    --md-sys-color-primary-container: #dce1ff;
+    --md-sys-color-on-primary-container: #001c63;
+
+    --md-sys-color-secondary: #595d72;
+    --md-sys-color-on-secondary: #ffffff;
+
+    --md-sys-color-error: #ba1a1a;
+    --md-sys-color-on-error: #ffffff;
+
+    --md-sys-color-background: #fefbff;
+    --md-sys-color-on-background: #1b1b1f;
+
+    --md-sys-color-surface: #fefbff;
+    --md-sys-color-on-surface: #1b1b1f;
+    --md-sys-color-surface-variant: #e2e2ec;
+    --md-sys-color-on-surface-variant: #45464f;
+    --md-sys-color-surface-container-highest: #e4e2e6;
+
+    --md-sys-color-outline: #757780;
+    --md-sys-color-outline-variant: #c5c6d0;
+
+    /* State Layers */
+    --md-sys-state-hover-on-primary: rgba(255, 255, 255, 0.08);
+    --md-sys-state-pressed-on-primary: rgba(255, 255, 255, 0.12);
+    --md-sys-state-hover-on-surface: rgba(27, 27, 31, 0.08);
+
+    /* Typography */
+    --md-sys-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --md-sys-typescale-title-medium-font-size: 16px;
+    --md-sys-typescale-label-large-font-size: 14px;
+    --md-sys-typescale-body-large-font-size: 16px;
+    --md-sys-typescale-body-medium-font-size: 14px;
+    --md-sys-typescale-body-small-font-size: 12px;
 }
 
 body {
-    width: 300px;
+    font-family: var(--md-sys-font-family);
+    background-color: var(--md-sys-color-background);
+    color: var(--md-sys-color-on-background);
     margin: 0;
-    font-family: var(--font-family);
-    background-color: var(--bg-color);
-    color: var(--text-color);
+    width: 280px; /* 保持宽度不变 */
 }
 
 .popup-container {
-    padding: 16px;
-}
-
-header h1 {
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--text-color);
-    text-align: left;
-    margin: 0 0 16px 0;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--border-color);
+    padding: 16px; /* 增加内边距，让内容有更多呼吸空间 */
+    display: flex;
+    flex-direction: column;
+    gap: 24px; /* 进一步增加主要区域之间的间距 */
 }
 
 main {
-    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 16px; /* 设置 main 内部 section 之间的间距 */
 }
 
-.action-btn {
-    width: 100%;
-    padding: 12px;
-    font-size: 14px;
+h1 {
+    font-size: var(--md-sys-typescale-title-medium-font-size);
     font-weight: 600;
-    color: white;
-    background-color: var(--primary-color);
-    border: none;
-    border-radius: var(--border-radius);
-    cursor: pointer;
-    transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-    text-align: center;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-}
-
-.action-btn .btn-text {
-    flex-grow: 1;
-}
-
-.action-btn .loader {
-    display: none;
-    width: 16px;
-    height: 16px;
-    border: 2px solid rgba(255, 255, 255, 0.5);
-    border-top-color: #fff;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-}
-
-.action-btn.loading .loader {
-    display: block;
-}
-
-@keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-
-.action-btn:hover:not(:disabled) {
-    background-color: var(--primary-color-hover);
-    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.25);
-}
-
-.action-btn:disabled {
-    background-color: #cccccc;
-    cursor: not-allowed;
-    opacity: 0.7;
-}
-
-footer {
-    margin-top: 16px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-top: 12px;
-    border-top: 1px solid var(--border-color);
-}
-
-.footer-btn {
-    background: none;
-    border: none;
-    color: var(--text-color-secondary);
-    padding: 6px;
-    border-radius: var(--border-radius);
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 500;
-    transition: background-color 0.2s, color 0.2s;
-}
-
-.footer-btn:hover {
-    background-color: #e9ecef;
-    color: var(--text-color);
-}
-
-.version-display {
-    font-size: 12px;
-    color: #adb5bd;
-    flex-grow: 1;
-    text-align: center;
-}
-
-.language-selection-row {
-    display: flex;
-    gap: 12px;
-}
-
-.language-group {
-    flex: 1;
+    color: var(--md-sys-color-on-surface);
+    text-align: center; /* Keep centered */
+    margin: 0; /* 标题已移除，此规则影响不大 */
 }
 
 .section {
-    margin-bottom: 16px;
-    padding-bottom: 0;
-    border-bottom: none;
-}
-.section:last-of-type {
-    margin-bottom: 12px;
+    /* margin-bottom is now handled by the container's gap property */
 }
 
-.form-group {
-    margin-bottom: 0;
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px; /* Increased gap between form fields */
 }
 
-.form-group label {
+/* --- M3 Form Field (Outlined) --- */
+.m3-form-field.outlined {
+    position: relative;
+}
+
+.m3-form-field.outlined > label {
     display: block;
-    font-size: 13px;
+    margin-bottom: 4px;
     font-weight: 500;
-    color: var(--text-color-secondary);
-    margin-bottom: 6px;
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: var(--md-sys-typescale-body-small-font-size);
 }
 
-.form-group select {
+.m3-form-field.outlined select {
     width: 100%;
-    padding: 8px 12px;
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    font-size: 14px;
-    background-color: #fff;
+    padding: 6px 10px; /* Made more compact */
+    border: 1px solid var(--md-sys-color-outline);
+    border-radius: 8px;
+    font-size: var(--md-sys-typescale-body-medium-font-size);
+    background-color: var(--md-sys-color-surface);
+    color: var(--md-sys-color-on-surface);
+    box-sizing: border-box;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
     -webkit-appearance: none;
     -moz-appearance: none;
     appearance: none;
-    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2345464F'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
     background-repeat: no-repeat;
-    background-position: right 0.75rem center;
-    background-size: 16px 12px;
+    background-position: right 8px center;
+    background-size: 20px;
 }
 
-.toggle-section {
+.m3-form-field.outlined select:focus {
+    outline: none;
+    border-color: var(--md-sys-color-primary);
+    box-shadow: 0 0 0 1px var(--md-sys-color-primary);
+}
+
+/* --- M3 Button --- */
+.m3-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 16px; /* Made more compact */
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: var(--md-sys-typescale-label-large-font-size);
+    font-weight: 600;
+    transition: background-color 0.2s, box-shadow 0.2s;
+    position: relative;
+}
+
+.m3-button.full-width {
+    width: 100%;
+}
+
+.m3-button.filled-tonal {
+    background-color: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
+}
+
+.m3-button.filled-tonal:hover {
+    box-shadow: 0 1px 3px 1px rgba(0,0,0,0.15);
+}
+
+.m3-button.text {
+    background-color: transparent;
+    color: var(--md-sys-color-primary);
+    padding: 6px 8px; /* Made more compact */
+}
+.m3-button.text:hover {
+    background-color: var(--md-sys-state-hover-on-surface);
+}
+
+/* Button Loader */
+.m3-button .spinner {
+    display: none;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: var(--md-sys-color-on-primary-container);
+    animation: spin 1s ease-in-out infinite;
+}
+
+.m3-button.loading .spinner {
+    display: block;
+}
+.m3-button.loading .btn-text {
+    display: none;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.action-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* --- M3 Switch --- */
+.m3-switch { /* 保持 flex 布局和 gap */
     display: flex;
     align-items: center;
-    justify-content: flex-start;
-    margin-top: 16px;
-    padding: 10px;
-    background-color: #f1f3f5;
-    border-radius: var(--border-radius);
+    gap: 8px;
+    cursor: pointer;
 }
-
-.toggle-switch {
+.m3-switch .switch-label {
+    font-size: var(--md-sys-typescale-body-small-font-size); /* Adjusted for smaller, hint-like text */
+    color: var(--md-sys-color-on-surface-variant);
+    user-select: none;
+}
+.m3-switch input[type="checkbox"] {
+    display: none;
+}
+.m3-switch .switch-track {
     position: relative;
-    display: inline-block;
-    width: 38px;
-    height: 22px;
-    margin-right: 12px;
+    width: 48px;  /* 略微减小宽度 */
+    height: 28px; /* 进一步减小高度 */
+    background-color: var(--md-sys-color-surface-variant);
+    border: 2px solid var(--md-sys-color-outline);
+    border-radius: 14px; /* 调整圆角半径 */
+    transition: background-color 0.2s, border-color 0.2s;
+    display: flex;
+    align-items: center;
 }
-
-.toggle-switch input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
-
-.slider {
+.m3-switch .switch-thumb {
     position: absolute;
-    cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: #adb5bd;
-    transition: .4s;
-    border-radius: 22px;
-}
-
-.slider:before {
-    position: absolute;
-    content: "";
-    height: 16px;
-    width: 16px;
-    left: 3px;
-    bottom: 3px;
-    background-color: white;
-    transition: .4s;
+    left: 4px;
+    width: 14px;  /* 减小滑块宽度 */
+    height: 14px; /* 减小滑块高度 */
+    background-color: var(--md-sys-color-outline);
     border-radius: 50%;
+    transition: transform 0.2s ease, width 0.2s ease, height 0.2s ease, background-color 0.2s ease;
+}
+.m3-switch input:checked + .switch-track {
+    background-color: var(--md-sys-color-primary);
+    border-color: var(--md-sys-color-primary);
+}
+.m3-switch input:checked + .switch-track .switch-thumb {    
+    transform: translateX(18px); /* 调整选中状态下的偏移量 */
+    width: 20px;   /* 调整选中状态下的滑块宽度 */
+    height: 20px;  /* 调整选中状态下的滑块高度 */
+    background-color: var(--md-sys-color-on-primary);
 }
 
-input:checked + .slider {
-    background-color: var(--primary-color);
+/* --- Footer --- */
+footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid var(--md-sys-color-outline-variant);
+    padding-top: 12px; /* 增加页脚顶部内边距 */
+    margin-top: 0; /* 保持 margin-top 为 0 */
 }
-
-input:focus + .slider {
-    box-shadow: 0 0 1px var(--primary-color);
-}
-
-input:checked + .slider:before {
-    transform: translateX(16px);
-}
-
-.toggle-label {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text-color);
-    cursor: pointer;
+.version-display {
+    font-size: var(--md-sys-typescale-body-small-font-size);
+    color: var(--md-sys-color-on-surface-variant);
 }

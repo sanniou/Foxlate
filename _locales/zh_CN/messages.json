@@ -226,6 +226,22 @@
   "popupAlwaysTranslate": { "message": "总是翻译此网站" },
   "popupSettings": { "message": "⚙️ 设置" },
   "popupAbout": { "message": "关于" },
+  "popupDisplayMode": {
+    "message": "显示模式:",
+    "description": "Popup 中显示模式下拉菜单的标签。"
+  },
+  "popupDisplayModeReplace": {
+    "message": "替换模式",
+    "description": "Popup 中的替换模式选项。"
+  },
+  "popupDisplayModeAppend": {
+    "message": "追加模式",
+    "description": "Popup 中的追加模式选项。"
+  },
+  "popupDisplayModeHover": {
+    "message": "悬停模式",
+    "description": "Popup 中的悬停模式选项。"
+  },
   "langAuto": { "message": "自动检测" },
   "langEN": { "message": "英语" },
   "langZH": { "message": "简体中文" },

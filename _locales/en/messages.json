@@ -216,6 +216,22 @@
   "popupAlwaysTranslate": { "message": "Always translate this site" },
   "popupSettings": { "message": "⚙️ Settings" },
   "popupAbout": { "message": "About" },
+  "popupDisplayMode": {
+    "message": "Display Mode:",
+    "description": "Label for the display mode dropdown in the popup."
+  },
+  "popupDisplayModeReplace": {
+    "message": "Replace",
+    "description": "Replace mode option in the popup."
+  },
+  "popupDisplayModeAppend": {
+    "message": "Append",
+    "description": "Append mode option in the popup."
+  },
+  "popupDisplayModeHover": {
+    "message": "Hover",
+    "description": "Hover mode option in the popup."
+  },
   "langAuto": { "message": "Auto-Detect" },
   "langEN": { "message": "English" },
   "langZH": { "message": "Chinese (Simplified)" },
