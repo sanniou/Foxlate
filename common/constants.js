@@ -39,7 +39,7 @@ window.Constants = {
             { nameKey: 'precheckRulePunctuation', name: 'Numbers, Punctuation, Symbols', regex: '^[\\d\\s\\p{P}\\p{S}]+$', mode: 'blacklist', enabled: true, flags: 'u' }, // Matches text that is only numbers, punctuation, and symbols. (Removed comma from regex as it's already covered by \p{P})
             { nameKey: 'precheckRuleEmoji', name: 'Single Emoji', regex: '^\\p{Emoji}$', mode: 'blacklist', enabled: true, flags: 'u' }, // Matches a single emoji character.
             { nameKey: 'precheckRuleSingleWord', name: 'Single English Letter', regex: '^[A-Za-z]$', mode: 'blacklist', enabled: true, flags: '' }, // Matches a single English letter.
-            { nameKey: 'precheckRuleCommonAcronyms', name: 'Common Acronyms', regex: '^\\b(AI|WHO|CN|CPU|GPU|API|URL|HTTP|HTTPS|NASA|FBI|CIA|UFO|DIY|FAQ|PDF|HTML|CSS|JS|JSON|XML|SQL|RAM|ROM|OS|PC|USB|WIFI|GPS|CEO|CFO|CTO|HR|PR|AD|ID|PIN|SIM|SMS|TV|VIP|OK)\\b$', mode: 'blacklist', enabled: true, flags: 'i' }, // Matches common acronyms and initialisms.
+            { nameKey: 'precheckRuleCommonAcronyms', name: 'Common Acronyms', regex: '^\\b(AI|WHO|CN|CPU|GPU|API|URL|HTTP|HTTPS|NASA|FBI|CIA|UFO|DIY|FAQ|PDF|HTML|CSS|JS|JSON|XML|SQL|RAM|ROM|OS|PC|USB|WIFI|GPS|CEO|CFO|CTO|HR|PR|AD|ID|PIN|SIM|SMS|TV|VIP|ICP|OK)\\b$', mode: 'blacklist', enabled: true, flags: 'i' }, // Matches common acronyms and initialisms.
         ],
     },
 

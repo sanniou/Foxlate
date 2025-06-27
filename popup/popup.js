@@ -32,6 +32,27 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     /**
+     * Handles the floating label state for <select> elements by adding/removing
+     * an 'is-filled' class to the parent container.
+     */
+    const manageSelectLabels = () => {
+        document.querySelectorAll('.m3-form-field.outlined select').forEach(selectEl => {
+            const parentField = selectEl.closest('.m3-form-field.outlined');
+            if (!parentField) return;
+
+            const updateState = () => {
+                if (selectEl.value) {
+                    parentField.classList.add('is-filled');
+                } else {
+                    parentField.classList.remove('is-filled');
+                }
+            };
+
+            selectEl.addEventListener('change', updateState);
+            updateState(); // Run on initial load
+        });
+    };
+    /**
      * Populates a <select> element with options.
      */
     const populateSelect = (selectElement, options, selectedValue) => {
@@ -111,6 +132,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const { tabTranslationStates = {} } = await browser.storage.session.get('tabTranslationStates');
         updateTranslateButtonState(tabTranslationStates[activeTabId] || 'original');
+
+        // After populating and setting values, manage the labels
+        manageSelectLabels();
     };
 
     /**

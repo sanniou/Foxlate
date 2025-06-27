@@ -10,30 +10,30 @@
         <main>
             <div class="section form-grid">
                 <div class="m3-form-field outlined">
-                    <label for="sourceLanguageSelect" i18n-text="popupSourceLanguage">原始语言:</label>
                     <select id="sourceLanguageSelect"></select>
+                    <label for="sourceLanguageSelect" i18n-text="popupSourceLanguage">原始语言:</label>
                 </div>
                 <div class="m3-form-field outlined">
-                    <label for="targetLanguageSelect" i18n-text="popupTargetLanguage">目标语言:</label>
                     <select id="targetLanguageSelect"></select>
+                    <label for="targetLanguageSelect" i18n-text="popupTargetLanguage">目标语言:</label>
                 </div>
             </div>
 
             <div class="section">
                 <div class="m3-form-field outlined">
-                    <label for="engineSelect" i18n-text="popupTranslationService">翻译服务:</label>
                     <select id="engineSelect"></select>
+                    <label for="engineSelect" i18n-text="popupTranslationService">翻译服务:</label>
                 </div>
             </div>
 
             <div class="section">
                 <div class="m3-form-field outlined">
-                    <label for="displayModeSelect" i18n-text="popupDisplayMode">显示模式:</label>
                     <select id="displayModeSelect">
                         <option value="replace" i18n-text="popupDisplayModeReplace">替换模式</option>
                         <option value="append" i18n-text="popupDisplayModeAppend">追加模式</option>
                         <option value="hover" i18n-text="popupDisplayModeHover">悬停模式</option>
                     </select>
+                    <label for="displayModeSelect" i18n-text="popupDisplayMode">显示模式:</label>
                 </div>
             </div>
 
@@ -42,10 +42,10 @@
                     <span class="btn-text" i18n-text="popupTranslatePage">翻译此页</span>
                     <div class="spinner"></div>
                 </button>
-                <div class="m3-switch">
+                <div class="m3-switch"> <!-- The container for the label and the switch control -->
+                    <span class="switch-label" i18n-text="popupAlwaysTranslate">总是翻译此网站</span>
                     <input type="checkbox" id="alwaysTranslateToggle">
-                    <label for="alwaysTranslateToggle" class="switch-label" i18n-text="popupAlwaysTranslate">总是翻译此网站</label> <!-- 文字在前 -->
-                    <label for="alwaysTranslateToggle" class="switch-track"> <!-- 开关在后 -->
+                    <label for="alwaysTranslateToggle" class="switch-track">
                         <span class="switch-thumb"></span>
                     </label>
                 </div>

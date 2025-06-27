@@ -371,14 +371,24 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => {
                 elements.saveSettingsBtn.classList.remove('visible'); // Start fade out animation
 
-                // Wait for animation to finish before resetting the button's internal state
-                setTimeout(() => {
-                    elements.saveSettingsBtn.disabled = false;
-                    elements.saveSettingsBtn.classList.remove('success');
-                    elements.fabIconSuccess.classList.remove('active');
-                    elements.fabIconSave.classList.add('active');
-                }, 300); // This timeout should match the CSS transition duration
-            }, 1000); // 1-second success display
+                // This function will be our event handler to robustly reset the FAB.
+                const resetFabOnFadeOut = (event) => {
+                    // We only care about the opacity transition ending to avoid firing multiple times.
+                    if (event.propertyName === 'opacity') {
+                        elements.saveSettingsBtn.disabled = false;
+                        elements.saveSettingsBtn.classList.remove('success');
+                        elements.fabIconSuccess.classList.remove('active');
+                        elements.fabIconSave.classList.add('active');
+                        
+                        // Clean up the listener to prevent it from firing again.
+                        elements.saveSettingsBtn.removeEventListener('transitionend', resetFabOnFadeOut);
+                    }
+                };
+
+                // Add the listener before triggering the transition.
+                elements.saveSettingsBtn.addEventListener('transitionend', resetFabOnFadeOut);
+
+            }, 1200); // Display success state for 1.2 seconds for a better feel.
         } catch (error) {
             console.error('Error saving settings:', error);
             showStatusMessage(browser.i18n.getMessage('saveSettingsError'), true);
@@ -388,7 +398,6 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.fabIconSave.classList.add('active');
             elements.saveSettingsBtn.classList.add('error-shake');
             setTimeout(() => elements.saveSettingsBtn.classList.remove('error-shake'), 500);
-            markAsChanged(); // 保存失败，仍然有未保存的更改
         }
     };
 

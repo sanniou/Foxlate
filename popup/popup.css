@@ -79,39 +79,57 @@ h1 {
 /* --- M3 Form Field (Outlined) --- */
 .m3-form-field.outlined {
     position: relative;
-}
-
-.m3-form-field.outlined > label {
-    display: block;
-    margin-bottom: 4px;
-    font-weight: 500;
-    color: var(--md-sys-color-on-surface-variant);
-    font-size: var(--md-sys-typescale-body-small-font-size);
+    border-radius: 4px;
 }
 
 .m3-form-field.outlined select {
     width: 100%;
-    padding: 6px 10px; /* Made more compact */
+    padding: 16px; /* Consistent padding for content */
     border: 1px solid var(--md-sys-color-outline);
-    border-radius: 8px;
-    font-size: var(--md-sys-typescale-body-medium-font-size);
-    background-color: var(--md-sys-color-surface);
+    border-radius: 4px; /* M3 standard radius */
+    font-size: var(--md-sys-typescale-body-large-font-size);
+    background-color: transparent; /* Outlined fields have transparent background */
     color: var(--md-sys-color-on-surface);
     box-sizing: border-box;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    transition: border-color 0.2s ease;
     -webkit-appearance: none;
     -moz-appearance: none;
     appearance: none;
     background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2345464F'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
     background-repeat: no-repeat;
-    background-position: right 8px center;
-    background-size: 20px;
+    background-position: right 12px center;
+    background-size: 24px;
+    padding-right: 40px; /* Space for the dropdown arrow */
+}
+
+/* Floating Label for Outlined Fields */
+.m3-form-field.outlined label {
+    position: absolute;
+    left: 12px; /* Start a bit inside */
+    top: 16px; /* Vertically centered with the text */
+    font-size: var(--md-sys-typescale-body-large-font-size);
+    color: var(--md-sys-color-on-surface-variant);
+    pointer-events: none;
+    transition: top 0.2s ease, font-size 0.2s ease, color 0.2s ease, padding 0.2s ease, background-color 0.2s ease;
+    background-color: transparent; /* Initially transparent */
+    padding: 0 4px; /* Padding to create the "notch" */
+}
+
+/* Label animation when select is focused or has content */
+.m3-form-field.outlined select:focus + label,
+.m3-form-field.outlined.is-filled > label {
+    top: -8px; /* Move label up to sit on the border */
+    font-size: var(--md-sys-typescale-body-small-font-size);
+    color: var(--md-sys-color-primary);
+    background-color: var(--md-sys-color-background); /* This creates the "notch" effect */
 }
 
 .m3-form-field.outlined select:focus {
     outline: none;
-    border-color: var(--md-sys-color-primary);
-    box-shadow: 0 0 0 1px var(--md-sys-color-primary);
+    border: 2px solid var(--md-sys-color-primary);
+    /* Adjust padding to account for thicker border, keeping content aligned */
+    padding: 15px;
+    padding-right: 39px;
 }
 
 /* --- M3 Button --- */
@@ -184,7 +202,6 @@ h1 {
     display: flex;
     align-items: center;
     gap: 8px;
-    cursor: pointer;
 }
 .m3-switch .switch-label {
     font-size: var(--md-sys-typescale-body-small-font-size); /* Adjusted for smaller, hint-like text */
@@ -198,6 +215,7 @@ h1 {
     position: relative;
     width: 48px;  /* 略微减小宽度 */
     height: 28px; /* 进一步减小高度 */
+    cursor: pointer; /* Make only the track clickable */
     background-color: var(--md-sys-color-surface-variant);
     border: 2px solid var(--md-sys-color-outline);
     border-radius: 14px; /* 调整圆角半径 */
