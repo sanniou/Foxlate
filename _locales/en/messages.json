@@ -337,9 +337,21 @@
     "message": "Single English Letter",
     "description": "Name of the default rule that matches a single English letter."
   },
-  "precheckRuleCommonAcronyms": {
-    "message": "Common Acronyms",
-    "description": "Name of the default rule that matches common acronyms like AI, WHO, etc."
+  "precheckRuleAcronymsGeneral": {
+    "message": "General Acronyms",
+    "description": "Name of the default rule that matches common general-purpose acronyms."
+  },
+  "precheckRuleAcronymsTech": {
+    "message": "Tech Acronyms",
+    "description": "Name of the default rule that matches common technology and computing acronyms."
+  },
+  "precheckRuleAcronymsBusiness": {
+    "message": "Business Acronyms",
+    "description": "Name of the default rule that matches common business-related acronyms."
+  },
+  "precheckRuleAcronymsGov": {
+    "message": "Government & Org Acronyms",
+    "description": "Name of the default rule that matches acronyms for governments and organizations."
   },
   "precheckRuleContains": {
     "message": "Contains",

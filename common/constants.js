@@ -36,10 +36,14 @@ window.Constants = {
    DEFAULT_PRECHECK_RULES: {
         general: [
             { nameKey: 'precheckRuleWhitespace', name: 'Whitespace only', regex: '^\\s*$', mode: 'blacklist', enabled: true, flags: '' }, // Matches text that is only whitespace.
-            { nameKey: 'precheckRulePunctuation', name: 'Numbers, Punctuation, Symbols', regex: '^[\\d\\s\\p{P}\\p{S}]+$', mode: 'blacklist', enabled: true, flags: 'u' }, // Matches text that is only numbers, punctuation, and symbols. (Removed comma from regex as it's already covered by \p{P})
+            { nameKey: 'precheckRulePunctuation', name: 'Numbers, Punctuation, Symbols', regex: '^[\\d\\s\\p{P}\\p{S}]+$', mode: 'blacklist', enabled: true, flags: 'u' }, // Matches text that is only numbers, punctuation, and symbols.
             { nameKey: 'precheckRuleEmoji', name: 'Single Emoji', regex: '^\\p{Emoji}$', mode: 'blacklist', enabled: true, flags: 'u' }, // Matches a single emoji character.
             { nameKey: 'precheckRuleSingleWord', name: 'Single English Letter', regex: '^[A-Za-z]$', mode: 'blacklist', enabled: true, flags: '' }, // Matches a single English letter.
-            { nameKey: 'precheckRuleCommonAcronyms', name: 'Common Acronyms', regex: '^\\b(AI|WHO|CN|CPU|GPU|API|URL|HTTP|HTTPS|NASA|FBI|CIA|UFO|DIY|FAQ|PDF|HTML|CSS|JS|JSON|XML|SQL|RAM|ROM|OS|PC|USB|WIFI|GPS|CEO|CFO|CTO|HR|PR|AD|ID|PIN|SIM|SMS|TV|VIP|ICP|OK)\\b$', mode: 'blacklist', enabled: true, flags: 'i' }, // Matches common acronyms and initialisms.
+            // The original 'Common Acronyms' rule is now split into categories below for better management.
+            { nameKey: 'precheckRuleAcronymsGeneral', name: 'General Acronyms', regex: '^\\b(OK|DIY|FAQ|ID|PIN|SIM|SMS|TV|ASAP|AKA|FYI)\\b$', mode: 'blacklist', enabled: true, flags: 'i' }, // Matches common general-purpose acronyms.
+            { nameKey: 'precheckRuleAcronymsTech', name: 'Tech Acronyms', regex: '^\\b(AI|CPU|GPU|API|URL|HTTP|HTTPS|PDF|HTML|CSS|JS|JSON|XML|SQL|RAM|ROM|OS|PC|USB|WIFI|GPS|ICP)\\b$', mode: 'blacklist', enabled: true, flags: 'i' }, // Matches common technology and computing acronyms.
+            { nameKey: 'precheckRuleAcronymsBusiness', name: 'Business Acronyms', regex: '^\\b(CEO|CFO|CTO|HR|PR|AD|VIP|B2B|B2C|ROI|KPI)\\b$', mode: 'blacklist', enabled: true, flags: 'i' }, // Matches common business-related acronyms.
+            { nameKey: 'precheckRuleAcronymsGov', name: 'Government & Org Acronyms', regex: '^\\b(WHO|CN|NASA|FBI|CIA|UFO|UN|EU|NATO)\\b$', mode: 'blacklist', enabled: true, flags: 'i' }, // Matches acronyms for governments and organizations.
         ],
     },
 

@@ -347,9 +347,21 @@
     "message": "单个英文字母",
     "description": "Name of the default rule that matches a single English letter."
   },
-  "precheckRuleCommonAcronyms": {
-    "message": "常用缩写词",
-    "description": "Name of the default rule that matches common acronyms like AI, WHO, etc."
+  "precheckRuleAcronymsGeneral": {
+    "message": "通用缩写词",
+    "description": "匹配常用通用缩写词的默认规则。"
+  },
+  "precheckRuleAcronymsTech": {
+    "message": "科技缩写词",
+    "description": "匹配常用技术和计算领域缩写词的默认规则。"
+  },
+  "precheckRuleAcronymsBusiness": {
+    "message": "商业缩写词",
+    "description": "匹配常用商业相关缩写词的默认规则。"
+  },
+  "precheckRuleAcronymsGov": {
+    "message": "政府及组织缩写词",
+    "description": "匹配政府和组织缩写词的默认规则。"
   },
   "precheckRuleContains": {
     "message": "包含",
