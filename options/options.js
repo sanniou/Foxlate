@@ -247,6 +247,29 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
+    /**
+     * Handles the floating label state for <select> elements, which don't
+     * support the :placeholder-shown pseudo-class. It adds/removes an 'is-filled'
+     * class to the parent container based on whether the select has a value.
+     */
+    const manageSelectLabels = () => {
+        document.querySelectorAll('.m3-form-field.filled select').forEach(selectEl => {
+            const parentField = selectEl.closest('.m3-form-field.filled');
+            if (!parentField) return;
+    
+            const updateState = () => {
+                // A select is considered "filled" if it has a non-empty value.
+                if (selectEl.value) {
+                    parentField.classList.add('is-filled');
+                } else {
+                    parentField.classList.remove('is-filled');
+                }
+            };
+    
+            updateState(); // Run on initial load
+            selectEl.addEventListener('change', updateState); // Run on every change
+        });
+    };
 
     const toggleApiFields = () => {
         const engine = elements.translatorEngine.value;
@@ -1123,6 +1146,7 @@ document.addEventListener('DOMContentLoaded', () => {
         applyTranslations();
         populateLanguageOptions();
         await loadSettings();
+        manageSelectLabels(); // Ensure select labels are correctly positioned on load and on change
         // Apply ripple effect to all static M3 buttons (excluding FAB for now)
         document.querySelectorAll('.m3-button:not(#saveSettingsBtn)').forEach(addRippleEffect);
         addRippleEffect(elements.addDomainRuleBtn); // Ensure this one gets it too

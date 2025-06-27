@@ -152,18 +152,13 @@ h3 {
 /* Label animation when input is focused or has content */
 .m3-form-field.filled input:focus + label,
 .m3-form-field.filled textarea:focus + label,
-.m3-form-field.filled select:focus + label, /* Apply to select as well */
+.m3-form-field.filled select:focus + label,
 .m3-form-field.filled input:not(:placeholder-shown) + label,
-.m3-form-field.filled textarea:not(:placeholder-shown) + label {
+.m3-form-field.filled textarea:not(:placeholder-shown) + label,
+.m3-form-field.filled.is-filled > label { /* New class for select elements with a value */
     top: 8px; /* Universal floated position */
     font-size: var(--md-sys-typescale-body-small-font-size); /* Shrink font */
     color: var(--md-sys-color-primary); /* Change color to primary */
-}
-
-/* Fine-tune floated label for select elements */
-.m3-form-field.filled select:focus + label,
-.m3-form-field.filled select:not(:placeholder-shown) + label {
-    top: 8px; /* Keep floated position consistent */
 }
 
 /* Bottom Indicator Line */
@@ -548,7 +543,9 @@ button.m3-button.danger:hover {
     top: 10px; /* Adjusted initial position for select in rule-item */
 }
 .rule-item .m3-form-field.filled select:focus + label,
-.rule-item .m3-form-field.filled select:not(:placeholder-shown) + label { top: 4px; } 
+.rule-item .m3-form-field.filled.is-filled > label {
+    top: 4px;
+}
 
 /* Grid area assignments */
 .rule-name-field { grid-area: name; }
