@@ -29,7 +29,6 @@
     --md-sys-state-hover-on-surface: rgba(27, 27, 31, 0.08);
 
     /* Typography */
-    --md-sys-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --md-sys-typescale-headline-small-font-size: 24px;
     --md-sys-typescale-title-large-font-size: 22px;
     --md-sys-typescale-label-large-font-size: 14px;
@@ -39,7 +38,7 @@
 }
 
 body {
-    font-family: var(--md-sys-font-family);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     margin: 0;
     padding: 24px;
     background-color: var(--md-sys-color-background);
@@ -141,15 +140,14 @@ h3 {
 .m3-form-field.filled select:focus {
     outline: none;
     border-bottom: 2px solid var(--md-sys-color-primary);
-    /* The underline is thicker on focus */
-    margin-bottom: -1px;
+    box-shadow: 0 2px 0 var(--md-sys-color-primary); /* 添加更明显的焦点指示 */
 }
 
-/* Required field indicator */
-.required-indicator {
-    color: var(--md-sys-color-error);
-    margin-left: 4px;
-    font-size: var(--md-sys-typescale-body-small-font-size); /* Match label font size */
+.m3-form-field.filled input:focus-visible,
+.m3-form-field.filled textarea:focus-visible,
+.m3-form-field.filled select:focus-visible {
+    /* The underline is thicker on focus */
+    margin-bottom: -1px;
 }
 
 /* Error messages below form fields */
@@ -162,6 +160,13 @@ h3 {
 }
 .m3-form-field.is-invalid .error-message {
     display: block; /* Show when invalid */
+}
+
+.required-indicator {
+    color: var(--md-sys-color-error);
+    margin-left: 4px;
+    font-size: var(--md-sys-typescale-body-small-font-size); /* Match label font size */
+    cursor: help; /* 鼠标悬停时显示提示 */
 }
 
 .m3-form-field.filled.with-button {
@@ -189,7 +194,29 @@ button, .m3-button {
     transition: background-color 0.2s, box-shadow 0.2s, transform 0.1s;
     flex-shrink: 0;
     position: relative;
-    overflow: hidden;
+    overflow: hidden; /* 确保波纹效果不溢出按钮边界 */
+}
+
+/* Ripple effect for M3 buttons */
+.m3-button .ripple {
+    position: absolute;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.3); /* Default for filled buttons */
+    transform: scale(0);
+    animation: ripple-effect 0.6s linear;
+    pointer-events: none; /* 确保点击事件能穿透波纹 */
+}
+
+.m3-button.text .ripple,
+button.m3-icon-button .ripple {
+    background-color: rgba(0, 0, 0, 0.1); /* Darker ripple for text and icon buttons */
+}
+
+@keyframes ripple-effect {
+    to {
+        transform: scale(2.5); /* Scale up to cover the button */
+        opacity: 0;
+    }
 }
 
 /* Add spacing between stacked M3 fields inside a single form-group */
@@ -207,12 +234,6 @@ button, .m3-button {
     box-shadow: 0 1px 3px 1px rgba(0,0,0,0.15);
 }
 
-button, .add-rule-btn, .test-rule-btn {
-    background-color: var(--md-sys-color-primary-container);
-    color: var(--md-sys-color-on-primary-container);
-    padding: 8px 16px;
-}
-
 .m3-button.text {
     background-color: transparent;
     color: var(--md-sys-color-primary);
@@ -222,17 +243,25 @@ button, .add-rule-btn, .test-rule-btn {
     background-color: var(--md-sys-state-hover-on-surface);
 }
 
+.m3-button.filled-tonal {
+    background-color: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
+}
+.m3-button.filled-tonal:hover {
+    background-color: color-mix(in srgb, var(--md-sys-color-primary-container), var(--md-sys-color-on-primary-container) 8%);
+}
+
 .button-group {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
 }
 
-button.danger {
+button.m3-button.danger {
     background-color: var(--md-sys-color-error);
     color: var(--md-sys-color-on-error);
 }
-button.danger:hover {
+button.m3-button.danger:hover {
     background-color: color-mix(in srgb, var(--md-sys-color-error), var(--md-sys-state-hover-on-primary));
 }
 
@@ -454,13 +483,13 @@ button.m3-icon-button { /* Increased specificity to override button.danger */
 button.m3-icon-button:hover {
     background-color: var(--md-sys-state-hover-on-surface);
 }
-.m3-icon-button svg {
-    fill: currentColor;
+button.m3-icon-button.danger:hover {
+    background-color: rgba(186, 26, 26, 0.08); /* Error state layer */
 }
-button.m3-icon-button.danger {
+button.m3-icon-button.danger { /* Specificity for danger color */
     color: var(--md-sys-color-error);
 }
-button.m3-icon-button.danger:hover {
+button.m3-icon-button:hover, button.m3-icon-button.danger:hover {
     background-color: rgba(186, 26, 26, 0.08); /* Error state layer */
 }
 
@@ -595,6 +624,102 @@ button.m3-icon-button.danger:hover {
 
 .manual-translate-btn:hover {
   background-color: color-mix(in srgb, var(--md-sys-color-primary), var(--md-sys-state-hover-on-primary));}
+
+/* --- Modal Styles (M3 Enhanced) --- */
+.modal {
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.4);
+    display: flex; /* Use flex for centering */
+    align-items: center;
+    justify-content: center;
+    /* Animation for the overlay */
+    opacity: 0;
+    transition: opacity 0.3s ease-out;
+}
+
+.modal.is-visible {
+    opacity: 1;
+}
+
+.modal-content {
+    background-color: var(--md-sys-color-surface);
+    color: var(--md-sys-color-on-surface);
+    padding: 24px;
+    border: 1px solid var(--md-sys-color-outline-variant);
+    width: 90%;
+    max-width: 800px;
+    border-radius: 28px; /* M3 Large border radius */
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    position: relative;
+    /* Animation for the content */
+    transform: translateY(20px);
+    opacity: 0;
+    transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+}
+
+.modal.is-visible .modal-content {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+.close-button {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.close-button:hover,
+.close-button:focus {
+    color: var(--md-sys-color-on-surface);
+    text-decoration: none;
+}
+
+.ai-engine-list ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.ai-engine-list {
+    margin-top: 16px;
+    margin-bottom: 24px; /* More space before the "Add" button */
+}
+
+.ai-engine-list ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px; /* Spacing between list items */
+}
+
+.ai-engine-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-radius: 12px; /* M3-style rounded corners */
+    background-color: var(--md-sys-color-surface-container-highest);
+    border: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.ai-engine-list .actions {
+    display: flex;
+    gap: 8px;
+}
+
 .fab {
   position: fixed;
   bottom: 40px;
@@ -608,7 +733,7 @@ button.m3-icon-button.danger:hover {
   box-shadow: 0 6px 10px 0 rgba(0,0,0,0.14), 0 1px 18px 0 rgba(0,0,0,0.12), 0 3px 5px -1px rgba(0,0,0,0.2);
   z-index: 1000;
   cursor: pointer;
-  display: flex;
+    display: flex;
   align-items: center;
   justify-content: center;
   transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s, background-color 0.2s, box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1);

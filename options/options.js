@@ -223,6 +223,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 3000);
     };
 
+        /**
+     * Adds a Material Design ripple effect to a given button element.
+     * @param {HTMLElement} button The button element to apply the ripple effect to.
+     */
+    const addRippleEffect = (button) => {
+        button.addEventListener('click', (e) => {
+            const ripple = document.createElement('span');
+            ripple.classList.add('ripple');
+
+            // Calculate position and size of the ripple
+            const rect = button.getBoundingClientRect();
+            const size = Math.max(rect.width, rect.height);
+            const x = e.clientX - rect.left - (size / 2);
+            const y = e.clientY - rect.top - (size / 2);
+
+            ripple.style.width = ripple.style.height = `${size}px`;
+            ripple.style.left = `${x}px`;
+            ripple.style.top = `${y}px`;
+
+            button.appendChild(ripple);
+            ripple.addEventListener('animationend', () => ripple.remove(), { once: true });
+        });
+    };
+
+
     const toggleApiFields = () => {
         const engine = elements.translatorEngine.value;
         elements.deeplxUrlGroup.style.display = 'none'; // 默认隐藏 DeepLx API URL
@@ -521,6 +546,7 @@ document.addEventListener('DOMContentLoaded', () => {
             markAsChanged(); // Any change in rule content marks as unsaved
         };
     item.querySelector('.rule-name').addEventListener('input', markAsChanged);
+        // Apply ripple effect to the test button
         regexInput.addEventListener('input', validateAndMarkChanged);
         flagsInput.addEventListener('input', validateAndMarkChanged);
         item.querySelector('.rule-mode').addEventListener('change', markAsChanged);
@@ -535,6 +561,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const testResultElement = document.createElement('div');
         testResultElement.className = 'rule-test-result';
         item.appendChild(testResultElement);
+        // Apply ripple effect to the test button
+        addRippleEffect(item.querySelector('.test-rule-btn'));
+
 
         // Add event listener for the "Test" button
         item.querySelector('.test-rule-btn').addEventListener('click', () => {
@@ -551,6 +580,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const newRule = { name: '', regex: '', mode: 'blacklist', enabled: true, flags: '' };
         const ruleList = document.querySelector(`#panel-${category} .rule-list`);
         if (ruleList) {
+            // Apply ripple effect to the newly created rule item's buttons
             ruleList.appendChild(createRuleItemElement(newRule));
             markAsChanged(); // 添加规则也算作更改
         }
@@ -716,14 +746,32 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentEditingAiEngineId = null; // To track which engine is being edited
 
     const openAiEngineModal = () => {
-        elements.aiEngineModal.style.display = 'block';
+        elements.aiEngineModal.style.display = 'flex'; // Show overlay with flex for centering
+        // Force reflow to ensure CSS transition applies
+        elements.aiEngineModal.offsetWidth;
+        elements.aiEngineModal.classList.add('is-visible'); // Trigger content transition
         renderAiEngineList();
         elements.aiEngineForm.style.display = 'none'; // Hide form initially
         elements.aiTestResult.style.display = 'none'; // Hide test result
+        // Apply ripple to dynamically added buttons in the list
+        elements.aiEngineList.querySelectorAll('.m3-button').forEach(addRippleEffect);
+        // Apply ripple to the "Add New AI Engine" button
+        addRippleEffect(elements.addAiEngineBtn);
     };
 
     const closeAiEngineModal = () => {
-        elements.aiEngineModal.style.display = 'none';
+        elements.aiEngineModal.classList.remove('is-visible'); // Trigger content transition back
+        // Listen for the transition end on the modal-content
+        const modalContent = elements.aiEngineModal.querySelector('.modal-content');
+        const onTransitionEnd = (e) => {
+            // Ensure it's the transition of the modal-content's transform/opacity
+            if (e.propertyName === 'transform' || e.propertyName === 'opacity') {
+                elements.aiEngineModal.style.display = 'none'; // Hide overlay after content transition
+                modalContent.removeEventListener('transitionend', onTransitionEnd);
+            }
+        };
+        modalContent.addEventListener('transitionend', onTransitionEnd);
+
         elements.aiEngineForm.style.display = 'none';
         elements.aiTestResult.style.display = 'none';
         currentEditingAiEngineId = null;
@@ -758,8 +806,19 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const showAiEngineForm = (engine = {}) => {
+        // Apply modal animation classes
+        elements.aiEngineModal.style.display = 'flex'; // Show overlay with flex for centering
+        // Force reflow to ensure CSS transition applies
+        elements.aiEngineModal.offsetWidth;
+        elements.aiEngineModal.classList.add('is-visible'); // Trigger content transition
+
+        // Clear previous errors before populating form
         clearAiFormErrors(); // 每次显示表单时清除所有错误提示
-        elements.aiEngineForm.style.display = 'block';
+
+        // Show the form itself
+        elements.aiEngineForm.style.display = 'block'; // This should be controlled by the modal's visibility
+
+        // Hide test result
         elements.aiTestResult.style.display = 'none';
         elements.aiFormTitle.textContent = engine.id ? (browser.i18n.getMessage('edit') || 'Edit') : (browser.i18n.getMessage('addRule') || 'Add');
         elements.aiEngineNameInput.value = engine.name || '';
@@ -1064,6 +1123,10 @@ document.addEventListener('DOMContentLoaded', () => {
         applyTranslations();
         populateLanguageOptions();
         await loadSettings();
+        // Apply ripple effect to all static M3 buttons (excluding FAB for now)
+        document.querySelectorAll('.m3-button:not(#saveSettingsBtn)').forEach(addRippleEffect);
+        addRippleEffect(elements.addDomainRuleBtn); // Ensure this one gets it too
+
 
          // Main settings listeners
         elements.translatorEngine.addEventListener('change', markAsChanged);
@@ -1135,6 +1198,10 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.mainTabButtons.forEach(button => {
             button.addEventListener('click', () => switchMainTab(button.dataset.tab));
         });
+        // Apply ripple to tab buttons
+        document.querySelectorAll('.tab-button').forEach(addRippleEffect);
+        // Apply ripple to add rule button in precheck rules
+        document.querySelectorAll('.add-rule-btn').forEach(addRippleEffect);
 
         // --- Before Unload Listener ---
         window.addEventListener('beforeunload', (event) => {

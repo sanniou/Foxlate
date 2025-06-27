@@ -74,7 +74,7 @@
                     </div>
                 </div>
                 <div class="test-actions">
-                    <button id="toggleLogBtn" class="test-btn" i18n-text="testLogButton">Show Log</button>
+                    <button id="toggleLogBtn" class="m3-button text" i18n-text="testLogButton">Show Log</button>
                 </div>
                 <div id="test-log-area" class="test-log-area" style="display: none;">
                     <h4 i18n-text="testLogTitle">Translation Log</h4>
@@ -163,11 +163,11 @@
         <section class="settings-section">
             <h2 i18n-text="configurationManagement">Configuration Management</h2>
             <div class="form-group button-group">
-                <button id="export-btn" i18n-text="exportSettings">Export Settings</button>
+                <button id="export-btn" class="m3-button filled-tonal" i18n-text="exportSettings">Export Settings</button>
                 <!-- The button triggers the hidden file input -->
-                <button id="import-btn" i18n-text="importSettings">Import Settings</button>
+                <button id="import-btn" class="m3-button filled-tonal" i18n-text="importSettings">Import Settings</button>
                 <input type="file" id="import-input" accept=".json" style="display: none;">
-                <button id="reset-settings-btn" class="danger" i18n-text="resetSettings">Reset Settings</button>
+                <button id="reset-settings-btn" class="m3-button danger" i18n-text="resetSettings">Reset Settings</button>
             </div>
         </section>
 
@@ -175,7 +175,7 @@
     </div>
 
     <!-- AI Engine Management Modal -->
-    <div id="aiEngineModal" class="modal">
+    <div id="aiEngineModal" class="modal" style="display: none;">
         <div class="modal-content">
             <span class="close-button">&times;</span>
             <h2 i18n-text="aiEngineProfiles">AI Engine Profiles</h2>
@@ -223,67 +223,6 @@
         </div>
     </div>
 
-    <style>
-        /* Modal Styles */
-        .modal {
-            display: none; /* Hidden by default */
-            position: fixed; /* Stay in place */
-            z-index: 1000; /* Sit on top */
-            left: 0;
-            top: 0;
-            width: 100%; /* Full width */
-            height: 100%; /* Full height */
-            overflow: auto; /* Enable scroll if needed */
-            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
-        }
-
-        .modal-content {
-            background-color: #fefefe;
-            margin: 5% auto; /* 15% from the top and centered */
-            padding: 20px;
-            border: 1px solid #888;
-            width: 80%; /* Could be more or less, depending on screen size */
-            max-width: 800px;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-            position: relative;
-        }
-
-        .close-button {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-        }
-
-        .close-button:hover,
-        .close-button:focus {
-            color: black;
-            text-decoration: none;
-            cursor: pointer;
-        }
-
-        .ai-engine-list ul {
-            list-style: none;
-            padding: 0;
-        }
-
-        .ai-engine-list li {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 0;
-            border-bottom: 1px solid #eee;
-        }
-
-        .ai-engine-list li:last-child {
-            border-bottom: none;
-        }
-
-        .ai-engine-list li .actions button {
-            margin-left: 8px;
-        }
-    </style>
     <script src="../lib/webextension-polyfill.js"></script>
     <script src="../common/constants.js"></script>
     <script src="options.js"></script>
