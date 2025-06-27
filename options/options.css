@@ -99,7 +99,143 @@ h3 {
 .m3-form-field {
     position: relative;
 }
+.m3-form-field.filled {
+    border-radius: 4px 4px 0 0; /* M3 filled fields typically have rounded top corners */
+    background-color: var(--md-sys-color-surface-container-highest); /* Background for the whole field */
+}
+.m3-form-field.filled input,
+.m3-form-field.filled textarea,
+.m3-form-field.filled select {
+    width: 100%;
+    padding: 24px 16px 8px; /* Universal padding: 24px top for floated label, 8px bottom */
+    border: none;
+    border-bottom: 1px solid var(--md-sys-color-outline); /* Use outline color for consistency */
+    border-radius: 4px 4px 0 0; /* Match container border-radius */
+    font-size: var(--md-sys-typescale-body-large-font-size);
+    background-color: transparent; /* Make input background transparent to show parent's background */
+    color: var(--md-sys-color-on-surface);
+    box-sizing: border-box;
+    line-height: 1.2; /* Ensure consistent line height */
+    transition: border-color 0.2s ease;
+}
+.m3-form-field.filled select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2345464F'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 16px center; /* Keep arrow position consistent */
+    background-size: 24px;
+    padding-right: 48px; /* Ensure space for arrow, consistent with input */
+}
 
+/* Floating Label for Filled Fields */
+.m3-form-field.filled label {
+    position: absolute;
+    left: 16px;
+    top: 24px; /* Universal initial position: aligns with text content area */
+    font-size: var(--md-sys-typescale-body-large-font-size); /* Initial font size, same as input text */
+    color: var(--md-sys-color-on-surface-variant); /* Initial color */
+    pointer-events: none; /* Allow clicks to pass through to the input */
+    transition: top 0.3s ease, font-size 0.3s ease, color 0.3s ease;
+    /* Override base label styles */
+    display: block; /* Ensure it's a block for positioning */
+    margin-bottom: 0; /* Remove margin */
+    padding-left: 0; /* Remove padding */
+}
+
+/* Fine-tune label position for select elements for better vertical alignment */
+.m3-form-field.filled select + label {
+    top: 18px; /* Select elements often render text slightly higher, adjust initial position */
+}
+
+/* Label animation when input is focused or has content */
+.m3-form-field.filled input:focus + label,
+.m3-form-field.filled textarea:focus + label,
+.m3-form-field.filled select:focus + label, /* Apply to select as well */
+.m3-form-field.filled input:not(:placeholder-shown) + label,
+.m3-form-field.filled textarea:not(:placeholder-shown) + label {
+    top: 8px; /* Universal floated position */
+    font-size: var(--md-sys-typescale-body-small-font-size); /* Shrink font */
+    color: var(--md-sys-color-primary); /* Change color to primary */
+}
+
+/* Fine-tune floated label for select elements */
+.m3-form-field.filled select:focus + label,
+.m3-form-field.filled select:not(:placeholder-shown) + label {
+    top: 8px; /* Keep floated position consistent */
+}
+
+/* Bottom Indicator Line */
+.m3-form-field.filled::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 0; /* Start with zero width */
+    height: 2px; /* Thickness of the indicator line */
+    background-color: var(--md-sys-color-primary); /* Primary color for indicator */
+    transition: width 0.3s ease-in-out, background-color 0.3s ease-in-out;
+    border-radius: 2px 2px 0 0; /* Rounded top corners for the line */
+}
+
+/* Indicator line expands on focus */
+.m3-form-field.filled input:focus ~ ::after,
+.m3-form-field.filled textarea:focus ~ ::after,
+.m3-form-field.filled select:focus ~ ::after {
+    width: 100%;
+}
+
+/* Placeholder visibility */
+.m3-form-field.filled input::placeholder,
+.m3-form-field.filled textarea::placeholder {
+    color: transparent; /* Hide placeholder when label is down */
+    transition: color 0.3s ease;
+}
+
+.m3-form-field.filled input:focus::placeholder,
+.m3-form-field.filled textarea:focus::placeholder {
+    color: var(--md-sys-color-on-surface-variant); /* Show placeholder when focused */
+}
+
+/* Error state for filled fields */
+.m3-form-field.is-invalid input,
+.m3-form-field.is-invalid textarea,
+.m3-form-field.is-invalid select {
+    border-bottom-color: var(--md-sys-color-error); /* Red border */
+}
+
+.m3-form-field.is-invalid label {
+    color: var(--md-sys-color-error); /* Red label */
+}
+
+.m3-form-field.is-invalid::after {
+    background-color: var(--md-sys-color-error); /* Red indicator line */
+    width: 100%; /* Ensure it's full width on error */
+}
+
+/* Remove old focus styles that conflict */
+.m3-form-field.filled input:focus,
+.m3-form-field.filled textarea:focus {
+    outline: none;
+    border-bottom: none; /* Ensure no conflicting border */
+    box-shadow: none; /* Ensure no conflicting box-shadow */
+}
+/* Select element focus needs special handling if it's not using ::after for bottom border */
+.m3-form-field.filled select:focus {
+    outline: none; /* Remove default outline */
+    border-bottom: 2px solid var(--md-sys-color-primary); /* Keep this for select if ::after is not used */
+    box-shadow: 0 2px 0 var(--md-sys-color-primary); /* Keep this for select if ::after is not used */
+} /* This rule is specifically for select elements */
+
+/* Remove old focus-visible styles that conflict */
+.m3-form-field.filled input:focus-visible,
+.m3-form-field.filled textarea:focus-visible,
+.m3-form-field.filled select:focus-visible {
+    margin-bottom: 0; /* Remove conflicting margin */
+}
+
+/* Base label style - this will be overridden for filled fields */
 .m3-form-field > label {
     display: block;
     margin-bottom: 8px;
@@ -107,47 +243,6 @@ h3 {
     color: var(--md-sys-color-on-surface-variant);
     font-size: var(--md-sys-typescale-body-small-font-size);
     padding-left: 16px;
-}
-
-.m3-form-field.filled input,
-.m3-form-field.filled textarea,
-.m3-form-field.filled select {
-    width: 100%;
-    padding: 16px;
-    border: none;
-    border-bottom: 1px solid var(--md-sys-color-on-surface-variant);
-    border-radius: 8px 8px 0 0;
-    font-size: var(--md-sys-typescale-body-large-font-size);
-    background-color: var(--md-sys-color-surface-container-highest);
-    color: var(--md-sys-color-on-surface);
-    box-sizing: border-box;
-    transition: border-color 0.2s ease;
-}
-
-.m3-form-field.filled select {
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    appearance: none;
-    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2345464F'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
-    background-repeat: no-repeat;
-    background-position: right 16px center;
-    background-size: 24px;
-    padding-right: 48px;
-}
-
-.m3-form-field.filled input:focus,
-.m3-form-field.filled textarea:focus,
-.m3-form-field.filled select:focus {
-    outline: none;
-    border-bottom: 2px solid var(--md-sys-color-primary);
-    box-shadow: 0 2px 0 var(--md-sys-color-primary); /* 添加更明显的焦点指示 */
-}
-
-.m3-form-field.filled input:focus-visible,
-.m3-form-field.filled textarea:focus-visible,
-.m3-form-field.filled select:focus-visible {
-    /* The underline is thicker on focus */
-    margin-bottom: -1px;
 }
 
 /* Error messages below form fields */
@@ -162,6 +257,18 @@ h3 {
     display: block; /* Show when invalid */
 }
 
+.m3-helper-text {
+    margin-top: 4px; /* Space between field and helper text */
+    padding: 0 16px; /* Align with input padding, no vertical padding */
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: var(--md-sys-typescale-body-small-font-size);
+}
+
+/* Ensure small tags inside helper text inherit styles correctly */
+.m3-helper-text small {
+    margin-top: 0; /* Reset margin from base small style */
+}
+
 .required-indicator {
     color: var(--md-sys-color-error);
     margin-left: 4px;
@@ -169,18 +276,15 @@ h3 {
     cursor: help; /* 鼠标悬停时显示提示 */
 }
 
-.m3-form-field.filled.with-button {
+/* Wrapper for a form field and a button next to it */
+.with-button-group {
     display: flex;
     gap: 10px;
     align-items: flex-end; /* Align items to the bottom */
 }
 
-.m3-form-field.filled.with-button .m3-input-wrapper {
+.with-button-group .m3-form-field {
     flex-grow: 1;
-}
-/* Remove bottom border from input inside a group */
-.m3-form-field.filled.with-button select {
-    border-bottom: none;
 }
 
 /* --- M3 Button Styles --- */
@@ -328,14 +432,6 @@ button.m3-button.danger:hover {
     margin-top: 4px;
 }
 
-small {
-    display: block;
-    color: var(--md-sys-color-on-surface-variant);
-    margin-top: 8px;
-    font-size: 13px;
-    line-height: 1.4;
-}
-
 .add-domain-rule-form {
     display: grid;
     grid-template-columns: 2fr 1.5fr auto;
@@ -346,15 +442,6 @@ small {
 /* Styles for Pre-check Rules Section */
 #precheck-rules-container {
     margin-top: 24px;
-}
-
-#testTextInput {
-    width: 100%;
-    padding: 8px;
-    border: 1px solid var(--md-sys-color-outline);
-    border-radius: 4px;
-    margin-bottom: 10px;
-    box-sizing: border-box; /* Ensure padding doesn't affect overall width */
 }
 
 .rule-test-result {
@@ -402,6 +489,13 @@ small {
     color: var(--md-sys-color-primary);
     border-bottom-color: var(--md-sys-color-primary);
 }
+.tab-button:hover {
+    background-color: var(--md-sys-state-hover-on-surface); /* M3 hover state */
+}
+.tab-button:focus-visible {
+    outline: 2px solid var(--md-sys-color-primary); /* M3 focus indicator */
+    outline-offset: -2px;
+}
 
 .tab-panel {
     display: none; /* Hide panels by default */
@@ -434,20 +528,27 @@ small {
 
 /* Make labels and inputs within rule-item more compact */
 .rule-item .m3-form-field > label {
-    margin-bottom: 2px; /* Reduce margin */
-    padding-left: 8px; /* Reduce padding */
+    top: 20px; /* Use a slightly smaller but consistent vertical rhythm */
+    left: 12px;
 }
 
 .rule-item .m3-form-field.filled input,
 .rule-item .m3-form-field.filled select {
-    padding: 8px 12px; /* Reduce padding */
-    font-size: var(--md-sys-typescale-body-medium-font-size); /* Slightly smaller font */
+    padding: 20px 12px 6px; /* Consistent padding logic */
+    font-size: var(--md-sys-typescale-body-medium-font-size); /* Keep smaller font */
+    border-bottom: 1px solid var(--md-sys-color-outline); /* Ensure consistent border */
 }
 
 .rule-item .m3-form-field.filled select {
-    background-position: right 8px center; /* Adjust dropdown arrow position */
-    padding-right: 36px; /* Adjust padding for arrow */
+    background-position: right 10px center; /* Adjust dropdown arrow position */
+    padding-right: 32px; /* Adjust padding for arrow */
 }
+/* Fine-tune label position for select elements within rule-item */
+.rule-item .m3-form-field.filled select + label {
+    top: 10px; /* Adjusted initial position for select in rule-item */
+}
+.rule-item .m3-form-field.filled select:focus + label,
+.rule-item .m3-form-field.filled select:not(:placeholder-shown) + label { top: 4px; } 
 
 /* Grid area assignments */
 .rule-name-field { grid-area: name; }

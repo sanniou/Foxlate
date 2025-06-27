@@ -498,23 +498,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
         item.innerHTML = `
         <div class="m3-form-field filled rule-name-field">
+            <input type="text" id="${randomId}-name" class="rule-name" value="${escapeHtml(rule.name || '')}" placeholder=" ">
             <label for="${randomId}-name">${ruleNamePlaceholder}</label>
-            <input type="text" id="${randomId}-name" class="rule-name" value="${rule.name || ''}">
         </div>
         <div class="m3-form-field filled rule-regex-field">
+            <input type="text" id="${randomId}-regex" class="rule-regex" value="${escapeHtml(rule.regex || '')}" placeholder=" ">
             <label for="${randomId}-regex">${regexPlaceholder}</label>
-            <input type="text" id="${randomId}-regex" class="rule-regex" value="${rule.regex || ''}">
         </div>
         <div class="m3-form-field filled rule-flags-field">
+            <input type="text" id="${randomId}-flags" class="rule-flags" value="${escapeHtml(rule.flags || '')}" placeholder=" ">
             <label for="${randomId}-flags">${flagsPlaceholder}</label>
-            <input type="text" id="${randomId}-flags" class="rule-flags" value="${rule.flags || ''}">
         </div>
         <div class="m3-form-field filled rule-mode-field">
-            <label for="${randomId}-mode">${browser.i18n.getMessage('rule')}</label>
             <select id="${randomId}-mode" class="rule-mode">
                 <option value="blacklist" ${rule.mode === 'blacklist' ? 'selected' : ''}>${blacklistText}</option>
                 <option value="whitelist" ${rule.mode === 'whitelist' ? 'selected' : ''}>${whitelistText}</option>
             </select>
+            <label for="${randomId}-mode">${browser.i18n.getMessage('rule')}</label>
         </div>
         <div class="rule-item-controls">
             <div class="m3-switch">
