@@ -31,23 +31,25 @@ function postProcess(text) {
  * 调度器，检查队列并启动新的工作者（如果有名额）。
  */
 function processQueue() {
-    // 当队列为空，或已达到最大并发数时，不执行任何操作
     if (taskQueue.length === 0 || activeWorkers >= MAX_CONCURRENT_REQUESTS) {
         return;
     }
 
     activeWorkers++;
-    const task = taskQueue.shift(); // 从队列头部取出一个任务
+    const task = taskQueue.shift();
 
-    // 使用 Promise.resolve() 来确保我们总是在处理一个 Promise
-    Promise.resolve()
-        .then(() => executeTranslation(task.text, task.targetLang, task.sourceLang))
-        .then(result => task.resolve(result)) // 任务成功，解析其 Promise
-        .catch(error => task.reject(error))   // 任务失败，拒绝其 Promise
-        .finally(() => {
-            activeWorkers--; // 释放一个工作者名额
-            processQueue();  // 尝试处理队列中的下一个任务
-        });
+    // 使用 async/await 结构来处理任务，使代码更清晰
+    (async () => {
+        try {
+            const result = await executeTranslation(task.text, task.targetLang, task.sourceLang);
+            task.resolve(result);
+        } catch (error) {
+            task.reject(error);
+        } finally {
+            activeWorkers--;
+            processQueue();
+        }
+    })();
 }
 
 

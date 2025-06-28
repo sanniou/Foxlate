@@ -85,6 +85,35 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const getEffectiveRule = (settings, hostname) => {
+        // Start with the base settings as the default rule.
+        const defaultRule = { 
+            ...settings,
+            autoTranslate: settings.autoTranslate || 'manual',
+            displayMode: settings.displayMode || 'replace',
+            targetLanguage: settings.targetLanguage || 'ZH'
+        };
+    
+        if (!hostname) {
+            return { rule: defaultRule, source: 'default' };
+        }
+    
+        const domainRules = settings.domainRules || {};
+        // Find the most specific domain rule that matches the current hostname.
+        const matchedDomain = Object.keys(domainRules)
+            .filter(d => hostname.endsWith(d))
+            .sort((a, b) => b.length - a.length)[0];
+    
+        if (matchedDomain) {
+            const specificRule = domainRules[matchedDomain];
+            // Ensure subdomain application is respected.
+            if (specificRule.applyToSubdomains !== false || hostname === matchedDomain) {
+                return { rule: { ...defaultRule, ...specificRule }, source: matchedDomain };
+            }
+        }
+        return { rule: defaultRule, source: 'default' };
+    };
+
     const loadAndApplySettings = async () => {
         const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
         if (!tab) return;
@@ -104,24 +133,9 @@ document.addEventListener('DOMContentLoaded', () => {
         currentHostname = getHostname(tab.url);
         elements.autoTranslateCheckbox.disabled = !currentHostname;
 
-        const defaultSettings = { autoTranslate: 'manual', ...currentSettings };
-        let finalRule = { ...defaultSettings };
-        currentRuleSource = 'default';
-
-        if (currentHostname) {
-            const domainRules = currentSettings.domainRules || {};
-            const domainParts = currentHostname.split('.');
-            let matchedDomain = Object.keys(domainRules).find(d => currentHostname.endsWith(d) && (domainRules[d].applyToSubdomains !== false || d === currentHostname)) || null;
-            if (matchedDomain) {
-                currentRuleSource = matchedDomain;
-                finalRule = { ...defaultSettings, ...domainRules[matchedDomain] };
-            }
-        }
-
+        const { rule: finalRule, source } = getEffectiveRule(currentSettings, currentHostname);
+        currentRuleSource = source;
         elements.autoTranslateCheckbox.checked = finalRule.autoTranslate === 'always';
-        elements.engineSelect.value = finalRule.translatorEngine;
-        elements.targetLanguageSelect.value = finalRule.targetLanguage;
-        elements.displayModeSelect.value = finalRule.displayMode;
         elements.currentRuleIndicator.textContent = `Rule: ${currentRuleSource}`;
 
         // ** (修复 #3) 状态管理重构：依赖 service-worker **
