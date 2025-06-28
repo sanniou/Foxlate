@@ -15,12 +15,28 @@
     "contextMenus"  // (可选) 添加右键菜单翻译
   ],
   "host_permissions": [
-
+    "<all_urls>"
   ],
   "background": {
     "scripts": ["background/service-worker.js"],
     "type": "module"
   },
+  "content_scripts": [
+    {
+      "matches": ["*://*/*"],
+      "js": [
+        "lib/webextension-polyfill.js",
+        "common/constants.js",
+        "content/strategies/hover-strategy.js",
+        "content/strategies/append-strategy.js",
+        "content/strategies/replace-strategy.js",
+        "content/display-manager.js",
+        "content/content-script.js"
+      ],
+      "css": ["content/style.css"],
+      "run_at": "document_idle"
+    }
+  ],
   
   "default_locale": "en",
   "action": {

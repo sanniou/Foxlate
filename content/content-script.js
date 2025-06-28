@@ -4,6 +4,11 @@
  * @param {Error} error - 错误对象。
  */
 function logError(context, error) {
+    // 过滤掉用户中断的“错误”，因为它不是一个真正的异常
+    if (error && error.message.includes("interrupted")) {
+        console.log(`[SanReader] Task interrupted in ${context}.`);
+        return;
+    }
     console.error(`[SanReader Content Script Error] in ${context}:`, error.message, error.stack);
 }
 
@@ -27,7 +32,6 @@ function generateUUID() {
  */
 function findTextNodes(rootNode) {
     const textNodes = [];
-    // 检查 rootNode 是否存在且为元素节点
     if (!rootNode || rootNode.nodeType !== Node.ELEMENT_NODE) {
         return textNodes;
     }
@@ -43,7 +47,6 @@ function findTextNodes(rootNode) {
                 if (node.nodeValue.trim() === '') {
                     return NodeFilter.FILTER_REJECT;
                 }
-                // 检查父元素是否已经标记为被翻译或正在处理中
                 if (node.parentElement.closest('[data-translated="true"], [data-translation-id]')) {
                     return NodeFilter.FILTER_REJECT;
                 }
@@ -63,7 +66,7 @@ function findTextNodes(rootNode) {
 
 let intersectionObserver = null;
 let mutationObserver = null;
-let originalContent = new Map(); // 用于存储原始文本的映射
+let originalContent = new Map();
 let translationJob = {
     totalChunks: 0,
     completedChunks: 0,
@@ -75,51 +78,42 @@ let translationJob = {
  * 初始化所有观察者。
  */
 function initializeObservers() {
-    // 1. IntersectionObserver: 当元素进入视口时触发翻译
     const intersectionCallback = (entries) => {
         const visibleEntries = entries.filter(entry => entry.isIntersecting);
         if (visibleEntries.length === 0) return;
 
-        const nodesToTranslate = [];
+        const elementsToTranslate = [];
         for (const entry of visibleEntries) {
-            const element = entry.target;
-            // 找到与此元素关联的所有文本节点
-            const childTextNodes = findTextNodes(element);
-            if (childTextNodes.length > 0) {
-                nodesToTranslate.push(...childTextNodes);
-            }
-            // 停止观察，避免重复翻译
-            intersectionObserver.unobserve(element);
+            elementsToTranslate.push(entry.target);
+            intersectionObserver.unobserve(entry.target);
         }
-
-        if (nodesToTranslate.length > 0) {
-            translateNodes(nodesToTranslate);
+        if (elementsToTranslate.length > 0) {
+            translateElements(elementsToTranslate);
         }
     };
     intersectionObserver = new IntersectionObserver(intersectionCallback, {
-        root: null, // 使用视口作为根
-        rootMargin: '200px 0px', // 预加载视口下方200px的内容
-        threshold: 0.01 // 元素有1%可见时就触发
+        root: null,
+        rootMargin: '200px 0px',
+        threshold: 0.01
     });
 
-    // 2. MutationObserver: 监听DOM变化以翻译新内容
     const mutationCallback = debounce((mutations) => {
         let newNodes = [];
         for (const mutation of mutations) {
             if (mutation.type === 'childList') {
                 mutation.addedNodes.forEach(node => {
-                    // 只处理元素节点，并确保它不是翻译插件自己添加的
                     if (node.nodeType === Node.ELEMENT_NODE && !node.closest('#universal-translator-selection-panel')) {
                         newNodes.push(node);
                     }
                 });
             }
         }
-
         if (newNodes.length > 0) {
-            observeElements(newNodes);
+            // 对于动态添加的节点，也使用智能查找，而不是直接观察
+            const newElementsToObserve = findTranslatableRootElements(newNodes);
+            observeElements(newElementsToObserve);
         }
-    }, 500); // 防抖处理，避免频繁触发
+    }, 500);
 
     mutationObserver = new MutationObserver(mutationCallback);
 }
@@ -131,12 +125,6 @@ function initializeObservers() {
 function observeElements(elements) {
     if (!intersectionObserver) return;
     for (const element of elements) {
-        // 过滤掉脚本、样式等不需要翻译的标签
-        const tagName = element.tagName.toLowerCase();
-        if (['script', 'style', 'noscript', 'textarea', 'code'].includes(tagName)) {
-            continue;
-        }
-        // 检查元素是否已经处理过
         if (element.dataset.translated === 'true' || element.dataset.translationId) {
             continue;
         }
@@ -145,35 +133,47 @@ function observeElements(elements) {
 }
 
 /**
- * 核心翻译函数：将文本节点分块并发送到后台进行翻译。
- * @param {Text[]} nodes - 需要翻译的文本节点数组。
+ * 核心翻译函数：将元素内的文本节点分块并发送到后台进行翻译。
+ * @param {HTMLElement[]} elements - 需要翻译的元素数组。
  */
-async function translateNodes(nodes) {
-    if (nodes.length === 0) return;
+async function translateElements(elements) {
+    if (elements.length === 0) return;
 
     try {
         const { settings } = await browser.storage.sync.get('settings');
         const targetLang = settings?.targetLanguage || 'ZH';
-        const CHUNK_SIZE = settings?.parallelRequests || 5; // 增加默认并行数
+        const CHUNK_SIZE = settings?.parallelRequests || 5;
 
-        // 过滤掉无效节点
-        const validNodes = nodes.filter(node => node.parentElement && document.body.contains(node));
+        let nodesToTranslate = [];
+        elements.forEach(el => {
+            nodesToTranslate.push(...findTextNodes(el));
+        });
+
+        const validNodes = nodesToTranslate.filter(node => node.parentElement && document.body.contains(node));
         if (validNodes.length === 0) return;
 
-        // 保存原始文本
+        // 给父元素打上ID，并收集文本
+        const texts = [];
+        const ids = [];
+        const parentElements = new Map();
+
         validNodes.forEach(node => {
-            if (!originalContent.has(node)) {
-                originalContent.set(node, node.nodeValue);
+            const parent = node.parentElement;
+            if (!parent.dataset.translationId) {
+                parent.dataset.translationId = `ut-${generateUUID()}`;
+            }
+            if (!parentElements.has(parent.dataset.translationId)) {
+                parentElements.set(parent.dataset.translationId, parent);
+                texts.push(parent.textContent); // 发送整个元素的 textContent
+                ids.push(parent.dataset.translationId);
             }
         });
 
-        const chunks = [];
-        for (let i = 0; i < validNodes.length; i += CHUNK_SIZE) {
-            chunks.push(validNodes.slice(i, i + CHUNK_SIZE));
-        }
+        if (texts.length === 0) return;
 
-        translationJob.totalChunks += chunks.length;
-        if (translationJob.totalChunks > 0 && !translationJob.isTranslating) {
+        // 更新任务状态
+        translationJob.totalChunks += Math.ceil(texts.length / CHUNK_SIZE);
+        if (!translationJob.isTranslating) {
             translationJob.isTranslating = true;
             browser.runtime.sendMessage({
                 type: 'TRANSLATION_STATUS_UPDATE',
@@ -181,38 +181,25 @@ async function translateNodes(nodes) {
             }).catch(e => logError('reportTranslationStatus (loading)', e));
         }
 
-
-        chunks.forEach(chunk => {
-            const texts = [];
-            const ids = [];
-            chunk.forEach(node => {
-                const parent = node.parentElement;
-                if (!parent.dataset.translationId) {
-                    parent.dataset.translationId = `ut-${generateUUID()}`;
-                }
-                texts.push(node.nodeValue);
-                ids.push(parent.dataset.translationId);
-            });
-
+        // 分块发送
+        for (let i = 0; i < texts.length; i += CHUNK_SIZE) {
+            const textChunk = texts.slice(i, i + CHUNK_SIZE);
+            const idChunk = ids.slice(i, i + CHUNK_SIZE);
             browser.runtime.sendMessage({
                 type: 'TRANSLATE_TEXT_CHUNK',
-                payload: { texts, ids, targetLang, sourceLang: 'auto', tabId: translationJob.tabId }
-            }).catch(e => logError('translateNodes (send chunk)', e));
-        });
+                payload: { texts: textChunk, ids: idChunk, targetLang, sourceLang: 'auto', tabId: translationJob.tabId }
+            }).catch(e => logError('translateElements (send chunk)', e));
+        }
 
     } catch (error) {
-        logError('translateNodes', error);
+        logError('translateElements', error);
     }
 }
 
-/**
- * 启动所有观察者。
- */
 function startObservers() {
     if (!mutationObserver) {
         initializeObservers();
     }
-    // 启动MutationObserver来监听后续的DOM变化
     mutationObserver.observe(document.body, {
         childList: true,
         subtree: true
@@ -220,57 +207,138 @@ function startObservers() {
     console.log("[SanReader] Observers started.");
 }
 
-/**
- * 停止并断开所有观察者。
- */
 function stopObservers() {
-    if (intersectionObserver) {
-        intersectionObserver.disconnect();
-        intersectionObserver = null;
-    }
-    if (mutationObserver) {
-        mutationObserver.disconnect();
-        mutationObserver = null;
-    }
+    if (intersectionObserver) intersectionObserver.disconnect();
+    if (mutationObserver) mutationObserver.disconnect();
+    intersectionObserver = null;
+    mutationObserver = null;
     console.log("[SanReader] Observers stopped.");
 }
 
-
 /**
- * 执行整页翻译。
+ * (新) 获取当前页面生效的配置，合并默认和域名规则。
+ * @returns {Promise<object>} - 合并后的有效配置对象。
  */
-async function performPageTranslation(tabId) {
-    if (translationJob.isTranslating) return; // 防止重复执行
-
-    // 1. 重置状态
-    stopObservers(); // 先停止旧的
-    originalContent.clear();
-    translationJob = {
-        totalChunks: 0,
-        completedChunks: 0,
-        tabId: tabId,
-        isTranslating: false,
+async function getEffectiveSettings() {
+    const { settings } = await browser.storage.sync.get('settings') || {};
+    if (!settings) {
+        // 如果用户没有设置，则提醒用户更新配置
+        console.warn("[SanReader] No settings found. Please update your configuration in the extension options.");
+        // 返回一个空的配置对象，以防止程序崩溃。
+        // 后续需要根据这个空配置进行特殊处理，例如不翻译任何内容。
+        return {};
     };
 
-    // 2. 初始化并启动观察者
-    initializeObservers();
-    startObservers();
+    const hostname = window.location.hostname;
+    const domainRules = settings.domainRules || {};
+    let effectiveRule = {};
 
-    // 3. 初始观察：观察当前页面上所有顶层块级元素
-    const rootElements = Array.from(document.body.children);
-    observeElements(rootElements);
+    const matchingDomain = Object.keys(domainRules)
+        .filter(d => hostname.endsWith(d))
+        .sort((a, b) => b.length - a.length)[0];
+
+    if (matchingDomain) {
+        const rule = domainRules[matchingDomain];
+        if (rule.applyToSubdomains !== false || hostname === matchingDomain) {
+            effectiveRule = rule;
+        }
+    }
+
+    const finalSettings = {
+        ...settings, // 首先使用用户的所有设置
+        ...effectiveRule
+    };
+
+    // 如果域名规则中没有指定 cssSelectorOverride，且 settings 中没有 defaultSelector，则使用一个 fallbackSelector
+    const fallbackSelector = 'p, h1, h2, h3, h4, h5, h6, li, dd, dt, blockquote, summary, article, td';
+
+    if (effectiveRule.cssSelector && effectiveRule.cssSelectorOverride) {
+        finalSettings.translationSelector = effectiveRule.cssSelector; // 强制使用域名规则的选择器
+    } else if (effectiveRule.cssSelector && !effectiveRule.cssSelectorOverride) {
+      // 合并 域名规则 css 选择器 和 settings.translationSelector.default
+      finalSettings.translationSelector = `${finalSettings.translationSelector?.default || fallbackSelector}, ${effectiveRule.cssSelector}`;
+    } else if (finalSettings.translationSelector?.default) {
+      finalSettings.translationSelector = finalSettings.translationSelector.default; // 使用settings中的默认选择器
+    } else {
+      finalSettings.translationSelector = fallbackSelector
+    }
+
+    return finalSettings;
+}
+
+/**
+ * (重构) 根据指定的CSS选择器查找页面上所有可翻译的根元素。
+ * @param {string} selector - 用于查找元素的CSS选择器。
+ * @returns {HTMLElement[]} - 找到的顶层元素数组。
+ */
+function findTranslatableRootElements(effectiveSettings) {
+    const selector = effectiveSettings?.translationSelector;
+    if (!selector) {
+        console.warn("[SanReader] No CSS selector provided. Cannot find translatable elements.");
+        return [];
+    }
+    const elements = new Set(document.querySelectorAll(selector));
+    const finalElements = Array.from(elements);
+
+    // 过滤掉嵌套的元素，只保留最顶层的容器
+    return finalElements.filter(el => {
+        if (!el.parentElement) return true;
+        let parent = el.parentElement;
+        while (parent) {
+            if (elements.has(parent)) {
+                return false; // 它是另一个候选元素的后代，跳过
+            }
+            parent = parent.parentElement;
+        }
+        return true;
+    });
 }
 
 
-/**
- * 还原整页翻译，显示原始文本。
- */
+async function performPageTranslation(tabId) {
+    if (translationJob.isTranslating) {
+        console.log("[SanReader] Translation job already in progress. Ignoring request.");
+        return;
+    }
+
+    console.log("[SanReader] Starting page translation process...");
+    stopObservers();
+    originalContent.clear();
+    
+    let effectiveSettings;
+    try {
+        effectiveSettings = await getEffectiveSettings();
+        console.log("[SanReader] Effective settings for this page:", effectiveSettings);
+    } catch (error) {
+        logError('performPageTranslation', error);
+        console.error("[SanReader] Failed to retrieve effective settings. Please check your configuration.");
+        return; // 停止执行，不再进行翻译
+    }
+
+    translationJob = {
+        totalChunks: 0, completedChunks: 0, tabId: tabId, isTranslating: false, settings: effectiveSettings
+    };
+
+    initializeObservers();
+
+    const elementsToObserve = findTranslatableRootElements(effectiveSettings);
+    console.log(`[SanReader] Found ${elementsToObserve.length} root elements to observe for translation.`);
+
+    if (elementsToObserve.length > 0) {
+        observeElements(elementsToObserve);
+    } else {
+        console.warn("[SanReader] No translatable elements found to observe initially.");
+    }
+    
+    startObservers();
+}
+
 async function revertPageTranslation(tabId) {
     stopObservers();
     const elements = document.querySelectorAll('[data-translation-strategy]');
     elements.forEach(element => {
         window.DisplayManager.revert(element);
-        // 清理所有与翻译相关的标记
+        // 清理所有状态，以便可以重新翻译
         delete element.dataset.translated;
         delete element.dataset.translationStrategy;
         delete element.dataset.translationId;
@@ -291,12 +359,8 @@ async function revertPageTranslation(tabId) {
     }
 }
 
-
 // --- Message Handling & UI ---
 
-/**
- * 处理来自 background 或 popup 的消息。
- */
 async function handleMessage(request, sender, sendResponse) {
     try {
         switch (request.type) {
@@ -315,14 +379,17 @@ async function handleMessage(request, sender, sendResponse) {
 
             case 'TRANSLATION_CHUNK_RESULT':
                 const { id, success, translatedText, wasTranslated, error } = request.payload;
-                // 注意：一个ID可能对应多个文本节点，但它们共享同一个父元素
                 const element = document.querySelector(`[data-translation-id='${id}']`);
                 if (element) {
                     if (success && wasTranslated) {
-                        // DisplayManager需要能处理整个元素，而不是单个文本节点
                         window.DisplayManager.apply(element, translatedText);
-                    } else if (!success) {
-                        window.DisplayManager.showError(element, error);
+                    } else if (error) {
+                        if (error.includes("interrupted")) {
+                            delete element.dataset.translationId;
+                            console.log(`Translation interrupted for element #${id}. Original content preserved.`);
+                        } else {
+                            window.DisplayManager.showError(element, error);
+                        }
                     }
                 }
 
@@ -339,18 +406,35 @@ async function handleMessage(request, sender, sendResponse) {
             case 'UPDATE_DISPLAY_MODE':
                 window.DisplayManager.updateDisplayMode(request.payload.displayMode);
                 break;
-
-            // ... (选择翻译部分的功能保持不变)
+            
+            case 'REQUEST_TRANSLATION_STATUS':
+                sendResponse({ isTranslating: translationJob.isTranslating });
+                break;
         }
     } catch (error) {
         logError(`handleMessage (type: ${request.type})`, error);
     }
-    return true; // 保持异步消息通道开放
+    return true;
 }
 
 /**
- * Simple debounce function.
+ * (新) 检查是否需要自动翻译。
+ * 在内容脚本加载后，主动向后台查询当前页面是否应根据规则自动翻译。
  */
+async function triggerAutoTranslationCheck() {
+    try {
+        const response = await browser.runtime.sendMessage({
+            type: 'SHOULD_AUTO_TRANSLATE',
+            payload: { hostname: window.location.hostname, url: window.location.href }
+        });
+        if (response && response.shouldTranslate) {
+            await performPageTranslation(response.tabId);
+        }
+    } catch (error) {
+        logError('triggerAutoTranslationCheck', error);
+    }
+}
+
 function debounce(func, wait) {
     let timeout;
     return function(...args) {
@@ -359,9 +443,6 @@ function debounce(func, wait) {
     };
 }
 
-/**
- * 初始化内容脚本。
- */
 function initializeContentScript() {
     if (window.hasInitialized) return;
     window.hasInitialized = true;
@@ -374,6 +455,9 @@ function initializeContentScript() {
     try {
         browser.runtime.onMessage.addListener(handleMessage);
         console.log("[SanReader] Message listener set up successfully.");
+        
+        // 主动发起自动翻译检查
+        triggerAutoTranslationCheck();
     } catch (error) {
         logError('initializeContentScript', new Error("Failed to set up message listener: " + error.message));
     }

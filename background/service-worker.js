@@ -23,63 +23,22 @@ browser.runtime.onInstalled.addListener(() => {
   console.log("Context menu created.");
 });
 
-async function ensureContentScript(tabId) {
-  try {
-    await browser.tabs.sendMessage(tabId, { type: 'PING' });
-    return;
-  } catch (e) {
-    console.log(`Content script not detected in tab ${tabId}. Injecting...`);
-    try {
-      await browser.scripting.executeScript({
-        target: { tabId },
-        files: [
-          'lib/webextension-polyfill.js',
-          'content/strategies/hover-strategy.js',
-          'content/strategies/append-strategy.js',
-          'content/strategies/replace-strategy.js',
-          'content/display-manager.js',
-          'content/content-script.js'
-        ],
-      });
-      await browser.scripting.insertCSS({
-        target: { tabId },
-        files: ['content/style.css'],
-      });
-    } catch (injectionError) {
-      logError(`ensureContentScript (Injection Phase for tab ${tabId})`, injectionError);
-      throw new Error(`Failed to inject content script into tab ${tabId}.`);
-    }
-
-    return new Promise((resolve, reject) => {
-      let attempts = 0;
-      const maxAttempts = 20;
-      const interval = setInterval(async () => {
-        attempts++;
-        if (attempts > maxAttempts) {
-          clearInterval(interval);
-          const finalError = new Error("Content script failed to respond after injection.");
-          logError(`ensureContentScript (Polling Phase for tab ${tabId})`, finalError);
-          reject(finalError);
-          return;
-        }
-        try {
-          await browser.tabs.sendMessage(tabId, { type: 'PING' });
-          clearInterval(interval);
-          resolve();
-        } catch (err) {
-          // Not ready yet
-        }
-      }, 100);
-    });
-  }
-}
-
 const setTabTranslationState = async (tabId, state) => {
     const { tabTranslationStates = {} } = await browser.storage.session.get('tabTranslationStates');
     if (state === 'original' || !state) {
         delete tabTranslationStates[tabId];
+        // 清除角标
+        await browser.action.setBadgeText({ text: '', tabId: tabId });
     } else {
         tabTranslationStates[tabId] = state;
+        // 根据状态设置角标
+        if (state === 'loading') {
+            await browser.action.setBadgeText({ text: '...', tabId: tabId });
+            await browser.action.setBadgeBackgroundColor({ color: '#F57C00', tabId: tabId }); // 加载中 - 橙色
+        } else if (state === 'translated') {
+            await browser.action.setBadgeText({ text: '✓', tabId: tabId });
+            await browser.action.setBadgeBackgroundColor({ color: '#388E3C', tabId: tabId }); // 已翻译 - 绿色
+        }
     }
     await browser.storage.session.set({ tabTranslationStates });
     browser.runtime.sendMessage({
@@ -99,7 +58,6 @@ async function handleContextMenuClick(info, tab) {
     return;
   }
   try {
-    await ensureContentScript(tab.id);
     browser.tabs.sendMessage(tab.id, {
       type: 'DISPLAY_SELECTION_TRANSLATION',
       payload: { isLoading: true }
@@ -150,7 +108,8 @@ const messageHandlers = {
     results.forEach((result, index) => {
         const wasFulfilled = result.status === 'fulfilled';
         const translationResult = wasFulfilled ? result.value : null;
-        const error = wasFulfilled ? translationResult?.error : result.reason.message;
+        // ** (修复 #4) 确保传递中断错误 **
+        const error = wasFulfilled ? translationResult?.error : (result.reason?.message || 'Unknown error');
 
         const payload = {
             id: ids[index],
@@ -203,7 +162,8 @@ const messageHandlers = {
   async INITIATE_PAGE_TRANSLATION(request) {
     const { tabId } = request.payload;
     try {
-      await ensureContentScript(tabId);
+      // 立即设置加载状态和角标
+      await setTabTranslationState(tabId, 'loading');
       await browser.tabs.sendMessage(tabId, { type: 'TRANSLATE_PAGE_REQUEST', payload: { tabId } });
       return { success: true };
     } catch (error) {
@@ -219,7 +179,6 @@ const messageHandlers = {
     TranslatorManager.interruptAll();
     await setTabTranslationState(tabId, 'original');
     try {
-      await ensureContentScript(tabId);
       await browser.tabs.sendMessage(tabId, { type: 'REVERT_PAGE_TRANSLATION', payload: { tabId } });
       return { success: true };
     } catch (error) {
@@ -254,6 +213,52 @@ const messageHandlers = {
 
   PING() {
     return { status: 'PONG' };
+  },
+
+  GET_TAB_ID(request, sender) {
+      if (sender.tab) {
+          return Promise.resolve({ tabId: sender.tab.id });
+      }
+      // 如果发送方不是tab（例如popup），则需要查询活动tab
+      return browser.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
+          return { tabId: tab?.id };
+      });
+  }
+  ,
+
+  async SHOULD_AUTO_TRANSLATE(request, sender) {
+    const { hostname, url } = request.payload;
+    const tabId = sender.tab?.id;
+
+    if (!tabId || !url || !url.startsWith('http')) {
+        return { shouldTranslate: false };
+    }
+
+    try {
+        const { settings } = await browser.storage.sync.get('settings');
+        const domainRules = settings?.domainRules;
+
+        if (!domainRules || Object.keys(domainRules).length === 0) {
+            return { shouldTranslate: false };
+        }
+
+        const matchingDomainKey = Object.keys(domainRules)
+            .filter(d => hostname.endsWith(d))
+            .sort((a, b) => b.length - a.length)[0];
+
+        if (matchingDomainKey) {
+            const rule = domainRules[matchingDomainKey];
+            const isDomainMatch = rule.applyToSubdomains !== false || hostname === matchingDomainKey;
+            if (isDomainMatch && rule.autoTranslate === 'always') {
+                console.log(`[Auto-Translate] Rule for '${matchingDomainKey}' matched on ${hostname}. Approving translation.`);
+                await setTabTranslationState(tabId, 'loading'); // Set loading state and badge
+                return { shouldTranslate: true, tabId: tabId };
+            }
+        }
+    } catch (error) {
+        logError('SHOULD_AUTO_TRANSLATE handler', error);
+    }
+    return { shouldTranslate: false };
   }
 };
 
@@ -282,22 +287,4 @@ browser.tabs.onRemoved.addListener(async (tabId) => {
   } catch (error) {
     logError('tabs.onRemoved listener', error);
   }
-});
-
-browser.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-    if (changeInfo.status !== 'complete' || !tab.url || !tab.url.startsWith('http')) {
-        return;
-    }
-    try {
-        const { settings } = await browser.storage.sync.get('settings');
-        const domain = new URL(tab.url).hostname;
-        const domainRules = settings?.domainRules || {};
-        if (domainRules[domain] === 'always') {
-            console.log(`[Auto-Translate] Domain ${domain} is marked for automatic translation. Initiating...`);
-            await ensureContentScript(tabId);
-            await browser.tabs.sendMessage(tabId, { type: 'TRANSLATE_PAGE_REQUEST', payload: { tabId } });
-        }
-    } catch (error) {
-        logError('tabs.onUpdated listener (Auto-Translate)', error);
-    }
 });

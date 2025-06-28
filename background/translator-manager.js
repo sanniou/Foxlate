@@ -217,6 +217,7 @@ export class TranslatorManager {
   static interruptAll() {
       // 拒绝队列中所有待处理的 Promise
       taskQueue.forEach(task => {
+          // ** (修复 #4) 使用特定的中断错误 **
           task.reject(new Error("Translation was interrupted by the user."));
       });
       // 清空队列
