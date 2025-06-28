@@ -23,34 +23,6 @@ browser.runtime.onInstalled.addListener(() => {
   console.log("Context menu created.");
 });
 
-const setTabTranslationState = async (tabId, state) => {
-    const { tabTranslationStates = {} } = await browser.storage.session.get('tabTranslationStates');
-    if (state === 'original' || !state) {
-        delete tabTranslationStates[tabId];
-        // 清除角标
-        await browser.action.setBadgeText({ text: '', tabId: tabId });
-    } else {
-        tabTranslationStates[tabId] = state;
-        // 根据状态设置角标
-        if (state === 'loading') {
-            await browser.action.setBadgeText({ text: '...', tabId: tabId });
-            await browser.action.setBadgeBackgroundColor({ color: '#F57C00', tabId: tabId }); // 加载中 - 橙色
-        } else if (state === 'translated') {
-            await browser.action.setBadgeText({ text: '✓', tabId: tabId });
-            await browser.action.setBadgeBackgroundColor({ color: '#388E3C', tabId: tabId }); // 已翻译 - 绿色
-        }
-    }
-    await browser.storage.session.set({ tabTranslationStates });
-    browser.runtime.sendMessage({
-        type: 'TRANSLATION_STATUS_BROADCAST',
-        payload: { tabId, status: state }
-    }).catch(e => {
-        if (!e.message.includes("Could not establish connection. Receiving end does not exist.")) {
-            console.warn(`[Service Worker] Error broadcasting status for tab ${tabId}:`, e);
-        }
-    });
-};
-
 // --- Message Handlers ---
 
 async function handleContextMenuClick(info, tab) {
@@ -163,12 +135,12 @@ const messageHandlers = {
     const { tabId } = request.payload;
     try {
       // 立即设置加载状态和角标
-      await setTabTranslationState(tabId, 'loading');
+      await setBadgeAndState(tabId, 'loading');
       await browser.tabs.sendMessage(tabId, { type: 'TRANSLATE_PAGE_REQUEST', payload: { tabId } });
       return { success: true };
     } catch (error) {
       logError('INITIATE_PAGE_TRANSLATION handler', error);
-      await setTabTranslationState(tabId, 'original');
+      await setBadgeAndState(tabId, 'original');
       return { success: false, error: error.message };
     }
   },
@@ -176,8 +148,8 @@ const messageHandlers = {
   async REVERT_PAGE_TRANSLATION_REQUEST(request) {
     const { tabId } = request.payload;
     // ** 调用中断功能 **
-    TranslatorManager.interruptAll();
-    await setTabTranslationState(tabId, 'original');
+    await TranslatorManager.interruptAll();
+    await setBadgeAndState(tabId, 'original');
     try {
       await browser.tabs.sendMessage(tabId, { type: 'REVERT_PAGE_TRANSLATION', payload: { tabId } });
       return { success: true };
@@ -187,24 +159,30 @@ const messageHandlers = {
     } 
   },
 
-  // ** 新增中断处理器 **
-  async INTERRUPT_TRANSLATION_REQUEST(request) {
-      TranslatorManager.interruptAll();
-      const { tabId } = request.payload;
-      if (tabId) {
-          // 将状态更新为“已翻译”，但这实际上是一个中间状态，
-          // 用户可能希望看到部分已完成的翻译，而不是完全还原。
-          // 更好的做法是让 content-script 自己决定最终状态。
-          // 我们在这里只负责中断。
-          await setTabTranslationState(tabId, 'translated');
-      }
-      return { success: true };
-  },
+    // ** 新增中断处理器 **
+    async STOP_TRANSLATION(request) {
+        const { tabId } = request.payload;
+        await TranslatorManager.interruptAll();
+
+        // **(修复 #5)  不再在此处设置状态 **
+        // 状态应该由 content-script 在中断操作完成后设置。
+        // 我们只需要确保中断请求已处理。
+
+        // 可选：发送一个通用的“中断已完成”消息，如果 content-script 需要知道的话。
+        // await browser.tabs.sendMessage(tabId, { type: 'TRANSLATION_INTERRUPTED' });
+        return { success: true };
+    },
+
+    // ** 移除无用的广播消息 **
+    //  TRANSLATION_STATUS_BROADCAST 消息不再需要
+    //  所有的状态更新都通过 content-script 发起，并由 popup 监听
+
+
 
   async TRANSLATION_STATUS_UPDATE(request) {
     const { status, tabId } = request.payload;
     if (tabId) {
-      await setTabTranslationState(tabId, status);
+      await setBadgeAndState(tabId, status);
     } else {
       logError('TRANSLATION_STATUS_UPDATE', new Error('Missing tabId in status update payload.'));
     }
@@ -251,7 +229,7 @@ const messageHandlers = {
             const isDomainMatch = rule.applyToSubdomains !== false || hostname === matchingDomainKey;
             if (isDomainMatch && rule.autoTranslate === 'always') {
                 console.log(`[Auto-Translate] Rule for '${matchingDomainKey}' matched on ${hostname}. Approving translation.`);
-                await setTabTranslationState(tabId, 'loading'); // Set loading state and badge
+                await setBadgeAndState(tabId, 'loading'); // Set loading state and badge
                 return { shouldTranslate: true, tabId: tabId };
             }
         }
@@ -266,25 +244,56 @@ const messageHandlers = {
 
 browser.contextMenus.onClicked.addListener(handleContextMenuClick);
 
-browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
+browser.runtime.onMessage.addListener((request, sender) => {
   const handler = messageHandlers[request.type];
   if (handler) {
-    Promise.resolve(handler(request, sender))
-      .then(sendResponse)
-      .catch(error => {
-        logError(`onMessage Listener (request type: ${request.type})`, error);
-        sendResponse({ success: false, error: "An unexpected error occurred in the service worker." });
-      });
-    return true;
+    // Return the promise from the handler directly. The polyfill handles the asynchronicity.
+    // This is a cleaner, more modern pattern than using `sendResponse` and `return true`.
+    // A final .catch is added as a safety net in case a handler throws an unexpected error.
+    return handler(request, sender).catch(error => {
+      logError(`onMessage Listener (request type: ${request.type})`, error);
+      return { success: false, error: "An unexpected error occurred in the service worker." };
+    });
   }
   console.warn(`No handler found for message type: ${request.type}`);
+  return Promise.resolve(); // Explicitly resolve for unhandled messages.
 });
 
 browser.tabs.onRemoved.addListener(async (tabId) => {
   try {
-    await setTabTranslationState(tabId, 'original');
+    await setBadgeAndState(tabId, 'original');
     console.log(`Cleaned up translation state for closed tab ${tabId}.`);
   } catch (error) {
     logError('tabs.onRemoved listener', error);
   }
 });
+
+async function setBadgeAndState(tabId, state) {
+    const { tabTranslationStates = {} } = await browser.storage.session.get('tabTranslationStates');
+    if (state === 'original' || !state) {
+        delete tabTranslationStates[tabId];
+        await browser.action.setBadgeText({ tabId, text: '' });
+    } else {
+        tabTranslationStates[tabId] = state;
+        let badgeText = '';
+        let badgeColor = '';
+        switch (state) {
+            case 'loading':
+                badgeText = '...';
+                badgeColor = '#F57C00'; // Orange - Loading
+                break;
+            case 'translated':
+                badgeText = '✓';
+                badgeColor = '#388E3C'; // Green - Translated
+                break;
+            default:
+                break;
+        }
+        await browser.action.setBadgeText({ tabId, text: badgeText });
+        if (badgeText) {
+            await browser.action.setBadgeBackgroundColor({ tabId, color: badgeColor });
+        }
+    }
+    await browser.storage.session.set({ tabTranslationStates });
+    // **(修复 #5)  移除广播消息 **
+}

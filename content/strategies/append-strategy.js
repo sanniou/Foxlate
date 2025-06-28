@@ -12,7 +12,7 @@ window.appendTranslationStrategy = {
         if (translationNode) {
             translationNode.textContent = ` ( ${translatedText} )`;
         } else {
-            translationNode = document.createElement('font');
+            translationNode = document.createElement('span');
             translationNode.className = 'translator-appended-text'; // 类名用于标识和还原
             translationNode.style.color = 'gray';
             translationNode.style.marginLeft = '8px';
@@ -24,12 +24,12 @@ window.appendTranslationStrategy = {
     /**
      * 移除追加的翻译节点。
      * @param {HTMLElement} element - 目标元素。
+     * @param {string} originalHTML - 由 DisplayManager 提供的原始内部HTML。
      */
-    revertTranslation: function(element) {
-        const translationNode = element.querySelector('.translator-appended-text');
-        if (translationNode) {
-            translationNode.remove();
+    revertTranslation: function(element, originalHTML) {
+        // 恢复到原始HTML，这比仅仅移除追加的节点更可靠和一致。
+        if (originalHTML !== undefined) {
+            element.innerHTML = originalHTML;
         }
-        // 状态由 DisplayManager 管理，此策略不清理 dataset。
     }
 };

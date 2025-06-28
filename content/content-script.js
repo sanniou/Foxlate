@@ -17,12 +17,9 @@ function logError(context, error) {
  * @returns {string} A UUID.
  */
 function generateUUID() {
-    if (self.crypto && self.crypto.randomUUID) {
-        return self.crypto.randomUUID();
-    }
-    return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
-      (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
-    );
+    // crypto.randomUUID() is supported in all modern browsers that support Manifest V3.
+    // The fallback is unnecessary and has been removed for clarity and security.
+    return self.crypto.randomUUID();
 }
 
 /**
@@ -66,7 +63,6 @@ function findTextNodes(rootNode) {
 
 let intersectionObserver = null;
 let mutationObserver = null;
-let originalContent = new Map();
 let translationJob = {
     totalChunks: 0,
     completedChunks: 0,
@@ -110,7 +106,11 @@ function initializeObservers() {
         }
         if (newNodes.length > 0) {
             // 对于动态添加的节点，也使用智能查找，而不是直接观察
-            const newElementsToObserve = findTranslatableRootElements(newNodes);
+            if (!translationJob.settings) {
+                console.warn("[SanReader] Mutation observed, but no translation job settings found. Skipping auto-translation of new content.");
+                return;
+            }
+            const newElementsToObserve = findTranslatableRootElements(translationJob.settings, newNodes);
             observeElements(newElementsToObserve);
         }
     }, 500);
@@ -272,18 +272,29 @@ async function getEffectiveSettings() {
 
 /**
  * (重构) 根据指定的CSS选择器查找页面上所有可翻译的根元素。
- * @param {string} selector - 用于查找元素的CSS选择器。
+ * @param {object} effectiveSettings - 包含 translationSelector 的配置对象。
+ * @param {Node[]} [rootNodes=[document.body]] - 在这些节点内进行搜索。
  * @returns {HTMLElement[]} - 找到的顶层元素数组。
  */
-function findTranslatableRootElements(effectiveSettings) {
+function findTranslatableRootElements(effectiveSettings, rootNodes = [document.body]) {
     const selector = effectiveSettings?.translationSelector;
     if (!selector) {
         console.warn("[SanReader] No CSS selector provided. Cannot find translatable elements.");
         return [];
     }
-    // 直接返回所有匹配的元素，让 IntersectionObserver 单独观察它们。
-    // 不再过滤嵌套元素，因为我们的目标就是按需翻译这些独立的、更小的块。
-    const elements = document.querySelectorAll(selector);
+
+    const elements = new Set();
+    for (const root of rootNodes) {
+        // 确保 root 是 Element 节点，可以执行查询
+        if (root.nodeType !== Node.ELEMENT_NODE) continue;
+
+        // 检查 root 节点本身是否匹配
+        if (root.matches(selector)) {
+            elements.add(root);
+        }
+        // 查找 root 节点下的所有匹配项
+        root.querySelectorAll(selector).forEach(el => elements.add(el));
+    }
     return Array.from(elements);
 }
 
@@ -294,9 +305,11 @@ async function performPageTranslation(tabId) {
         return;
     }
 
+    // 设置一个全局标记，表示翻译会话已开始。
+    document.body.dataset.translationSession = 'active';
+
     console.log("[SanReader] Starting page translation process...");
     stopObservers();
-    originalContent.clear();
     
     let effectiveSettings;
     try {
@@ -328,6 +341,9 @@ async function performPageTranslation(tabId) {
 
 async function revertPageTranslation(tabId) {
     stopObservers();
+    // 清除全局的翻译会话标记。
+    delete document.body.dataset.translationSession;
+
     const elements = document.querySelectorAll('[data-translation-strategy]');
     elements.forEach(element => {
         window.DisplayManager.revert(element);
@@ -339,7 +355,6 @@ async function revertPageTranslation(tabId) {
         element.classList.remove('universal-translator-error');
         delete element.dataset.errorMessage;
     });
-    originalContent.clear();
     translationJob.isTranslating = false;
 
     try {
@@ -354,20 +369,17 @@ async function revertPageTranslation(tabId) {
 
 // --- Message Handling & UI ---
 
-async function handleMessage(request, sender, sendResponse) {
+async function handleMessage(request, sender) {
     try {
         switch (request.type) {
             case 'PING':
-                sendResponse({ status: 'PONG' });
-                break;
+                return { status: 'PONG' };
 
             case 'TRANSLATE_PAGE_REQUEST':
                 await performPageTranslation(request.payload?.tabId);
-                sendResponse({ success: true });
                 // **(调试) 输出调用栈**
                 console.log("[SanReader] performPageTranslation called:", new Error().stack);
-
-                break;
+                return { success: true };
 
             case 'REVERT_PAGE_TRANSLATION':
                 await revertPageTranslation(request.payload?.tabId);
@@ -404,14 +416,29 @@ async function handleMessage(request, sender, sendResponse) {
                 window.DisplayManager.updateDisplayMode(request.payload.displayMode);
                 break;
             
-            case 'REQUEST_TRANSLATION_STATUS':
-                sendResponse({ isTranslating: translationJob.isTranslating });
-                break;
+            // **(修复 #5)  移除 REQUEST_TRANSLATION_STATUS 的状态报告 **
+            //  content-script 不再主动报告状态，状态变化由 service worker 通过 setBadgeAndState 管理
+            //  REQUEST_TRANSLATION_STATUS 的作用仅仅是让 popup 知道 content script 是否还在翻译中
+            //  不应该影响 service worker 存储的状态
+
+
+            case 'REQUEST_TRANSLATION_STATUS': {
+                const sessionActive = document.body.dataset.translationSession === 'active';
+                let state = 'original';
+
+                if (sessionActive) {
+                    // 页面处于翻译会话中，根据是否在忙碌来决定是“加载中”还是“已翻译”
+                    state = translationJob.isTranslating ? 'loading' : 'translated'; // 修正：先判断是否正在翻译
+                }
+                // 如果会话未激活，状态保持 'original'
+                return { state: state };
+            }
         }
     } catch (error) {
         logError(`handleMessage (type: ${request.type})`, error);
+        // 将错误传播给发送方，以便 popup 中的 promise 可以 reject。
+        throw error;
     }
-    return true;
 }
 
 /**

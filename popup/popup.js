@@ -5,7 +5,6 @@ document.addEventListener('DOMContentLoaded', () => {
         engineSelect: document.getElementById('engineSelect'),
         displayModeSelect: document.getElementById('displayModeSelect'),
         translatePageBtn: document.getElementById('translatePageBtn'),
-        stopTranslateBtn: document.getElementById('stopTranslateBtn'),
         autoTranslateCheckbox: document.getElementById('autoTranslate'),
         currentRuleIndicator: document.getElementById('currentRuleIndicator'),
         openOptionsBtn: document.getElementById('openOptionsBtn'),
@@ -50,24 +49,39 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const updateTranslateButtonState = (state = 'original', isJobRunning = false) => {
+    const updateTranslateButtonState = (state = 'original') => {
         const btnText = elements.translatePageBtn.querySelector('.btn-text');
         if (!btnText) return;
 
+        // 移除所有可能的状态类
+        elements.translatePageBtn.classList.remove('loading', 'revert');
         elements.translatePageBtn.dataset.state = state;
 
-        // ** (修复 #3) 核心逻辑更新 **
-        if (isJobRunning) {
-            elements.translatePageBtn.style.display = 'none';
-            elements.stopTranslateBtn.style.display = 'inline-flex';
-        } else {
-            elements.translatePageBtn.style.display = 'inline-flex';
-            elements.stopTranslateBtn.style.display = 'none';
-            if (state === 'translated') {
+        switch (state) {
+            case 'loading':
+                btnText.textContent = browser.i18n.getMessage('popupStopTranslation');
+                elements.translatePageBtn.classList.add('loading');
+                break;
+            case 'translated':
                 btnText.textContent = browser.i18n.getMessage('popupShowOriginal');
-            } else {
+                elements.translatePageBtn.classList.add('revert');
+                break;
+            default: // 'original'
                 btnText.textContent = browser.i18n.getMessage('popupTranslatePage');
+                break;
+        }
+    };
+
+    const getHostname = (url) => {
+        try {
+            // 确保 URL 是有效的、可以提取主机名的类型
+            if (!url || !url.startsWith('http')) {
+                return null;
             }
+            return new URL(url).hostname;
+        } catch (e) {
+            console.error(`[Popup] Could not parse hostname from URL: "${url}"`, e);
+            return null;
         }
     };
 
@@ -111,21 +125,35 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.currentRuleIndicator.textContent = `Rule: ${currentRuleSource}`;
 
         // ** (修复 #3) 状态管理重构：依赖 service-worker **
-        const { tabTranslationStates = {} } = await browser.storage.session.get('tabTranslationStates');
-        const currentState = tabTranslationStates[activeTabId] || 'original';
-        const isJobRunning = currentState === 'loading';
-        updateTranslateButtonState(currentState, isJobRunning);
-        
+        await updateButtonStateFromContentScript();
         manageSelectLabels();
     };
 
-    const getHostname = (url) => {
+    const updateButtonStateFromContentScript = async () => {
+        if (!activeTabId) return;
         try {
-            return new URL(url).hostname;
-        } catch {
-            return null;
+            const response = await browser.tabs.sendMessage(activeTabId, { type: 'REQUEST_TRANSLATION_STATUS' });
+            if (!response || !response.state) {
+                throw new Error("Invalid response from content script.");
+            }
+            updateTranslateButtonState(response.state);
+        } catch (e) {
+            // 直接抛出错误，不再回退或重试
+            console.error(`[Popup] Failed to get translation status from content script for tab ${activeTabId}:`, e);
+            // 在popup中显示错误，而不是静默失败
+            // 可以在 popup 中添加一个错误显示区域，并在那里显示错误信息
+            // 这里只是一个示例，你需要根据 popup 的实际 UI 结构进行调整
+            const errorDisplay = document.getElementById('error-display'); 
+            if (errorDisplay) {
+                errorDisplay.textContent = `Error: ${e.message}`;
+                errorDisplay.style.display = 'block'; // 确保错误信息可见
+            } else {
+                // 如果没有错误显示区域，则在控制台显示更详细的错误
+                console.error("[Popup] No error display area found in popup. Please add an element with id='error-display' to show error messages.");
+            }
+            throw e; 
         }
-    };
+    }
 
     const saveChangeToRule = async (key, value) => {
         if (!currentHostname) return;
@@ -140,29 +168,37 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     async function handleTranslateButtonClick() {
-        if (!activeTabId) return;
+        if (!activeTabId || elements.translatePageBtn.disabled) return;
+        
+        // 在处理期间禁用按钮，防止用户快速重复点击
+        elements.translatePageBtn.disabled = true;
+
         const currentState = elements.translatePageBtn.dataset.state;
-        if (currentState === 'original') {
-            updateTranslateButtonState('loading', true);
-            browser.runtime.sendMessage({ type: 'INITIATE_PAGE_TRANSLATION', payload: { tabId: activeTabId } });
-            // **(调试) 输出调用栈**
-            console.log("[SanReader Popup] Initiate translation button clicked:", new Error().stack);
-        } else {
-            browser.runtime.sendMessage({ type: 'REVERT_PAGE_TRANSLATION_REQUEST', payload: { tabId: activeTabId } });
+
+        try {
+            switch (currentState) {
+                case 'loading': // 按钮当前是“停止”状态
+                    await browser.runtime.sendMessage({ type: 'STOP_TRANSLATION', payload: { tabId: activeTabId } });
+                    updateTranslateButtonState('translated'); // 停止后，页面处于（部分）翻译状态
+                    break;
+                case 'translated': // 按钮当前是“显示原文”状态
+                    await browser.runtime.sendMessage({ type: 'REVERT_PAGE_TRANSLATION_REQUEST', payload: { tabId: activeTabId } });
+                    updateTranslateButtonState('original'); // 还原后，页面处于原始状态
+                    break;
+                default: // 'original'，按钮是“翻译此页”状态
+                    updateTranslateButtonState('loading'); // 立即更新UI反馈，无需等待
+                    browser.runtime.sendMessage({ type: 'INITIATE_PAGE_TRANSLATION', payload: { tabId: activeTabId } });
+                    break;
+            }
+        } catch (error) {
+            console.error("[Popup] Error during button click handling:", error);
+            // 如果发生错误，尝试从内容脚本重新获取真实状态
+            await updateButtonStateFromContentScript();
+        } finally {
+            // 无论成功与否，都重新启用按钮
+            elements.translatePageBtn.disabled = false;
         }
     }
-
-    async function handleStopButtonClick() {
-        if (!activeTabId) return;
-        browser.runtime.sendMessage({ type: 'INTERRUPT_TRANSLATION_REQUEST', payload: { tabId: activeTabId } });
-        updateTranslateButtonState('translated', false);
-    }
-
-    const handleStatusBroadcast = (request) => {
-        if (request.type === 'TRANSLATION_STATUS_BROADCAST' && request.payload.tabId === activeTabId) {
-            updateTranslateButtonState(request.payload.status, request.payload.status === 'loading');
-        }
-    };
 
     const initialize = async () => {
         applyTranslations();
@@ -171,7 +207,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         elements.openOptionsBtn.addEventListener('click', () => browser.runtime.openOptionsPage());
         elements.translatePageBtn.addEventListener('click', handleTranslateButtonClick);
-        elements.stopTranslateBtn.addEventListener('click', handleStopButtonClick);
 
         elements.autoTranslateCheckbox.addEventListener('change', (e) => saveChangeToRule('autoTranslate', e.target.checked ? 'always' : 'manual'));
         elements.engineSelect.addEventListener('change', (e) => saveChangeToRule('translatorEngine', e.target.value));
@@ -179,14 +214,18 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.displayModeSelect.addEventListener('change', async (e) => {
             const newDisplayMode = e.target.value;
             await saveChangeToRule('displayMode', newDisplayMode);
-            const { tabTranslationStates = {} } = await browser.storage.session.get('tabTranslationStates');
-            if (tabTranslationStates[activeTabId] === 'translated') {
-                browser.tabs.sendMessage(activeTabId, { type: 'UPDATE_DISPLAY_MODE', payload: { displayMode: newDisplayMode } });
+            // 询问页面真实状态，以决定是否需要实时更新显示模式
+            try {
+                const response = await browser.tabs.sendMessage(activeTabId, { type: 'REQUEST_TRANSLATION_STATUS' });
+                // 如果页面处于任何翻译会话中（正在加载或已完成），则发送更新消息
+                if (response && (response.state === 'translated' || response.state === 'loading')) {
+                    browser.tabs.sendMessage(activeTabId, { type: 'UPDATE_DISPLAY_MODE', payload: { displayMode: newDisplayMode } });
+                }
+            } catch (error) {
+                console.warn(`[Popup] Could not send display mode update. Content script may not be active.`, error.message);
             }
         });
 
-        browser.runtime.onMessage.addListener(handleStatusBroadcast);
     };
-
     initialize();
 });

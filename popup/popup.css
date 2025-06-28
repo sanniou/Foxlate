@@ -169,6 +169,12 @@ h1 {
     background-color: var(--md-sys-state-hover-on-surface);
 }
 
+.m3-button.filled {
+    background-color: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
+}
+
+
 /* Button Loader */
 .m3-button .spinner {
     display: none;
@@ -180,11 +186,29 @@ h1 {
     animation: spin 1s ease-in-out infinite;
 }
 
+.m3-button.loading {
+    /* 覆盖默认的 tonal 样式，使其在加载时更醒目 */
+    background-color: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
+}
+
 .m3-button.loading .spinner {
     display: block;
+    /* 确保 spinner 在新的背景色上可见 */
+    border-top-color: var(--md-sys-color-on-primary);
 }
 .m3-button.loading .btn-text {
-    display: none;
+    /* 在加载时，按钮文本变为 "停止翻译"，应该显示出来 */
+    display: block;
+}
+
+/* 新增 revert 状态的样式 */
+.m3-button.revert {
+    background-color: var(--md-sys-color-surface);
+    color: var(--md-sys-color-primary);
+    border: 1px solid var(--md-sys-color-outline);
+    /* 调整内边距以适应边框，保持视觉大小一致 */
+    padding: 7px 15px;
 }
 
 @keyframes spin {
