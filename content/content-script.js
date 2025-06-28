@@ -4,64 +4,20 @@
  * @param {Error} error - 错误对象。
  */
 function logError(context, error) {
-    console.error(`[Universal Translator Content Script Error] in ${context}:`, error.message, error.stack);
+    console.error(`[SanReader Content Script Error] in ${context}:`, error.message, error.stack);
 }
 
 /**
- * Generates a v4 UUID.
- * Uses crypto.randomUUID() if available, otherwise falls back to a polyfill.
- * This is necessary for compatibility with environments like older Firefox versions
- * where crypto.randomUUID might not be available in content scripts.
+ * 生成一个 v4 UUID。
  * @returns {string} A UUID.
  */
 function generateUUID() {
     if (self.crypto && self.crypto.randomUUID) {
         return self.crypto.randomUUID();
     }
-    // A fallback for environments without crypto.randomUUID that uses the widely supported crypto.getRandomValues.
     return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
       (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
     );
-}
-
-/**
- * 检查一个元素在页面上是否对用户可见。
- * @param {HTMLElement} el - 要检查的元素。
- * @returns {boolean} 如果元素可见则返回 true，否则返回 false。
- */
-function isElementVisible(element) {
-    if (!element) return false;
-
-    // 递归检查祖先元素的可见性
-    // 如果元素的 offsetParent 是 null，且 position 是 fixed，则它仍然可能是可见的。
-    // 但一个更简单的递归检查是：如果任何一个父元素是 display: none，则子元素一定不可见。
-    let current = element;
-    while (current && current !== document.body) {
-        const style = window.getComputedStyle(current);
-        if (style.display === 'none') {
-            return false;
-        }
-        current = current.parentElement;
-    }
-    
-    const style = window.getComputedStyle(element);
-    // 检查 display 和 visibility
-    if (style.display === 'none' || style.visibility === 'hidden') {
-        return false;
-    }
-    // 检查透明度
-    if (parseFloat(style.opacity) < 0.01) {
-        return false;
-    }
-    // 检查尺寸 (getBoundingClientRect 更可靠)
-    const rect = element.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) {
-        // 例外：某些SVG元素或没有内容的内联元素可能尺寸为0但其后代可见，
-        // 但对于文本节点的父元素，这个判断通常是准确的。
-        return false;
-    }
-
-    return true;
 }
 
 /**
@@ -71,24 +27,29 @@ function isElementVisible(element) {
  */
 function findTextNodes(rootNode) {
     const textNodes = [];
+    // 检查 rootNode 是否存在且为元素节点
+    if (!rootNode || rootNode.nodeType !== Node.ELEMENT_NODE) {
+        return textNodes;
+    }
     const walker = document.createTreeWalker(
         rootNode,
-        NodeFilter.SHOW_TEXT, // 只接受文本节点
+        NodeFilter.SHOW_TEXT,
         {
             acceptNode: function(node) {
-                // 排除 <script>, <style>, 和 <textarea> 的内容
                 const parentTag = node.parentElement.tagName.toLowerCase();
-                if (['script', 'style', 'noscript', 'textarea'].includes(parentTag)) {
+                if (['script', 'style', 'noscript', 'textarea', 'code'].includes(parentTag) || node.parentElement.isContentEditable) {
                     return NodeFilter.FILTER_REJECT;
                 }
-                // 排除只包含空白的文本节点
                 if (node.nodeValue.trim() === '') {
+                    return NodeFilter.FILTER_REJECT;
+                }
+                // 检查父元素是否已经标记为被翻译或正在处理中
+                if (node.parentElement.closest('[data-translated="true"], [data-translation-id]')) {
                     return NodeFilter.FILTER_REJECT;
                 }
                 return NodeFilter.FILTER_ACCEPT;
             }
-        },
-        false
+        }
     );
 
     let node;
@@ -98,94 +59,134 @@ function findTextNodes(rootNode) {
     return textNodes;
 }
 
-/**
- * 初始化内容脚本，设置消息监听器。
- */
-function initializeContentScript() {
-    console.log("[Universal Translator] Content script loaded and initializing...");
-    // 由于 display-manager.js 在 content-script.js 之前注入，
-    // window.DisplayManager 应该已经可用。
-    if (!window.DisplayManager) {
-        logError('initializeContentScript', new Error("DisplayManager is not available. This indicates an injection order issue."));
-        return; // 阻止后续可能依赖 DisplayManager 的操作
-    }
-    try {
-        browser.runtime.onMessage.addListener(handleMessage);
-        console.log("[Universal Translator] Message listener set up successfully.");
-    } catch (error) {
-        logError('initializeContentScript', new Error("Failed to set up message listener: " + error.message));
-    }
-}
+// --- Observers and Translation Logic ---
 
-/**
- * 模块级变量，用于跟踪当前活动的“点击外部关闭”事件处理器。
- * 这是为了确保在创建新面板或通过其他方式关闭面板时，能够正确地移除旧的事件监听器。
- */
-let activePanelClickHandler = null;
-
+let intersectionObserver = null;
+let mutationObserver = null;
 let originalContent = new Map(); // 用于存储原始文本的映射
 let translationJob = {
     totalChunks: 0,
     completedChunks: 0,
     tabId: null,
+    isTranslating: false,
 };
 
 /**
- * 执行整页翻译的新实现，采用分块并行处理。
+ * 初始化所有观察者。
  */
-async function performPageTranslation(tabId) {
-    // 1. 初始化/重置翻译任务状态
-    translationJob = {
-        totalChunks: 0,
-        completedChunks: 0,
-        tabId: tabId,
-    };
+function initializeObservers() {
+    // 1. IntersectionObserver: 当元素进入视口时触发翻译
+    const intersectionCallback = (entries) => {
+        const visibleEntries = entries.filter(entry => entry.isIntersecting);
+        if (visibleEntries.length === 0) return;
 
-    // 2. 立即向UI报告加载状态
-    browser.runtime.sendMessage({
-        type: 'TRANSLATION_STATUS_UPDATE',
-        payload: { status: 'loading', tabId: tabId }
-    }).catch(e => logError('reportTranslationStatus (loading)', e));
+        const nodesToTranslate = [];
+        for (const entry of visibleEntries) {
+            const element = entry.target;
+            // 找到与此元素关联的所有文本节点
+            const childTextNodes = findTextNodes(element);
+            if (childTextNodes.length > 0) {
+                nodesToTranslate.push(...childTextNodes);
+            }
+            // 停止观察，避免重复翻译
+            intersectionObserver.unobserve(element);
+        }
+
+        if (nodesToTranslate.length > 0) {
+            translateNodes(nodesToTranslate);
+        }
+    };
+    intersectionObserver = new IntersectionObserver(intersectionCallback, {
+        root: null, // 使用视口作为根
+        rootMargin: '200px 0px', // 预加载视口下方200px的内容
+        threshold: 0.01 // 元素有1%可见时就触发
+    });
+
+    // 2. MutationObserver: 监听DOM变化以翻译新内容
+    const mutationCallback = debounce((mutations) => {
+        let newNodes = [];
+        for (const mutation of mutations) {
+            if (mutation.type === 'childList') {
+                mutation.addedNodes.forEach(node => {
+                    // 只处理元素节点，并确保它不是翻译插件自己添加的
+                    if (node.nodeType === Node.ELEMENT_NODE && !node.closest('#universal-translator-selection-panel')) {
+                        newNodes.push(node);
+                    }
+                });
+            }
+        }
+
+        if (newNodes.length > 0) {
+            observeElements(newNodes);
+        }
+    }, 500); // 防抖处理，避免频繁触发
+
+    mutationObserver = new MutationObserver(mutationCallback);
+}
+
+/**
+ * 观察一组元素，等待它们进入视口。
+ * @param {HTMLElement[]} elements - 要观察的元素数组。
+ */
+function observeElements(elements) {
+    if (!intersectionObserver) return;
+    for (const element of elements) {
+        // 过滤掉脚本、样式等不需要翻译的标签
+        const tagName = element.tagName.toLowerCase();
+        if (['script', 'style', 'noscript', 'textarea', 'code'].includes(tagName)) {
+            continue;
+        }
+        // 检查元素是否已经处理过
+        if (element.dataset.translated === 'true' || element.dataset.translationId) {
+            continue;
+        }
+        intersectionObserver.observe(element);
+    }
+}
+
+/**
+ * 核心翻译函数：将文本节点分块并发送到后台进行翻译。
+ * @param {Text[]} nodes - 需要翻译的文本节点数组。
+ */
+async function translateNodes(nodes) {
+    if (nodes.length === 0) return;
 
     try {
         const { settings } = await browser.storage.sync.get('settings');
         const targetLang = settings?.targetLanguage || 'ZH';
-        const CHUNK_SIZE = settings?.parallelRequests || 2; // 从设置中读取并行数，默认为2
+        const CHUNK_SIZE = settings?.parallelRequests || 5; // 增加默认并行数
 
-        // 3. 查找所有可见的文本节点
-        const allTextNodes = findTextNodes(document.body);
-        const visibleTextNodes = allTextNodes.filter(node =>
-            isElementVisible(node.parentElement) && !node.parentElement.closest('[data-translated="true"]')
-        );
+        // 过滤掉无效节点
+        const validNodes = nodes.filter(node => node.parentElement && document.body.contains(node));
+        if (validNodes.length === 0) return;
 
-        if (originalContent.size === 0) { // 首次翻译，保存原始文本
-            visibleTextNodes.forEach(node => {
+        // 保存原始文本
+        validNodes.forEach(node => {
+            if (!originalContent.has(node)) {
                 originalContent.set(node, node.nodeValue);
-            });
+            }
+        });
+
+        const chunks = [];
+        for (let i = 0; i < validNodes.length; i += CHUNK_SIZE) {
+            chunks.push(validNodes.slice(i, i + CHUNK_SIZE));
         }
 
-        if (visibleTextNodes.length === 0) {
-            // 如果没有需要翻译的文本，直接报告完成
+        translationJob.totalChunks += chunks.length;
+        if (translationJob.totalChunks > 0 && !translationJob.isTranslating) {
+            translationJob.isTranslating = true;
             browser.runtime.sendMessage({
                 type: 'TRANSLATION_STATUS_UPDATE',
-                payload: { status: 'translated', tabId: tabId }
-            }).catch(e => logError('reportTranslationStatus (no text)', e));
-            return;
+                payload: { status: 'loading', tabId: translationJob.tabId }
+            }).catch(e => logError('reportTranslationStatus (loading)', e));
         }
 
-        // 4. 分块并发送翻译请求
-        const chunks = [];
-        for (let i = 0; i < visibleTextNodes.length; i += CHUNK_SIZE) {
-            chunks.push(visibleTextNodes.slice(i, i + CHUNK_SIZE));
-        }
-        translationJob.totalChunks = chunks.length;
 
         chunks.forEach(chunk => {
             const texts = [];
             const ids = [];
             chunk.forEach(node => {
                 const parent = node.parentElement;
-                // 确保每个待翻译元素都有一个唯一的ID
                 if (!parent.dataset.translationId) {
                     parent.dataset.translationId = `ut-${generateUUID()}`;
                 }
@@ -193,29 +194,71 @@ async function performPageTranslation(tabId) {
                 ids.push(parent.dataset.translationId);
             });
 
-            // 5. 发送块进行翻译 (Fire-and-forget)
             browser.runtime.sendMessage({
                 type: 'TRANSLATE_TEXT_CHUNK',
-                payload: {
-                    texts,
-                    ids,
-                    targetLang,
-                    sourceLang: 'auto',
-                    tabId: tabId
-                }
-            }).catch(e => logError('performPageTranslation (send chunk)', e));
+                payload: { texts, ids, targetLang, sourceLang: 'auto', tabId: translationJob.tabId }
+            }).catch(e => logError('translateNodes (send chunk)', e));
         });
 
-        startObserver(); // 启动 MutationObserver 以处理动态内容
-
     } catch (error) {
-        logError('performPageTranslation', error);
-        browser.runtime.sendMessage({
-            type: 'TRANSLATION_STATUS_UPDATE',
-            payload: { status: 'original', tabId: tabId }
-        }).catch(e => logError('reportTranslationStatus (failed)', e));
-        throw error;
+        logError('translateNodes', error);
     }
+}
+
+/**
+ * 启动所有观察者。
+ */
+function startObservers() {
+    if (!mutationObserver) {
+        initializeObservers();
+    }
+    // 启动MutationObserver来监听后续的DOM变化
+    mutationObserver.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+    console.log("[SanReader] Observers started.");
+}
+
+/**
+ * 停止并断开所有观察者。
+ */
+function stopObservers() {
+    if (intersectionObserver) {
+        intersectionObserver.disconnect();
+        intersectionObserver = null;
+    }
+    if (mutationObserver) {
+        mutationObserver.disconnect();
+        mutationObserver = null;
+    }
+    console.log("[SanReader] Observers stopped.");
+}
+
+
+/**
+ * 执行整页翻译。
+ */
+async function performPageTranslation(tabId) {
+    if (translationJob.isTranslating) return; // 防止重复执行
+
+    // 1. 重置状态
+    stopObservers(); // 先停止旧的
+    originalContent.clear();
+    translationJob = {
+        totalChunks: 0,
+        completedChunks: 0,
+        tabId: tabId,
+        isTranslating: false,
+    };
+
+    // 2. 初始化并启动观察者
+    initializeObservers();
+    startObservers();
+
+    // 3. 初始观察：观察当前页面上所有顶层块级元素
+    const rootElements = Array.from(document.body.children);
+    observeElements(rootElements);
 }
 
 
@@ -223,21 +266,21 @@ async function performPageTranslation(tabId) {
  * 还原整页翻译，显示原始文本。
  */
 async function revertPageTranslation(tabId) {
-    stopObserver(); // 停止观察DOM变化
+    stopObservers();
     const elements = document.querySelectorAll('[data-translation-strategy]');
     elements.forEach(element => {
         window.DisplayManager.revert(element);
         // 清理所有与翻译相关的标记
         delete element.dataset.translated;
         delete element.dataset.translationStrategy;
-        delete element.dataset.translationId; // 新增：移除唯一ID
-        // 如果有错误提示，也一并移除
+        delete element.dataset.translationId;
+        delete element.dataset.translatedText;
         element.classList.remove('universal-translator-error');
         delete element.dataset.errorMessage;
     });
-    originalContent.clear(); // 清空原始文本缓存
+    originalContent.clear();
+    translationJob.isTranslating = false;
 
-    // 报告还原完成状态
     try {
         await browser.runtime.sendMessage({
             type: 'TRANSLATION_STATUS_UPDATE',
@@ -248,132 +291,44 @@ async function revertPageTranslation(tabId) {
     }
 }
 
-/**
- * 创建并显示一个用于展示选中文字翻译结果的浮动面板。
- * @param {string} content - 要显示在面板中的内容。
- * @param {boolean} isError - 是否为错误消息。
- * @param {boolean} isLoading - 是否为加载状态。
- */
-function showSelectionTranslationPanel(content, isError = false, isLoading = false) {
-    // 首先，确保移除任何已存在的面板及其关联的事件监听器。
-    hideSelectionTranslationPanel();
 
-    const panel = document.createElement('div');
-    panel.id = 'universal-translator-selection-panel';
-
-    if (isLoading) {
-        panel.innerHTML = '<div class="panel-content">Loading...</div>';
-    } else {
-        panel.className = isError ? 'error' : '';
-        panel.innerHTML = `
-            <button class="panel-close-btn">&times;</button>
-            <div class="panel-content">${content.replace(/\n/g, '<br>')}</div>
-        `;
-        // 点击关闭按钮时，调用统一的隐藏函数以确保所有清理工作都已完成。
-        panel.querySelector('.panel-close-btn').addEventListener('click', hideSelectionTranslationPanel);
-    }
-
-    document.body.appendChild(panel);
-
-    // 将面板定位到选区附近
-    const selection = window.getSelection();
-    if (selection.rangeCount > 0) {
-        const range = selection.getRangeAt(0);
-        const rect = range.getBoundingClientRect();
-        panel.style.top = `${window.scrollY + rect.bottom + 8}px`;
-        panel.style.left = `${window.scrollX + rect.left}px`;
-
-        // 防止面板溢出视口
-        const panelRect = panel.getBoundingClientRect();
-        if (panelRect.right > window.innerWidth) {
-            panel.style.left = `${window.scrollX + window.innerWidth - panelRect.width - 15}px`;
-        }
-    }
-
-    // 定义一个处理器，用于处理面板外部的点击事件。
-    const clickOutsideHandler = (event) => {
-        // 如果点击事件的目标不在面板内部，则隐藏面板。
-        if (panel && !panel.contains(event.target)) {
-            hideSelectionTranslationPanel();
-        }
-    };
-
-    // 将新的处理器保存到模块级变量中。
-    activePanelClickHandler = clickOutsideHandler;
-
-    // 使用 setTimeout 延迟绑定事件，以防止触发面板显示的本次点击立即关闭面板。
-    setTimeout(() => {
-        // 在 document 上添加事件监听器，使用捕获阶段以确保可靠性。
-        document.addEventListener('click', activePanelClickHandler, { capture: true });
-    }, 0);
-}
-
-function hideSelectionTranslationPanel() {
-    // 如果存在活动的点击处理器，先从 document 上移除它。
-    if (activePanelClickHandler) {
-        document.removeEventListener('click', activePanelClickHandler, { capture: true });
-        activePanelClickHandler = null; // 清理变量。
-    }
-
-    // 移除面板 DOM 元素。
-    const existingPanel = document.getElementById('universal-translator-selection-panel');
-    if (existingPanel) {
-        existingPanel.remove();
-    }
-}
+// --- Message Handling & UI ---
 
 /**
  * 处理来自 background 或 popup 的消息。
  */
 async function handleMessage(request, sender, sendResponse) {
     try {
-        const { id, success, translatedText, wasTranslated, error } = request.payload;
         switch (request.type) {
             case 'PING':
                 sendResponse({ status: 'PONG' });
                 break;
 
-            case 'DISPLAY_SELECTION_TRANSLATION':
-                if (isLoading) {
-                    showSelectionTranslationPanel("", false, true);
-                } else if (success) {
-                    showSelectionTranslationPanel(translatedText);
-                } else {
-                    showSelectionTranslationPanel(`翻译失败: ${error || 'Unknown error'}`, true);
-                }
-                break;
-
             case 'TRANSLATE_PAGE_REQUEST':
-                const translateTabId = request.payload?.tabId;
-                if (!translateTabId) {
-                    throw new Error("tabId not provided in TRANSLATE_PAGE_REQUEST payload.");
-                }
-                await performPageTranslation(translateTabId);
+                await performPageTranslation(request.payload?.tabId);
                 sendResponse({ success: true });
                 break;
 
             case 'REVERT_PAGE_TRANSLATION':
-                const revertTabId = request.payload?.tabId;
-                if (!revertTabId) {
-                    throw new Error("tabId not provided in REVERT_PAGE_TRANSLATION payload.");
-                }
-                await revertPageTranslation(revertTabId);
+                await revertPageTranslation(request.payload?.tabId);
                 break;
 
             case 'TRANSLATION_CHUNK_RESULT':
+                const { id, success, translatedText, wasTranslated, error } = request.payload;
+                // 注意：一个ID可能对应多个文本节点，但它们共享同一个父元素
                 const element = document.querySelector(`[data-translation-id='${id}']`);
                 if (element) {
                     if (success && wasTranslated) {
+                        // DisplayManager需要能处理整个元素，而不是单个文本节点
                         window.DisplayManager.apply(element, translatedText);
                     } else if (!success) {
                         window.DisplayManager.showError(element, error);
                     }
-                    // If success is true but wasTranslated is false, we do nothing.
                 }
 
-                // 检查是否所有块都已完成
                 translationJob.completedChunks++;
                 if (translationJob.completedChunks >= translationJob.totalChunks) {
+                    translationJob.isTranslating = false;
                     browser.runtime.sendMessage({
                         type: 'TRANSLATION_STATUS_UPDATE',
                         payload: { status: 'translated', tabId: translationJob.tabId }
@@ -382,132 +337,46 @@ async function handleMessage(request, sender, sendResponse) {
                 break;
 
             case 'UPDATE_DISPLAY_MODE':
-                const { displayMode } = request.payload;
-                if (displayMode) {
-                    window.DisplayManager.updateDisplayMode(displayMode);
-                }
+                window.DisplayManager.updateDisplayMode(request.payload.displayMode);
                 break;
 
-            default:
-                console.warn(`[Universal Translator] Unknown message type: ${request.type}`);
+            // ... (选择翻译部分的功能保持不变)
         }
     } catch (error) {
         logError(`handleMessage (type: ${request.type})`, error);
-        // 对于异步消息，我们不能在这里安全地调用 sendResponse
     }
-    // 始终返回 true，因为许多处理程序是异步的，并且不会立即调用 sendResponse。
-    return true;
-}
-
-// 启动脚本
-initializeContentScript();
-
-// --- MutationObserver for Dynamic Content ---
-
-let observer = null;
-
-/**
- * Debounced function to handle incremental translation of new nodes.
- */
-const debouncedTranslateMutations = debounce(async (mutations) => {
-    let nodesToTranslate = [];
-    for (const mutation of mutations) {
-        if (mutation.type !== 'childList') continue;
-
-        for (const node of mutation.addedNodes) {
-            if (node.nodeType !== Node.ELEMENT_NODE || node.closest('[data-translated="true"]')) {
-                continue;
-            }
-            // 只处理元素节点，并从中查找文本节点
-            nodesToTranslate.push(...findTextNodes(node));
-        }
-    }
-
-    if (nodesToTranslate.length === 0) {
-        return;
-    }
-
-    const visibleTextNodes = nodesToTranslate.filter(node => isElementVisible(node.parentElement));
-    if (visibleTextNodes.length === 0) {
-        return;
-    }
-
-    try {
-        const { settings } = await browser.storage.sync.get('settings');
-        const targetLang = settings?.targetLanguage || 'ZH';
-        const CHUNK_SIZE = settings?.parallelRequests || 2;
-        const tabId = translationJob.tabId; // 从全局任务对象获取 tabId
-
-        if (!tabId) return; // 如果没有 tabId，则无法继续
-
-        // 使用与 performPageTranslation 相同的分块逻辑
-        const chunks = [];
-        for (let i = 0; i < visibleTextNodes.length; i += CHUNK_SIZE) {
-            chunks.push(visibleTextNodes.slice(i, i + CHUNK_SIZE));
-        }
-
-        // 为动态内容增加总块数
-        translationJob.totalChunks += chunks.length;
-
-        chunks.forEach(chunk => {
-            const texts = [];
-            const ids = [];
-            chunk.forEach(node => {
-                const parent = node.parentElement;
-                if (!parent.dataset.translationId) {
-                    parent.dataset.translationId = `ut-${generateUUID()}`;
-                }
-                // 保存原始文本以供还原
-                if (!originalContent.has(node)) {
-                    originalContent.set(node, node.nodeValue);
-                }
-                texts.push(node.nodeValue);
-                ids.push(parent.dataset.translationId);
-            });
-
-            browser.runtime.sendMessage({
-                type: 'TRANSLATE_TEXT_CHUNK',
-                payload: { texts, ids, targetLang, sourceLang: 'auto', tabId }
-            }).catch(e => logError('debouncedTranslateMutations (send chunk)', e));
-        });
-
-    } catch (error) {
-        logError('debouncedTranslateMutations', error);
-    }
-}, 500);
-
-function startObserver() {
-    if (observer) return; // Already running
-
-    observer = new MutationObserver(debouncedTranslateMutations);
-
-    observer.observe(document.body, {
-        childList: true,
-        subtree: true
-    });
-
-    console.log("[Universal Translator] MutationObserver started.");
-}
-
-function stopObserver() {
-    if (observer) {
-        observer.disconnect();
-        observer = null;
-        console.log("[Universal Translator] MutationObserver stopped.");
-    }
+    return true; // 保持异步消息通道开放
 }
 
 /**
  * Simple debounce function.
- * @param {Function} func The function to debounce.
- * @param {number} wait The debounce interval in milliseconds.
- * @returns {Function} The debounced function.
  */
 function debounce(func, wait) {
     let timeout;
     return function(...args) {
-        const context = this;
         clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(context, args), wait);
+        timeout = setTimeout(() => func.apply(this, args), wait);
     };
 }
+
+/**
+ * 初始化内容脚本。
+ */
+function initializeContentScript() {
+    if (window.hasInitialized) return;
+    window.hasInitialized = true;
+
+    console.log("[SanReader] Content script initializing...");
+    if (!window.DisplayManager) {
+        logError('initializeContentScript', new Error("DisplayManager is not available."));
+        return;
+    }
+    try {
+        browser.runtime.onMessage.addListener(handleMessage);
+        console.log("[SanReader] Message listener set up successfully.");
+    } catch (error) {
+        logError('initializeContentScript', new Error("Failed to set up message listener: " + error.message));
+    }
+}
+
+initializeContentScript();

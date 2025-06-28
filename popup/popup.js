@@ -6,8 +6,9 @@ document.addEventListener('DOMContentLoaded', () => {
         engineSelect: document.getElementById('engineSelect'),
         displayModeSelect: document.getElementById('displayModeSelect'),
         translatePageBtn: document.getElementById('translatePageBtn'),
+        stopTranslateBtn: document.getElementById('stopTranslateBtn'), // ** 新增 **
         autoTranslateCheckbox: document.getElementById('autoTranslate'),
-        currentRuleIndicator: document.getElementById('currentRuleIndicator'), // 新增元素
+        currentRuleIndicator: document.getElementById('currentRuleIndicator'),
         openOptionsBtn: document.getElementById('openOptionsBtn'),
         versionDisplay: document.getElementById('versionDisplay'),
         aboutBtn: document.getElementById('aboutBtn')
@@ -16,9 +17,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentHostname = null;
     let currentRuleSource = 'default';
 
-    /**
-     * Applies localized strings to the popup UI.
-     */
     const applyTranslations = () => {
         document.documentElement.lang = browser.i18n.getUILanguage();
         const i18nElements = document.querySelectorAll('[i18n-text]');
@@ -34,15 +32,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    /**
-     * Handles the floating label state for <select> elements by adding/removing
-     * an 'is-filled' class to the parent container.
-     */
     const manageSelectLabels = () => {
         document.querySelectorAll('.m3-form-field.outlined select').forEach(selectEl => {
             const parentField = selectEl.closest('.m3-form-field.outlined');
             if (!parentField) return;
-
             const updateState = () => {
                 if (selectEl.value) {
                     parentField.classList.add('is-filled');
@@ -50,14 +43,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     parentField.classList.remove('is-filled');
                 }
             };
-
             selectEl.addEventListener('change', updateState);
-            updateState(); // Run on initial load
+            updateState();
         });
     };
-    /**
-     * Populates a <select> element with options.
-     */
+
     const populateSelect = (selectElement, options, selectedValue) => {
         selectElement.innerHTML = '';
         for (const [value, i18nKey] of Object.entries(options)) {
@@ -81,25 +71,28 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.translatePageBtn.disabled = false;
         elements.translatePageBtn.dataset.state = state;
 
+        // ** 逻辑更新 **
         switch (state) {
             case 'translated':
                 btnText.textContent = browser.i18n.getMessage('popupShowOriginal');
                 elements.translatePageBtn.classList.remove('loading');
+                elements.translatePageBtn.style.display = 'inline-flex';
+                elements.stopTranslateBtn.style.display = 'none';
                 break;
             case 'loading':
-                btnText.textContent = browser.i18n.getMessage('popupShowOriginal');
-                elements.translatePageBtn.classList.add('loading');
+                // 显示停止按钮，隐藏翻译按钮
+                elements.translatePageBtn.style.display = 'none';
+                elements.stopTranslateBtn.style.display = 'inline-flex';
                 break;
             default: // 'original'
                 btnText.textContent = browser.i18n.getMessage('popupTranslatePage');
                 elements.translatePageBtn.classList.remove('loading');
+                elements.translatePageBtn.style.display = 'inline-flex';
+                elements.stopTranslateBtn.style.display = 'none';
                 break;
         }
     };
 
-    /**
-     * Loads settings and updates the UI.
-     */
     const loadAndApplySettings = async () => {
         const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
         if (!tab) return;
@@ -108,26 +101,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const { settings } = await browser.storage.sync.get('settings');
         const currentSettings = settings || {};
 
-        // Populate all select elements
         const allSupportedEngines = { ...window.Constants.SUPPORTED_ENGINES };
         const aiEngines = currentSettings.aiEngines || [];
-
         aiEngines.forEach(engine => {
             allSupportedEngines[`ai:${engine.id}`] = engine.name;
         });
         populateSelect(elements.engineSelect, allSupportedEngines, currentSettings.translatorEngine || 'deeplx');
         populateSelect(elements.sourceLanguageSelect, window.Constants.SUPPORTED_LANGUAGES, 'auto');
         const targetLangs = { ...window.Constants.SUPPORTED_LANGUAGES };
-        delete targetLangs.auto; // Target language cannot be 'auto'
-
+        delete targetLangs.auto;
         populateSelect(elements.targetLanguageSelect, targetLangs, currentSettings.targetLanguage || 'ZH');
         elements.displayModeSelect.value = currentSettings.displayMode || 'replace';
 
-        // --- Rule Application Logic ---
         currentHostname = getHostname(tab.url);
         elements.autoTranslateCheckbox.disabled = !currentHostname;
 
-        const defaultSettings = { // Define the global settings as the base
+        const defaultSettings = {
             autoTranslate: currentSettings.autoTranslate ? 'always' : 'manual',
             translatorEngine: currentSettings.translatorEngine || 'deeplx',
             targetLanguage: currentSettings.targetLanguage || 'ZH',
@@ -141,47 +130,34 @@ document.addEventListener('DOMContentLoaded', () => {
             const domainRules = currentSettings.domainRules || {};
             const domainParts = currentHostname.split('.');
             let matchedDomain = null;
-
-            // 1. Check for exact hostname match (e.g., 'sub.example.com')
             if (domainRules[currentHostname]) {
                 matchedDomain = currentHostname;
             } else {
-                // 2. Check for parent domains (e.g., 'example.com' for 'sub.example.com')
                 for (let i = 1; i < domainParts.length; i++) {
                     const parentDomain = domainParts.slice(i).join('.');
                     if (domainRules[parentDomain] && domainRules[parentDomain].applyToSubdomains !== false) {
                         matchedDomain = parentDomain;
-                        break; // Found the most specific applicable parent rule
+                        break;
                     }
                 }
             }
-
             if (matchedDomain) {
                 currentRuleSource = matchedDomain;
                 finalRule = { ...defaultSettings, ...domainRules[matchedDomain] };
             }
         }
 
-        // Apply the final, merged rule to the UI
         elements.autoTranslateCheckbox.checked = finalRule.autoTranslate === 'always';
         elements.engineSelect.value = finalRule.translatorEngine;
         elements.targetLanguageSelect.value = finalRule.targetLanguage;
         elements.displayModeSelect.value = finalRule.displayMode;
 
-        // Update UI indicators
         elements.currentRuleIndicator.style.display = 'inline';
         elements.currentRuleIndicator.textContent = `Rule: ${currentRuleSource}`;
         const { tabTranslationStates = {} } = await browser.storage.session.get('tabTranslationStates');
         updateTranslateButtonState(tabTranslationStates[activeTabId] || 'original');
         
-        // After populating and setting values, manage the labels
         manageSelectLabels();
-    };
-
-    const getCurrentTab = async () => {
-        let queryOptions = { active: true, currentWindow: true };
-        let [tab] = await browser.tabs.query(queryOptions);
-        return tab;
     };
 
     const getHostname = (url) => {
@@ -194,76 +170,60 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    /**
-     * Saves a specific setting change to the correct rule (domain or global).
-     * @param {string} key The setting key to change (e.g., 'targetLanguage').
-     * @param {any} value The new value for the setting.
-     */
     const saveChangeToRule = async (key, value) => {
         if (!currentHostname) return;
-
         const { settings } = await browser.storage.sync.get('settings');
         const currentSettings = settings || {};
         currentSettings.domainRules = currentSettings.domainRules || {};
-
         let domainToUpdate = currentRuleSource;
-
-        // If the current rule is the default, create a new rule for the specific hostname.
         if (domainToUpdate === 'default') {
             domainToUpdate = currentHostname;
             if (!currentSettings.domainRules[domainToUpdate]) {
                 currentSettings.domainRules[domainToUpdate] = {};
             }
         }
-
         currentSettings.domainRules[domainToUpdate][key] = value;
-
         await browser.storage.sync.set({ settings: currentSettings });
-        await loadAndApplySettings(); // Reload to reflect the change
+        await loadAndApplySettings();
     };
 
-    /**
-     * Handles clicks on the main translate button.
-     */
     async function handleTranslateButtonClick() {
         if (!activeTabId) return;
-
         const currentState = elements.translatePageBtn.dataset.state;
         if (currentState === 'original') {
             updateTranslateButtonState('loading');
             browser.runtime.sendMessage({ type: 'INITIATE_PAGE_TRANSLATION', payload: { tabId: activeTabId } });
         } else {
-            updateTranslateButtonState('original');
+            // "显示原文" 按钮被点击
             browser.runtime.sendMessage({ type: 'REVERT_PAGE_TRANSLATION_REQUEST', payload: { tabId: activeTabId } });
         }
     }
 
-    /**
-     * Handles status broadcasts from the service worker.
-     */
+    // ** 新增：停止按钮的处理器 **
+    async function handleStopButtonClick() {
+        if (!activeTabId) return;
+        // 发送中断请求
+        browser.runtime.sendMessage({ type: 'INTERRUPT_TRANSLATION_REQUEST', payload: { tabId: activeTabId } });
+        // 立即将UI恢复到“已翻译”状态，让用户可以点击“显示原文”
+        updateTranslateButtonState('translated');
+    }
+
     const handleStatusBroadcast = (request) => {
         if (request.type === 'TRANSLATION_STATUS_BROADCAST' && request.payload.tabId === activeTabId) {
             updateTranslateButtonState(request.payload.status || 'original');
         }
     };
 
-    /**
-     * Initializes the popup.
-     */
     const initialize = async () => {
-        // 1. Initial UI setup
         applyTranslations();
         manageSelectLabels();
         elements.versionDisplay.textContent = `v${browser.runtime.getManifest().version}`;
-
-        // 2. Load settings and apply rules to UI
         await loadAndApplySettings();
 
-        // 3. Add event listeners
         elements.openOptionsBtn.addEventListener('click', () => browser.runtime.openOptionsPage());
         elements.translatePageBtn.addEventListener('click', handleTranslateButtonClick);
+        elements.stopTranslateBtn.addEventListener('click', handleStopButtonClick); // ** 新增 **
 
-        // Listeners for settings changes that save to rules
         elements.autoTranslateCheckbox.addEventListener('change', (e) => {
             saveChangeToRule('autoTranslate', e.target.checked ? 'always' : 'manual');
         });
@@ -276,11 +236,8 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.displayModeSelect.addEventListener('change', async (e) => {
             const newDisplayMode = e.target.value;
             await saveChangeToRule('displayMode', newDisplayMode);
-
-            // Handle live update on the page if it's already translated
             const { tabTranslationStates = {} } = await browser.storage.session.get('tabTranslationStates');
             const currentState = tabTranslationStates[activeTabId];
-
             if (currentState === 'translated') {
                 browser.tabs.sendMessage(activeTabId, {
                     type: 'UPDATE_DISPLAY_MODE',
@@ -289,9 +246,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Listener for broadcasts from service worker
         browser.runtime.onMessage.addListener(handleStatusBroadcast);
     };
+
+
 
     initialize();
 });

@@ -1,79 +1,91 @@
-// This script assumes that strategy functions (replaceStrategy, appendStrategy, hoverStrategy, showTooltip, hideTooltip)
-// have already been loaded and attached to the global `window` object.
-
 window.DisplayManager = class DisplayManager {
-  static async apply(element, translatedText) {
-    // 从全局作用域获取策略对象
-    const strategies = {
-      replace: window.replaceStrategy,
-      append: window.appendTranslationStrategy, // 使用新的策略名称
-      hover: window.hoverStrategy,
-    };
+    static #originalContent = new Map();
 
-    const { settings } = await browser.storage.sync.get('settings');
-    const displayMode = settings?.displayMode || 'replace'; // 默认替换
-    const strategy = strategies[displayMode]; // 获取策略对象
-
-    if (strategy) {
-      strategy.displayTranslation(element, translatedText); // 调用 displayTranslation 方法
-      // Store the strategy used on the element itself for accurate reversion.
-      element.dataset.translationStrategy = displayMode;
-      element.dataset.translated = "true"; // Mark as translated
-      element.dataset.translatedText = translatedText; // Store the translation
+    // findTextNodes 保持不变，因为它用于发现需要翻译的元素，而不是保存状态。
+    static #findTextNodes(rootNode) {
+        const textNodes = [];
+        if (!rootNode || rootNode.nodeType !== Node.ELEMENT_NODE) {
+            return textNodes;
+        }
+        const walker = document.createTreeWalker(rootNode, NodeFilter.SHOW_TEXT, {
+            acceptNode: function(node) {
+                const parentTag = node.parentElement.tagName.toLowerCase();
+                if (['script', 'style', 'noscript', 'textarea', 'code'].includes(parentTag)) {
+                    return NodeFilter.FILTER_REJECT;
+                }
+                if (node.nodeValue.trim() === '') {
+                    return NodeFilter.FILTER_REJECT;
+                }
+                return NodeFilter.FILTER_ACCEPT;
+            }
+        });
+        let node;
+        while (node = walker.nextNode()) {
+            textNodes.push(node);
+        }
+        return textNodes;
     }
-  }
 
-  static revert(element) {
-    // Determine the strategy from the element's data attribute.
-    const displayMode = element.dataset.translationStrategy;
-    if (!displayMode) return; // No strategy to revert.
+    static async apply(element, translatedText) {
+        const strategies = {
+            replace: window.replaceStrategy,
+            append: window.appendTranslationStrategy,
+            hover: window.hoverStrategy,
+        };
 
-    const strategies = {
-      replace: window.replaceStrategy,
-      append: window.appendTranslationStrategy,
-      hover: window.hoverStrategy,
-    };
-    const strategy = strategies[displayMode];
-    if (strategy) {
-      strategy.revertTranslation(element);
+        const { settings } = await browser.storage.sync.get('settings');
+        const displayMode = settings?.displayMode || 'replace';
+        const strategy = strategies[displayMode];
+
+        if (strategy) {
+            // **修改点 1: 保存 innerHTML 而不是 textContent**
+            if (!this.#originalContent.has(element)) {
+                this.#originalContent.set(element, element.innerHTML);
+            }
+
+            strategy.displayTranslation(element, translatedText);
+            element.dataset.translationStrategy = displayMode;
+            element.dataset.translated = "true";
+            element.dataset.translatedText = translatedText;
+        }
     }
-  }
 
-  /**
-   * Displays a visual error indicator on an element when translation fails.
-   * @param {HTMLElement} element - The element that failed to translate.
-   * @param {string} errorMessage - The error message to display.
-   */
-  static showError(element, errorMessage) {
-    // Add a CSS class to visually indicate the error.
-    element.classList.add('universal-translator-error');
+    static revert(element) {
+        const displayMode = element.dataset.translationStrategy;
+        if (!displayMode) return;
 
-    // Store the error message in a data attribute for the tooltip.
-    element.dataset.errorMessage = errorMessage;
+        const strategies = {
+            replace: window.replaceStrategy,
+            append: window.appendTranslationStrategy,
+            hover: window.hoverStrategy,
+        };
+        const strategy = strategies[displayMode];
 
-    // Use the tooltip to show the detailed error on hover.
-    element.addEventListener('mouseenter', (event) => window.showTooltip(event, `Translation Error: ${element.dataset.errorMessage}`));
-    element.addEventListener('mouseleave', window.hideTooltip);
-  }
+        if (strategy) {
+            // **修改点 2: 将保存的 originalHTML 传递给策略**
+            const originalHTML = this.#originalContent.get(element);
+            strategy.revertTranslation(element, originalHTML);
 
-  static async updateDisplayMode(newDisplayMode) {
-    const translatedElements = document.querySelectorAll('[data-translated="true"]');
-    for (const element of translatedElements) {
-        const translatedText = element.dataset.translatedText;
-        if (translatedText) {
-            this.revert(element);
-            // Temporarily set the new display mode for the apply function
-            const strategies = {
-                replace: window.replaceStrategy,
-                append: window.appendTranslationStrategy,
-                hover: window.hoverStrategy,
-            };
-            const strategy = strategies[newDisplayMode];
-            if (strategy) {
-                strategy.displayTranslation(element, translatedText);
-                element.dataset.translationStrategy = newDisplayMode;
+            this.#originalContent.delete(element);
+        }
+    }
+
+    static showError(element, errorMessage) {
+        element.classList.add('universal-translator-error');
+        element.dataset.errorMessage = errorMessage;
+        element.title = `Translation Error: ${errorMessage}`;
+    }
+
+    static async updateDisplayMode(newDisplayMode) {
+        const translatedElements = document.querySelectorAll('[data-translated="true"]');
+        for (const element of translatedElements) {
+            const translatedText = element.dataset.translatedText;
+            if (translatedText) {
+                // 这里的 revert 会使用新的逻辑，正确传递 innerHTML
+                this.revert(element);
+                // apply 会重新保存状态并应用新策略
+                await this.apply(element, translatedText);
             }
         }
     }
-  }
 };

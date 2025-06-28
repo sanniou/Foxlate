@@ -1,53 +1,32 @@
-// A single tooltip element for the entire page to improve performance.
+// 全局的 tooltip 创建和显示逻辑保持不变
 let tooltip = null;
 
-/**
- * Creates a single tooltip element and appends it to the body if it doesn't exist.
- * This is a local helper function and not exposed globally.
- */
 function createTooltip() {
-    // Check if the tooltip already exists to avoid creating duplicates.
     if (document.querySelector('.universal-translator-tooltip')) return;
-    
     tooltip = document.createElement('div');
     tooltip.className = 'universal-translator-tooltip';
     document.body.appendChild(tooltip);
 }
 
-/**
- * Shows and positions the tooltip with the provided text.
- * @param {MouseEvent} event - The mouse event to position the tooltip.
- * @param {string} text - The text to display in the tooltip.
- */
 window.showTooltip = function(event, text) {
-    createTooltip(); // Ensure the tooltip element exists
+    createTooltip();
     const tooltipEl = document.querySelector('.universal-translator-tooltip');
     if (!tooltipEl) return;
-
     tooltipEl.textContent = text;
     tooltipEl.style.display = 'block';
-
-    // Position the tooltip near the mouse cursor using pageX/pageY to account for scrolling.
-    // Add a small offset to prevent the tooltip from flickering by being under the cursor.
     let x = event.pageX + 15;
     let y = event.pageY + 15;
-
-    // Adjust position to prevent the tooltip from going off-screen.
     const tooltipRect = tooltipEl.getBoundingClientRect();
     if (event.clientX + 15 + tooltipRect.width > window.innerWidth) {
-        x = event.pageX - tooltipRect.width - 15; // Move to the left of the cursor
+        x = event.pageX - tooltipRect.width - 15;
     }
     if (event.clientY + 15 + tooltipRect.height > window.innerHeight) {
-        y = event.pageY - tooltipRect.height - 15; // Move above the cursor
+        y = event.pageY - tooltipRect.height - 15;
     }
-
     tooltipEl.style.left = `${x}px`;
     tooltipEl.style.top = `${y}px`;
 }
 
-/**
- * Hides the tooltip.
- */
 window.hideTooltip = function() {
     const tooltipEl = document.querySelector('.universal-translator-tooltip');
     if (tooltipEl) {
@@ -56,26 +35,47 @@ window.hideTooltip = function() {
 }
 
 window.hoverStrategy = {
+    /**
+     * 为元素添加悬停事件，以显示包含译文的工具提示。
+     * @param {HTMLElement} element - 目标元素。
+     * @param {string} translatedText - 翻译后的文本 (由 DisplayManager 存储在 dataset.translatedText)。
+     */
     displayTranslation: function(element, translatedText) {
-        // Store original and translated text in the element's dataset for easy access.
-        if (!element.dataset.originalText) {
-            element.dataset.originalText = element.textContent;
-        }
-        element.dataset.translatedText = translatedText;
+        // 译文已经由 DisplayManager 存储在 element.dataset.translatedText 中。
+        // 我们只需要添加事件监听器。
 
-        // Add event listeners for mouse enter and leave to show/hide the tooltip.
-        // Use window.showTooltip and window.hideTooltip as they are now on the global scope.
-        element.addEventListener('mouseenter', (event) => window.showTooltip(event, element.dataset.translatedText));
-        element.addEventListener('mouseleave', window.hideTooltip);
+        // 创建具名函数以便后续可以移除它们
+        const handleMouseEnter = (event) => {
+            // 从 dataset 中读取最新的译文
+            const currentTranslatedText = element.dataset.translatedText;
+            if (currentTranslatedText) {
+                window.showTooltip(event, currentTranslatedText);
+            }
+        };
+
+        const handleMouseLeave = () => {
+            window.hideTooltip();
+        };
+
+        // 将处理函数附加到元素上，以便 revert 时可以访问
+        element._hoverHandlers = { handleMouseEnter, handleMouseLeave };
+
+        element.addEventListener('mouseenter', handleMouseEnter);
+        element.addEventListener('mouseleave', handleMouseLeave);
     },
 
+    /**
+     * 移除元素的悬停事件监听器。
+     * @param {HTMLElement} element - 目标元素。
+     */
     revertTranslation: function(element) {
-        // 移除事件监听器
-        element.removeEventListener('mouseenter', (event) => window.showTooltip(event, element.dataset.translatedText));
-        element.removeEventListener('mouseleave', window.hideTooltip);
-        // 移除 dataset
-        delete element.dataset.originalText;
-        delete element.dataset.translatedText;
-        delete element.dataset.translationStrategy;
+        // 检查是否存在已保存的事件处理器
+        if (element._hoverHandlers) {
+            element.removeEventListener('mouseenter', element._hoverHandlers.handleMouseEnter);
+            element.removeEventListener('mouseleave', element._hoverHandlers.handleMouseLeave);
+            // 清理附加在元素上的属性
+            delete element._hoverHandlers;
+        }
+        // 状态由 DisplayManager 管理，此策略不清理 dataset。
     }
 };

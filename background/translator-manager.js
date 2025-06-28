@@ -1,221 +1,247 @@
 import { DeepLxTranslator } from './translators/deeplx-translator.js';
 import { GoogleTranslator } from './translators/google-translator.js';
 import { AITranslator } from './translators/ai-translator.js';
-// ... 导入其他翻译器
 
-// In-memory cache for translations
+// 内存缓存
 const translationCache = new Map();
 
 const translators = {
   deeplx: new DeepLxTranslator(),
   google: new GoogleTranslator(),
   ai: new AITranslator(),
-  // ...
 };
 
-/**
- * Pre-processes text before translation.
- * e.g., trims whitespace, normalizes newlines.
- * @param {string} text - The original text.
- * @returns {string} - The pre-processed text.
- */
+// --- 并发控制与任务队列 ---
+const taskQueue = [];
+let activeWorkers = 0;
+// 从设置中读取，如果未设置，则默认为 5
+let MAX_CONCURRENT_REQUESTS = 5;
+
 function preProcess(text) {
     if (typeof text !== 'string') return '';
-    // Example: Collapse multiple whitespace characters into a single space
     return text.trim().replace(/\s+/g, ' ');
 }
 
-/**
- * Post-processes text after translation.
- * e.g., fixes common API quirks.
- * @param {string} text - The translated text.
- * @returns {string} - The post-processed text.
- */
 function postProcess(text) {
     if (typeof text !== 'string') return '';
-    // Example: You could fix common formatting issues here.
-    // e.g., text.replace(/【/g, '[').replace(/】/g, ']');
     return text;
 }
 
+/**
+ * 调度器，检查队列并启动新的工作者（如果有名额）。
+ */
+function processQueue() {
+    // 当队列为空，或已达到最大并发数时，不执行任何操作
+    if (taskQueue.length === 0 || activeWorkers >= MAX_CONCURRENT_REQUESTS) {
+        return;
+    }
+
+    activeWorkers++;
+    const task = taskQueue.shift(); // 从队列头部取出一个任务
+
+    // 使用 Promise.resolve() 来确保我们总是在处理一个 Promise
+    Promise.resolve()
+        .then(() => executeTranslation(task.text, task.targetLang, task.sourceLang))
+        .then(result => task.resolve(result)) // 任务成功，解析其 Promise
+        .catch(error => task.reject(error))   // 任务失败，拒绝其 Promise
+        .finally(() => {
+            activeWorkers--; // 释放一个工作者名额
+            processQueue();  // 尝试处理队列中的下一个任务
+        });
+}
+
+
+/**
+ * 实际的翻译执行逻辑，从旧的 translateText 中提取。
+ */
+async function executeTranslation(text, targetLang, sourceLang = 'auto') {
+    // ... (这里的代码与您之前版本中的 `translateText` 内部逻辑几乎完全相同)
+    // 为了简洁，我们假设这里的逻辑是完整的，包括预处理、规则检查、缓存、调用翻译器等
+    const log = [];
+    log.push(browser.i18n.getMessage('logEntryStart', [text, sourceLang, targetLang]));
+
+    try {
+        if (sourceLang !== 'auto' && sourceLang === targetLang) {
+            log.push(browser.i18n.getMessage('logEntryPrecheckMatch', [browser.i18n.getMessage('precheckRuleSameLanguage'), 'blacklist']));
+            log.push(browser.i18n.getMessage('logEntryPrecheckNoTranslation'));
+            return { text: text, translated: false, log: log };
+        }
+
+        const processedText = preProcess(text);
+        if (!processedText) {
+            log.push(browser.i18n.getMessage('logEntryPrecheckNoTranslation'));
+            return { text: "", translated: false, log: log };
+        }
+
+        const { settings } = await browser.storage.sync.get('settings');
+        const precheckRules = settings?.precheckRules;
+
+        if (!precheckRules || Object.keys(precheckRules).length === 0) {
+            const errorMessage = "预检查规则未配置或为空，请检查设置。";
+            log.push(browser.i18n.getMessage('logEntryPrecheckError', errorMessage));
+            return { text: "", translated: false, log: log, error: errorMessage };
+        }
+
+        log.push(browser.i18n.getMessage('logEntryPrecheckStart'));
+        if (precheckRules.general) {
+            for (const rule of precheckRules.general) {
+                if (rule.enabled && rule.mode === 'blacklist') {
+                    try {
+                        const regex = new RegExp(rule.regex, rule.flags);
+                        if (regex.test(processedText)) {
+                            log.push(browser.i18n.getMessage('logEntryPrecheckMatch', [rule.name, 'blacklist']));
+                            log.push(browser.i18n.getMessage('logEntryPrecheckNoTranslation'));
+                            return { text: text, translated: false, log: log };
+                        } else {
+                            log.push(browser.i18n.getMessage('logEntryPrecheckNoMatch', [rule.name, 'blacklist']));
+                        }
+                    } catch (e) {
+                        log.push(browser.i18n.getMessage('logEntryPrecheckRuleError', [rule.name, e.message]));
+                    }
+                }
+            }
+        }
+
+        const whitelistRule = precheckRules[targetLang]?.find(rule => rule.mode === 'whitelist' && rule.enabled);
+        if (whitelistRule) {
+            try {
+                const letterChars = processedText.match(/\p{L}/gu);
+                if (!letterChars) {
+                    log.push(browser.i18n.getMessage('logEntryPrecheckMatch', [browser.i18n.getMessage('precheckRulePunctuation'), 'blacklist']));
+                    log.push(browser.i18n.getMessage('logEntryPrecheckNoTranslation'));
+                    return { text: text, translated: false, log: log };
+                }
+                const allLettersString = letterChars.join('');
+                const flags = whitelistRule.flags || '';
+                const globalFlags = flags.includes('g') ? flags : flags + 'g';
+                const langRegex = new RegExp(whitelistRule.regex, globalFlags);
+                const remainingChars = allLettersString.replace(langRegex, '');
+                if (remainingChars.length === 0) {
+                    log.push(browser.i18n.getMessage('logEntryPrecheckMatch', [whitelistRule.name, 'whitelist']));
+                    log.push(browser.i18n.getMessage('logEntryPrecheckNoTranslation'));
+                    return { text: text, translated: false, log: log };
+                } else {
+                    log.push(browser.i18n.getMessage('logEntryPrecheckNoMatch', [whitelistRule.name, 'whitelist']));
+                }
+            } catch (e) {
+                log.push(browser.i18n.getMessage('logEntryPrecheckRuleError', [whitelistRule.name, e.message]));
+            }
+        } else {
+            log.push(browser.i18n.getMessage('logEntryPrecheckNoWhitelistRule', targetLang));
+        }
+
+        const cacheKey = `${sourceLang}:${targetLang}:${processedText}`;
+        if (translationCache.has(cacheKey)) {
+            const cachedResult = translationCache.get(cacheKey);
+            log.push(browser.i18n.getMessage('logEntryCacheHit'));
+            return { text: postProcess(cachedResult), translated: true, log: log };
+        } else {
+            log.push(browser.i18n.getMessage('logEntryCacheMiss'));
+        }
+
+        const translator = await TranslatorManager.getTranslator();
+        if (!translator) {
+            const errorMessage = "未选择或初始化有效的翻译器。";
+            log.push(browser.i18n.getMessage('logEntryNoTranslator'));
+            log.push(errorMessage);
+            return { text: "", translated: false, log: log, error: errorMessage };
+        }
+        log.push(browser.i18n.getMessage('logEntryEngineUsed', translator.name));
+
+        let translatedResult;
+        let translatorLog;
+
+        if (translator.name === 'AI') {
+            const { settings } = await browser.storage.sync.get('settings');
+            const selectedEngineId = settings?.translatorEngine.split(':')[1];
+            const aiConfig = settings?.aiEngines?.find(engine => engine.id === selectedEngineId);
+
+            if (!aiConfig) {
+                throw new Error('Selected AI engine configuration not found.');
+            }
+            ({ text: translatedResult, log: translatorLog } = await translator.translate(processedText, targetLang, sourceLang, aiConfig));
+        } else {
+            ({ text: translatedResult, log: translatorLog } = await translator.translate(processedText, targetLang, sourceLang));
+        }
+        log.push(...translatorLog);
+        log.push(browser.i18n.getMessage('logEntryTranslationSuccess'));
+
+        if (translatedResult) {
+            translationCache.set(cacheKey, translatedResult);
+        }
+        const finalResult = postProcess(translatedResult);
+        return { text: finalResult, translated: true, log: log };
+    } catch (error) {
+        const errorMessage = `Translation failed: ${error.message}`;
+        log.push(browser.i18n.getMessage('logEntryTranslationError', errorMessage));
+        console.error(`[TranslatorManager] Overall error caught:`, error);
+        return { text: "", translated: false, log: log, error: errorMessage };
+    }
+}
+
+
 export class TranslatorManager {
-  /**
-   * Gets the translator instance based on user's preferred engine from sync storage.
-   * Defaults to 'deeplx' if no engine is specified in settings.
-   * @returns {Promise<object>} The translator instance corresponding to the selected engine.
-   */
   static async getTranslator() {
     const { settings } = await browser.storage.sync.get('settings');
-    let engine = settings?.translatorEngine || 'deeplx'; // 默认使用 deeplx
-    // If a custom AI engine is selected (e.g., "ai:some-id"),
-    // we need to normalize the engine name to "ai" to get the correct translator class instance.
+    let engine = settings?.translatorEngine || 'deeplx';
     if (engine.startsWith('ai:')) {
       engine = 'ai';
     }
     return translators[engine];
   }
 
-  static async translateText(text, targetLang, sourceLang = 'auto') {
-    const log = []; // Initialize log for this translation request
-    log.push(browser.i18n.getMessage('logEntryStart', [text, sourceLang, targetLang])); // Log start of translation
-    console.log(`[TM Debug] Starting translateText for: "${text}" (from ${sourceLang} to ${targetLang})`); // Debug log
+  /**
+   * 将翻译任务添加到队列，并返回一个解析结果的 Promise。
+   * @param {string} text - 要翻译的文本。
+   * @param {string} targetLang - 目标语言。
+   * @param {string} [sourceLang='auto'] - 源语言。
+   * @returns {Promise<object>} 一个解析为翻译结果的 Promise。
+   */
+  static translateText(text, targetLang, sourceLang = 'auto') {
+    return new Promise((resolve, reject) => {
+        taskQueue.push({
+            text,
+            targetLang,
+            sourceLang,
+            resolve,
+            reject
+        });
+        // 触发调度器
+        processQueue();
+    });
+  }
 
-    try {
-      // 1. 预处理和语言相同检查
-      if (sourceLang !== 'auto' && sourceLang === targetLang) {
-        log.push(browser.i18n.getMessage('logEntryPrecheckMatch', [browser.i18n.getMessage('precheckRuleSameLanguage'), 'blacklist']));
-        log.push(browser.i18n.getMessage('logEntryPrecheckNoTranslation'));
-        console.log(`[TM Debug] Pre-check: Same source/target language. Returning early.`); // Debug log
-        return { text: text, translated: false, log: log };
-      }
-
-      const processedText = preProcess(text);
-      console.log(`[TM Debug] Processed text: "${processedText}"`); // Debug log
-      if (!processedText) {
-          log.push(browser.i18n.getMessage('logEntryPrecheckNoTranslation')); // 或者更具体的提示
-          console.log(`[TM Debug] Pre-check: Processed text is empty. Returning early.`); // Debug log
-          return { text: "", translated: false, log: log };
-      }
-
-      const { settings } = await browser.storage.sync.get('settings');
-      const precheckRules = settings?.precheckRules;
-      console.log(`[TM Debug] Loaded settings:`, settings); // Debug log
-      console.log(`[TM Debug] Loaded precheckRules:`, precheckRules); // Debug log
-
-      // 2. 预检查规则配置检查
-      if (!precheckRules || Object.keys(precheckRules).length === 0) {
-          const errorMessage = "预检查规则未配置或为空，请检查设置。";
-          log.push(browser.i18n.getMessage('logEntryPrecheckError', errorMessage));
-          console.warn(`[TM Debug] Pre-check: ${errorMessage}`); // Debug log
-          return { text: "", translated: false, log: log, error: errorMessage };
-      }
-
-      // --- 3. 预检查规则评估 ---
-      log.push(browser.i18n.getMessage('logEntryPrecheckStart'));
-      console.log(`[TM Debug] Starting pre-check rules evaluation.`); // Debug log
-
-      if (precheckRules.general) {
-          console.log(`[TM Debug] Evaluating general rules.`); // Debug log
-          for (const rule of precheckRules.general) {
-              if (rule.enabled && rule.mode === 'blacklist') {
-                  try {
-                      console.log(`[TM Debug] General rule: "${rule.name}", regex: "${rule.regex}", flags: "${rule.flags}"`); // Debug log
-                      const regex = new RegExp(rule.regex, rule.flags);
-                      const testResult = regex.test(processedText);
-                      console.log(`[TM Debug] Regex test result for "${rule.name}": ${testResult}`); // Debug log
-                      if (testResult) {
-                          log.push(browser.i18n.getMessage('logEntryPrecheckMatch', [rule.name, 'blacklist']));
-                          log.push(browser.i18n.getMessage('logEntryPrecheckNoTranslation'));
-                          console.log(`[TM Debug] Pre-check: General blacklist rule "${rule.name}" matched. Returning early.`); // Debug log
-                          return { text: text, translated: false, log: log };
-                      } else {
-                          log.push(browser.i18n.getMessage('logEntryPrecheckNoMatch', [rule.name, 'blacklist']));
-                      }
-                  } catch (e) {
-                      log.push(browser.i18n.getMessage('logEntryPrecheckRuleError', [rule.name, e.message]));
-                      console.error(`[TM Debug] [Pre-check] Error applying blacklist rule "${rule.name}":`, e); // Debug log
-                  }
-              }
-          }
-      }
-
-      // 4. 白名单规则 (语言特定)
-      console.log(`[TM Debug] Evaluating language-specific whitelist rules for targetLang: ${targetLang}`); // Debug log
-      const whitelistRule = precheckRules[targetLang]?.find(rule => rule.mode === 'whitelist' && rule.enabled);
-      if (whitelistRule) {
-          console.log(`[TM Debug] Whitelist rule found: "${whitelistRule.name}", regex: "${whitelistRule.regex}", flags: "${whitelistRule.flags}"`); // Debug log
-          try {
-              const letterChars = processedText.match(/\p{L}/gu);
-              console.log(`[TM Debug] Letter chars in processed text:`, letterChars); // Debug log
-              if (!letterChars) {
-                  log.push(browser.i18n.getMessage('logEntryPrecheckMatch', [browser.i18n.getMessage('precheckRulePunctuation'), 'blacklist'])); // 假设没有字母意味着它是标点符号
-                  log.push(browser.i18n.getMessage('logEntryPrecheckNoTranslation'));
-                  console.log(`[TM Debug] Pre-check: No letter chars found. Returning early.`); // Debug log
-                  return { text: text, translated: false, log: log };
-              }
-              const allLettersString = letterChars.join('');
-              // Ensure the global flag 'g' is present for the replacement logic to check all letters.
-              const flags = whitelistRule.flags || '';
-              const globalFlags = flags.includes('g') ? flags : flags + 'g';
-              const langRegex = new RegExp(whitelistRule.regex, globalFlags);
-              console.log(`[TM Debug] Whitelist regex created: ${langRegex}`); // Debug log
-              const remainingChars = allLettersString.replace(langRegex, '');
-              console.log(`[TM Debug] Remaining chars after whitelist regex: "${remainingChars}"`); // Debug log
-              if (remainingChars.length === 0) {
-                  log.push(browser.i18n.getMessage('logEntryPrecheckMatch', [whitelistRule.name, 'whitelist']));
-                  log.push(browser.i18n.getMessage('logEntryPrecheckNoTranslation'));
-                  console.log(`[TM Debug] Pre-check: Whitelist rule "${whitelistRule.name}" matched. Returning early.`); // Debug log
-                  return { text: text, translated: false, log: log };
-              } else {
-                  log.push(browser.i18n.getMessage('logEntryPrecheckNoMatch', [whitelistRule.name, 'whitelist']));
-              }
-          } catch (e) {
-              log.push(browser.i18n.getMessage('logEntryPrecheckRuleError', [whitelistRule.name, e.message]));
-              console.error(`[TM Debug] [Pre-check] Error applying language regex for "${whitelistRule.name}":`, e); // Debug log
-          }
-      } else {
-          log.push(browser.i18n.getMessage('logEntryPrecheckNoWhitelistRule', targetLang));
-          console.log(`[TM Debug] No enabled whitelist rule found for ${targetLang}.`); // Debug log
-      }
-
-      // 5. 缓存检查 (在预检查之后)
-      const cacheKey = `${sourceLang}:${targetLang}:${processedText}`;
-      if (translationCache.has(cacheKey)) {
-          const cachedResult = translationCache.get(cacheKey);
-          log.push(browser.i18n.getMessage('logEntryCacheHit'));
-          console.log(`[TM Debug] Cache hit for key: ${cacheKey}`); // Debug log
-          return { text: postProcess(cachedResult), translated: true, log: log };
-      } else {
-          log.push(browser.i18n.getMessage('logEntryCacheMiss'));
-          console.log(`[TM Debug] Cache miss for key: ${cacheKey}`); // Debug log
-      }
-
-      // 6. 获取翻译器
-      const translator = await this.getTranslator();
-      if (!translator) {
-          const errorMessage = "未选择或初始化有效的翻译器。";
-          log.push(browser.i18n.getMessage('logEntryNoTranslator'));
-          console.warn(`[TM Debug] ${errorMessage}`); // Debug log
-          log.push(errorMessage);
-          return { text: "", translated: false, log: log, error: errorMessage };
-      }
-      log.push(browser.i18n.getMessage('logEntryEngineUsed', translator.name));
-      console.log(`[TM Debug] Using translator: ${translator.name}`); // Debug log
-      
-      let translatedResult;
-      let translatorLog;
-
-      // 7. 调用具体翻译器进行翻译
-      if (translator.name === 'AI') {
-        // For AI translator, we need to pass the specific AI engine configuration
-        const { settings } = await browser.storage.sync.get('settings');
-        const selectedEngineId = settings?.translatorEngine.split(':')[1]; // e.g., "ai:someId"
-        const aiConfig = settings?.aiEngines?.find(engine => engine.id === selectedEngineId);
-
-        if (!aiConfig) {
-          throw new Error('Selected AI engine configuration not found.');
-        }
-        console.log(`[TM Debug] Calling ${translator.name}.translate() with AI config:`, aiConfig); // Debug log
-        ({ text: translatedResult, log: translatorLog } = await translator.translate(processedText, targetLang, sourceLang, aiConfig));
-      } else {
-        console.log(`[TM Debug] Calling ${translator.name}.translate()`); // Debug log
-        ({ text: translatedResult, log: translatorLog } = await translator.translate(processedText, targetLang, sourceLang));
-      }
-      log.push(...translatorLog); // 追加翻译器特有的日志
-      log.push(browser.i18n.getMessage('logEntryTranslationSuccess'));
-      
-      if (translatedResult) {
-          translationCache.set(cacheKey, translatedResult);
-      }
-      const finalResult = postProcess(translatedResult);
-      console.log(`[TM Debug] Translation successful. Final result: "${finalResult}"`); // Debug log
-      return { text: finalResult, translated: true, log: log };
-    } catch (error) {
-      // 捕获 TranslatorManager 内部的任何意外错误，或来自 translator.translate 的错误
-      const errorMessage = `Translation failed: ${error.message}`;
-      log.push(browser.i18n.getMessage('logEntryTranslationError', errorMessage));
-      console.error(`[TM Debug] [TranslatorManager] Overall error caught:`, error); // Debug log
-      return { text: "", translated: false, log: log, error: errorMessage }; // 返回错误状态
-    }
+  /**
+   * 清空整个翻译队列，用于中断操作。
+   */
+  static interruptAll() {
+      // 拒绝队列中所有待处理的 Promise
+      taskQueue.forEach(task => {
+          task.reject(new Error("Translation was interrupted by the user."));
+      });
+      // 清空队列
+      taskQueue.length = 0;
+      console.log("[TranslatorManager] All pending translation tasks have been interrupted.");
   }
 }
+
+// 当设置变化时，更新并发限制
+browser.storage.onChanged.addListener((changes, area) => {
+    if (area === 'sync' && changes.settings) {
+        const newSettings = changes.settings.newValue;
+        const newMax = newSettings?.parallelRequests;
+        if (newMax && typeof newMax === 'number' && newMax > 0) {
+            MAX_CONCURRENT_REQUESTS = newMax;
+            console.log(`[TranslatorManager] Concurrency limit updated to ${MAX_CONCURRENT_REQUESTS}`);
+        }
+    }
+});
+
+// 启动时初始化并发限制
+browser.storage.sync.get('settings').then(({ settings }) => {
+    const max = settings?.parallelRequests;
+    if (max && typeof max === 'number' && max > 0) {
+        MAX_CONCURRENT_REQUESTS = max;
+    }
+    console.log(`[TranslatorManager] Initial concurrency limit set to ${MAX_CONCURRENT_REQUESTS}`);
+});
