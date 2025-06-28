@@ -93,8 +93,8 @@ function initializeObservers() {
     };
     intersectionObserver = new IntersectionObserver(intersectionCallback, {
         root: null,
-        rootMargin: '200px 0px',
-        threshold: 0.01
+        rootMargin: '0px 0px', // 移除预加载区域，确保只翻译严格进入视口的元素
+        threshold: 0.5 // 确保元素至少有50%进入视口才触发翻译
     });
 
     const mutationCallback = debounce((mutations) => {
@@ -159,13 +159,17 @@ async function translateElements(elements) {
 
         validNodes.forEach(node => {
             const parent = node.parentElement;
-            if (!parent.dataset.translationId) {
-                parent.dataset.translationId = `ut-${generateUUID()}`;
-            }
-            if (!parentElements.has(parent.dataset.translationId)) {
-                parentElements.set(parent.dataset.translationId, parent);
-                texts.push(parent.textContent); // 发送整个元素的 textContent
-                ids.push(parent.dataset.translationId);
+            // 为每个文本节点生成唯一ID，而不是父元素
+            const nodeId = `ut-${generateUUID()}`;
+            // 使用自定义属性存储节点的原始内容
+            node.parentElement.dataset.translationId = nodeId;
+            
+            // 只收集当前文本节点的内容
+            const textContent = node.textContent.trim();
+            if (textContent) {
+                parentElements.set(nodeId, parent);
+                texts.push(textContent);
+                ids.push(nodeId);
             }
         });
 
@@ -277,21 +281,10 @@ function findTranslatableRootElements(effectiveSettings) {
         console.warn("[SanReader] No CSS selector provided. Cannot find translatable elements.");
         return [];
     }
-    const elements = new Set(document.querySelectorAll(selector));
-    const finalElements = Array.from(elements);
-
-    // 过滤掉嵌套的元素，只保留最顶层的容器
-    return finalElements.filter(el => {
-        if (!el.parentElement) return true;
-        let parent = el.parentElement;
-        while (parent) {
-            if (elements.has(parent)) {
-                return false; // 它是另一个候选元素的后代，跳过
-            }
-            parent = parent.parentElement;
-        }
-        return true;
-    });
+    // 直接返回所有匹配的元素，让 IntersectionObserver 单独观察它们。
+    // 不再过滤嵌套元素，因为我们的目标就是按需翻译这些独立的、更小的块。
+    const elements = document.querySelectorAll(selector);
+    return Array.from(elements);
 }
 
 
@@ -371,6 +364,9 @@ async function handleMessage(request, sender, sendResponse) {
             case 'TRANSLATE_PAGE_REQUEST':
                 await performPageTranslation(request.payload?.tabId);
                 sendResponse({ success: true });
+                // **(调试) 输出调用栈**
+                console.log("[SanReader] performPageTranslation called:", new Error().stack);
+
                 break;
 
             case 'REVERT_PAGE_TRANSLATION':
@@ -382,6 +378,7 @@ async function handleMessage(request, sender, sendResponse) {
                 const element = document.querySelector(`[data-translation-id='${id}']`);
                 if (element) {
                     if (success && wasTranslated) {
+                        // 只应用翻译到特定的文本节点，而不是整个元素
                         window.DisplayManager.apply(element, translatedText);
                     } else if (error) {
                         if (error.includes("interrupted")) {
@@ -428,6 +425,8 @@ async function triggerAutoTranslationCheck() {
             payload: { hostname: window.location.hostname, url: window.location.href }
         });
         if (response && response.shouldTranslate) {
+            // **(调试) 输出调用栈**
+            console.log("[SanReader] Auto-translation triggered:", new Error().stack);
             await performPageTranslation(response.tabId);
         }
     } catch (error) {

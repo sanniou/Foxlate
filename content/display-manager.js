@@ -38,11 +38,27 @@ window.DisplayManager = class DisplayManager {
         const strategy = strategies[displayMode];
 
         if (strategy) {
-            // **修改点 1: 保存 innerHTML 而不是 textContent**
+            // 保存原始内容，如果是文本节点，则只保存该节点的内容
             if (!this.#originalContent.has(element)) {
-                this.#originalContent.set(element, element.innerHTML);
+                // 检查是否为文本节点的父元素（通过我们设置的data-translation-id属性）
+                if (element.dataset.translationId && element.dataset.translationId.startsWith('ut-')) {
+                    // 找到元素中的所有文本节点
+                    const textNodes = this.#findTextNodes(element);
+                    // 保存原始内容
+                    this.#originalContent.set(element, {
+                        innerHTML: element.innerHTML,
+                        textNodes: textNodes.map(node => ({
+                            node,
+                            content: node.textContent
+                        }))
+                    });
+                } else {
+                    // 对于非文本节点的父元素，保持原有行为
+                    this.#originalContent.set(element, element.innerHTML);
+                }
             }
 
+            // 应用翻译
             strategy.displayTranslation(element, translatedText);
             element.dataset.translationStrategy = displayMode;
             element.dataset.translated = "true";
@@ -62,9 +78,25 @@ window.DisplayManager = class DisplayManager {
         const strategy = strategies[displayMode];
 
         if (strategy) {
-            // **修改点 2: 将保存的 originalHTML 传递给策略**
-            const originalHTML = this.#originalContent.get(element);
-            strategy.revertTranslation(element, originalHTML);
+            // 获取保存的原始内容
+            const originalContent = this.#originalContent.get(element);
+            
+            // 检查是否为文本节点的父元素
+            if (originalContent && typeof originalContent === 'object' && originalContent.textNodes) {
+                // 恢复文本节点的内容
+                strategy.revertTranslation(element, originalContent.innerHTML);
+                
+                // 额外处理：确保文本节点内容完全恢复
+                const currentTextNodes = this.#findTextNodes(element);
+                originalContent.textNodes.forEach((saved, index) => {
+                    if (currentTextNodes[index]) {
+                        currentTextNodes[index].textContent = saved.content;
+                    }
+                });
+            } else {
+                // 对于非文本节点的父元素，保持原有行为
+                strategy.revertTranslation(element, originalContent);
+            }
 
             this.#originalContent.delete(element);
         }

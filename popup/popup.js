@@ -145,6 +145,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentState === 'original') {
             updateTranslateButtonState('loading', true);
             browser.runtime.sendMessage({ type: 'INITIATE_PAGE_TRANSLATION', payload: { tabId: activeTabId } });
+            // **(调试) 输出调用栈**
+            console.log("[SanReader Popup] Initiate translation button clicked:", new Error().stack);
         } else {
             browser.runtime.sendMessage({ type: 'REVERT_PAGE_TRANSLATION_REQUEST', payload: { tabId: activeTabId } });
         }
