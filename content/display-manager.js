@@ -9,12 +9,8 @@ window.DisplayManager = class DisplayManager {
         const displayMode = settings?.displayMode || 'replace';
         const strategy = strategies[displayMode];
         if (strategy) {
-            // 保存原始文本到 data 属性
-            if (!element.dataset.originalContent) {
-                element.dataset.originalContent = element.innerHTML;
-            }
-            // 应用翻译
-            strategy.displayTranslation(element, translatedText);
+            // 策略自身负责处理 DOM 修改和状态保存
+            strategy.displayTranslation(element, translatedText); // 传递译文
             element.dataset.translationStrategy = displayMode;
             element.dataset.translated = "true";
             element.dataset.translatedText = translatedText;
@@ -31,11 +27,8 @@ window.DisplayManager = class DisplayManager {
         };
         const strategy = strategies[displayMode];
         if (strategy) {
-            // 从 data 属性中恢复原始文本
-            if (element.dataset.originalContent) {
-                strategy.revertTranslation(element, element.dataset.originalContent);
-                delete element.dataset.originalContent; // 清理属性
-            }
+            // 策略自身负责恢复原始状态
+            strategy.revertTranslation(element);
             element.classList.remove('universal-translator-translated');
         }
     }
@@ -49,8 +42,10 @@ window.DisplayManager = class DisplayManager {
         for (const element of translatedElements) {
             const translatedText = element.dataset.translatedText;
             if (translatedText) {
+                // 首先，使用元素上记录的旧策略来恢复它
                 this.revert(element);
-                await this.apply(element, translatedText);
+                // 然后，使用新策略重新应用翻译（apply会从设置中读取新模式）
+                await this.apply(element, translatedText); 
             }
         }
     }

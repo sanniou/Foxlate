@@ -5,18 +5,21 @@ window.replaceStrategy = {
      * @param {string} translatedText - 翻译后的文本。
      */
     displayTranslation: function(element, translatedText) {
-        // DisplayManager 已经将原始内容保存在 data-original-content 属性中。
-        // 此函数仅负责更新元素的 innerHTML 以显示译文。
+        // 仅当尚未保存时，才保存原始 HTML。
+        // 这可以防止在显示模式切换时，已翻译的内容被错误地当成原始内容保存。
+        if (element.dataset.originalContent === undefined) {
+            element.dataset.originalContent = element.innerHTML;
+        }
         element.innerHTML = translatedText;
     },
     /**
      * 将元素的内容恢复为原始状态。
      * @param {HTMLElement} element - 目标元素。
-     * @param {string} originalHTML - 由 DisplayManager 提供的原始内部HTML。
      */
-    revertTranslation: function(element, originalHTML) {
-        if (originalHTML !== undefined) {
-            element.innerHTML = originalHTML;
+    revertTranslation: function(element) {
+        if (element.dataset.originalContent !== undefined) {
+            element.innerHTML = element.dataset.originalContent;
+            delete element.dataset.originalContent; // 清理属性
         }
     }
 };

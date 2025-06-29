@@ -67,9 +67,8 @@ window.hoverStrategy = {
     /**
      * 移除元素的悬停事件监听器。
      * @param {HTMLElement} element - 目标元素。
-     * @param {string} originalHTML - (未使用) 由 DisplayManager 提供，用于保持接口一致性。
      */
-    revertTranslation: function(element, originalHTML) {
+    revertTranslation: function(element) {
         // 检查是否存在已保存的事件处理器
         if (element._hoverHandlers) {
             element.removeEventListener('mouseenter', element._hoverHandlers.handleMouseEnter);
@@ -77,6 +76,5 @@ window.hoverStrategy = {
             // 清理附加在元素上的属性
             delete element._hoverHandlers;
         }
-        // 原始 HTML 由 DisplayManager 自动处理，此策略不直接修改 DOM 内容，故不使用 originalHTML。
     }
 };
