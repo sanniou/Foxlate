@@ -390,8 +390,9 @@ async function handleMessage(request, sender) {
                 const element = document.querySelector(`[data-translation-id='${id}']`);
                 if (element) {
                     if (success && wasTranslated) {
-                        // 只应用翻译到特定的文本节点，而不是整个元素
-                        window.DisplayManager.apply(element, translatedText);
+                        // 使用当前任务的显示模式来应用翻译
+                        const displayMode = translationJob.settings?.displayMode || 'replace';
+                        window.DisplayManager.apply(element, translatedText, displayMode);
                     } else if (error) {
                         if (error.includes("interrupted")) {
                             delete element.dataset.translationId;

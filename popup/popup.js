@@ -120,21 +120,22 @@ document.addEventListener('DOMContentLoaded', () => {
         activeTabId = tab.id;
 
         const { settings } = await browser.storage.sync.get('settings');
-        const currentSettings = settings || {};
+        const globalSettings = settings || {};
 
-        const allSupportedEngines = { ...window.Constants.SUPPORTED_ENGINES, ...(currentSettings.aiEngines || []).reduce((acc, eng) => ({...acc, [`ai:${eng.id}`]: eng.name}), {}) };
-        populateSelect(elements.engineSelect, allSupportedEngines, currentSettings.translatorEngine || 'deeplx');
+        currentHostname = getHostname(tab.url);
+        const { rule: finalRule, source } = getEffectiveRule(globalSettings, currentHostname);
+        currentRuleSource = source;
+
+        // Populate UI elements using the effective rule (finalRule)
+        const allSupportedEngines = { ...window.Constants.SUPPORTED_ENGINES, ...(globalSettings.aiEngines || []).reduce((acc, eng) => ({...acc, [`ai:${eng.id}`]: eng.name}), {}) };
+        populateSelect(elements.engineSelect, allSupportedEngines, finalRule.translatorEngine || 'deeplx');
         populateSelect(elements.sourceLanguageSelect, window.Constants.SUPPORTED_LANGUAGES, 'auto');
         const targetLangs = { ...window.Constants.SUPPORTED_LANGUAGES };
         delete targetLangs.auto;
-        populateSelect(elements.targetLanguageSelect, targetLangs, currentSettings.targetLanguage || 'ZH');
-        elements.displayModeSelect.value = currentSettings.displayMode || 'replace';
+        populateSelect(elements.targetLanguageSelect, targetLangs, finalRule.targetLanguage || 'ZH');
+        elements.displayModeSelect.value = finalRule.displayMode || 'replace';
 
-        currentHostname = getHostname(tab.url);
         elements.autoTranslateCheckbox.disabled = !currentHostname;
-
-        const { rule: finalRule, source } = getEffectiveRule(currentSettings, currentHostname);
-        currentRuleSource = source;
         elements.autoTranslateCheckbox.checked = finalRule.autoTranslate === 'always';
         elements.currentRuleIndicator.textContent = `Rule: ${currentRuleSource}`;
 
@@ -170,16 +171,34 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const saveChangeToRule = async (key, value) => {
-        if (!currentHostname) return;
-        const { settings } = await browser.storage.sync.get('settings');
-        const s = settings || {};
-        s.domainRules = s.domainRules || {};
-        let domainToUpdate = (currentRuleSource === 'default') ? currentHostname : currentRuleSource;
-        s.domainRules[domainToUpdate] = s.domainRules[domainToUpdate] || {};
-        s.domainRules[domainToUpdate][key] = value;
-        await browser.storage.sync.set({ settings: s });
-        await loadAndApplySettings();
-    };
+      if (!currentHostname) return;
+      const { settings } = await browser.storage.sync.get('settings');
+      const globalSettings = settings || {};
+      const domainRules = globalSettings.domainRules || {};
+      const domainToUpdate = (currentRuleSource === 'default') ? currentHostname : currentRuleSource;
+      
+      // 获取当前域名已有的规则，如果没有则使用全局设置作为基础
+      let existingRule = domainRules[domainToUpdate] || {};
+      if (currentRuleSource === 'default') {
+          // 对于“default”，使用全局设置+新值作为规则
+          existingRule = { ...globalSettings, ...existingRule };
+      }
+
+      // 创建新的规则对象，确保所有字段都存在
+      const updatedRule = {
+          autoTranslate: existingRule.autoTranslate || 'manual',
+          translatorEngine: existingRule.translatorEngine || 'deeplx',
+          targetLanguage: existingRule.targetLanguage || 'ZH',
+          displayMode: existingRule.displayMode || 'replace',
+          ...existingRule, // 保留所有现有字段
+          [key]: value       // 更新指定字段
+      };
+
+      // 保存更新后的规则
+      domainRules[domainToUpdate] = updatedRule;
+      await browser.storage.sync.set({ settings: { ...globalSettings, domainRules } });
+      await loadAndApplySettings(); // 重新加载设置，确保 UI 反映最新状态
+  };
 
     async function handleTranslateButtonClick() {
         if (!activeTabId || elements.translatePageBtn.disabled) return;

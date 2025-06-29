@@ -1,12 +1,10 @@
 window.DisplayManager = class DisplayManager {
-    static async apply(element, translatedText) {
+    static apply(element, translatedText, displayMode = 'replace') {
         const strategies = {
             replace: window.replaceStrategy,
             append: window.appendTranslationStrategy,
             hover: window.hoverStrategy,
         };
-        const { settings } = await browser.storage.sync.get('settings');
-        const displayMode = settings?.displayMode || 'replace';
         const strategy = strategies[displayMode];
         if (strategy) {
             // 策略自身负责处理 DOM 修改和状态保存
@@ -37,15 +35,15 @@ window.DisplayManager = class DisplayManager {
         element.dataset.errorMessage = errorMessage;
         element.title = `Translation Error: ${errorMessage}`;
     }
-    static async updateDisplayMode(newDisplayMode) {
+    static updateDisplayMode(newDisplayMode) {
         const translatedElements = document.querySelectorAll('[data-translated="true"]');
         for (const element of translatedElements) {
             const translatedText = element.dataset.translatedText;
             if (translatedText) {
                 // 首先，使用元素上记录的旧策略来恢复它
                 this.revert(element);
-                // 然后，使用新策略重新应用翻译（apply会从设置中读取新模式）
-                await this.apply(element, translatedText); 
+                // 然后，使用新策略重新应用翻译
+                this.apply(element, translatedText, newDisplayMode); 
             }
         }
     }
