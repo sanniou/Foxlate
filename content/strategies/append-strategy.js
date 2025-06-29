@@ -22,10 +22,11 @@ window.appendTranslationStrategy = {
      * @param {HTMLElement} element - 目标元素。
      */
     revertTranslation: function(element) {
-        // 只移除由这个策略添加的节点，这是更精确和高效的做法。
-        const translationNode = element.querySelector('.translator-appended-text');
-        if (translationNode) {
-            translationNode.remove();
-        }
+        // 移除所有由这个策略添加的节点
+        element.querySelectorAll('.translator-appended-text').forEach(node => {
+            if (node) {
+                node.remove();
+            }
+        });
     }
 };
