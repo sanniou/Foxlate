@@ -113,3 +113,22 @@
     background-color: #f1f3f5;
     color: #333;
 }
+
+/* 标记已翻译元素的通用样式 */
+.universal-translator-translated {
+    /* 可以添加一些视觉提示，例如轻微的背景色变化 */
+}
+
+/* 翻译错误时的样式 */
+.universal-translator-error {
+    outline: 1px dashed red;
+    cursor: help;
+}
+
+/* 追加模式（Append Strategy）的样式 */
+.translator-appended-text {
+    color: gray;
+    margin-left: 8px;
+    font-style: italic; /* 增加斜体以更好地区分 */
+}
+

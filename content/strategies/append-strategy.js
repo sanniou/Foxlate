@@ -12,8 +12,6 @@ window.appendTranslationStrategy = {
         } else {
             translationNode = document.createElement('span');
             translationNode.className = 'translator-appended-text'; // 类名用于标识和还原
-            translationNode.style.color = 'gray';
-            translationNode.style.marginLeft = '8px';
             translationNode.textContent = ` ( ${translatedText} )`;
             element.appendChild(translationNode);
         }
