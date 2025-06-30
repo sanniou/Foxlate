@@ -5,7 +5,7 @@ export class AITranslator extends BaseTranslator {
     super('AI');
   }
 
-  async translate(text, targetLang, sourceLang = 'auto', aiConfig = {}) {
+  async translate(text, targetLang, sourceLang = 'auto', aiConfig = {}, signal) {
     const log = []; // 为当前翻译操作创建本地日志
     const { apiKey, apiUrl, model, customPrompt: customPromptTemplate } = aiConfig;
     if (!apiKey || apiKey.trim() === '') {
@@ -47,6 +47,7 @@ export class AITranslator extends BaseTranslator {
           ],
           temperature: 0.1, // Lower temperature for more deterministic translations
         }),
+        signal, // 将 AbortSignal 传递给 fetch
       });
 
       if (!response.ok) {
@@ -67,6 +68,10 @@ export class AITranslator extends BaseTranslator {
       }
 
     } catch (error) {
+      // 如果是中止错误，直接重新抛出，以便上游可以正确处理
+      if (error.name === 'AbortError') {
+        throw error;
+      }
       log.push(browser.i18n.getMessage('logEntryTranslationError', error.message));
       console.error(`AI Translation Error: ${error.message}`); // 仍然保留控制台错误
       throw new Error(`AI translation failed: ${error.message}`);

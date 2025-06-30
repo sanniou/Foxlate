@@ -70,18 +70,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Unsaved Changes Tracking ---
-    let hasUnsavedChanges = false;
+    let unsavedChanges = {}; // Track changes per setting
 
-    const markAsChanged = () => {
-        if (!hasUnsavedChanges) {
-            hasUnsavedChanges = true;
-            elements.saveSettingsBtn.classList.add('visible');
+    const updateSaveButtonState = () => {
+        const hasChanges = Object.values(unsavedChanges).some(Boolean);
+        elements.saveSettingsBtn.classList.toggle('visible', hasChanges);
+    };
+
+    const markSettingAsChanged = (settingKey) => {
+        if (!unsavedChanges[settingKey]) {
+            unsavedChanges[settingKey] = true;
+            updateSaveButtonState();
         }
     };
 
-    const markAsSaved = () => {
-        hasUnsavedChanges = false;
-        // Visibility is now handled by the saveSettings function
+    const clearUnsavedChanges = () => {
+        unsavedChanges = {};
+        // Visibility is now handled by updateSaveButtonState
+        updateSaveButtonState();
     };
 
     /**
@@ -204,6 +210,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     let precheckRules = {};
+    let aiEngines = []; // Array to hold AI engine configurations
+    let domainRules = {}; // Object to hold domain rule configurations
 
     // --- I18N Function ---
     const applyTranslations = () => {
@@ -309,17 +317,17 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.displayModeSelect.value = currentSettings.displayMode || 'replace';
 
         // Load AI Engines
-        aiEngines = currentSettings.aiEngines || [];
+        aiEngines = JSON.parse(JSON.stringify(currentSettings.aiEngines || [])); // Deep copy
         populateAiEngineOptions(); // Populate the main dropdown
 
+        domainRules = JSON.parse(JSON.stringify(currentSettings.domainRules || {})); // Deep copy
         toggleApiFields();
-        renderDomainRules(currentSettings.domainRules || {});
+        renderDomainRules();
         const defaultPrecheckRules = generateDefaultPrecheckRules();
         const storedRules = currentSettings.precheckRules;
         precheckRules = storedRules && Object.keys(storedRules).length > 0 ? storedRules : JSON.parse(JSON.stringify(defaultPrecheckRules));
         renderPrecheckRulesUI();
-        hasUnsavedChanges = false;
-        elements.saveSettingsBtn.classList.remove('visible'); // Ensure FAB is hidden on initial load
+        clearUnsavedChanges(); // Reset tracking on load
     };
 
     const saveSettings = async () => {
@@ -343,28 +351,34 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.fabIconLoading.classList.add('active');
         elements.fabIconSuccess.classList.remove('active');
 
-        const { settings: existingSettings } = await browser.storage.sync.get('settings');
-        const currentSettings = existingSettings || {};
-
-        const settingsToSave = {
-            ...currentSettings, // Preserve existing settings like domainRules
-            translatorEngine: elements.translatorEngine.value,
-            targetLanguage: elements.targetLanguage.value,
-            displayMode: elements.displayModeSelect.value,
-            deeplxApiUrl: elements.deeplxApiUrl.value,
-            // The aiEngines array is the source of truth for all AI configurations.
-            aiEngines: aiEngines,
-            // The `translationSelector` object is now simplified as domain rules are managed separately
-            translationSelector: { 
-                default: elements.defaultTranslationSelector.value 
-            },
-            precheckRules: precheckRulesToSave,
-        };
-
         try {
+            const { settings: existingSettings } = await browser.storage.sync.get('settings');
+            const settingsToSave = { ...existingSettings };
+
+            // Selectively build the settings object based on what has changed
+            if (unsavedChanges.translatorEngine) settingsToSave.translatorEngine = elements.translatorEngine.value;
+            if (unsavedChanges.targetLanguage) settingsToSave.targetLanguage = elements.targetLanguage.value;
+            if (unsavedChanges.displayMode) settingsToSave.displayMode = elements.displayModeSelect.value;
+            if (unsavedChanges.deeplxApiUrl) settingsToSave.deeplxApiUrl = elements.deeplxApiUrl.value;
+            if (unsavedChanges.translationSelector) {
+                settingsToSave.translationSelector = {
+                    ...(settingsToSave.translationSelector || {}),
+                    default: elements.defaultTranslationSelector.value
+                };
+            }
+            if (unsavedChanges.aiEngines) {
+                settingsToSave.aiEngines = aiEngines;
+            }
+            if (unsavedChanges.precheckRules) {
+                settingsToSave.precheckRules = precheckRulesToSave;
+            }
+            if (unsavedChanges.domainRules) {
+                settingsToSave.domainRules = domainRules;
+            }
+
             await browser.storage.sync.set({ settings: settingsToSave });
             showStatusMessage(browser.i18n.getMessage('saveSettingsSuccess'));
-            markAsSaved(); // Set the flag
+            clearUnsavedChanges(); // Reset tracking after successful save
 
             // --- State: Success ---
             elements.saveSettingsBtn.classList.add('success');
@@ -402,6 +416,9 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.fabIconSave.classList.add('active');
             elements.saveSettingsBtn.classList.add('error-shake');
             setTimeout(() => elements.saveSettingsBtn.classList.remove('error-shake'), 500);
+        } finally {
+            // In case of error, we don't clear changes, so the user can try again.
+            // The FAB state is reset above.
         }
     };
 
@@ -410,8 +427,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (window.confirm(confirmationMessage)) {
             try {
                 await browser.storage.sync.remove('settings');
-                // After removing, reload the settings, which will apply the defaults.
-                // loadSettings will call markAsSaved()
+                // After removing, reload the settings, which will apply defaults and reset unsaved changes.
                 await loadSettings();
                 showStatusMessage(browser.i18n.getMessage('resetSettingsSuccess'));
             } catch (error) {
@@ -579,18 +595,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 testResultElement.classList.remove('show');
             }
             validateRegexInput(regexInput, flagsInput); // Perform validation
-            markAsChanged(); // Any change in rule content marks as unsaved
+            markSettingAsChanged('precheckRules'); // Any change in rule content marks as unsaved
         };
-    item.querySelector('.rule-name').addEventListener('input', markAsChanged);
+    item.querySelector('.rule-name').addEventListener('input', () => markSettingAsChanged('precheckRules'));
         // Apply ripple effect to the test button
         regexInput.addEventListener('input', validateAndMarkChanged);
         flagsInput.addEventListener('input', validateAndMarkChanged);
-        item.querySelector('.rule-mode').addEventListener('change', markAsChanged);
-    item.querySelector('.rule-enabled-checkbox').addEventListener('change', markAsChanged);
+        item.querySelector('.rule-mode').addEventListener('change', () => markSettingAsChanged('precheckRules'));
+    item.querySelector('.rule-enabled-checkbox').addEventListener('change', () => markSettingAsChanged('precheckRules'));
 
         item.querySelector('.remove-rule-btn').addEventListener('click', (e) => {
             e.currentTarget.closest('.rule-item').remove();
-            markAsChanged(); // Removing a rule counts as a change.
+            markSettingAsChanged('precheckRules'); // Removing a rule counts as a change.
         });
 
         // Add test result element (initially hidden)
@@ -618,7 +634,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (ruleList) {
             // Apply ripple effect to the newly created rule item's buttons
             ruleList.appendChild(createRuleItemElement(newRule));
-            markAsChanged(); // 添加规则也算作更改
+            markSettingAsChanged('precheckRules'); // 添加规则也算作更改
         }
     }
 
@@ -684,9 +700,9 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById(`tab-panel-${tabName}`).classList.add('active');
         document.querySelector(`.main-tab-button[data-tab="${tabName}"]`).classList.add('active');
     }
-    const renderDomainRules = (rules) => {
+    const renderDomainRules = () => {
       elements.domainRulesList.innerHTML = "";
-        const rulesArray = Object.entries(rules).map(([domain, rule]) => ({ domain, ...rule }));
+        const rulesArray = Object.entries(domainRules).map(([domain, rule]) => ({ domain, ...rule }));
         if (rulesArray.length === 0) {
             elements.domainRulesList.innerHTML = `<p>${browser.i18n.getMessage('noRulesFound') || 'No domain rules configured.'}</p>`;
             return;
@@ -718,29 +734,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-    const removeDomainRule = async (domainToRemove) => {
-        const { settings } = await browser.storage.sync.get('settings');
-        const currentSettings = settings || {};
-        if (currentSettings.domainRules) {
-            delete currentSettings.domainRules[domainToRemove];
-            await browser.storage.sync.set({ settings: currentSettings });
-            renderDomainRules(currentSettings.domainRules);
+    const removeDomainRule = (domainToRemove) => {
+        if (domainRules[domainToRemove]) {
+            delete domainRules[domainToRemove];
+            renderDomainRules();
+            markSettingAsChanged('domainRules');
             showStatusMessage(browser.i18n.getMessage('removeRuleSuccess'));
         }
     };
 
     const editDomainRule = (domain) => {
-        // Find the rule data in the rendered list
-        const ruleItem = elements.domainRulesList.querySelector(`li[data-domain="${domain}"]`);
-        if (ruleItem) {
-            // Extract rule data and open modal for editing
-            browser.storage.sync.get('settings').then(({ settings }) => {
-                const currentSettings = settings || {};
-                if (currentSettings.domainRules && currentSettings.domainRules[domain]) {
-                    openDomainRuleModal({ domain, ...currentSettings.domainRules[domain] });
-                }
-            });
-            
+        const ruleData = domainRules[domain];
+        if (ruleData) {
+            openDomainRuleModal({ domain, ...ruleData });
+        } else {
+            console.error(`Rule for domain "${domain}" not found in local state.`);
         }
     };
 
@@ -784,19 +792,14 @@ document.addEventListener('DOMContentLoaded', () => {
             // If no selector is entered, but override is checked, save the override state.
             rule.cssSelectorOverride = true;
         }
-        // --- 3. Save to storage ---
-        const { settings } = await browser.storage.sync.get('settings');
-        const currentSettings = settings || {};
-        currentSettings.domainRules = currentSettings.domainRules || {};
-
+        // --- 3. Save to local state and mark as changed ---
         if (originalDomain && originalDomain !== newDomain) {
-            delete currentSettings.domainRules[originalDomain];
+            delete domainRules[originalDomain];
         }
-        currentSettings.domainRules[newDomain] = rule;
-
-        await browser.storage.sync.set({ settings: currentSettings });
+        domainRules[newDomain] = rule;
+        markSettingAsChanged('domainRules');
         closeDomainRuleModal();
-        renderDomainRules(currentSettings.domainRules);
+        renderDomainRules();
         showStatusMessage(browser.i18n.getMessage('saveRuleSuccess') || 'Rule saved successfully.');
     };
 
@@ -835,7 +838,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
         // --- AI Engine Management Logic ---
-    let aiEngines = []; // Array to hold AI engine configurations
     let currentEditingAiEngineId = null; // To track which engine is being edited
 
     const openAiEngineModal = () => {
@@ -1070,7 +1072,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const newId = `ai-${Date.now()}`; // Simple unique ID
             aiEngines.push({ id: newId, name, apiKey, apiUrl, model, customPrompt });
         }
-        markAsChanged(); // Mark settings as changed
+        markSettingAsChanged('aiEngines'); // Mark settings as changed
         renderAiEngineList();
         populateAiEngineOptions(); // Update main dropdown
         elements.aiEngineForm.style.display = 'none';
@@ -1081,7 +1083,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const removeAiEngine = (id) => {
         if (window.confirm(browser.i18n.getMessage('confirmDeleteRule') || 'Are you sure you want to remove this AI engine?')) { // Need new i18n key
             aiEngines = aiEngines.filter(e => e.id !== id);
-            markAsChanged(); // Mark settings as changed
+            markSettingAsChanged('aiEngines'); // Mark settings as changed
             renderAiEngineList();
             populateAiEngineOptions(); // Update main dropdown
             // If the removed engine was selected, reset the main dropdown
@@ -1328,8 +1330,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
          // Main settings listeners
-        elements.translatorEngine.addEventListener('change', markAsChanged);
-        elements.translatorEngine.addEventListener('change', toggleApiFields); // Keep separate from unsaved changes
+        elements.translatorEngine.addEventListener('change', () => {
+            markSettingAsChanged('translatorEngine');
+            toggleApiFields(); // 合并监听器，使逻辑更清晰
+        });
+        elements.targetLanguage.addEventListener('change', () => markSettingAsChanged('targetLanguage'));
+        elements.defaultTranslationSelector.addEventListener('input', () => markSettingAsChanged('translationSelector'));
+        elements.deeplxApiUrl.addEventListener('input', () => markSettingAsChanged('deeplxApiUrl'));
+        elements.displayModeSelect.addEventListener('change', () => markSettingAsChanged('displayMode'));
         elements.saveSettingsBtn.addEventListener('click', saveSettings);
         elements.resetSettingsBtn.addEventListener('click', resetSettings);
         elements.exportBtn.addEventListener('click', exportSettings);
@@ -1363,33 +1371,8 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
         
-        // --- Event Listeners for Unsaved Changes ---
-        // 监听所有输入框、选择框和文本域的变化
-        document.querySelector('.container').addEventListener('input', (event) => {
-            const target = event.target;
-            // 排除按钮、文件输入和AI模态框内的输入，因为它们触发的是动作而不是设置值更改
-            if (target.matches('input:not([type="button"]):not([type="submit"]):not([type="file"]), textarea, select')) {
-                markAsChanged();
-            }
-        });
-        // 监听复选框和选择框的change事件
-        document.querySelector('.container').addEventListener('change', (event) => {
-            const target = event.target;
-            if (target.matches('input[type="checkbox"], select')) {
-                markAsChanged();
-            }
-        });
-
-        // Listen for changes within the AI engine form to mark as changed
-        elements.aiEngineForm.addEventListener('input', (event) => {
-            const target = event.target;
-            if (target.matches('input:not([type="button"]):not([type="submit"]), textarea')) {
-                markAsChanged();
-            }
-            if (target.matches('select')) {
-                markAsChanged();
-            }
-        });
+        // 旧的、通用的“未保存更改”监听器已被移除。
+        // 新的系统使用附加到特定元素或操作的精确监听器。
         
         const testTranslationBtn = document.getElementById('testTranslationBtn');
         if(testTranslationBtn) testTranslationBtn.addEventListener('click', toggleTestArea);
@@ -1409,7 +1392,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- Before Unload Listener ---
         window.addEventListener('beforeunload', (event) => {
-            if (hasUnsavedChanges) {
+            const hasChanges = Object.values(unsavedChanges).some(Boolean);
+            if (hasChanges) {
                 // 现代浏览器通常会显示一个通用的提示信息，而不是自定义的字符串
                 event.preventDefault(); // 阻止默认行为，触发提示
                 event.returnValue = ''; // 某些浏览器需要设置此属性

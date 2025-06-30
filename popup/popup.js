@@ -171,48 +171,31 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const saveChangeToRule = async (key, value) => {
-      if (!currentHostname) return;
-      const { settings } = await browser.storage.sync.get('settings');
-      const globalSettings = settings || {};
-      const domainRules = globalSettings.domainRules || {};
-      const domainToUpdate = (currentRuleSource === 'default') ? currentHostname : currentRuleSource;
-      
-      // 获取当前域名已有的规则，如果没有则使用全局设置作为基础
-      let existingRule = domainRules[domainToUpdate] || {};
-      if (currentRuleSource === 'default') {
-          // 对于“default”，使用全局设置+新值作为规则
-          existingRule = { ...globalSettings, ...existingRule };
-      }
+        if (!currentHostname) {
+            console.warn("[Popup] Cannot save rule change, no active hostname.");
+            return;
+        }
 
-      // 创建新的规则对象，确保所有字段都存在
-      const updatedRule = {
-          autoTranslate: existingRule.autoTranslate || 'manual',
-          translatorEngine: existingRule.translatorEngine || 'deeplx',
-          targetLanguage: existingRule.targetLanguage || 'ZH',
-          displayMode: existingRule.displayMode || 'replace',
-          ...existingRule, // 保留所有现有字段
-          [key]: value       // 更新指定字段
-      };
+        const { settings } = await browser.storage.sync.get('settings');
+        const globalSettings = settings || {};
+        
+        // 确保 domainRules 对象存在
+        if (!globalSettings.domainRules) {
+            globalSettings.domainRules = {};
+        }
 
-      // 保存更新后的规则
-      domainRules[domainToUpdate] = updatedRule;      
-      
-      // 使用 JSON.stringify 处理循环引用
-      const safeSettings = JSON.parse(JSON.stringify({ ...globalSettings, domainRules }, (key, value) => {
-          if (typeof value === 'object' && value !== null) {
-              // 检查是否已经存在于引用链中
-              if (this.references && this.references.includes(value)) {
-                  return '[Circular]'; // 返回一个标记字符串
-              }
-              this.references = this.references || [];
-              this.references.push(value);
-          }
-          return value;
-      }, 2, {references: []})); // 初始化引用链
+        // 确定要修改哪个域名的规则。
+        // 如果当前生效的是默认规则，则为当前主机名创建一个新规则。
+        const domainToUpdate = (currentRuleSource === 'default') ? currentHostname : currentRuleSource;
 
-      await browser.storage.sync.set({ settings: safeSettings });
-      await loadAndApplySettings(); // 重新加载设置，确保 UI 反映最新状态
-  };
+        // 获取此域名的现有规则，如果不存在则创建一个新对象。
+        const rule = globalSettings.domainRules[domainToUpdate] || {};
+        rule[key] = value; // 更新规则上的特定属性。
+        globalSettings.domainRules[domainToUpdate] = rule; // 将更新后或新的规则放回 domainRules 对象中。
+
+        await browser.storage.sync.set({ settings: globalSettings });
+        await loadAndApplySettings(); // 重新加载设置以在UI中反映更改。
+    };
 
     async function handleTranslateButtonClick() {
         if (!activeTabId || elements.translatePageBtn.disabled) return;

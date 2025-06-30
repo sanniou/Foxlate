@@ -80,15 +80,26 @@ const messageHandlers = {
     results.forEach((result, index) => {
         const wasFulfilled = result.status === 'fulfilled';
         const translationResult = wasFulfilled ? result.value : null;
-        // ** (修复 #4) 确保传递中断错误 **
-        const error = wasFulfilled ? translationResult?.error : (result.reason?.message || 'Unknown error');
+        
+        let finalError = null;
+        if (!wasFulfilled) {
+            // 如果任务被拒绝，检查是否是中断错误
+            if (result.reason?.name === 'AbortError') {
+                finalError = "Translation was interrupted by the user.";
+            } else {
+                finalError = result.reason?.message || 'Unknown error';
+            }
+        } else if (translationResult?.error) {
+            // 如果任务成功，但翻译流程内部返回了一个错误
+            finalError = translationResult.error;
+        }
 
         const payload = {
             id: ids[index],
             success: wasFulfilled && !translationResult?.error,
             translatedText: wasFulfilled ? translationResult.text : null,
             wasTranslated: wasFulfilled ? translationResult.translated : false,
-            error: error,
+            error: finalError,
         };
 
         browser.tabs.sendMessage(tabId, {

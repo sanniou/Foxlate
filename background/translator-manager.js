@@ -13,13 +13,15 @@ const translators = {
 
 // --- 并发控制与任务队列 ---
 const taskQueue = [];
-let activeWorkers = 0;
+// 使用 Map 来存储活跃任务的 AbortController，以便可以中止它们
+const activeTasks = new Map();
+let taskIdCounter = 0;
 // 从设置中读取，如果未设置，则默认为 5
 let MAX_CONCURRENT_REQUESTS = 5;
 
 function preProcess(text) {
     if (typeof text !== 'string') return '';
-    return text.trim().replace(/\s+/g, ' ');
+    return text.trim().replace(/\s+/g, ' '); // 修复：确保 preProcess 总是返回一个字符串
 }
 
 function postProcess(text) {
@@ -31,22 +33,26 @@ function postProcess(text) {
  * 调度器，检查队列并启动新的工作者（如果有名额）。
  */
 function processQueue() {
-    if (taskQueue.length === 0 || activeWorkers >= MAX_CONCURRENT_REQUESTS) {
+    if (taskQueue.length === 0 || activeTasks.size >= MAX_CONCURRENT_REQUESTS) {
         return;
     }
 
-    activeWorkers++;
     const task = taskQueue.shift();
+    const taskId = taskIdCounter++;
+    activeTasks.set(taskId, task.controller);
 
     // 使用 async/await 结构来处理任务，使代码更清晰
     (async () => {
         try {
-            const result = await executeTranslation(task.text, task.targetLang, task.sourceLang);
+            // 将 AbortSignal 传递给执行函数
+            const result = await executeTranslation(task.text, task.targetLang, task.sourceLang, task.controller.signal);
             task.resolve(result);
         } catch (error) {
+            // 将所有错误（包括 AbortError）传递给调用者
             task.reject(error);
         } finally {
-            activeWorkers--;
+            // 确保任务完成后从活跃列表中移除
+            activeTasks.delete(taskId);
             processQueue();
         }
     })();
@@ -56,11 +62,17 @@ function processQueue() {
 /**
  * 实际的翻译执行逻辑，从旧的 translateText 中提取。
  */
-async function executeTranslation(text, targetLang, sourceLang = 'auto') {
+async function executeTranslation(text, targetLang, sourceLang = 'auto', signal) {
     // ... (这里的代码与您之前版本中的 `translateText` 内部逻辑几乎完全相同)
     // 为了简洁，我们假设这里的逻辑是完整的，包括预处理、规则检查、缓存、调用翻译器等
     const log = [];
     log.push(browser.i18n.getMessage('logEntryStart', [text, sourceLang, targetLang]));
+
+    // 快速失败：如果在开始前任务就被中止了
+    if (signal?.aborted) {
+        // 抛出标准的 AbortError
+        throw new DOMException('Translation was interrupted by the user.', 'AbortError');
+    }
 
     try {
         if (sourceLang !== 'auto' && sourceLang === targetLang) {
@@ -161,9 +173,12 @@ async function executeTranslation(text, targetLang, sourceLang = 'auto') {
             if (!aiConfig) {
                 throw new Error('Selected AI engine configuration not found.');
             }
-            ({ text: translatedResult, log: translatorLog } = await translator.translate(processedText, targetLang, sourceLang, aiConfig));
+            // 注意：translator.translate 方法需要被修改以接受 signal 参数
+            // 例如：translator.translate(text, target, source, options, signal)
+            ({ text: translatedResult, log: translatorLog } = await translator.translate(processedText, targetLang, sourceLang, aiConfig, signal));
         } else {
-            ({ text: translatedResult, log: translatorLog } = await translator.translate(processedText, targetLang, sourceLang));
+            // 注意：translator.translate 方法需要被修改以接受 signal 参数
+            ({ text: translatedResult, log: translatorLog } = await translator.translate(processedText, targetLang, sourceLang, null, signal));
         }
         log.push(...translatorLog);
         log.push(browser.i18n.getMessage('logEntryTranslationSuccess'));
@@ -174,6 +189,9 @@ async function executeTranslation(text, targetLang, sourceLang = 'auto') {
         const finalResult = postProcess(translatedResult);
         return { text: finalResult, translated: true, log: log };
     } catch (error) {
+        // 如果是中止错误，直接重新抛出
+        if (error.name === 'AbortError') throw error;
+
         const errorMessage = `Translation failed: ${error.message}`;
         log.push(browser.i18n.getMessage('logEntryTranslationError', errorMessage));
         console.error(`[TranslatorManager] Overall error caught:`, error);
@@ -201,12 +219,14 @@ export class TranslatorManager {
    */
   static translateText(text, targetLang, sourceLang = 'auto') {
     return new Promise((resolve, reject) => {
+        const controller = new AbortController();
         taskQueue.push({
             text,
             targetLang,
             sourceLang,
             resolve,
-            reject
+            reject,
+            controller // 将控制器与任务关联
         });
         // 触发调度器
         processQueue();
@@ -217,14 +237,20 @@ export class TranslatorManager {
    * 清空整个翻译队列，用于中断操作。
    */
   static interruptAll() {
-      // 拒绝队列中所有待处理的 Promise
+      // 1. 中止所有正在运行的任务
+      for (const controller of activeTasks.values()) {
+          controller.abort();
+      }
+      // activeTasks 会在任务的 finally 块中被自动清理
+
+      // 2. 拒绝队列中所有待处理的 Promise
       taskQueue.forEach(task => {
-          // ** (修复 #4) 使用特定的中断错误 **
-          task.reject(new Error("Translation was interrupted by the user."));
+          task.controller.abort(); // 标记为中止
+          task.reject(new DOMException("Translation was interrupted by the user.", "AbortError"));
       });
-      // 清空队列
+      // 3. 清空队列
       taskQueue.length = 0;
-      console.log("[TranslatorManager] All pending translation tasks have been interrupted.");
+      console.log("[TranslatorManager] All pending and active translation tasks have been interrupted.");
   }
 }
 
