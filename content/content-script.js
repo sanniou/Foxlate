@@ -22,38 +22,54 @@ function generateUUID() {
     return self.crypto.randomUUID();
 }
 
+// 优化：将忽略的标签列表定义为 Set，以获得更快的查找性能。
+// 将其置于函数外部，避免在每次函数调用时重复创建。
+const IGNORED_TAGS = new Set(['script', 'style', 'noscript', 'textarea', 'code']);
+
 /**
  * 使用 TreeWalker 查找并返回一个元素下的所有非空文本节点。
  * @param {Node} rootNode - 开始遍历的根节点。
  * @returns {Text[]} 文本节点数组。
  */
 function findTextNodes(rootNode) {
-    const textNodes = [];
-    if (!rootNode || rootNode.nodeType !== Node.ELEMENT_NODE) {
-        return textNodes;
+    // 优化 1: 增加前置检查。如果根节点本身无效或已在翻译容器内，则直接返回空数组，避免创建 TreeWalker。
+    if (!rootNode || rootNode.nodeType !== Node.ELEMENT_NODE || rootNode.closest('[data-translated="true"], [data-translation-id]')) {
+        return [];
     }
+
+    const textNodes = [];
     const walker = document.createTreeWalker(
         rootNode,
         NodeFilter.SHOW_TEXT,
         {
             acceptNode: function(node) {
-                const parentTag = node.parentElement.tagName.toLowerCase();
-                if (['script', 'style', 'noscript', 'textarea', 'code'].includes(parentTag) || node.parentElement.isContentEditable) {
-                    return NodeFilter.FILTER_REJECT;
-                }
+                // 优化 2: 将廉价的检查前置。
+                // 检查1: 忽略纯空白文本节点。
                 if (node.nodeValue.trim() === '') {
                     return NodeFilter.FILTER_REJECT;
                 }
-                if (node.parentElement.closest('[data-translated="true"], [data-translation-id]')) {
+
+                const parent = node.parentElement;
+
+                // 检查2: 忽略特定标签或可编辑元素内的文本。
+                // 优化 3: 使用 Set 替代 Array.includes() 以提高性能。
+                if (IGNORED_TAGS.has(parent.tagName.toLowerCase()) || parent.isContentEditable) {
                     return NodeFilter.FILTER_REJECT;
                 }
+
+                // 检查3: 忽略已标记为翻译中或已翻译的容器内的文本。
+                // 这个检查仍然是必要的，以处理嵌套的、可能已被独立处理的元素。
+                if (parent.closest('[data-translated="true"], [data-translation-id]')) {
+                    return NodeFilter.FILTER_REJECT;
+                }
+
                 return NodeFilter.FILTER_ACCEPT;
             }
         }
     );
 
-    let node;
-    while (node = walker.nextNode()) {
+    while (walker.nextNode()) {
+        const node = walker.currentNode;
         textNodes.push(node);
     }
     return textNodes;
