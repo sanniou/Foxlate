@@ -47,6 +47,14 @@
       "48": "icons/icon-48.png"
     }
   },
+  "commands": {
+    "toggle-translation": {
+      "suggested_key": {
+        "default": "Alt+A"
+      },
+      "description": "切换显示翻译/原文"
+    }
+  },
   "options_ui": {
     "page": "options/options.html",
     "open_in_tab": true

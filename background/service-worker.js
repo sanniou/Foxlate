@@ -284,6 +284,24 @@ const messageHandlers = {
 
 // --- Main Event Listeners ---
 
+browser.commands.onCommand.addListener(async (command) => {
+  if (command === "toggle-translation") {
+    const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+    if (tab && tab.id) {
+      // 内容脚本是页面翻译状态的唯一真实来源。
+      // 我们只发送一个切换命令，让它自己决定该做什么。
+      browser.tabs.sendMessage(tab.id, {
+        type: "TOGGLE_TRANSLATION_REQUEST",
+        payload: { tabId: tab.id }
+      }).catch(e => {
+          if (!e.message.includes("Receiving end does not exist")) {
+              logError('onCommand listener', e);
+          }
+      });
+    }
+  }
+});
+
 browser.contextMenus.onClicked.addListener(handleContextMenuClick);
 
 browser.runtime.onMessage.addListener((request, sender) => {

@@ -413,6 +413,25 @@ async function revertPageTranslation(tabId) {
     }
 }
 
+/**
+ * (新) 根据当前页面的翻译状态，切换翻译或恢复原文。
+ * @param {number} tabId - 当前标签页的 ID。
+ */
+async function togglePageTranslation(tabId) {
+    // 页面翻译状态的唯一真实来源是 body 上的 `data-translation-session` 属性。
+    const isSessionActive = document.body.dataset.translationSession === 'active';
+
+    if (isSessionActive) {
+        // 如果会话已激活，意味着页面已翻译或正在加载。正确的操作是恢复原文。
+        console.log("[SanReader] 快捷键切换：恢复页面原文。");
+        await revertPageTranslation(tabId);
+    } else {
+        // 如果会话未激活，页面处于原始状态。正确的操作是开始翻译。
+        console.log("[SanReader] 快捷键切换：开始页面翻译。");
+        await performPageTranslation(tabId);
+    }
+}
+
 // --- Message Handling & UI ---
 
 async function handleMessage(request, sender) {
@@ -430,6 +449,10 @@ async function handleMessage(request, sender) {
             case 'REVERT_PAGE_TRANSLATION':
                 await revertPageTranslation(request.payload?.tabId);
                 break;
+
+            case 'TOGGLE_TRANSLATION_REQUEST':
+                await togglePageTranslation(request.payload?.tabId);
+                return { success: true };
 
             case 'TRANSLATION_CHUNK_RESULT':
                 {
