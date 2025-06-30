@@ -1,9 +1,7 @@
 // 全局的 tooltip 创建和显示逻辑保持不变
-let tooltip = null;
-
 function createTooltip() {
     if (document.querySelector('.universal-translator-tooltip')) return;
-    tooltip = document.createElement('div');
+    const tooltip = document.createElement('div');
     tooltip.className = 'universal-translator-tooltip';
     document.body.appendChild(tooltip);
 }

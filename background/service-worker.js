@@ -34,12 +34,13 @@ async function handleContextMenuClick(info, tab) {
       type: 'DISPLAY_SELECTION_TRANSLATION',
       payload: { isLoading: true }
     });
-    const { settings } = await browser.storage.sync.get('settings');
-    const targetLang = settings?.targetLanguage || 'ZH';
-    const result = await TranslatorManager.translateText(info.selectionText, targetLang);
+    //  修改：复用统一的翻译函数，并处理可能的错误
+    const result = await TranslatorManager.translateText(info.selectionText, undefined, undefined); // 使用默认目标语言和自动检测源语言
     browser.tabs.sendMessage(tab.id, {
       type: 'DISPLAY_SELECTION_TRANSLATION',
-      payload: { success: true, translatedText: result.text }
+      // 修改： 传递翻译状态，并处理错误情况
+      payload: { success: result.success, translatedText: result.translatedText?.text, error: result.error }
+
     });
   } catch (error) {
     logError('handleContextMenuClick', error);

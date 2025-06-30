@@ -3,6 +3,7 @@ window.DisplayManager = class DisplayManager {
         const strategies = {
             replace: window.replaceStrategy,
             append: window.appendTranslationStrategy,
+            contextMenu: window.contextMenuStrategy, // 添加新的 strategy
             hover: window.hoverStrategy,
         };
         const strategy = strategies[displayMode];
@@ -21,6 +22,7 @@ window.DisplayManager = class DisplayManager {
         const strategies = {
             replace: window.replaceStrategy,
             append: window.appendTranslationStrategy,
+            contextMenu: window.contextMenuStrategy, // 添加新的 strategy
             hover: window.hoverStrategy,
         };
         const strategy = strategies[displayMode];

@@ -30,6 +30,7 @@
         "content/strategies/hover-strategy.js",
         "content/strategies/append-strategy.js",
         "content/strategies/replace-strategy.js",
+        "content/strategies/context-menu-strategy.js",
         "content/display-manager.js",
         "content/content-script.js"
       ],
@@ -50,6 +51,12 @@
     "page": "options/options.html",
     "open_in_tab": true
   },
+  "web_accessible_resources": [
+    {
+      "resources": [ "common/common.css" ],
+      "matches": [ "<all_urls>" ]
+    }
+  ],
   // 确保 Firefox 兼容性
   "browser_specific_settings": {
     "gecko": {

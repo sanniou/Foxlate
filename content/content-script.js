@@ -407,43 +407,58 @@ async function handleMessage(request, sender) {
                 break;
 
             case 'TRANSLATION_CHUNK_RESULT':
-                const { id, success, translatedText, wasTranslated, error } = request.payload;
-                const element = document.querySelector(`[data-translation-id='${id}']`);
-                if (element) {
-                    if (success && wasTranslated) {
-                        // 使用当前任务的显示模式来应用翻译
-                        const displayMode = translationJob.settings?.displayMode || 'replace';
-                        window.DisplayManager.apply(element, translatedText, displayMode);
-                    } else if (error) {
-                        if (error.includes("interrupted")) {
-                            delete element.dataset.translationId;
-                            console.log(`Translation interrupted for element #${id}. Original content preserved.`);
-                        } else {
-                            window.DisplayManager.showError(element, error);
+                {
+                    const { id, success, translatedText, wasTranslated, error } = request.payload;
+                    const element = document.querySelector(`[data-translation-id='${id}']`);
+                    if (element) {
+                        if (success && wasTranslated) {
+                            // 使用当前任务的显示模式来应用翻译
+                            const displayMode = translationJob.settings?.displayMode || 'replace';
+                            window.DisplayManager.apply(element, translatedText, displayMode);
+                        } else if (error) {
+                            if (error.includes("interrupted")) {
+                                delete element.dataset.translationId;
+                                console.log(`Translation interrupted for element #${id}. Original content preserved.`);
+                            } else {
+                                window.DisplayManager.showError(element, error);
+                            }
                         }
                     }
-                }
 
-                translationJob.completedChunks++;
-                if (translationJob.completedChunks >= translationJob.totalChunks) {
-                    translationJob.isTranslating = false;
-                    browser.runtime.sendMessage({
-                        type: 'TRANSLATION_STATUS_UPDATE',
-                        payload: { status: 'translated', tabId: translationJob.tabId }
-                    }).catch(e => logError('reportTranslationStatus (all chunks done)', e));
+                    translationJob.completedChunks++;
+                    if (translationJob.completedChunks >= translationJob.totalChunks) {
+                        translationJob.isTranslating = false;
+                        browser.runtime.sendMessage({
+                            type: 'TRANSLATION_STATUS_UPDATE',
+                            payload: { status: 'translated', tabId: translationJob.tabId }
+                        }).catch(e => logError('reportTranslationStatus (all chunks done)', e));
+                    }
+                    break;
                 }
-                break;
 
             case 'UPDATE_DISPLAY_MODE':
                 window.DisplayManager.updateDisplayMode(request.payload.displayMode);
                 break;
-            
-            // **(修复 #5)  移除 REQUEST_TRANSLATION_STATUS 的状态报告 **
-            //  content-script 不再主动报告状态，状态变化由 service worker 通过 setBadgeAndState 管理
-            //  REQUEST_TRANSLATION_STATUS 的作用仅仅是让 popup 知道 content script 是否还在翻译中
-            //  不应该影响 service worker 存储的状态
 
-
+            case 'DISPLAY_SELECTION_TRANSLATION': //  处理右键翻译结果
+                {
+                    const { success, translatedText, error } = request.payload;
+                    const selection = window.getSelection();
+                    if (selection && selection.rangeCount > 0) {
+                        const range = selection.getRangeAt(0);
+                        const rect = range.getBoundingClientRect();
+                        // 计算 Tooltip 位置，使其出现在选区下方
+                        const x = rect.left + rect.width / 2;
+                        const y = rect.bottom + 10; // 选区下方 10px
+                        if (success && translatedText) {
+                            window.contextMenuStrategy.displayTranslation({ clientX: x, clientY: y }, translatedText);
+                        } else if (error) {
+                            window.contextMenuStrategy.displayTranslation({ clientX: x, clientY: y }, `Translation Error: ${error}`);
+                        }
+                    }
+                    break; // 修复：防止 fall-through 到下一个 case
+                }
+                
             case 'REQUEST_TRANSLATION_STATUS': {
                 const sessionActive = document.body.dataset.translationSession === 'active';
                 let state = 'original';
