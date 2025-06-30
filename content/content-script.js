@@ -442,7 +442,7 @@ async function handleMessage(request, sender) {
 
             case 'DISPLAY_SELECTION_TRANSLATION': //  处理右键翻译结果
                 {
-                    const { success, translatedText, error } = request.payload;
+                    const { isLoading, success, translatedText, error } = request.payload;
                     const selection = window.getSelection();
                     if (selection && selection.rangeCount > 0) {
                         const range = selection.getRangeAt(0);
@@ -450,10 +450,16 @@ async function handleMessage(request, sender) {
                         // 计算 Tooltip 位置，使其出现在选区下方
                         const x = rect.left + rect.width / 2;
                         const y = rect.bottom + 10; // 选区下方 10px
-                        if (success && translatedText) {
-                            window.contextMenuStrategy.displayTranslation({ clientX: x, clientY: y }, translatedText);
+                        const coords = { clientX: x, clientY: y };
+
+                        if (isLoading) {
+                            const loadingMessage = browser.i18n.getMessage('popupTranslating') || 'Translating...';
+                            window.contextMenuStrategy.displayTranslation(coords, loadingMessage, true);
+                        } else if (success && translatedText) {
+                            window.contextMenuStrategy.displayTranslation(coords, translatedText, false);
                         } else if (error) {
-                            window.contextMenuStrategy.displayTranslation({ clientX: x, clientY: y }, `Translation Error: ${error}`);
+                            const errorMessage = browser.i18n.getMessage('testError') || 'Error';
+                            window.contextMenuStrategy.displayTranslation(coords, `${errorMessage}: ${error}`, false);
                         }
                     }
                     break; // 修复：防止 fall-through 到下一个 case

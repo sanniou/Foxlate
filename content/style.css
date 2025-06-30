@@ -149,3 +149,22 @@
     max-width: 300px; /* 最大宽度 */
     word-wrap: break-word; /* 自动换行 */
 }
+
+.universal-translator-context-menu-tooltip.loading::before {
+    content: '';
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.75s linear infinite;
+    margin-right: 8px;
+    vertical-align: -0.15em;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}

@@ -23,6 +23,44 @@ browser.runtime.onInstalled.addListener(() => {
   console.log("Context menu created.");
 });
 
+/**
+ * Determines the effective translation rule for a given hostname by merging global settings with domain-specific rules.
+ * @param {string} hostname - The hostname of the tab.
+ * @returns {Promise<object>} A promise that resolves to the effective rule object.
+ */
+async function getEffectiveRuleForHost(hostname) {
+    const { settings } = await browser.storage.sync.get('settings');
+    const globalSettings = settings || {};
+
+    // Start with the base settings as the default rule, providing sensible fallbacks.
+    const defaultRule = { 
+        ...globalSettings,
+        autoTranslate: globalSettings.autoTranslate || 'manual',
+        displayMode: globalSettings.displayMode || 'replace',
+        targetLanguage: globalSettings.targetLanguage || 'ZH',
+        translatorEngine: globalSettings.translatorEngine || 'deeplx'
+    };
+
+    if (!hostname) {
+        return defaultRule;
+    }
+
+    const domainRules = globalSettings.domainRules || {};
+    // Find the most specific domain rule that matches the current hostname.
+    const matchedDomain = Object.keys(domainRules)
+        .filter(d => hostname.endsWith(d))
+        .sort((a, b) => b.length - a.length)[0];
+
+    if (matchedDomain) {
+        const specificRule = domainRules[matchedDomain];
+        // Ensure subdomain application is respected.
+        if (specificRule.applyToSubdomains !== false || hostname === matchedDomain) {
+            return { ...defaultRule, ...specificRule };
+        }
+    }
+    return defaultRule;
+}
+
 // --- Message Handlers ---
 
 async function handleContextMenuClick(info, tab) {
@@ -33,14 +71,22 @@ async function handleContextMenuClick(info, tab) {
     browser.tabs.sendMessage(tab.id, {
       type: 'DISPLAY_SELECTION_TRANSLATION',
       payload: { isLoading: true }
+    }).catch(e => {
+        if (!e.message.includes("Receiving end does not exist")) {
+             logError('handleContextMenuClick (Send Loading)', e);
+        }
     });
-    //  修改：复用统一的翻译函数，并处理可能的错误
-    const result = await TranslatorManager.translateText(info.selectionText, undefined, undefined); // 使用默认目标语言和自动检测源语言
+
+    // 统一规则：获取当前页面的有效规则
+    const hostname = new URL(tab.url).hostname;
+    const effectiveRule = await getEffectiveRuleForHost(hostname);
+
+    // 使用有效规则中的目标语言和翻译引擎
+    const result = await TranslatorManager.translateText(info.selectionText, effectiveRule.targetLanguage, 'auto', effectiveRule.translatorEngine);
+
     browser.tabs.sendMessage(tab.id, {
       type: 'DISPLAY_SELECTION_TRANSLATION',
-      // 修改： 传递翻译状态，并处理错误情况
-      payload: { success: result.success, translatedText: result.translatedText?.text, error: result.error }
-
+      payload: { success: !result.error, translatedText: result.text, error: result.error }
     });
   } catch (error) {
     logError('handleContextMenuClick', error);
@@ -215,25 +261,13 @@ const messageHandlers = {
     }
 
     try {
-        const { settings } = await browser.storage.sync.get('settings');
-        const domainRules = settings?.domainRules;
+        // 统一规则：使用新的帮助函数获取有效规则
+        const effectiveRule = await getEffectiveRuleForHost(hostname);
 
-        if (!domainRules || Object.keys(domainRules).length === 0) {
-            return { shouldTranslate: false };
-        }
-
-        const matchingDomainKey = Object.keys(domainRules)
-            .filter(d => hostname.endsWith(d))
-            .sort((a, b) => b.length - a.length)[0];
-
-        if (matchingDomainKey) {
-            const rule = domainRules[matchingDomainKey];
-            const isDomainMatch = rule.applyToSubdomains !== false || hostname === matchingDomainKey;
-            if (isDomainMatch && rule.autoTranslate === 'always') {
-                console.log(`[Auto-Translate] Rule for '${matchingDomainKey}' matched on ${hostname}. Approving translation.`);
-                await setBadgeAndState(tabId, 'loading'); // Set loading state and badge
-                return { shouldTranslate: true, tabId: tabId };
-            }
+        if (effectiveRule.autoTranslate === 'always') {
+            console.log(`[Auto-Translate] Rule for '${hostname}' matched. Approving translation.`);
+            await setBadgeAndState(tabId, 'loading'); // Set loading state and badge
+            return { shouldTranslate: true, tabId: tabId };
         }
     } catch (error) {
         logError('SHOULD_AUTO_TRANSLATE handler', error);
