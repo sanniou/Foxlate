@@ -47,7 +47,7 @@ function processQueue() {
     (async () => {
         try {
             // 将 AbortSignal 传递给执行函数
-            const result = await executeTranslation(task.text, task.targetLang, task.sourceLang, task.controller.signal);
+            const result = await executeTranslation(task.text, task.targetLang, task.sourceLang, task.engine, task.controller.signal);
             task.resolve(result);
         } catch (error) {
             // 将所有错误（包括 AbortError）传递给调用者
@@ -64,7 +64,7 @@ function processQueue() {
 /**
  * 实际的翻译执行逻辑，从旧的 translateText 中提取。
  */
-async function executeTranslation(text, targetLang, sourceLang = 'auto', signal) {
+async function executeTranslation(text, targetLang, sourceLang = 'auto', engine, signal) {
     // ... (这里的代码与您之前版本中的 `translateText` 内部逻辑几乎完全相同)
     // 为了简洁，我们假设这里的逻辑是完整的，包括预处理、规则检查、缓存、调用翻译器等
     const log = [];
@@ -155,7 +155,7 @@ async function executeTranslation(text, targetLang, sourceLang = 'auto', signal)
             log.push(browser.i18n.getMessage('logEntryCacheMiss'));
         }
 
-        const translator = await TranslatorManager.getTranslator();
+        const translator = await TranslatorManager.getTranslator(engine);
         if (!translator) {
             const errorMessage = "未选择或初始化有效的翻译器。";
             log.push(browser.i18n.getMessage('logEntryNoTranslator'));
@@ -168,12 +168,15 @@ async function executeTranslation(text, targetLang, sourceLang = 'auto', signal)
         let translatorLog;
 
         if (translator.name === 'AI') {
+            if (!engine || !engine.startsWith('ai:')) {
+                throw new Error(`Invalid AI engine identifier provided: ${engine}`);
+            }
             const { settings } = await browser.storage.sync.get('settings');
-            const selectedEngineId = settings?.translatorEngine.split(':')[1];
-            const aiConfig = settings?.aiEngines?.find(engine => engine.id === selectedEngineId);
+            const selectedEngineId = engine.split(':')[1];
+            const aiConfig = settings?.aiEngines?.find(e => e.id === selectedEngineId);
 
             if (!aiConfig) {
-                throw new Error('Selected AI engine configuration not found.');
+                throw new Error(`Selected AI engine configuration not found for ID: ${selectedEngineId}`);
             }
             // 注意：translator.translate 方法需要被修改以接受 signal 参数
             // 例如：translator.translate(text, target, source, options, signal)
@@ -203,9 +206,11 @@ async function executeTranslation(text, targetLang, sourceLang = 'auto', signal)
 
 
 export class TranslatorManager {
-  static async getTranslator() {
-    const { settings } = await browser.storage.sync.get('settings');
-    let engine = settings?.translatorEngine || 'deeplx';
+  static async getTranslator(engine) {
+    if (!engine) {
+        const { settings } = await browser.storage.sync.get('settings');
+        engine = settings?.translatorEngine || 'deeplx';
+    }
     if (engine.startsWith('ai:')) {
       engine = 'ai';
     }
@@ -220,7 +225,7 @@ export class TranslatorManager {
    * @param {string} [sourceLang='auto'] - 源语言。
    * @returns {Promise<object>} 一个解析为翻译结果的 Promise。
    */
-  static translateText(text, targetLang, sourceLang = 'auto') {
+  static translateText(text, targetLang, sourceLang = 'auto', engine) {
     const processedText = preProcess(text);
     if (!processedText) {
       return Promise.resolve({ text: "", translated: false, log: [browser.i18n.getMessage('logEntryPrecheckNoTranslation')] });
@@ -250,6 +255,7 @@ export class TranslatorManager {
         text,
         targetLang,
         sourceLang,
+        engine,
         resolve,
         reject,
         controller // 将控制器与任务关联

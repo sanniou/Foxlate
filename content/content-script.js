@@ -152,13 +152,18 @@ function observeElements(elements) {
  * 核心翻译函数：将元素内的文本节点分块并发送到后台进行翻译。
  * @param {HTMLElement[]} elements - 需要翻译的元素数组。
  */
-async function translateElements(elements) {
+function translateElements(elements) {
     if (elements.length === 0) return;
 
     try {
-        const { settings } = await browser.storage.sync.get('settings');
-        const targetLang = settings?.targetLanguage || 'ZH';
-        const CHUNK_SIZE = settings?.parallelRequests || 5;
+        const effectiveSettings = translationJob.settings;
+        if (!effectiveSettings) {
+            logError('translateElements', new Error("Translation job settings are not available."));
+            return;
+        }
+        const targetLang = effectiveSettings?.targetLanguage || 'ZH';
+        const CHUNK_SIZE = effectiveSettings?.parallelRequests || 5;
+        const translatorEngine = effectiveSettings?.translatorEngine || 'deeplx';
 
         let nodesToTranslate = [];
         elements.forEach(el => {
@@ -207,7 +212,7 @@ async function translateElements(elements) {
             const idChunk = ids.slice(i, i + CHUNK_SIZE);
             browser.runtime.sendMessage({
                 type: 'TRANSLATE_TEXT_CHUNK',
-                payload: { texts: textChunk, ids: idChunk, targetLang, sourceLang: 'auto', tabId: translationJob.tabId }
+                payload: { texts: textChunk, ids: idChunk, targetLang, sourceLang: 'auto', tabId: translationJob.tabId, translatorEngine }
             }).catch(e => logError('translateElements (send chunk)', e));
         }
 

@@ -65,14 +65,14 @@ const messageHandlers = {
   },
 
   async TRANSLATE_TEXT_CHUNK(request, sender) {
-    const { texts, ids, targetLang, sourceLang, tabId } = request.payload;
+    const { texts, ids, targetLang, sourceLang, tabId, translatorEngine } = request.payload;
     if (!texts || !ids || !tabId || texts.length !== ids.length) {
         logError('TRANSLATE_TEXT_CHUNK', new Error('Invalid payload for chunk translation.'));
         return;
     }
 
     const translationPromises = texts.map(text =>
-        TranslatorManager.translateText(text, targetLang, sourceLang)
+        TranslatorManager.translateText(text, targetLang, sourceLang, translatorEngine)
     );
 
     const results = await Promise.allSettled(translationPromises);
