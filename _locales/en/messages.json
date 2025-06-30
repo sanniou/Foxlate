@@ -504,5 +504,17 @@
   "fillAllRequiredFields": {
     "message": "Please fill in all required fields.",
     "description": "General message for missing required fields."
+  },
+  "errorMissingTargetLanguage": {
+    "message": "Target language is not configured. Please update settings.",
+    "description": "Error when target language is missing for a translation task."
+  },
+  "errorMissingEngine": {
+    "message": "Translation engine is not configured. Please update settings.",
+    "description": "Error when translation engine is missing for a translation task."
+  },
+  "errorMissingSelector": {
+    "message": "CSS selector for translation is not configured. Please update settings.",
+    "description": "Error when the CSS selector for page translation is missing."
   }
 }

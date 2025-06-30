@@ -29,23 +29,22 @@ browser.runtime.onInstalled.addListener(() => {
  * @returns {Promise<object>} A promise that resolves to the effective rule object.
  */
 async function getEffectiveRuleForHost(hostname) {
-    const { settings } = await browser.storage.sync.get('settings');
-    const globalSettings = settings || {};
+    const { settings } = await browser.storage.sync.get('settings') || {};
+    // If there are no settings at all, return an empty object.
+    // The caller is responsible for handling this.
+    if (!settings) {
+        return {};
+    }
 
-    // Start with the base settings as the default rule, providing sensible fallbacks.
-    const defaultRule = { 
-        ...globalSettings,
-        autoTranslate: globalSettings.autoTranslate || 'manual',
-        displayMode: globalSettings.displayMode || 'replace',
-        targetLanguage: globalSettings.targetLanguage || 'ZH',
-        translatorEngine: globalSettings.translatorEngine || 'deeplx'
-    };
+    // Start with the global settings as the base.
+    // No more hardcoded fallbacks here.
+    const defaultRule = { ...settings };
 
     if (!hostname) {
         return defaultRule;
     }
 
-    const domainRules = globalSettings.domainRules || {};
+    const domainRules = settings.domainRules || {};
     // Find the most specific domain rule that matches the current hostname.
     const matchedDomain = Object.keys(domainRules)
         .filter(d => hostname.endsWith(d))
@@ -55,6 +54,7 @@ async function getEffectiveRuleForHost(hostname) {
         const specificRule = domainRules[matchedDomain];
         // Ensure subdomain application is respected.
         if (specificRule.applyToSubdomains !== false || hostname === matchedDomain) {
+            // Merge defaultRule with specificRule. Properties in specificRule will overwrite.
             return { ...defaultRule, ...specificRule };
         }
     }
@@ -80,6 +80,14 @@ async function handleContextMenuClick(info, tab) {
     // 统一规则：获取当前页面的有效规则
     const hostname = new URL(tab.url).hostname;
     const effectiveRule = await getEffectiveRuleForHost(hostname);
+
+    // 校验有效规则
+    if (!effectiveRule.targetLanguage) {
+        throw new Error(browser.i18n.getMessage('errorMissingTargetLanguage') || 'Target language is not configured. Please update settings.');
+    }
+    if (!effectiveRule.translatorEngine) {
+        throw new Error(browser.i18n.getMessage('errorMissingEngine') || 'Translation engine is not configured. Please update settings.');
+    }
 
     // 使用有效规则中的目标语言和翻译引擎
     const result = await TranslatorManager.translateText(info.selectionText, effectiveRule.targetLanguage, 'auto', effectiveRule.translatorEngine);
@@ -225,8 +233,6 @@ const messageHandlers = {
     //  TRANSLATION_STATUS_BROADCAST 消息不再需要
     //  所有的状态更新都通过 content-script 发起，并由 popup 监听
 
-
-
   async TRANSLATION_STATUS_UPDATE(request) {
     const { status, tabId } = request.payload;
     if (tabId) {
@@ -252,7 +258,7 @@ const messageHandlers = {
   }
   ,
 
-  async SHOULD_AUTO_TRANSLATE(request, sender) {
+ async SHOULD_AUTO_TRANSLATE(request, sender) {
     const { hostname, url } = request.payload;
     const tabId = sender.tab?.id;
 
@@ -273,7 +279,7 @@ const messageHandlers = {
         logError('SHOULD_AUTO_TRANSLATE handler', error);
     }
     return { shouldTranslate: false };
-  }
+ }
 };
 
 // --- Main Event Listeners ---

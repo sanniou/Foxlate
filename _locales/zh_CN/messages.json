@@ -290,6 +290,10 @@
     "message": "显示原文",
     "description": "将页面恢复到原始状态的按钮文本。"
   },
+  "popupStopTranslation": {
+    "message": "停止翻译",
+    "description": "停止当前页面翻译的按钮文本。"
+  },
   "popupTranslating": { "message": "正在翻译..." },
   "popupAlwaysTranslate": { "message": "总是翻译此网站" },
   "popupSettings": { "message": "⚙️ 设置" },
@@ -514,5 +518,17 @@
   "enterTestText": {
     "message": "请输入测试文本。",
     "description": "Message when test text input is empty."
+  },
+  "errorMissingTargetLanguage": {
+    "message": "目标语言未配置。请更新设置。",
+    "description": "当翻译任务缺少目标语言时的错误。"
+  },
+  "errorMissingEngine": {
+    "message": "翻译引擎未配置。请更新设置。",
+    "description": "当翻译任务缺少翻译引擎时的错误。"
+  },
+  "errorMissingSelector": {
+    "message": "用于页面翻译的 CSS 选择器未配置。请更新设置。",
+    "description": "当页面翻译缺少 CSS 选择器时的错误。"
   }
 }

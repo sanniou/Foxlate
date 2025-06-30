@@ -208,8 +208,8 @@ async function executeTranslation(text, targetLang, sourceLang = 'auto', engine,
 export class TranslatorManager {
   static async getTranslator(engine) {
     if (!engine) {
-        const { settings } = await browser.storage.sync.get('settings');
-        engine = settings?.translatorEngine || 'deeplx';
+        const { settings } = await browser.storage.sync.get('settings') || {};
+        engine = settings?.translatorEngine; // No fallback
     }
     if (engine.startsWith('ai:')) {
       engine = 'ai';

@@ -161,9 +161,17 @@ function translateElements(elements) {
             logError('translateElements', new Error("Translation job settings are not available."));
             return;
         }
-        const targetLang = effectiveSettings?.targetLanguage || 'ZH';
+        const targetLang = effectiveSettings?.targetLanguage;
+        const translatorEngine = effectiveSettings?.translatorEngine;
+
+        // The validation for these settings should have happened in performPageTranslation.
+        // This is a final safeguard.
+        if (!targetLang || !translatorEngine) {
+            logError('translateElements', new Error("Cannot translate elements without targetLanguage or translatorEngine."));
+            return;
+        }
+
         const CHUNK_SIZE = effectiveSettings?.parallelRequests || 5;
-        const translatorEngine = effectiveSettings?.translatorEngine || 'deeplx';
 
         let nodesToTranslate = [];
         elements.forEach(el => {
@@ -246,15 +254,15 @@ function stopObservers() {
  */
 async function getEffectiveSettings() {
     const { settings } = await browser.storage.sync.get('settings') || {};
+    // If no settings exist at all, return an empty object.
     if (!settings) {
-        // 如果用户没有设置，则提醒用户更新配置
-        console.warn("[SanReader] No settings found. Please update your configuration in the extension options.");
-        // 返回一个空的配置对象，以防止程序崩溃。
-        // 后续需要根据这个空配置进行特殊处理，例如不翻译任何内容。
         return {};
     };
 
     const hostname = window.location.hostname;
+    // Start with global settings as the base.
+    const defaultRule = { ...settings };
+
     const domainRules = settings.domainRules || {};
     let effectiveRule = {};
 
@@ -269,23 +277,23 @@ async function getEffectiveSettings() {
         }
     }
 
+    // Merge global settings with the specific rule.
     const finalSettings = {
-        ...settings, // 首先使用用户的所有设置
+        ...defaultRule,
         ...effectiveRule
     };
 
-    // 如果域名规则中没有指定 cssSelectorOverride，且 settings 中没有 defaultSelector，则使用一个 fallbackSelector
-    const fallbackSelector = 'p, h1, h2, h3, h4, h5, h6, li, dd, dt, blockquote, summary, article, td';
-
+    // Logic for determining the final selector based on overrides.
     if (effectiveRule.cssSelector && effectiveRule.cssSelectorOverride) {
         finalSettings.translationSelector = effectiveRule.cssSelector; // 强制使用域名规则的选择器
     } else if (effectiveRule.cssSelector && !effectiveRule.cssSelectorOverride) {
       // 合并 域名规则 css 选择器 和 settings.translationSelector.default
-      finalSettings.translationSelector = `${finalSettings.translationSelector?.default || fallbackSelector}, ${effectiveRule.cssSelector}`;
+      finalSettings.translationSelector = `${finalSettings.translationSelector?.default || ''}, ${effectiveRule.cssSelector}`.replace(/^, /, '');
     } else if (finalSettings.translationSelector?.default) {
       finalSettings.translationSelector = finalSettings.translationSelector.default; // 使用settings中的默认选择器
     } else {
-      finalSettings.translationSelector = fallbackSelector
+      // If no selector is defined anywhere, it will be undefined.
+      delete finalSettings.translationSelector;
     }
 
     return finalSettings;
@@ -336,6 +344,23 @@ async function performPageTranslation(tabId) {
     try {
         effectiveSettings = await getEffectiveSettings();
         console.log("[SanReader] Effective settings for this page:", effectiveSettings);
+
+        // 校验核心设置
+        if (!effectiveSettings.targetLanguage) {
+            logError('performPageTranslation', new Error(browser.i18n.getMessage('errorMissingTargetLanguage') || 'Target language is not configured.'));
+            revertPageTranslation(tabId); // Clean up UI
+            return;
+        }
+        if (!effectiveSettings.translatorEngine) {
+            logError('performPageTranslation', new Error(browser.i18n.getMessage('errorMissingEngine') || 'Translation engine is not configured.'));
+            revertPageTranslation(tabId); // Clean up UI
+            return;
+        }
+        if (!effectiveSettings.translationSelector) {
+            logError('performPageTranslation', new Error(browser.i18n.getMessage('errorMissingSelector') || 'CSS selector for translation is not configured.'));
+            revertPageTranslation(tabId); // Clean up UI
+            return;
+        }
     } catch (error) {
         logError('performPageTranslation', error);
         console.error("[SanReader] Failed to retrieve effective settings. Please check your configuration.");
