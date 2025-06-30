@@ -839,6 +839,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentEditingAiEngineId = null; // To track which engine is being edited
 
     const openAiEngineModal = () => {
+        document.body.classList.add('modal-open');
         elements.aiEngineModal.style.display = 'flex'; // Show overlay with flex for centering
         // Force reflow to ensure CSS transition applies
         elements.aiEngineModal.offsetWidth;
@@ -853,6 +854,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const closeAiEngineModal = () => {
+        document.body.classList.remove('modal-open');
         elements.aiEngineModal.classList.remove('is-visible'); // Trigger content transition back
         // Listen for the transition end on the modal-content
         const modalContent = elements.aiEngineModal.querySelector('.modal-content');
@@ -869,11 +871,41 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.aiTestResult.style.display = 'none';
         currentEditingAiEngineId = null;
     };
+
+    const hideAiEngineForm = () => {
+        elements.aiEngineForm.style.display = 'none';
+        elements.aiTestResult.style.display = 'none';
+        clearAiFormErrors();
+        currentEditingAiEngineId = null;
+    };
+
+    // ** 添加 Esc 按键监听器 **
+    const handleKeyDown = (event) => {
+        if (event.key === "Escape") {
+            // 检查 AI 引擎弹窗是否可见
+            if (elements.aiEngineModal.classList.contains('is-visible')) {
+                // 如果编辑表单是可见的，则先关闭表单
+                if (elements.aiEngineForm.style.display !== 'none') {
+                    hideAiEngineForm();
+                } else {
+                    // 否则，关闭整个弹窗
+                    closeAiEngineModal();
+                }
+            } else if (elements.domainRuleModal.classList.contains('is-visible')) {
+                // 如果域名规则弹窗可见，则关闭它
+                closeDomainRuleModal();
+            }
+        }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+
     /**
      * Opens the domain rule modal, optionally populating it for editing.
      * @param {Object} [ruleData] - The rule data to populate the form with for editing.
      */
     const openDomainRuleModal = (ruleData = {}) => {
+        document.body.classList.add('modal-open');
         elements.domainRuleModal.style.display = 'flex'; // Show overlay with flex for centering
         // Force reflow to ensure CSS transition applies
         elements.domainRuleModal.offsetWidth;
@@ -896,6 +928,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const closeDomainRuleModal = () => {
+        document.body.classList.remove('modal-open');
         elements.domainRuleModal.classList.remove('is-visible'); // Trigger content transition back
         const modalContent = elements.domainRuleModal.querySelector('.modal-content');
         // Listen for the transition end on the modal-content
@@ -1308,7 +1341,7 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.addAiEngineBtn.addEventListener('click', addAiEngine);
         elements.aiEngineForm.addEventListener('input', clearAiFormErrors); // Clear errors on input
         elements.saveAiEngineBtn.addEventListener('click', saveAiEngine);
-        elements.cancelAiEngineBtn.addEventListener('click', () => elements.aiEngineForm.style.display = 'none');
+        elements.cancelAiEngineBtn.addEventListener('click', hideAiEngineForm);
         elements.testAiEngineBtn.addEventListener('click', testAiEngineConnection);
 
         // Domain Rule Modal Listeners

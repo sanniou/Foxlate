@@ -104,30 +104,20 @@ const messageHandlers = {
 
   async TEST_CONNECTION(request) {
     const { engine, settings } = request.payload;
-    const translators = {
-      deeplx: new DeepLxTranslator(),
-      google: new GoogleTranslator(),
-      ai: new AITranslator(),
-    };
-    const translator = translators[engine];
-    if (!translator) {
-      return { success: false, error: `Unknown engine: ${engine}` };
+    if (engine !== 'ai') {
+      return { success: false, error: `Connection test is only supported for AI engines, but got: ${engine}` };
     }
-    const originalGet = browser.storage.sync.get;
+    const translator = new AITranslator();
     try {
-      browser.storage.sync.get = async () => ({ settings });
-      let result;
-      if (engine === 'ai') {
-        result = await translator.translate('test', 'EN', 'auto', settings);
-      } else {
-        result = await translator.translate('test', 'EN', 'auto');
-      }
-      return { success: true, translatedText: result.text };
+      // 直接使用从 payload 传来的临时设置调用翻译器。
+      const result = await translator.translate('test', 'EN', 'auto', settings);
+
+      // 返回与 TRANSLATE_TEXT 处理器一致的数据结构，
+      // 这是选项页面 UI 所期望的。
+      return { success: true, translatedText: { text: result.text, translated: true } };
     } catch (error) {
       logError('TEST_CONNECTION handler', error);
       return { success: false, error: error.message };
-    } finally {
-      browser.storage.sync.get = originalGet;
     }
   },
 
@@ -261,8 +251,14 @@ browser.runtime.onMessage.addListener((request, sender) => {
 
 browser.tabs.onRemoved.addListener(async (tabId) => {
   try {
-    await setBadgeAndState(tabId, 'original');
-    console.log(`Cleaned up translation state for closed tab ${tabId}.`);
+    // 当标签页被移除时，我们只需要清理其在会话存储中的状态。
+    // 调用 setBadgeAndState 会尝试更新一个不存在的标签页的角标，从而导致错误。
+    const { tabTranslationStates = {} } = await browser.storage.session.get('tabTranslationStates');
+    if (tabTranslationStates[tabId]) {
+      delete tabTranslationStates[tabId];
+      await browser.storage.session.set({ tabTranslationStates });
+      console.log(`Cleaned up translation state for closed tab ${tabId}.`);
+    }
   } catch (error) {
     logError('tabs.onRemoved listener', error);
   }

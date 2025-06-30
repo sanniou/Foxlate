@@ -195,8 +195,22 @@ document.addEventListener('DOMContentLoaded', () => {
       };
 
       // 保存更新后的规则
-      domainRules[domainToUpdate] = updatedRule;
-      await browser.storage.sync.set({ settings: { ...globalSettings, domainRules } });
+      domainRules[domainToUpdate] = updatedRule;      
+      
+      // 使用 JSON.stringify 处理循环引用
+      const safeSettings = JSON.parse(JSON.stringify({ ...globalSettings, domainRules }, (key, value) => {
+          if (typeof value === 'object' && value !== null) {
+              // 检查是否已经存在于引用链中
+              if (this.references && this.references.includes(value)) {
+                  return '[Circular]'; // 返回一个标记字符串
+              }
+              this.references = this.references || [];
+              this.references.push(value);
+          }
+          return value;
+      }, 2, {references: []})); // 初始化引用链
+
+      await browser.storage.sync.set({ settings: safeSettings });
       await loadAndApplySettings(); // 重新加载设置，确保 UI 反映最新状态
   };
 
