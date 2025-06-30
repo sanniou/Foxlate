@@ -4,6 +4,8 @@ import { AITranslator } from './translators/ai-translator.js';
 
 // 内存缓存
 const translationCache = new Map();
+// 进行中请求的缓存，用于复用在途的 API 调用
+const inFlightRequests = new Map();
 
 const translators = {
   deeplx: new DeepLxTranslator(),
@@ -212,29 +214,60 @@ export class TranslatorManager {
 
   /**
    * 将翻译任务添加到队列，并返回一个解析结果的 Promise。
+   * 此方法会处理缓存和在途请求复用。
    * @param {string} text - 要翻译的文本。
    * @param {string} targetLang - 目标语言。
    * @param {string} [sourceLang='auto'] - 源语言。
    * @returns {Promise<object>} 一个解析为翻译结果的 Promise。
    */
   static translateText(text, targetLang, sourceLang = 'auto') {
-    return new Promise((resolve, reject) => {
-        const controller = new AbortController();
-        taskQueue.push({
-            text,
-            targetLang,
-            sourceLang,
-            resolve,
-            reject,
-            controller // 将控制器与任务关联
-        });
-        // 触发调度器
-        processQueue();
+    const processedText = preProcess(text);
+    if (!processedText) {
+      return Promise.resolve({ text: "", translated: false, log: [browser.i18n.getMessage('logEntryPrecheckNoTranslation')] });
+    }
+    const cacheKey = `${sourceLang}:${targetLang}:${processedText}`;
+
+    // 1. 检查永久缓存
+    if (translationCache.has(cacheKey)) {
+      const cachedResult = translationCache.get(cacheKey);
+      const log = [
+        browser.i18n.getMessage('logEntryStart', [text, sourceLang, targetLang]),
+        browser.i18n.getMessage('logEntryCacheHit')
+      ];
+      return Promise.resolve({ text: postProcess(cachedResult), translated: true, log: log });
+    }
+
+    // 2. 检查是否有正在进行的相同请求
+    if (inFlightRequests.has(cacheKey)) {
+      // 复用已在途的请求 Promise
+      return inFlightRequests.get(cacheKey);
+    }
+
+    // 3. 创建新的翻译任务 Promise
+    const translationPromise = new Promise((resolve, reject) => {
+      const controller = new AbortController();
+      taskQueue.push({
+        text,
+        targetLang,
+        sourceLang,
+        resolve,
+        reject,
+        controller // 将控制器与任务关联
+      });
+      processQueue();
+    }).finally(() => {
+      // 任务完成后（无论成功或失败），从在途请求映射中移除
+      inFlightRequests.delete(cacheKey);
     });
+
+    // 将新的 Promise 存入在途请求映射中
+    inFlightRequests.set(cacheKey, translationPromise);
+
+    return translationPromise;
   }
 
   /**
-   * 清空整个翻译队列，用于中断操作。
+   * 中断所有待处理和正在进行的翻译任务。
    */
   static interruptAll() {
       // 1. 中止所有正在运行的任务
@@ -250,6 +283,8 @@ export class TranslatorManager {
       });
       // 3. 清空队列
       taskQueue.length = 0;
+      // 注意：在途请求(inFlightRequests)中的 Promise 会因为 task.reject() 而被拒绝，
+      // 进而触发其 .finally() 块，自动从 inFlightRequests 中清理。
       console.log("[TranslatorManager] All pending and active translation tasks have been interrupted.");
   }
 }
