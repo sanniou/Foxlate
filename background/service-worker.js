@@ -42,8 +42,8 @@ async function getSelectionDetailsFromTab(tabId) {
           return {
             text: selection.toString(),
             coords: {
-              // 使用视口相对坐标，因为工具提示是相对于视口定位的。
-              // getBoundingClientRect() 返回的已经是我们需要的视口坐标。
+              // 使用纯粹的视口相对坐标。getBoundingClientRect() 返回的正是我们需要的。
+              // CSS 将使用 position:fixed，因此我们不再需要关心页面滚动。
               clientX: rect.left + rect.width / 2,
               clientY: rect.bottom + 10 // 在选区下方 10px
             }

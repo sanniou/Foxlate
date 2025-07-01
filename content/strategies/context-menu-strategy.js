@@ -1,5 +1,6 @@
 // 模块级变量，用于持有活动的点击处理器，以便移除。
 let activeClickHandler = null;
+let activeScrollHandler = null;
 
 /**
  * 如果工具提示元素不存在，则创建它。
@@ -90,10 +91,16 @@ function showTooltip(coords, text, isLoading = false, source = 'contextMenu') {
         hideTooltip();
     };
 
+    // 定义用于在滚动时关闭工具提示的处理器。
+    activeScrollHandler = () => {
+        hideTooltip();
+    };
+
     // 添加监听器。使用 setTimeout 确保它在当前事件周期之后添加。
     // 这可以防止打开菜单的同一次点击立即关闭它。
     setTimeout(() => {
         document.addEventListener('click', activeClickHandler, true);
+        window.addEventListener('scroll', activeScrollHandler, true);
     }, 0);
 }
 
@@ -110,6 +117,12 @@ function hideTooltip() {
     if (activeClickHandler) {
         document.removeEventListener('click', activeClickHandler, true);
         activeClickHandler = null; // 清理引用。
+    }
+
+    // 如果存在，则始终移除活动的滚动处理器。
+    if (activeScrollHandler) {
+        window.removeEventListener('scroll', activeScrollHandler, true);
+        activeScrollHandler = null; // 清理引用。
     }
 }
 
