@@ -65,6 +65,18 @@ h1 {
     padding-right: 40px; /* Space for the dropdown arrow */
 }
 
+/* Disabled state for outlined select (MD3 Style) */
+.m3-form-field.outlined select:disabled {
+    border-color: color-mix(in srgb, var(--md-sys-color-on-surface), transparent 88%); /* on-surface @ 12% opacity */
+    color: color-mix(in srgb, var(--md-sys-color-on-surface), transparent 62%); /* on-surface @ 38% opacity */
+    cursor: not-allowed;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='rgba(0,0,0,0.38)'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
+}
+
+.m3-form-field.outlined select:disabled + label {
+    color: color-mix(in srgb, var(--md-sys-color-on-surface), transparent 62%);
+}
+
 /* Floating Label for Outlined Fields */
 .m3-form-field.outlined label {
     position: absolute;
@@ -135,6 +147,15 @@ h1 {
 .m3-button.filled {
     background-color: var(--md-sys-color-primary);
     color: var(--md-sys-color-on-primary);
+}
+
+/* Disabled state for all buttons (MD3 Style) */
+.m3-button:disabled,
+.m3-button:disabled:hover {
+    background-color: color-mix(in srgb, var(--md-sys-color-on-surface), transparent 88%);
+    color: color-mix(in srgb, var(--md-sys-color-on-surface), transparent 62%);
+    box-shadow: none;
+    cursor: not-allowed;
 }
 
 
@@ -228,6 +249,12 @@ h1 {
     width: 20px;   /* 调整选中状态下的滑块宽度 */
     height: 20px;  /* 调整选中状态下的滑块高度 */
     background-color: var(--md-sys-color-on-primary);
+}
+
+/* Disabled state for the switch */
+.m3-switch input[type="checkbox"]:disabled + .switch-track {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 /* --- Footer --- */

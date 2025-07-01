@@ -516,5 +516,9 @@
   "errorMissingSelector": {
     "message": "CSS selector for translation is not configured. Please update settings.",
     "description": "Error when the CSS selector for page translation is missing."
+  },
+  "popupTranslationNotAvailable": {
+    "message": "Translation is not available on this page.",
+    "description": "Message shown in the popup when on a page that cannot be translated (e.g., about: pages)."
   }
 }

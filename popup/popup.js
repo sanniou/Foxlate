@@ -146,27 +146,49 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const updateButtonStateFromContentScript = async () => {
         if (!activeTabId) return;
+
+        const errorDisplay = document.getElementById('error-display');
+        errorDisplay.style.display = 'none'; // Hide error by default
+
         try {
             const response = await browser.tabs.sendMessage(activeTabId, { type: 'REQUEST_TRANSLATION_STATUS' });
+
+            // This check handles cases where the content script is present but sends a malformed response.
             if (!response || !response.state) {
                 throw new Error("Invalid response from content script.");
             }
+
+            // Success: update button and ensure controls are enabled.
             updateTranslateButtonState(response.state);
+            elements.translatePageBtn.disabled = false;
+            elements.displayModeSelect.disabled = false;
+            elements.targetLanguageSelect.disabled = false;
+            elements.engineSelect.disabled = false;
+            // Re-enable the switch if a hostname is present (which it should be if content script exists)
+            elements.autoTranslateCheckbox.disabled = !currentHostname;
+
         } catch (e) {
-            // 直接抛出错误，不再回退或重试
-            console.error(`[Popup] Failed to get translation status from content script for tab ${activeTabId}:`, e);
-            // 在popup中显示错误，而不是静默失败
-            // 可以在 popup 中添加一个错误显示区域，并在那里显示错误信息
-            // 这里只是一个示例，你需要根据 popup 的实际 UI 结构进行调整
-            const errorDisplay = document.getElementById('error-display'); 
-            if (errorDisplay) {
-                errorDisplay.textContent = `Error: ${e.message}`;
-                errorDisplay.style.display = 'block'; // 确保错误信息可见
+            // This catch block now handles all failures to communicate or get a valid response.
+
+            // Default to original state visually.
+            updateTranslateButtonState('original');
+            // Disable controls that depend on the content script.
+            elements.translatePageBtn.disabled = true;
+            elements.displayModeSelect.disabled = true;
+            elements.targetLanguageSelect.disabled = true;
+            elements.engineSelect.disabled = true;
+            elements.autoTranslateCheckbox.disabled = true;
+
+            // Check for the specific, expected error on restricted pages.
+            if (e.message.includes("Receiving end does not exist")) {
+                console.log(`[Popup] Content script not available on this page. Disabling translation controls.`);
+                errorDisplay.textContent = browser.i18n.getMessage('popupTranslationNotAvailable') || "Translation is not available on this page.";
             } else {
-                // 如果没有错误显示区域，则在控制台显示更详细的错误
-                console.error("[Popup] No error display area found in popup. Please add an element with id='error-display' to show error messages.");
+                // Handle other, unexpected errors.
+                console.error(`[Popup] Failed to get translation status from content script for tab ${activeTabId}:`, e);
+                errorDisplay.textContent = `Error: ${e.message}`;
             }
-            throw e; 
+            errorDisplay.style.display = 'block';
         }
     }
 
@@ -234,6 +256,9 @@ document.addEventListener('DOMContentLoaded', () => {
         applyTranslations();
         elements.versionDisplay.textContent = `v${browser.runtime.getManifest().version}`;
         await loadAndApplySettings();
+
+        // The source language is always auto-detected, so this dropdown is for display only.
+        elements.sourceLanguageSelect.disabled = true;
 
         elements.openOptionsBtn.addEventListener('click', () => browser.runtime.openOptionsPage());
         elements.translatePageBtn.addEventListener('click', handleTranslateButtonClick);

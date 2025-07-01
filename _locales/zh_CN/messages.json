@@ -530,5 +530,9 @@
   "errorMissingSelector": {
     "message": "用于页面翻译的 CSS 选择器未配置。请更新设置。",
     "description": "当页面翻译缺少 CSS 选择器时的错误。"
+  },
+  "popupTranslationNotAvailable": {
+    "message": "此页面不支持翻译。",
+    "description": "在无法翻译的页面（例如 about: 页面）上，弹窗中显示的消息。"
   }
 }
