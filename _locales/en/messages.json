@@ -1,6 +1,6 @@
 {
   "extensionName": {
-    "message": "Universal Translator",
+    "message": "Foxlate",
     "description": "Name of the extension."
   },
   "extensionDescription": {
@@ -8,7 +8,7 @@
     "description": "Description of the extension."
   },
   "settingsHeading": {
-    "message": "Universal Translator Settings",
+    "message": "Foxlate Settings",
     "description": "Heading for the settings page."
   },
   "generalSettings": {
@@ -276,13 +276,17 @@
     "message": "Enter your Google Cloud Translation API Key"
   },
   "domainPlaceholder": { "message": "e.g., example.com" },
-  "popupTitle": { "message": "Universal Translator" },
+  "popupTitle": { "message": "Foxlate" },
   "popupSourceLanguage": { "message": "Source Language:" },
   "popupTargetLanguage": { "message": "Target Language:" },
   "popupTranslationService": { "message": "Translation Service:" },
   "popupTranslatePage": { "message": "Translate This Page" },
   "popupAlwaysTranslate": { "message": "Always translate this site" },
   "popupSettings": { "message": "⚙️ Settings" },
+  "contextMenuTitle": {
+    "message": "Translate '%s' with Foxlate",
+    "description": "Context menu item for translating selected text. %s is the placeholder for the selected text."
+  },
   "popupAbout": { "message": "About" },
   "popupDisplayMode": {
     "message": "Display Mode:",

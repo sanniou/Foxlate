@@ -18,7 +18,7 @@ function logError(context, error) {
 browser.runtime.onInstalled.addListener(() => {
   browser.contextMenus.create({
     id: "translate-selection",
-    title: "使用通用翻译翻译 '%s'",
+    title: browser.i18n.getMessage("contextMenuTitle"),
     contexts: ["selection"],
   });
   console.log("Context menu created.");

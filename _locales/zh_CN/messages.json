@@ -1,6 +1,6 @@
 {
   "extensionName": {
-    "message": "通用翻译",
+    "message": "Foxlate",
     "description": "扩展程序的名称。"
   },
   "extensionDescription": {
@@ -8,7 +8,7 @@
     "description": "扩展程序的描述。"
   },
   "settingsHeading": {
-    "message": "通用翻译设置",
+    "message": "Foxlate 设置",
     "description": "设置页面的标题。"
   },
   "generalSettings": {
@@ -35,7 +35,7 @@
     "message": "AI 引擎配置",
     "description": "AI 引擎配置部分的标题。"
   },
-  "aiEngineName": {
+   "aiEngineName": {
     "message": "引擎名称：",
     "description": "AI 引擎名称输入框的标签。"
   },
@@ -130,8 +130,8 @@
   "addRule": {
     "message": "添加域名规则",
     "description": "添加新域名规则的按钮文本。"
-  },
-  "edit": {
+ },
+ "edit": {
     "message": "编辑",
     "description": "通用编辑按钮文本。"
   },
@@ -278,13 +278,17 @@
   },
   "googleApiKeyPlaceholder": { "message": "请输入您的谷歌云翻译 API 密钥" },
   "domainPlaceholder": { "message": "例如：example.com" },
-  "popupTitle": { "message": "通用翻译" },
+  "popupTitle": { "message": "Foxlate" },
   "popupSourceLanguage": { "message": "原始语言：" },
   "popupTargetLanguage": { "message": "目标语言：" },
   "popupTranslationService": { "message": "翻译服务：" },
   "popupTranslatePage": {
     "message": "翻译此页",
     "description": "翻译当前页面的按钮文本。"
+  },
+  "contextMenuTitle": {
+    "message": "使用 Foxlate 翻译 '%s'",
+    "description": "右键菜单中翻译选中文本的条目。%s 是选中文本的占位符。"
   },
   "popupShowOriginal": {
     "message": "显示原文",
@@ -511,9 +515,9 @@
     "message": "是必填项。",
     "description": "Suffix for required field error messages."
   },
-  "fillAllRequiredFields": {
+ "fillAllRequiredFields": {
     "message": "请填写所有必填项。",
-    "description": "General message for missing required fields."
+   "description": "General message for missing required fields."
   },
   "enterTestText": {
     "message": "请输入测试文本。",
