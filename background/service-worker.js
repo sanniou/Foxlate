@@ -11,7 +11,7 @@ import { AITranslator } from './translators/ai-translator.js';
  * @param {Error} error - The error object.
  */
 function logError(context, error) {
-  console.error(`[Universal Translator Error] in ${context}:`, error.message, error.stack);
+  console.error(`[Foxlate Error] in ${context}:`, error.message, error.stack);
 }
 
 // --- Context Menu Setup ---
