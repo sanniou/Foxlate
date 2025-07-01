@@ -263,6 +263,14 @@
                     <label for="ruleTargetLanguage" i18n-text="targetLanguage">Target Language:</label>
                 </div>
                 <div class="m3-form-field filled">
+                    <select id="ruleSourceLanguage">
+                        <option value="default" i18n-text="useDefaultSetting">Use Default</option>
+                        <option value="auto" i18n-text="langAuto">Auto-Detect</option>
+                        <!-- Other languages will be populated by JS -->
+                    </select>
+                    <label for="ruleSourceLanguage" i18n-text="popupSourceLanguage">Source Language:</label>
+                </div>
+                <div class="m3-form-field filled">
                     <select id="ruleDisplayMode">
                         <option value="default" i18n-text="useDefaultSetting">Use Default</option>
                         <option value="replace" i18n-text="replaceOriginal">Replace Original</option>
@@ -296,5 +304,6 @@
 
     <script src="../lib/webextension-polyfill.js"></script>
     <script src="../common/constants.js"></script>
-    <script src="options.js"></script>
+    <script src="../common/settings-manager.js" type="module"></script>
+    <script src="options.js" type="module"></script>
 </html>

@@ -49,4 +49,16 @@ window.Constants = {
 
     DEFAULT_TRANSLATION_SELECTOR: 'p, h1, h2, h3, h4, li, a, span, div, td, th, blockquote, pre, code, strong, em, b, i, small, sub, sup, dd, dt, caption, figcaption, legend, label',
 
+    DEFAULT_SETTINGS: {
+        translatorEngine: 'deeplx',
+        targetLanguage: 'ZH',
+        displayMode: 'replace',
+        deeplxApiUrl: '',
+        translationSelector: {
+            default: 'p, h1, h2, h3, h4, li, a, span, div, td, th, blockquote, pre, code, strong, em, b, i, small, sub, sup, dd, dt, caption, figcaption, legend, label',
+        },
+        aiEngines: [],
+        domainRules: {},
+        precheckRules: {} // Populated dynamically in options.js to handle i18n
+    }
 };

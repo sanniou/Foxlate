@@ -18,7 +18,7 @@
     "<all_urls>"
   ],
   "background": {
-    "scripts": ["background/service-worker.js"],
+    "scripts": ["common/constants.js", "common/settings-manager.js", "background/service-worker.js"],
     "type": "module"
   },
   "content_scripts": [

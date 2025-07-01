@@ -1,3 +1,4 @@
+import { getEffectiveSettings, getValidatedSettings } from '../common/settings-manager.js';
 import { TranslatorManager } from './translator-manager.js';
 // The test connection logic needs direct access to translator classes.
 import { DeepLxTranslator } from './translators/deeplx-translator.js';
@@ -23,43 +24,7 @@ browser.runtime.onInstalled.addListener(() => {
   console.log("Context menu created.");
 });
 
-/**
- * Determines the effective translation rule for a given hostname by merging global settings with domain-specific rules.
- * @param {string} hostname - The hostname of the tab.
- * @returns {Promise<object>} A promise that resolves to the effective rule object.
- */
-async function getEffectiveRuleForHost(hostname) {
-    const { settings } = await browser.storage.sync.get('settings') || {};
-    // If there are no settings at all, return an empty object.
-    // The caller is responsible for handling this.
-    if (!settings) {
-        return {};
-    }
 
-    // Start with the global settings as the base.
-    // No more hardcoded fallbacks here.
-    const defaultRule = { ...settings };
-
-    if (!hostname) {
-        return defaultRule;
-    }
-
-    const domainRules = settings.domainRules || {};
-    // Find the most specific domain rule that matches the current hostname.
-    const matchedDomain = Object.keys(domainRules)
-        .filter(d => hostname.endsWith(d))
-        .sort((a, b) => b.length - a.length)[0];
-
-    if (matchedDomain) {
-        const specificRule = domainRules[matchedDomain];
-        // Ensure subdomain application is respected.
-        if (specificRule.applyToSubdomains !== false || hostname === matchedDomain) {
-            // Merge defaultRule with specificRule. Properties in specificRule will overwrite.
-            return { ...defaultRule, ...specificRule };
-        }
-    }
-    return defaultRule;
-}
 
 // --- Message Handlers ---
 
@@ -77,9 +42,9 @@ async function handleContextMenuClick(info, tab) {
         }
     });
 
-    // 统一规则：获取当前页面的有效规则
+    // Use the new centralized function to get settings
     const hostname = new URL(tab.url).hostname;
-    const effectiveRule = await getEffectiveRuleForHost(hostname);
+    const effectiveRule = await getEffectiveSettings(hostname);
 
     // 校验有效规则
     if (!effectiveRule.targetLanguage) {
@@ -187,6 +152,28 @@ const messageHandlers = {
     }
   },
 
+  async SAVE_RULE_CHANGE(request) {
+    const { hostname, ruleSource, key, value } = request.payload;
+    const settings = await getValidatedSettings();
+
+    const domainToUpdate = (ruleSource === 'default') ? hostname : ruleSource;
+    const rule = settings.domainRules[domainToUpdate] || {};
+    rule[key] = value;
+    settings.domainRules[domainToUpdate] = rule;
+
+    await browser.storage.sync.set({ settings });
+    return { success: true };
+  },
+
+  async GET_EFFECTIVE_SETTINGS(request) {
+    const { hostname } = request.payload;
+    return getEffectiveSettings(hostname);
+  },
+
+  async GET_VALIDATED_SETTINGS() {
+    return getValidatedSettings();
+  },
+
   async INITIATE_PAGE_TRANSLATION(request) {
     const { tabId } = request.payload;
     try {
@@ -267,8 +254,8 @@ const messageHandlers = {
     }
 
     try {
-        // 统一规则：使用新的帮助函数获取有效规则
-        const effectiveRule = await getEffectiveRuleForHost(hostname);
+        // Use the new centralized function to get settings
+        const effectiveRule = await getEffectiveSettings(hostname);
 
         if (effectiveRule.autoTranslate === 'always') {
             console.log(`[Auto-Translate] Rule for '${hostname}' matched. Approving translation.`);
@@ -303,6 +290,36 @@ browser.commands.onCommand.addListener(async (command) => {
 });
 
 browser.contextMenus.onClicked.addListener(handleContextMenuClick);
+
+browser.storage.onChanged.addListener((changes, area) => {
+    if (area === 'sync' && changes.settings) {
+        console.log("[Service Worker] Settings changed. Notifying content scripts and popup.");
+        // Notify all active tabs
+        browser.tabs.query({}).then(tabs => {
+            for (const tab of tabs) {
+                if (tab.id) {
+                    browser.tabs.sendMessage(tab.id, { type: 'SETTINGS_UPDATED' }).catch(e => {
+                        // Ignore errors, as content script might not be injected in all tabs
+                        if (!e.message.includes("Receiving end does not exist")) {
+                            logError('storage.onChanged (notify tab)', e);
+                        }
+                    });
+                }
+            }
+        });
+
+        // Notify the popup (if open)
+        browser.runtime.sendMessage({ type: 'SETTINGS_UPDATED' }).catch(e => {
+            // Ignore errors, as popup might not be open
+            if (!e.message.includes("Could not establish connection. Receiving end does not exist.")) {
+                 logError('storage.onChanged (notify popup)', e);
+            }
+        });
+
+        // Also, update any service-worker-specific variables that depend on settings
+        TranslatorManager.updateConcurrencyLimit();
+    }
+});
 
 browser.runtime.onMessage.addListener((request, sender) => {
   const handler = messageHandlers[request.type];

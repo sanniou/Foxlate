@@ -85,61 +85,37 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const getEffectiveRule = (settings, hostname) => {
-        // Start with the base settings as the default rule.
-        const defaultRule = { 
-            ...settings,
-            autoTranslate: settings.autoTranslate || 'manual',
-            displayMode: settings.displayMode || 'replace',
-            targetLanguage: settings.targetLanguage || 'ZH'
-        };
-    
-        if (!hostname) {
-            return { rule: defaultRule, source: 'default' };
-        }
-    
-        const domainRules = settings.domainRules || {};
-        // Find the most specific domain rule that matches the current hostname.
-        const matchedDomain = Object.keys(domainRules)
-            .filter(d => hostname.endsWith(d))
-            .sort((a, b) => b.length - a.length)[0];
-    
-        if (matchedDomain) {
-            const specificRule = domainRules[matchedDomain];
-            // Ensure subdomain application is respected.
-            if (specificRule.applyToSubdomains !== false || hostname === matchedDomain) {
-                return { rule: { ...defaultRule, ...specificRule }, source: matchedDomain };
-            }
-        }
-        return { rule: defaultRule, source: 'default' };
-    };
-
     const loadAndApplySettings = async () => {
         const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
         if (!tab) return;
         activeTabId = tab.id;
 
-        const { settings } = await browser.storage.sync.get('settings');
-        const globalSettings = settings || {};
-
         currentHostname = getHostname(tab.url);
-        const { rule: finalRule, source } = getEffectiveRule(globalSettings, currentHostname);
-        currentRuleSource = source;
+        const finalRule = await browser.runtime.sendMessage({
+            type: 'GET_EFFECTIVE_SETTINGS',
+            payload: { hostname: currentHostname }
+        });
+
+        // The source of the rule is no longer determined in the popup.
+        // We can simplify the indicator or remove it if not needed.
+        // For now, let's just say if a domain rule was applied.
+        const globalSettings = await browser.runtime.sendMessage({ type: 'GET_VALIDATED_SETTINGS' });
+        const isDomainRule = finalRule.source !== 'default'; // This assumes getEffectiveSettings adds a 'source' property.
+        currentRuleSource = isDomainRule ? currentHostname : 'default';
 
         // Populate UI elements using the effective rule (finalRule)
         const allSupportedEngines = { ...window.Constants.SUPPORTED_ENGINES, ...(globalSettings.aiEngines || []).reduce((acc, eng) => ({...acc, [`ai:${eng.id}`]: eng.name}), {}) };
-        populateSelect(elements.engineSelect, allSupportedEngines, finalRule.translatorEngine || 'deeplx');
-        populateSelect(elements.sourceLanguageSelect, window.Constants.SUPPORTED_LANGUAGES, 'auto');
+        populateSelect(elements.engineSelect, allSupportedEngines, finalRule.translatorEngine);
+        populateSelect(elements.sourceLanguageSelect, window.Constants.SUPPORTED_LANGUAGES, finalRule.sourceLanguage);
         const targetLangs = { ...window.Constants.SUPPORTED_LANGUAGES };
         delete targetLangs.auto;
-        populateSelect(elements.targetLanguageSelect, targetLangs, finalRule.targetLanguage || 'ZH');
-        elements.displayModeSelect.value = finalRule.displayMode || 'replace';
+        populateSelect(elements.targetLanguageSelect, targetLangs, finalRule.targetLanguage);
+        elements.displayModeSelect.value = finalRule.displayMode;
 
         elements.autoTranslateCheckbox.disabled = !currentHostname;
         elements.autoTranslateCheckbox.checked = finalRule.autoTranslate === 'always';
         elements.currentRuleIndicator.textContent = `Rule: ${currentRuleSource}`;
 
-        // ** (修复 #3) 状态管理重构：依赖 service-worker **
         await updateButtonStateFromContentScript();
         manageSelectLabels();
     };
@@ -162,6 +138,7 @@ document.addEventListener('DOMContentLoaded', () => {
             updateTranslateButtonState(response.state);
             elements.translatePageBtn.disabled = false;
             elements.displayModeSelect.disabled = false;
+            elements.sourceLanguageSelect.disabled = false;
             elements.targetLanguageSelect.disabled = false;
             elements.engineSelect.disabled = false;
             // Re-enable the switch if a hostname is present (which it should be if content script exists)
@@ -175,6 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Disable controls that depend on the content script.
             elements.translatePageBtn.disabled = true;
             elements.displayModeSelect.disabled = true;
+            elements.sourceLanguageSelect.disabled = true;
             elements.targetLanguageSelect.disabled = true;
             elements.engineSelect.disabled = true;
             elements.autoTranslateCheckbox.disabled = true;
@@ -197,26 +175,11 @@ document.addEventListener('DOMContentLoaded', () => {
             console.warn("[Popup] Cannot save rule change, no active hostname.");
             return;
         }
-
-        const { settings } = await browser.storage.sync.get('settings');
-        const globalSettings = settings || {};
-        
-        // 确保 domainRules 对象存在
-        if (!globalSettings.domainRules) {
-            globalSettings.domainRules = {};
-        }
-
-        // 确定要修改哪个域名的规则。
-        // 如果当前生效的是默认规则，则为当前主机名创建一个新规则。
-        const domainToUpdate = (currentRuleSource === 'default') ? currentHostname : currentRuleSource;
-
-        // 获取此域名的现有规则，如果不存在则创建一个新对象。
-        const rule = globalSettings.domainRules[domainToUpdate] || {};
-        rule[key] = value; // 更新规则上的特定属性。
-        globalSettings.domainRules[domainToUpdate] = rule; // 将更新后或新的规则放回 domainRules 对象中。
-
-        await browser.storage.sync.set({ settings: globalSettings });
-        await loadAndApplySettings(); // 重新加载设置以在UI中反映更改。
+        await browser.runtime.sendMessage({
+            type: 'SAVE_RULE_CHANGE',
+            payload: { hostname: currentHostname, ruleSource: currentRuleSource, key, value }
+        });
+        // The settings will be reloaded automatically via the SETTINGS_UPDATED event listener.
     };
 
     async function handleTranslateButtonClick() {
@@ -257,12 +220,17 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.versionDisplay.textContent = `v${browser.runtime.getManifest().version}`;
         await loadAndApplySettings();
 
-        // The source language is always auto-detected, so this dropdown is for display only.
-        elements.sourceLanguageSelect.disabled = true;
+        browser.runtime.onMessage.addListener((request) => {
+            if (request.type === 'SETTINGS_UPDATED') {
+                console.log("[Popup] Received settings update. Reloading.");
+                loadAndApplySettings();
+            }
+        });
 
         elements.openOptionsBtn.addEventListener('click', () => browser.runtime.openOptionsPage());
         elements.translatePageBtn.addEventListener('click', handleTranslateButtonClick);
 
+        elements.sourceLanguageSelect.addEventListener('change', (e) => saveChangeToRule('sourceLanguage', e.target.value));
         elements.autoTranslateCheckbox.addEventListener('change', (e) => saveChangeToRule('autoTranslate', e.target.checked ? 'always' : 'manual'));
         elements.engineSelect.addEventListener('change', (e) => saveChangeToRule('translatorEngine', e.target.value));
         elements.targetLanguageSelect.addEventListener('change', (e) => saveChangeToRule('targetLanguage', e.target.value));

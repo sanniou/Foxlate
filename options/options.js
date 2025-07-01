@@ -1,3 +1,5 @@
+import { getValidatedSettings, generateDefaultPrecheckRules } from '../common/settings-manager.js';
+
 document.addEventListener('DOMContentLoaded', () => {
     // --- Element Cache ---
     const elements = {
@@ -55,6 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ruleAutoTranslateSelect: document.getElementById('ruleAutoTranslate'),
         ruleTranslatorEngineSelect: document.getElementById('ruleTranslatorEngine'),
         ruleTargetLanguageSelect: document.getElementById('ruleTargetLanguage'),
+        ruleSourceLanguageSelect: document.getElementById('ruleSourceLanguage'),
         ruleDisplayModeSelect: document.getElementById('ruleDisplayMode'),
         ruleCssSelectorTextarea: document.getElementById('ruleCssSelector'),
         ruleCssSelectorOverrideCheckbox: document.getElementById('ruleCssSelectorOverride'),
@@ -304,30 +307,34 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- Core Logic Functions ---
+    
+
     const loadSettings = async () => {
-        const { settings } = await browser.storage.sync.get('settings');
-        const currentSettings = settings || {};
+        try {
+            const currentSettings = await getValidatedSettings();
 
-        elements.translatorEngine.value = currentSettings.translatorEngine || 'deeplx';
-        elements.targetLanguage.value = currentSettings.targetLanguage || 'ZH';
-        // Default translation selector
-        elements.defaultTranslationSelector.value = currentSettings.translationSelector?.default || window.Constants.DEFAULT_TRANSLATION_SELECTOR;
-        elements.deeplxApiUrl.value = currentSettings.deeplxApiUrl || '';
+            elements.translatorEngine.value = currentSettings.translatorEngine;
+            elements.targetLanguage.value = currentSettings.targetLanguage;
+            elements.defaultTranslationSelector.value = currentSettings.translationSelector.default;
+            elements.deeplxApiUrl.value = currentSettings.deeplxApiUrl;
+            elements.displayModeSelect.value = currentSettings.displayMode;
 
-        elements.displayModeSelect.value = currentSettings.displayMode || 'replace';
+            // Load AI Engines
+            aiEngines = JSON.parse(JSON.stringify(currentSettings.aiEngines)); // Deep copy
+            populateAiEngineOptions(); // Populate the main dropdown
 
-        // Load AI Engines
-        aiEngines = JSON.parse(JSON.stringify(currentSettings.aiEngines || [])); // Deep copy
-        populateAiEngineOptions(); // Populate the main dropdown
+            domainRules = JSON.parse(JSON.stringify(currentSettings.domainRules)); // Deep copy
+            
+            precheckRules = JSON.parse(JSON.stringify(currentSettings.precheckRules));
 
-        domainRules = JSON.parse(JSON.stringify(currentSettings.domainRules || {})); // Deep copy
-        toggleApiFields();
-        renderDomainRules();
-        const defaultPrecheckRules = generateDefaultPrecheckRules();
-        const storedRules = currentSettings.precheckRules;
-        precheckRules = storedRules && Object.keys(storedRules).length > 0 ? storedRules : JSON.parse(JSON.stringify(defaultPrecheckRules));
-        renderPrecheckRulesUI();
-        clearUnsavedChanges(); // Reset tracking on load
+            toggleApiFields();
+            renderDomainRules();
+            renderPrecheckRulesUI();
+            clearUnsavedChanges(); // Reset tracking on load
+        } catch (error) {
+            console.error("Failed to load and validate settings:", error);
+            showStatusMessage(browser.i18n.getMessage('loadSettingsError'), true);
+        }
     };
 
     const saveSettings = async () => {
@@ -426,16 +433,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const confirmationMessage = browser.i18n.getMessage('resetSettingsConfirm') || 'Are you sure you want to reset all settings to their default values? This action cannot be undone.';
         if (window.confirm(confirmationMessage)) {
             try {
-                await browser.storage.sync.remove('settings');
-                // After removing, reload the settings, which will apply defaults and reset unsaved changes.
-                await loadSettings();
+                const defaultSettings = JSON.parse(JSON.stringify(window.Constants.DEFAULT_SETTINGS));
+                // Dynamically generate the default precheck rules with i18n names
+                defaultSettings.precheckRules = generateDefaultPrecheckRules();
+
+                await browser.storage.sync.set({ settings: defaultSettings });
+                
+                // After resetting, reload the settings, which will apply defaults and reset UI.
+                await loadSettings(); 
                 showStatusMessage(browser.i18n.getMessage('resetSettingsSuccess'));
             } catch (error) {
                 console.error('Error resetting settings:', error);
                 showStatusMessage(browser.i18n.getMessage('resetSettingsError'), true);
             }
         }
-    };
+    };""
 
 
     // --- Pre-check Rules UI Logic ---
@@ -446,33 +458,7 @@ document.addEventListener('DOMContentLoaded', () => {
      * It combines general rules from constants with dynamically generated language-specific rules.
      * @returns {object} The complete default pre-check rules object.
      */
-    function generateDefaultPrecheckRules() { 
-        // Start with a deep copy of the general rules from constants.
-        const defaultRules = JSON.parse(JSON.stringify(window.Constants.DEFAULT_PRECHECK_RULES));
-
-        // 1. Internationalize the names of the general rules using the stable `nameKey`.
-        if (defaultRules.general) {
-            defaultRules.general.forEach(rule => {
-                rule.name = browser.i18n.getMessage(rule.nameKey) || rule.name; // Use nameKey for i18n
-                delete rule.nameKey; // Clean up the temporary key
-            });
-        }
-
-        // 2. Dynamically generate and add language-specific whitelist rules.
-        for (const langCode in window.Constants.LANG_REGEX_MAP) {
-            if (window.Constants.SUPPORTED_LANGUAGES[langCode]) {
-                const langName = browser.i18n.getMessage(window.Constants.SUPPORTED_LANGUAGES[langCode]) || langCode;
-                defaultRules[langCode] = [{
-                    name: `${browser.i18n.getMessage('precheckRuleContains') || 'Contains '} ${langName}`,
-                    regex: window.Constants.LANG_REGEX_MAP[langCode].regex,
-                    mode: 'whitelist',
-                    enabled: true,
-                    flags: window.Constants.LANG_REGEX_MAP[langCode].flags,
-                }];
-            }
-        }
-        return defaultRules;
-    }
+    
 
     function renderPrecheckRulesUI() {
         const container = document.getElementById('precheck-rules-container');
@@ -779,21 +765,24 @@ document.addEventListener('DOMContentLoaded', () => {
         if (elements.ruleTargetLanguageSelect.value !== 'default') {
             rule.targetLanguage = elements.ruleTargetLanguageSelect.value;
         }
+        if (elements.ruleSourceLanguageSelect.value !== 'default') { // 新增
+            rule.sourceLanguage = elements.ruleSourceLanguageSelect.value;
+        }
         if (elements.ruleDisplayModeSelect.value !== 'default') {
             rule.displayMode = elements.ruleDisplayModeSelect.value;
         }
         const cssSelector = elements.ruleCssSelectorTextarea.value.trim();
+        // Always save the override checkbox state, but only save the selector if it's not empty.
+        rule.cssSelectorOverride = elements.ruleCssSelectorOverrideCheckbox.checked;
         if (cssSelector) {
             rule.cssSelector = cssSelector;
-            // Always be explicit about the override state if a selector is present.
-            // This is more robust than only saving the 'true' case.
-            rule.cssSelectorOverride = elements.ruleCssSelectorOverrideCheckbox.checked;
-        } else if (elements.ruleCssSelectorOverrideCheckbox.checked) {
-            // If no selector is entered, but override is checked, save the override state.
-            rule.cssSelectorOverride = true;
+        } else {
+            // If the selector is empty, ensure the cssSelector property is not saved, 
+            // so it correctly falls back to the global default.
+            delete rule.cssSelector; 
         }
         // --- 3. Save to local state and mark as changed ---
-        if (originalDomain && originalDomain !== newDomain) {
+       if (originalDomain && originalDomain !== newDomain) {
             delete domainRules[originalDomain];
         }
         domainRules[newDomain] = rule;
@@ -923,10 +912,11 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.ruleAutoTranslateSelect.value = ruleData.autoTranslate || 'default';
         elements.ruleTranslatorEngineSelect.value = ruleData.translatorEngine || 'default';
         elements.ruleTargetLanguageSelect.value = ruleData.targetLanguage || 'default';
+        elements.ruleSourceLanguageSelect.value = ruleData.sourceLanguage || 'default';
         elements.ruleDisplayModeSelect.value = ruleData.displayMode || 'default';
         elements.ruleCssSelectorTextarea.value = ruleData.cssSelector || '';
-        // The checkbox should be unchecked by default unless cssSelectorOverride is explicitly true
-        elements.ruleCssSelectorOverrideCheckbox.checked = ruleData.cssSelectorOverride === true;
+        // Default to false if not specified
+        elements.ruleCssSelectorOverrideCheckbox.checked = ruleData.cssSelectorOverride || false;
     };
 
     const closeDomainRuleModal = () => {
@@ -1140,6 +1130,16 @@ document.addEventListener('DOMContentLoaded', () => {
             option.value = code;
             option.textContent = browser.i18n.getMessage(window.Constants.SUPPORTED_LANGUAGES[code]);
             langSelect.appendChild(option);
+        }
+
+        // Populate Source Language dropdown
+        const sourceLangSelect = elements.ruleSourceLanguageSelect;
+        sourceLangSelect.innerHTML = `<option value="default">${browser.i18n.getMessage('useDefaultSetting')}</option>`;
+        for (const code in window.Constants.SUPPORTED_LANGUAGES) {
+            const option = document.createElement('option');
+            option.value = code;
+            option.textContent = browser.i18n.getMessage(window.Constants.SUPPORTED_LANGUAGES[code]);
+            sourceLangSelect.appendChild(option);
         }
         // Display Mode dropdown is already static in HTML with 'default' option
     };

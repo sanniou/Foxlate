@@ -1,3 +1,4 @@
+import { getValidatedSettings } from '../common/settings-manager.js';
 import { DeepLxTranslator } from './translators/deeplx-translator.js';
 import { GoogleTranslator } from './translators/google-translator.js';
 import { AITranslator } from './translators/ai-translator.js';
@@ -89,8 +90,8 @@ async function executeTranslation(text, targetLang, sourceLang = 'auto', engine,
             return { text: "", translated: false, log: log };
         }
 
-        const { settings } = await browser.storage.sync.get('settings');
-        const precheckRules = settings?.precheckRules;
+        const settings = await getValidatedSettings();
+        const precheckRules = settings.precheckRules;
 
         if (!precheckRules || Object.keys(precheckRules).length === 0) {
             const errorMessage = "预检查规则未配置或为空，请检查设置。";
@@ -171,9 +172,9 @@ async function executeTranslation(text, targetLang, sourceLang = 'auto', engine,
             if (!engine || !engine.startsWith('ai:')) {
                 throw new Error(`Invalid AI engine identifier provided: ${engine}`);
             }
-            const { settings } = await browser.storage.sync.get('settings');
+            const settings = await getValidatedSettings();
             const selectedEngineId = engine.split(':')[1];
-            const aiConfig = settings?.aiEngines?.find(e => e.id === selectedEngineId);
+            const aiConfig = settings.aiEngines.find(e => e.id === selectedEngineId);
 
             if (!aiConfig) {
                 throw new Error(`Selected AI engine configuration not found for ID: ${selectedEngineId}`);
@@ -208,8 +209,8 @@ async function executeTranslation(text, targetLang, sourceLang = 'auto', engine,
 export class TranslatorManager {
   static async getTranslator(engine) {
     if (!engine) {
-        const { settings } = await browser.storage.sync.get('settings') || {};
-        engine = settings?.translatorEngine; // No fallback
+        const settings = await getValidatedSettings();
+        engine = settings.translatorEngine;
     }
     if (engine.startsWith('ai:')) {
       engine = 'ai';
@@ -293,23 +294,22 @@ export class TranslatorManager {
       // 进而触发其 .finally() 块，自动从 inFlightRequests 中清理。
       console.log("[TranslatorManager] All pending and active translation tasks have been interrupted.");
   }
+
+  static async updateConcurrencyLimit() {
+    const settings = await getValidatedSettings();
+    const max = settings.parallelRequests;
+    if (max && typeof max === 'number' && max > 0) {
+        MAX_CONCURRENT_REQUESTS = max;
+    }
+    console.log(`[TranslatorManager] Concurrency limit updated to ${MAX_CONCURRENT_REQUESTS}`);
+  }
 }
 
-// 当设置变化时，更新并发限制
-browser.storage.onChanged.addListener((changes, area) => {
-    if (area === 'sync' && changes.settings) {
-        const newSettings = changes.settings.newValue;
-        const newMax = newSettings?.parallelRequests;
-        if (newMax && typeof newMax === 'number' && newMax > 0) {
-            MAX_CONCURRENT_REQUESTS = newMax;
-            console.log(`[TranslatorManager] Concurrency limit updated to ${MAX_CONCURRENT_REQUESTS}`);
-        }
-    }
-});
+
 
 // 启动时初始化并发限制
-browser.storage.sync.get('settings').then(({ settings }) => {
-    const max = settings?.parallelRequests;
+getValidatedSettings().then((settings) => {
+    const max = settings.parallelRequests;
     if (max && typeof max === 'number' && max > 0) {
         MAX_CONCURRENT_REQUESTS = max;
     }

@@ -253,50 +253,10 @@ function stopObservers() {
  * @returns {Promise<object>} - 合并后的有效配置对象。
  */
 async function getEffectiveSettings() {
-    const { settings } = await browser.storage.sync.get('settings') || {};
-    // If no settings exist at all, return an empty object.
-    if (!settings) {
-        return {};
-    };
-
-    const hostname = window.location.hostname;
-    // Start with global settings as the base.
-    const defaultRule = { ...settings };
-
-    const domainRules = settings.domainRules || {};
-    let effectiveRule = {};
-
-    const matchingDomain = Object.keys(domainRules)
-        .filter(d => hostname.endsWith(d))
-        .sort((a, b) => b.length - a.length)[0];
-
-    if (matchingDomain) {
-        const rule = domainRules[matchingDomain];
-        if (rule.applyToSubdomains !== false || hostname === matchingDomain) {
-            effectiveRule = rule;
-        }
-    }
-
-    // Merge global settings with the specific rule.
-    const finalSettings = {
-        ...defaultRule,
-        ...effectiveRule
-    };
-
-    // Logic for determining the final selector based on overrides.
-    if (effectiveRule.cssSelector && effectiveRule.cssSelectorOverride) {
-        finalSettings.translationSelector = effectiveRule.cssSelector; // 强制使用域名规则的选择器
-    } else if (effectiveRule.cssSelector && !effectiveRule.cssSelectorOverride) {
-      // 合并 域名规则 css 选择器 和 settings.translationSelector.default
-      finalSettings.translationSelector = `${finalSettings.translationSelector?.default || ''}, ${effectiveRule.cssSelector}`.replace(/^, /, '');
-    } else if (finalSettings.translationSelector?.default) {
-      finalSettings.translationSelector = finalSettings.translationSelector.default; // 使用settings中的默认选择器
-    } else {
-      // If no selector is defined anywhere, it will be undefined.
-      delete finalSettings.translationSelector;
-    }
-
-    return finalSettings;
+    return browser.runtime.sendMessage({
+        type: 'GET_EFFECTIVE_SETTINGS',
+        payload: { hostname: window.location.hostname }
+    });
 }
 
 /**
@@ -306,9 +266,12 @@ async function getEffectiveSettings() {
  * @returns {HTMLElement[]} - 找到的顶层元素数组。
  */
 function findTranslatableRootElements(effectiveSettings, rootNodes = [document.body]) {
-    const selector = effectiveSettings?.translationSelector;
-    if (!selector) {
-        console.warn("[SanReader] No CSS selector provided. Cannot find translatable elements.");
+    // performPageTranslation ensures the selector is not undefined.
+    // An empty string is a valid configuration meaning "translate nothing".
+    // It must be handled to prevent `querySelectorAll` from throwing an error.
+    const selector = effectiveSettings?.translationSelector ?? '';
+    if (selector.trim() === '') {
+        console.log("[SanReader] An empty CSS selector is configured, so no elements will be selected for page translation.");
         return [];
     }
 
@@ -356,7 +319,8 @@ async function performPageTranslation(tabId) {
             revertPageTranslation(tabId); // Clean up UI
             return;
         }
-        if (!effectiveSettings.translationSelector) {
+        // 检查 translationSelector 是否为 undefined，允许其为空字符串 ""
+        if (typeof effectiveSettings.translationSelector === 'undefined') {
             logError('performPageTranslation', new Error(browser.i18n.getMessage('errorMissingSelector') || 'CSS selector for translation is not configured.'));
             revertPageTranslation(tabId); // Clean up UI
             return;
@@ -367,7 +331,7 @@ async function performPageTranslation(tabId) {
         return; // 停止执行，不再进行翻译
     }
 
-    translationJob = {
+   translationJob = {
         totalChunks: 0, completedChunks: 0, tabId: tabId, isTranslating: false, settings: effectiveSettings
     };
 
@@ -439,6 +403,12 @@ async function handleMessage(request, sender) {
         switch (request.type) {
             case 'PING':
                 return { status: 'PONG' };
+
+            case 'SETTINGS_UPDATED':
+                console.log("[Content Script] Received settings update. Updating local cache.");
+                // Re-fetch and cache the effective settings for subsequent operations.
+                translationJob.settings = await getEffectiveSettings();
+                return; // No response needed
 
             case 'TRANSLATE_PAGE_REQUEST':
                 await performPageTranslation(request.payload?.tabId);
