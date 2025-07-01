@@ -74,7 +74,7 @@
   // 确保 Firefox 兼容性
   "browser_specific_settings": {
     "gecko": {
-      "id": "translator@example.com"
+      "id": "foxlate@sanni"
     }
   }
 }
