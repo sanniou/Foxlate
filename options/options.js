@@ -109,7 +109,7 @@ document.addEventListener('DOMContentLoaded', () => {
         resultElement.innerHTML = ''; // 清空之前的 HTML 内容
 
         if (!regexValue) {
-            resultElement.textContent = '请输入正则表达式'; // Please enter a regex
+            resultElement.textContent = browser.i18n.getMessage('enterRegex') || '请输入正则表达式';
             resultElement.classList.add('show');
             return;
         }
@@ -129,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const matches = [...testText.matchAll(regex)]; // 获取所有匹配项
 
             if (matches.length === 0) {
-                resultElement.textContent = '不匹配';
+                resultElement.textContent = browser.i18n.getMessage('regexTestNoMatch') || 'No match';
                 resultElement.classList.add('show');
             } else {
                 let lastIndex = 0;
@@ -154,7 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (e) {
             // 捕获无效正则表达式的错误
-            resultElement.textContent = `无效的正则表达式: ${e.message}`; // Invalid Regex
+            resultElement.textContent = `${browser.i18n.getMessage('invalidRegex') || '无效的正则表达式'}: ${e.message}`;
             resultElement.classList.add('show');
             // 重新验证输入框以显示错误状态
             validateRegexInput(regexInput, flagsInput);
@@ -204,10 +204,12 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) {
             isValid = false;
             errorMessage = e.message;
+            const invalidRegexMsg = browser.i18n.getMessage('invalidRegex') || 'Invalid Regular Expression';
+            const invalidFlagsMsg = browser.i18n.getMessage('invalidRegexFlags') || 'Invalid Regex Flags';
             regexInput.classList.add('is-invalid');
-            regexInput.title = `无效的正则表达式: ${errorMessage}`; // Tooltip for error
+            regexInput.title = `${invalidRegexMsg}: ${errorMessage}`; // Tooltip for error
             flagsInput.classList.add('is-invalid'); // Mark flags input as invalid too, as the error might be a combination or related.
-            flagsInput.title = `无效的正则表达式标志: ${errorMessage}`;
+            flagsInput.title = `${invalidFlagsMsg}: ${errorMessage}`;
         }
         return isValid;
     }
@@ -689,7 +691,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const renderDomainRules = () => {
       elements.domainRulesList.innerHTML = "";
         const rulesArray = Object.entries(domainRules).map(([domain, rule]) => ({ domain, ...rule }));
-        if (rulesArray.length === 0) {
+        if (rulesArray.length === 0) { // 修复：消息在 ul 元素内显示
             elements.domainRulesList.innerHTML = `<p>${browser.i18n.getMessage('noRulesFound') || 'No domain rules configured.'}</p>`;
             return;
         }

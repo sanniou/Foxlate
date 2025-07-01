@@ -538,5 +538,41 @@
   "popupTranslationNotAvailable": {
     "message": "此页面不支持翻译。",
     "description": "在无法翻译的页面（例如 about: 页面）上，弹窗中显示的消息。"
+  },
+  "commandToggleTranslation": {
+    "message": "切换显示翻译/原文",
+    "description": "用于切换页面翻译的命令描述。"
+  },
+  "commandTranslateSelection": {
+    "message": "翻译选中的文字",
+    "description": "用于翻译选定文本的命令描述。"
+  },
+  "enterRegex": {
+    "message": "请输入正则表达式",
+    "description": "提示用户输入正则表达式。"
+  },
+  "invalidRegex": {
+    "message": "无效的正则表达式",
+    "description": "提示用户输入的正则表达式无效。"
+  },
+  "regexTestNoMatch": {
+    "message": "不匹配",
+    "description": "当正则表达式测试没有匹配项时显示的消息。"
+  },
+  "invalidRegexFlags": {
+    "message": "无效的正则表达式标志",
+    "description": "提示用户输入的正则表达式标志无效。"
+  },
+  "testRegexInputLabel": {
+    "message": "测试文本:",
+    "description": "预检查规则部分中测试文本输入框的标签。"
+  },
+  "testRegexInputDescription": {
+    "message": "在此输入文本以测试您的正则表达式规则。",
+    "description": "测试文本输入框的辅助文本。"
+  },
+  "testRegexInputPlaceholder": {
+    "message": "输入文本以测试正则表达式...",
+    "description": "测试文本输入框的占位符。"
   }
 }

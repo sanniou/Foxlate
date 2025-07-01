@@ -9,10 +9,9 @@
     "128": "icons/icon-128.png"
   },
   "permissions": [
-    "storage",      // 存储用户设置
-    "activeTab",    // 访问当前活动标签页
-    "scripting",    // 向页面注入脚本
-    "contextMenus"  // (可选) 添加右键菜单翻译
+    "storage",  
+    "scripting", 
+    "contextMenus" 
   ],
   "host_permissions": [
     "<all_urls>"
@@ -52,13 +51,13 @@
       "suggested_key": {
         "default": "Alt+A"
       },
-      "description": "切换显示翻译/原文"
+      "description": "__MSG_commandToggleTranslation__"
     },
     "translate-selection": {
       "suggested_key": {
         "default": "Alt+S"
       },
-      "description": "翻译选中的文字"
+      "description": "__MSG_commandTranslateSelection__"
     }
   },
   "options_ui": {
@@ -71,7 +70,6 @@
       "matches": [ "<all_urls>" ]
     }
   ],
-  // 确保 Firefox 兼容性
   "browser_specific_settings": {
     "gecko": {
       "id": "foxlate@sanni"

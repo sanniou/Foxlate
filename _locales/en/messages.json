@@ -524,5 +524,41 @@
   "popupTranslationNotAvailable": {
     "message": "Translation is not available on this page.",
     "description": "Message shown in the popup when on a page that cannot be translated (e.g., about: pages)."
+  },
+  "commandToggleTranslation": {
+    "message": "Toggle displaying translation/original text",
+    "description": "Description for the command that toggles page translation."
+  },
+  "commandTranslateSelection": {
+    "message": "Translate selected text",
+    "description": "Description for the command that translates the selected text."
+  },
+  "enterRegex": {
+    "message": "Please enter a regex",
+    "description": "Prompt for entering a regular expression."
+  },
+  "invalidRegex": {
+    "message": "Invalid regex",
+    "description": "Message indicating an invalid regular expression."
+  },
+  "regexTestNoMatch": {
+    "message": "No match",
+    "description": "Message displayed when a regex test results in no matches."
+  },
+  "invalidRegexFlags": {
+    "message": "Invalid regex flags",
+    "description": "Message indicating invalid regular expression flags."
+  },
+  "testRegexInputLabel": {
+    "message": "Test Text:",
+    "description": "Label for the test text input field in the pre-check rules section."
+  },
+  "testRegexInputDescription": {
+    "message": "Enter text here to test your regular expression rules.",
+    "description": "Helper text for the test text input field."
+  },
+  "testRegexInputPlaceholder": {
+    "message": "Enter text to test against the regex...",
+    "description": "Placeholder for the test text input field."
   }
 }
