@@ -17,8 +17,8 @@ window.Constants = {
     },
 
     SUPPORTED_ENGINES: {
+        'google': 'googleTranslate',
         'deeplx': 'deeplx',
-        'google': 'googleTranslate'
     },
 
     // Maps language codes to their corresponding script regex for pre-check rules.
@@ -50,7 +50,7 @@ window.Constants = {
     DEFAULT_TRANSLATION_SELECTOR: 'p, h1, h2, h3, h4, li, a, span, div, td, th, blockquote, pre, code, strong, em, b, i, small, sub, sup, dd, dt, caption, figcaption, legend, label',
 
     DEFAULT_SETTINGS: {
-        translatorEngine: 'deeplx',
+        translatorEngine: 'google',
         targetLanguage: 'ZH',
         displayMode: 'replace',
         deeplxApiUrl: '',
