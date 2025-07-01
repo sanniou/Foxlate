@@ -460,27 +460,22 @@ async function handleMessage(request, sender) {
 
             case 'DISPLAY_SELECTION_TRANSLATION': //  处理右键翻译结果
                 {
-                    const { isLoading, success, translatedText, error } = request.payload;
-                    const selection = window.getSelection();
-                    if (selection && selection.rangeCount > 0) {
-                        const range = selection.getRangeAt(0);
-                        const rect = range.getBoundingClientRect();
-                        // 计算 Tooltip 位置，使其出现在选区下方
-                        const x = rect.left + rect.width / 2;
-                        const y = rect.bottom + 10; // 选区下方 10px
-                        const coords = { clientX: x, clientY: y };
+                    // 后台脚本现在会提供所有必要的细节，包括坐标。
+                    const { isLoading, success, translatedText, error, coords, source } = request.payload;
 
-                        if (isLoading) {
+                    // 'coords' 对象对于此消息类型是必需的。
+                    if (coords) {
+                         if (isLoading) {
                             const loadingMessage = browser.i18n.getMessage('popupTranslating') || 'Translating...';
-                            window.contextMenuStrategy.displayTranslation(coords, loadingMessage, true);
-                        } else if (success && translatedText) {
-                            window.contextMenuStrategy.displayTranslation(coords, translatedText, false);
+                            window.contextMenuStrategy.displayTranslation(coords, loadingMessage, true, source);
+                        } else if (success) {
+                            window.contextMenuStrategy.displayTranslation(coords, translatedText, false, source);
                         } else if (error) {
                             const errorMessage = browser.i18n.getMessage('testError') || 'Error';
-                            window.contextMenuStrategy.displayTranslation(coords, `${errorMessage}: ${error}`, false);
+                            window.contextMenuStrategy.displayTranslation(coords, `${errorMessage}: ${error}`, false, source);
                         }
                     }
-                    break; // 修复：防止 fall-through 到下一个 case
+                    break;
                 }
                 
             case 'REQUEST_TRANSLATION_STATUS': {
@@ -489,7 +484,7 @@ async function handleMessage(request, sender) {
 
                 if (sessionActive) {
                     // 页面处于翻译会话中，根据是否在忙碌来决定是“加载中”还是“已翻译”
-                    state = translationJob.isTranslating ? 'loading' : 'translated'; // 修正：先判断是否正在翻译
+                    state = translationJob.isTranslating ? 'loading' : 'translated';
                 }
                 // 如果会话未激活，状态保持 'original'
                 return { state: state };

@@ -61,8 +61,9 @@ function updateTooltipPosition(coords) {
  * @param {object} coords - 用于定位的包含 clientX 和 clientY 的对象。
  * @param {string} text - 要在工具提示中显示的文本。
  * @param {boolean} [isLoading=false] - 是否显示为加载状态。
+ * @param {string} [source='contextMenu'] - 触发来源 ('contextMenu' or 'shortcut').
  */
-function showTooltip(coords, text, isLoading = false) {
+function showTooltip(coords, text, isLoading = false, source = 'contextMenu') {
     createTooltip();
     const tooltipEl = document.querySelector('.universal-translator-context-menu-tooltip');
     if (!tooltipEl) return;
@@ -70,6 +71,8 @@ function showTooltip(coords, text, isLoading = false) {
     // 首先，隐藏任何现有的工具提示并清理其监听器以防止冲突。
     hideTooltip();
 
+    // 根据来源添加/移除特定的类
+    tooltipEl.classList.toggle('from-shortcut', source === 'shortcut');
     tooltipEl.textContent = text;
     tooltipEl.classList.toggle('loading', isLoading);
     
@@ -117,10 +120,11 @@ window.contextMenuStrategy = {
      * @param {object} coords - 用于定位的包含 clientX 和 clientY 的对象。
      * @param {string} translatedText - 要显示的翻译文本。
      * @param {boolean} [isLoading=false] - 是否显示为加载状态。
+     * @param {string} [source='contextMenu'] - 触发来源。
      */
-    displayTranslation: function(coords, translatedText, isLoading = false) {
+    displayTranslation: function(coords, translatedText, isLoading = false, source = 'contextMenu') {
         // 此函数现在只是 showTooltip 的一个简洁包装。
-        showTooltip(coords, translatedText, isLoading);
+        showTooltip(coords, translatedText, isLoading, source);
     },
 
     /**

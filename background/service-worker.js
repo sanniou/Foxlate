@@ -24,53 +24,86 @@ browser.runtime.onInstalled.addListener(() => {
   console.log("Context menu created.");
 });
 
+/**
+ * Injects a script into the tab to get the selected text and its position.
+ * @param {number} tabId - The ID of the tab to inject the script into.
+ * @returns {Promise<{text: string, coords: {clientX: number, clientY: number}}|null>}
+ */
+async function getSelectionDetailsFromTab(tabId) {
+  try {
+    const injectionResults = await browser.scripting.executeScript({
+      target: { tabId: tabId },
+      func: () => {
+        const selection = window.getSelection();
+        if (selection && selection.rangeCount > 0) {
+          const range = selection.getRangeAt(0);
+          const rect = range.getBoundingClientRect();
+          // Return the text and the coordinates to position the tooltip
+          return {
+            text: selection.toString(),
+            coords: {
+              // 使用视口相对坐标，因为工具提示是相对于视口定位的。
+              // getBoundingClientRect() 返回的已经是我们需要的视口坐标。
+              clientX: rect.left + rect.width / 2,
+              clientY: rect.bottom + 10 // 在选区下方 10px
+            }
+          };
+        }
+        return null;
+      },
+    });
+    // executeScript returns an array of results, one for each frame. We want the first one.
+    if (injectionResults && injectionResults[0] && injectionResults[0].result) {
+      return injectionResults[0].result;
+    }
+  } catch (e) {
+    // This can happen on pages where content scripts are not allowed to run.
+    logError('getSelectionDetailsFromTab', e);
+  }
+  return null;
+}
 
+/**
+ * Handles the translation for selected text from any source (context menu, shortcut).
+ * @param {object} tab - The tab where the selection was made.
+ * @param {string} source - The source of the trigger ('contextMenu' or 'shortcut').
+ */
+async function handleSelectionTranslation(tab, source) {
+  const selectionDetails = await getSelectionDetailsFromTab(tab.id);
 
-// --- Message Handlers ---
-
-async function handleContextMenuClick(info, tab) {
-  if (info.menuItemId !== "translate-selection" || !info.selectionText) {
+  if (!selectionDetails || !selectionDetails.text.trim()) {
+    console.log("No text selected or could not retrieve selection.");
     return;
   }
+
+  const { text: selectionText, coords } = selectionDetails;
+
   try {
+    // Send a "loading" message immediately to provide fast feedback to the user.
     browser.tabs.sendMessage(tab.id, {
       type: 'DISPLAY_SELECTION_TRANSLATION',
-      payload: { isLoading: true }
-    }).catch(e => {
-        if (!e.message.includes("Receiving end does not exist")) {
-             logError('handleContextMenuClick (Send Loading)', e);
-        }
-    });
+      payload: { isLoading: true, coords, source }
+    }).catch(e => logError('handleSelectionTranslation (Send Loading)', e));
 
-    // Use the new centralized function to get settings
     const hostname = new URL(tab.url).hostname;
     const effectiveRule = await getEffectiveSettings(hostname);
 
-    // 校验有效规则
-    if (!effectiveRule.targetLanguage) {
-        throw new Error(browser.i18n.getMessage('errorMissingTargetLanguage') || 'Target language is not configured. Please update settings.');
-    }
-    if (!effectiveRule.translatorEngine) {
-        throw new Error(browser.i18n.getMessage('errorMissingEngine') || 'Translation engine is not configured. Please update settings.');
-    }
-
-    // 使用有效规则中的目标语言和翻译引擎
-    const result = await TranslatorManager.translateText(info.selectionText, effectiveRule.targetLanguage, 'auto', effectiveRule.translatorEngine);
+    const result = await TranslatorManager.translateText(selectionText, effectiveRule.targetLanguage, 'auto', effectiveRule.translatorEngine);
 
     browser.tabs.sendMessage(tab.id, {
       type: 'DISPLAY_SELECTION_TRANSLATION',
-      payload: { success: !result.error, translatedText: result.text, error: result.error }
+      payload: { success: !result.error, translatedText: result.text, error: result.error, coords, source }
     });
   } catch (error) {
-    logError('handleContextMenuClick', error);
-    if (tab && tab.id) {
-      browser.tabs.sendMessage(tab.id, {
-        type: 'DISPLAY_SELECTION_TRANSLATION',
-        payload: { success: false, error: error.message },
-      }).catch(e => logError('handleContextMenuClick (Send Error)', e));
-    }
+    logError('handleSelectionTranslation', error);
+    browser.tabs.sendMessage(tab.id, {
+      type: 'DISPLAY_SELECTION_TRANSLATION',
+      payload: { success: false, error: error.message, coords, source },
+    }).catch(e => logError('handleSelectionTranslation (Send Error)', e));
   }
 }
+
+// --- Message Handlers ---
 
 const messageHandlers = {
   async TRANSLATE_TEXT(request) {
@@ -271,25 +304,33 @@ const messageHandlers = {
 
 // --- Main Event Listeners ---
 
-browser.commands.onCommand.addListener(async (command) => {
-  if (command === "toggle-translation") {
-    const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-    if (tab && tab.id) {
-      // 内容脚本是页面翻译状态的唯一真实来源。
-      // 我们只发送一个切换命令，让它自己决定该做什么。
-      browser.tabs.sendMessage(tab.id, {
-        type: "TOGGLE_TRANSLATION_REQUEST",
-        payload: { tabId: tab.id }
-      }).catch(e => {
-          if (!e.message.includes("Receiving end does not exist")) {
-              logError('onCommand listener', e);
-          }
-      });
-    }
+browser.commands.onCommand.addListener(async (command, tab) => {
+  switch (command) {
+    case "toggle-translation":
+      if (tab && tab.id) {
+        browser.tabs.sendMessage(tab.id, {
+          type: "TOGGLE_TRANSLATION_REQUEST",
+          payload: { tabId: tab.id }
+        }).catch(e => {
+            if (!e.message.includes("Receiving end does not exist")) {
+                logError('onCommand (toggle-translation)', e);
+            }
+        });
+      }
+      break;
+    case "translate-selection":
+      if (tab && tab.id) {
+        handleSelectionTranslation(tab, 'shortcut');
+      }
+      break;
   }
 });
 
-browser.contextMenus.onClicked.addListener(handleContextMenuClick);
+browser.contextMenus.onClicked.addListener((info, tab) => {
+    if (info.menuItemId === "translate-selection") {
+        handleSelectionTranslation(tab, 'contextMenu');
+    }
+});
 
 browser.storage.onChanged.addListener((changes, area) => {
     if (area === 'sync' && changes.settings) {

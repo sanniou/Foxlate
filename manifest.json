@@ -53,6 +53,12 @@
         "default": "Alt+A"
       },
       "description": "切换显示翻译/原文"
+    },
+    "translate-selection": {
+      "suggested_key": {
+        "default": "Alt+S"
+      },
+      "description": "翻译选中的文字"
     }
   },
   "options_ui": {
