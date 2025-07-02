@@ -195,6 +195,7 @@ function translateElements(elements) {
                 const wrapper = document.createElement('font');
                 const nodeId = `ut-${generateUUID()}`;
                 wrapper.dataset.translationId = nodeId;
+                wrapper.dataset.originalText = node.nodeValue; // 保存原始文本节点内容
 
                 // 将原始文本节点的内容移动到包裹元素中，保留原始的空白字符。
                 wrapper.textContent = node.nodeValue;
@@ -359,18 +360,25 @@ async function revertPageTranslation(tabId) {
     stopObservers();
     // 清除全局的翻译会话标记。
     delete document.body.dataset.translationSession;
+    
+    // 查找所有由我们创建的包裹元素，无论它们是否已翻译、正在翻译或出错。
+    // 'font[data-translation-id]' 是最可靠的选择器。
+    const wrappers = document.querySelectorAll('font[data-translation-id]');
 
-    const elements = document.querySelectorAll('[data-translation-strategy]');
-    elements.forEach(element => {
-        window.DisplayManager.revert(element);
-        // 清理所有状态，以便可以重新翻译
-        delete element.dataset.translated;
-        delete element.dataset.translationStrategy;
-        delete element.dataset.translationId;
-        delete element.dataset.translatedText;
-        element.classList.remove('universal-translator-error');
-        delete element.dataset.errorMessage;
+    wrappers.forEach(wrapper => {
+        // 检查是否有保存的原始文本
+        const originalText = wrapper.dataset.originalText;
+        if (typeof originalText === 'string' && wrapper.parentNode) {
+            // 创建原始的文本节点
+            const textNode = document.createTextNode(originalText);
+            // 用原始文本节点替换包裹元素，彻底恢复DOM
+            wrapper.parentNode.replaceChild(textNode, wrapper);
+        } else if (wrapper.parentNode) {
+            // 如果没有原始文本（异常情况），为避免留下空标签，直接移除
+            wrapper.parentNode.removeChild(wrapper);
+        }
     });
+
     translationJob.isTranslating = false;
 
     try {
