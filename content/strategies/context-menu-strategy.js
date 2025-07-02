@@ -6,9 +6,9 @@ let activeScrollHandler = null;
  * 如果工具提示元素不存在，则创建它。
  */
 function createTooltip() {
-    if (document.querySelector('.universal-translator-context-menu-tooltip')) return;
+    if (document.querySelector('.foxlate-panel.context-menu-panel')) return;
     const tooltip = document.createElement('div');
-    tooltip.className = 'universal-translator-context-menu-tooltip';
+    tooltip.className = 'foxlate-panel context-menu-panel'; // 使用新的统一面板类
     document.body.appendChild(tooltip);
 }
 
@@ -18,20 +18,11 @@ function createTooltip() {
  * @param {object} coords - 包含 clientX 和 clientY 的对象。
  */
 function updateTooltipPosition(coords) {
-    const tooltipEl = document.querySelector('.universal-translator-context-menu-tooltip');
+    const tooltipEl = document.querySelector('.foxlate-panel.context-menu-panel');
     if (!tooltipEl) return;
 
-    // 获取工具提示的尺寸。我们需要先显示它才能测量。
-    const wasHidden = tooltipEl.style.display === 'none';
-    if (wasHidden) {
-        tooltipEl.style.visibility = 'hidden';
-        tooltipEl.style.display = 'block';
-    }
+    // 由于面板现在使用 visibility 而不是 display:none，我们可以直接测量它。
     const tooltipRect = tooltipEl.getBoundingClientRect();
-    if (wasHidden) {
-        tooltipEl.style.display = 'none';
-        tooltipEl.style.visibility = 'visible';
-    }
 
     // 传入的 x 是工具提示期望的中心点。
     // 计算 left 位置以使工具提示居中。
@@ -66,7 +57,7 @@ function updateTooltipPosition(coords) {
  */
 function showTooltip(coords, text, isLoading = false, source = 'contextMenu') {
     createTooltip();
-    const tooltipEl = document.querySelector('.universal-translator-context-menu-tooltip');
+    const tooltipEl = document.querySelector('.foxlate-panel.context-menu-panel');
     if (!tooltipEl) return;
 
     // 首先，隐藏任何现有的工具提示并清理其监听器以防止冲突。
@@ -79,7 +70,7 @@ function showTooltip(coords, text, isLoading = false, source = 'contextMenu') {
     
     // 在显示之前定位工具提示以避免闪烁。
     updateTooltipPosition(coords);
-    tooltipEl.style.display = 'block';
+    tooltipEl.classList.add('visible');
 
     // 定义用于在点击外部时关闭工具提示的处理器。
     activeClickHandler = (e) => {
@@ -108,9 +99,9 @@ function showTooltip(coords, text, isLoading = false, source = 'contextMenu') {
  * 隐藏工具提示并清理所有相关的事件监听器。
  */
 function hideTooltip() {
-    const tooltipEl = document.querySelector('.universal-translator-context-menu-tooltip');
+    const tooltipEl = document.querySelector('.foxlate-panel.context-menu-panel');
     if (tooltipEl) {
-        tooltipEl.style.display = 'none';
+        tooltipEl.classList.remove('visible');
     }
 
     // 如果存在，则始终移除活动的点击处理器。

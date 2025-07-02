@@ -1,6 +1,6 @@
 window.DisplayManager = class DisplayManager {
     static apply(element, translatedText, displayMode = 'replace') {
-        const strategies = {
+        const strategies = { // 确保这里的 key 与 popup.html 中的 value 一致
             replace: window.replaceStrategy,
             append: window.appendTranslationStrategy,
             contextMenu: window.contextMenuStrategy, // 添加新的 strategy
@@ -12,7 +12,7 @@ window.DisplayManager = class DisplayManager {
             strategy.displayTranslation(element, translatedText); // 传递译文
             element.dataset.translationStrategy = displayMode;
             element.dataset.translated = "true";
-            element.dataset.translatedText = translatedText;
+            element.dataset.translatedText = translatedText; // 存储译文，以便切换模式时使用
             element.classList.add('universal-translator-translated');
         }
     }
@@ -33,7 +33,7 @@ window.DisplayManager = class DisplayManager {
         }
     }
     static showError(element, errorMessage) {
-        element.classList.add('universal-translator-error');
+        element.classList.add('foxlate-error-underline');
         element.dataset.errorMessage = errorMessage;
         element.title = `Translation Error: ${errorMessage}`;
     }

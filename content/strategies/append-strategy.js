@@ -6,12 +6,12 @@ window.appendTranslationStrategy = {
      */
     displayTranslation: function(element, translatedText) {
         // 查找已有的翻译 font 标签，有则更新，无则创建
-        let translationNode = element.querySelector('.translator-appended-text');
+        let translationNode = element.querySelector('.foxlate-appended-text');
         if (translationNode) {
             translationNode.textContent = ` ( ${translatedText} )`;
         } else {
             translationNode = document.createElement('span');
-            translationNode.className = 'translator-appended-text'; // 类名用于标识和还原
+            translationNode.className = 'foxlate-appended-text'; // 类名用于标识和还原
             translationNode.textContent = ` ( ${translatedText} )`;
             element.appendChild(translationNode);
         }
@@ -23,7 +23,7 @@ window.appendTranslationStrategy = {
      */
     revertTranslation: function(element) {
         // 移除所有由这个策略添加的节点
-        element.querySelectorAll('.translator-appended-text').forEach(node => {
+        element.querySelectorAll('.foxlate-appended-text').forEach(node => {
             if (node) {
                 node.remove();
             }

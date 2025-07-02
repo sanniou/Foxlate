@@ -2,6 +2,7 @@
     /* M3 Expressive Color Palette (Blue Theme) */
     --md-sys-color-primary: #3964e8;
     --md-sys-color-on-primary: #ffffff;
+    --md-sys-color-primary-rgb: 57, 100, 232; /* RGB version for rgba() */
     --md-sys-color-primary-container: #dce1ff;
     --md-sys-color-on-primary-container: #001c63;
 
@@ -10,15 +11,21 @@
 
     --md-sys-color-error: #ba1a1a;
     --md-sys-color-on-error: #ffffff;
+    --md-sys-color-error-container: #f9dedc;
+    --md-sys-color-on-error-container: #410e0b;
 
     --md-sys-color-background: #fefbff;
     --md-sys-color-on-background: #1b1b1f;
 
     --md-sys-color-surface: #fefbff;
     --md-sys-color-on-surface: #1b1b1f;
+    /* Surface Containers in increasing tonal elevation */
+    --md-sys-color-surface-container-low: #f6f4f9;
+    --md-sys-color-surface-container: #f0eef4;
+    --md-sys-color-surface-container-high: #e6e0e9;
+    --md-sys-color-surface-container-highest: #e4e2e6; /* 恢复缺失的最高层级容器颜色 */
     --md-sys-color-surface-variant: #e2e2ec;
     --md-sys-color-on-surface-variant: #45464f;
-    --md-sys-color-surface-container-highest: #e4e2e6;
 
     --md-sys-color-outline: #757780;
     --md-sys-color-outline-variant: #c5c6d0;
