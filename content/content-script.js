@@ -402,6 +402,9 @@ async function handleMessage(request, sender) {
     try {
         switch (request.type) {
             case 'PING':
+                return Promise.resolve({ status: 'PONG' });
+
+            case 'PING':
                 return { status: 'PONG' };
 
             case 'SETTINGS_UPDATED':
@@ -502,19 +505,6 @@ async function handleMessage(request, sender) {
  * 在内容脚本加载后，主动向后台查询当前页面是否应根据规则自动翻译。
  */
 async function triggerAutoTranslationCheck() {
-    try {
-        const response = await browser.runtime.sendMessage({
-            type: 'SHOULD_AUTO_TRANSLATE',
-            payload: { hostname: window.location.hostname, url: window.location.href }
-        });
-        if (response && response.shouldTranslate) {
-            // **(调试) 输出调用栈**
-            console.log("[SanReader] Auto-translation triggered:", new Error().stack);
-            await performPageTranslation(response.tabId);
-        }
-    } catch (error) {
-        logError('triggerAutoTranslationCheck', error);
-    }
 }
 
 function debounce(func, wait) {
@@ -537,9 +527,9 @@ function initializeContentScript() {
     try {
         browser.runtime.onMessage.addListener(handleMessage);
         console.log("[SanReader] Message listener set up successfully.");
-        
-        // 主动发起自动翻译检查
-        triggerAutoTranslationCheck();
+
+        // 在动态注入模型中，不再需要内容脚本主动发起检查。
+        // 后台脚本将在需要时注入此脚本并发送命令。
     } catch (error) {
         logError('initializeContentScript', new Error("Failed to set up message listener: " + error.message));
     }

@@ -11,7 +11,8 @@
   "permissions": [
     "storage",  
     "scripting", 
-    "contextMenus" 
+    "contextMenus",
+    "webNavigation"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -21,23 +22,6 @@
     // "service_worker": "background/service-worker.js",
     "type": "module"
   },
-  "content_scripts": [
-    {
-      "matches": ["*://*/*"],
-      "js": [
-        "lib/browser-polyfill.js",
-        "content/strategies/hover-strategy.js",
-        "content/strategies/append-strategy.js",
-        "content/strategies/replace-strategy.js",
-        "content/strategies/context-menu-strategy.js",
-        "content/display-manager.js",
-        "content/content-script.js"
-      ],
-      "css": ["content/style.css"],
-      "run_at": "document_idle"
-    }
-  ],
-  
   "default_locale": "en",
   "action": {
     "default_popup": "popup/popup.html",

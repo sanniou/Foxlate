@@ -3,6 +3,17 @@ import { getEffectiveSettings, getValidatedSettings } from '/common/settings-man
 import { TranslatorManager } from '/background/translator-manager.js';
 import { AITranslator } from '/background/translators/ai-translator.js';
 
+const CONTENT_SCRIPT_FILES = [
+    "lib/browser-polyfill.js",
+    "content/strategies/replace-strategy.js",
+    "content/strategies/append-strategy.js",
+    "content/strategies/hover-strategy.js",
+    "content/strategies/context-menu-strategy.js",
+    "content/display-manager.js",
+    "content/content-script.js"
+];
+const CSS_FILES = ["content/style.css"];
+
 /**
  * Centralized error logger.
  * @param {string} context - The context in which the error occurred (e.g., "Context Menu").
@@ -10,6 +21,32 @@ import { AITranslator } from '/background/translators/ai-translator.js';
  */
 function logError(context, error) {
   console.error(`[Foxlate Error] in ${context}:`, error.message, error.stack);
+}
+
+/**
+ * Ensures content scripts are injected and ready in a tab.
+ * Prevents re-injection and handles errors on restricted pages.
+ * @param {number} tabId The ID of the tab.
+ * @returns {Promise<boolean>} True if scripts are ready, false otherwise.
+ */
+async function ensureScriptsInjected(tabId) {
+    try {
+        // Ping the content script to see if it's already there.
+        const response = await browser.tabs.sendMessage(tabId, { type: 'PING' });
+        if (response?.status === 'PONG') {
+            return true; // Already injected and ready.
+        }
+    } catch (e) {
+        // Error means content script is not there. This is expected.
+    }
+    try {
+        await browser.scripting.insertCSS({ target: { tabId }, files: CSS_FILES });
+        await browser.scripting.executeScript({ target: { tabId }, files: CONTENT_SCRIPT_FILES });
+        return true;
+    } catch (error) {
+        logError(`ensureScriptsInjected for tab ${tabId}`, new Error(`Failed to inject scripts. This can happen on special pages (e.g., chrome://). Error: ${error.message}`));
+        return false;
+    }
 }
 
 // --- Context Menu Setup ---
@@ -67,6 +104,13 @@ async function getSelectionDetailsFromTab(tabId) {
  * @param {string} source - The source of the trigger ('contextMenu' or 'shortcut').
  */
 async function handleSelectionTranslation(tab, source) {
+  // First, ensure the content scripts are ready to display the result.
+  const scriptsReady = await ensureScriptsInjected(tab.id);
+  if (!scriptsReady) {
+      logError('handleSelectionTranslation', new Error(`Could not inject scripts into tab ${tab.id}.`));
+      return;
+  }
+
   const selectionDetails = await getSelectionDetailsFromTab(tab.id);
 
   if (!selectionDetails || !selectionDetails.text.trim()) {
@@ -77,11 +121,13 @@ async function handleSelectionTranslation(tab, source) {
   const { text: selectionText, coords } = selectionDetails;
 
   try {
-    // Send a "loading" message immediately to provide fast feedback to the user.
-    browser.tabs.sendMessage(tab.id, {
-      type: 'DISPLAY_SELECTION_TRANSLATION',
-      payload: { isLoading: true, coords, source }
-    }).catch(e => logError('handleSelectionTranslation (Send Loading)', e));
+    // Send a "loading" message immediately. No need to check for script readiness again.
+    browser.tabs
+      .sendMessage(tab.id, {
+        type: 'DISPLAY_SELECTION_TRANSLATION',
+        payload: { isLoading: true, coords, source },
+      })
+      .catch((e) => logError('handleSelectionTranslation (Send Loading)', e));
 
     const hostname = new URL(tab.url).hostname;
     const effectiveRule = await getEffectiveSettings(hostname);
@@ -208,6 +254,12 @@ const messageHandlers = {
   async INITIATE_PAGE_TRANSLATION(request) {
     const { tabId } = request.payload;
     try {
+      // Ensure scripts are ready before sending the request.
+      const scriptsReady = await ensureScriptsInjected(tabId);
+      if (!scriptsReady) {
+          throw new Error("Failed to inject scripts into the page.");
+      }
+
       // 立即设置加载状态和角标
       await setBadgeAndState(tabId, 'loading');
       await browser.tabs.sendMessage(tabId, { type: 'TRANSLATE_PAGE_REQUEST', payload: { tabId } });
@@ -221,6 +273,14 @@ const messageHandlers = {
 
   async REVERT_PAGE_TRANSLATION_REQUEST(request) {
     const { tabId } = request.payload;
+    // Ensure scripts are present to handle the revert command.
+    const scriptsReady = await ensureScriptsInjected(tabId);
+    if (!scriptsReady) {
+        // If scripts can't be injected, there's nothing to revert.
+        // Just clear the state from the background.
+        await setBadgeAndState(tabId, 'original');
+        return { success: true };
+    }
     // ** 调用中断功能 **
     await TranslatorManager.interruptAll();
     await setBadgeAndState(tabId, 'original');
@@ -275,52 +335,30 @@ const messageHandlers = {
       });
   }
   ,
-
- async SHOULD_AUTO_TRANSLATE(request, sender) {
-    const { hostname, url } = request.payload;
-    const tabId = sender.tab?.id;
-
-    if (!tabId || !url || !url.startsWith('http')) {
-        return { shouldTranslate: false };
-    }
-
-    try {
-        // Use the new centralized function to get settings
-        const effectiveRule = await getEffectiveSettings(hostname);
-
-        if (effectiveRule.autoTranslate === 'always') {
-            console.log(`[Auto-Translate] Rule for '${hostname}' matched. Approving translation.`);
-            await setBadgeAndState(tabId, 'loading'); // Set loading state and badge
-            return { shouldTranslate: true, tabId: tabId };
-        }
-    } catch (error) {
-        logError('SHOULD_AUTO_TRANSLATE handler', error);
-    }
-    return { shouldTranslate: false };
- }
 };
 
 // --- Main Event Listeners ---
 
 browser.commands.onCommand.addListener(async (command, tab) => {
-  switch (command) {
-    case "toggle-translation":
-      if (tab && tab.id) {
-        browser.tabs.sendMessage(tab.id, {
-          type: "TOGGLE_TRANSLATION_REQUEST",
-          payload: { tabId: tab.id }
-        }).catch(e => {
-            if (!e.message.includes("Receiving end does not exist")) {
-                logError('onCommand (toggle-translation)', e);
-            }
-        });
-      }
-      break;
-    case "translate-selection":
-      if (tab && tab.id) {
-        handleSelectionTranslation(tab, 'shortcut');
-      }
-      break;
+  if (!tab?.id) return;
+
+  if (command === "translate-selection") {
+    handleSelectionTranslation(tab, 'shortcut');
+    return;
+  }
+
+  const scriptsReady = await ensureScriptsInjected(tab.id);
+  if (!scriptsReady) return;
+
+  if (command === "toggle-translation") {
+    browser.tabs.sendMessage(tab.id, {
+      type: "TOGGLE_TRANSLATION_REQUEST",
+      payload: { tabId: tab.id }
+    }).catch(e => {
+        if (!e.message.includes("Receiving end does not exist")) {
+            logError('onCommand (toggle-translation)', e);
+        }
+    });
   }
 });
 
@@ -374,6 +412,45 @@ browser.runtime.onMessage.addListener((request, sender) => {
   console.warn(`No handler found for message type: ${request.type}`);
   return Promise.resolve(); // Explicitly resolve for unhandled messages.
 });
+
+/**
+ * A unified handler for navigation events to check for auto-translation.
+ * This is triggered by both full page loads and SPA navigations.
+ * @param {object} details - The event details from webNavigation.
+ * @param {number} details.tabId - The ID of the tab.
+ * @param {string} details.url - The new URL of the frame.
+ * @param {number} details.frameId - The ID of the frame.
+ */
+async function handleNavigation(details) {
+    // Only act on the main frame of the page.
+    if (details.frameId !== 0) {
+        return;
+    }
+    try {
+        const { tabId, url } = details;
+        const hostname = new URL(url).hostname;
+        const effectiveRule = await getEffectiveSettings(hostname);
+
+        // 1. 无论是否自动翻译，先注入脚本
+        const scriptsReady = await ensureScriptsInjected(tabId);
+        if (!scriptsReady) {
+            logError(`handleNavigation for ${details.url}`, new Error("Failed to inject scripts."));
+            return;
+        }
+
+        // 2. 然后，根据规则判断是否触发自动翻译
+        if (effectiveRule.autoTranslate === 'always') {
+            console.log(`[Auto-Translate] Rule for '${hostname}' matched on navigation. Initiating translation for tab ${tabId}.`);
+            await browser.tabs.sendMessage(tabId, { type: 'TRANSLATE_PAGE_REQUEST', payload: { tabId } });
+        }
+    } catch (error) {
+        logError(`handleNavigation for ${details.url}`, error);
+    }
+}
+
+// Listen for both full page loads and history state updates (for SPAs).
+browser.webNavigation.onCompleted.addListener(handleNavigation, { url: [{ schemes: ["http", "https"] }] });
+browser.webNavigation.onHistoryStateUpdated.addListener(handleNavigation, { url: [{ schemes: ["http", "https"] }] });
 
 browser.tabs.onRemoved.addListener(async (tabId) => {
   try {
