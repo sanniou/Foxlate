@@ -39,13 +39,31 @@ window.DisplayManager = class DisplayManager {
     }
     static updateDisplayMode(newDisplayMode) {
         const translatedElements = document.querySelectorAll('[data-translated="true"]');
+        const strategies = {
+            replace: window.replaceStrategy,
+            append: window.appendTranslationStrategy,
+            contextMenu: window.contextMenuStrategy,
+            hover: window.hoverStrategy,
+        };
+        
         for (const element of translatedElements) {
+            const oldDisplayMode = element.dataset.translationStrategy;
             const translatedText = element.dataset.translatedText;
-            if (translatedText) {
-                // 首先，使用元素上记录的旧策略来恢复它
-                this.revert(element);
-                // 然后，使用新策略重新应用翻译
-                this.apply(element, translatedText, newDisplayMode); 
+            
+            if (!translatedText || oldDisplayMode === newDisplayMode) {
+                continue;
+            }
+            
+            const oldStrategy = strategies[oldDisplayMode];
+            const newStrategy = strategies[newDisplayMode];
+            
+            if (oldStrategy && newStrategy) {
+                // 1. 仅恢复旧策略引入的特定UI（例如，移除附加的span或事件监听器）。
+                oldStrategy.revertTranslation(element);
+                // 2. 应用新策略的UI。
+                newStrategy.displayTranslation(element, translatedText);
+                // 3. 只更新策略标识符。其他状态（如 .universal-translator-translated 类）保持不变。
+                element.dataset.translationStrategy = newDisplayMode;
             }
         }
     }
