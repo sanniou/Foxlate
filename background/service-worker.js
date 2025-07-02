@@ -1,8 +1,6 @@
+import '../common/constants.js';
 import { getEffectiveSettings, getValidatedSettings } from '../common/settings-manager.js';
 import { TranslatorManager } from './translator-manager.js';
-// The test connection logic needs direct access to translator classes.
-import { DeepLxTranslator } from './translators/deeplx-translator.js';
-import { GoogleTranslator } from './translators/google-translator.js';
 import { AITranslator } from './translators/ai-translator.js';
 
 /**

@@ -1,9 +1,10 @@
 /**
  * @file Centralized constants for the extension.
  * This script attaches a `Constants` object to the global `window` object.
+ * We use `self` to ensure compatibility with both window and service worker contexts.
  */
 
-window.Constants = {
+self.Constants = {
     SUPPORTED_LANGUAGES: {
         'auto': 'langAuto',
         'EN': 'langEN',
