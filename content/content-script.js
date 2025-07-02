@@ -32,45 +32,47 @@ const IGNORED_TAGS = new Set(['script', 'style', 'noscript', 'textarea', 'code']
  * @returns {Text[]} 文本节点数组。
  */
 function findTextNodes(rootNode) {
-    // 优化 1: 增加前置检查。如果根节点本身无效或已在翻译容器内，则直接返回空数组，避免创建 TreeWalker。
+    // 前置检查：如果根节点本身无效或已在翻译容器内，则直接返回空数组，避免创建 TreeWalker。
     if (!rootNode || rootNode.nodeType !== Node.ELEMENT_NODE || rootNode.closest('[data-translated="true"], [data-translation-id]')) {
         return [];
     }
 
     const textNodes = [];
+    // 优化：TreeWalker 同时访问元素和文本节点。
+    // 这允许我们通过在元素级别上拒绝节点来“修剪”DOM树的整个分支，
+    // 从而避免对被忽略的子树（如 <script> 或已翻译的容器）进行不必要的遍历。
     const walker = document.createTreeWalker(
         rootNode,
-        NodeFilter.SHOW_TEXT,
+        NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
         {
             acceptNode: function(node) {
-                // 优化 2: 将廉价的检查前置。
-                // 检查1: 忽略纯空白文本节点。
+                if (node.nodeType === Node.ELEMENT_NODE) {
+                    // 性能关键点：如果元素应该被忽略，则拒绝它。
+                    // TreeWalker 将自动跳过该元素及其所有后代。
+                    // 这比在每个文本节点上调用 .closest() 要快得多。
+                    if (IGNORED_TAGS.has(node.tagName.toLowerCase()) ||
+                        node.isContentEditable ||
+                        node.hasAttribute('data-translated') ||
+                        node.hasAttribute('data-translation-id')) {
+                        return NodeFilter.FILTER_REJECT;
+                    }
+                    // 如果元素本身没问题，我们对它的子节点感兴趣，但不对元素本身感兴趣。
+                    return NodeFilter.FILTER_SKIP;
+                }
+
+                // 对于文本节点，只进行最后的检查。
                 if (node.nodeValue.trim() === '') {
-                    return NodeFilter.FILTER_REJECT;
+                    return NodeFilter.FILTER_REJECT; // 忽略纯空白文本节点。
                 }
 
-                const parent = node.parentElement;
-
-                // 检查2: 忽略特定标签或可编辑元素内的文本。
-                // 优化 3: 使用 Set 替代 Array.includes() 以提高性能。
-                if (IGNORED_TAGS.has(parent.tagName.toLowerCase()) || parent.isContentEditable) {
-                    return NodeFilter.FILTER_REJECT;
-                }
-
-                // 检查3: 忽略已标记为翻译中或已翻译的容器内的文本。
-                // 这个检查仍然是必要的，以处理嵌套的、可能已被独立处理的元素。
-                if (parent.closest('[data-translated="true"], [data-translation-id]')) {
-                    return NodeFilter.FILTER_REJECT;
-                }
-
+                // 这是一个我们想要翻译的有效文本节点。
                 return NodeFilter.FILTER_ACCEPT;
             }
         }
     );
 
     while (walker.nextNode()) {
-        const node = walker.currentNode;
-        textNodes.push(node);
+        textNodes.push(walker.currentNode); // walker.currentNode 现在总是被接受的文本节点
     }
     return textNodes;
 }
@@ -444,19 +446,31 @@ async function handleMessage(request, sender) {
             case 'TRANSLATION_CHUNK_RESULT':
                 {
                     const { id, success, translatedText, wasTranslated, error } = request.payload;
-                    const element = document.querySelector(`[data-translation-id='${id}']`);
-                    if (element) {
-                        if (success && wasTranslated) {
-                            // 使用当前任务的显示模式来应用翻译
-                            const displayMode = translationJob.settings?.displayMode || 'replace';
-                            window.DisplayManager.apply(element, translatedText, displayMode);
-                        } else if (error) {
-                            if (error.includes("interrupted")) {
-                                delete element.dataset.translationId;
-                                console.log(`Translation interrupted for element #${id}. Original content preserved.`);
-                            } else {
-                                window.DisplayManager.showError(element, error);
+                    const wrapper = document.querySelector(`[data-translation-id='${id}']`);
+
+                    if (!wrapper) {
+                        // 元素可能在翻译结果返回前已被移除，这是正常情况，无需处理。
+                    } else if (error) {
+                        // 优先处理错误情况。
+                        if (error.includes("interrupted")) {
+                            // 用户主动中断，静默地将包裹元素恢复为原始文本节点。
+                            const originalText = wrapper.dataset.originalText;
+                            if (typeof originalText === 'string' && wrapper.parentNode) {
+                                wrapper.parentNode.replaceChild(document.createTextNode(originalText), wrapper);
                             }
+                        } else {
+                            // 其他技术错误，向用户显示视觉提示。
+                            window.DisplayManager.showError(wrapper, error);
+                        }
+                    } else if (success && wasTranslated) {
+                        // 成功翻译，应用显示策略。
+                        const displayMode = translationJob.settings?.displayMode || 'replace';
+                        window.DisplayManager.apply(wrapper, translatedText, displayMode);
+                    } else if (success && !wasTranslated) {
+                        // 成功但无需翻译（例如源语言与目标语言相同），恢复DOM以移除包裹元素。
+                        const originalText = wrapper.dataset.originalText;
+                        if (typeof originalText === 'string' && wrapper.parentNode) {
+                            wrapper.parentNode.replaceChild(document.createTextNode(originalText), wrapper);
                         }
                     }
 
