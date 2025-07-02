@@ -82,11 +82,36 @@ function findTextNodes(rootNode) {
 let intersectionObserver = null;
 let mutationObserver = null;
 let translationJob = {
+    mutationQueue: new Set(),
+    idleCallbackId: null,
     totalChunks: 0,
     completedChunks: 0,
     tabId: null,
     isTranslating: false,
 };
+
+/**
+ * 处理由 MutationObserver 收集的节点队列。
+ * 此函数由 requestIdleCallback 调用，以确保它在浏览器空闲时运行，
+ * 从而不影响关键的渲染或用户交互。
+ */
+function processMutationQueue() {
+    translationJob.idleCallbackId = null; // 重置调度ID，允许下一次调度
+
+    if (translationJob.mutationQueue.size === 0) return;
+
+    const newNodes = Array.from(translationJob.mutationQueue);
+    translationJob.mutationQueue.clear();
+
+    if (!translationJob.settings) {
+        console.warn("[SanReader] Mutation observed, but no translation job settings found. Skipping auto-translation of new content.");
+        return;
+    }
+
+    // 对新节点执行与初始加载时相同的逻辑
+    const newElementsToObserve = findTranslatableRootElements(translationJob.settings, newNodes);
+    observeElements(newElementsToObserve);
+}
 
 /**
  * 初始化所有观察者。
@@ -111,27 +136,23 @@ function initializeObservers() {
         threshold: 0.5 // 确保元素至少有50%进入视口才触发翻译
     });
 
-    const mutationCallback = debounce((mutations) => {
-        let newNodes = [];
+    const mutationCallback = (mutations) => {
+        let hasNewNodes = false;
         for (const mutation of mutations) {
             if (mutation.type === 'childList') {
                 mutation.addedNodes.forEach(node => {
                     if (node.nodeType === Node.ELEMENT_NODE && !node.closest('#universal-translator-selection-panel')) {
-                        newNodes.push(node);
+                        translationJob.mutationQueue.add(node);
+                        hasNewNodes = true;
                     }
                 });
             }
         }
-        if (newNodes.length > 0) {
-            // 对于动态添加的节点，也使用智能查找，而不是直接观察
-            if (!translationJob.settings) {
-                console.warn("[SanReader] Mutation observed, but no translation job settings found. Skipping auto-translation of new content.");
-                return;
-            }
-            const newElementsToObserve = findTranslatableRootElements(translationJob.settings, newNodes);
-            observeElements(newElementsToObserve);
+
+        if (hasNewNodes && !translationJob.idleCallbackId) {
+            translationJob.idleCallbackId = requestIdleCallback(processMutationQueue, { timeout: 1000 });
         }
-    }, 500);
+    };
 
     mutationObserver = new MutationObserver(mutationCallback);
 }
@@ -533,14 +554,6 @@ async function handleMessage(request, sender) {
  * 在内容脚本加载后，主动向后台查询当前页面是否应根据规则自动翻译。
  */
 async function triggerAutoTranslationCheck() {
-}
-
-function debounce(func, wait) {
-    let timeout;
-    return function(...args) {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(this, args), wait);
-    };
 }
 
 function initializeContentScript() {
