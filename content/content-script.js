@@ -322,8 +322,15 @@ function findTranslatableRootElements(effectiveSettings, rootNodes = [document.b
 
 
 async function performPageTranslation(tabId) {
+    // 幂等性检查：如果翻译会话已经激活，则不执行任何操作。
+    // 这是最可靠的单一事实来源，可以防止在已翻译或正在翻译的页面上重新启动该过程。
+    if (document.body.dataset.translationSession === 'active') {
+        console.log("[SanReader] Translation session is already active. Ignoring request.");
+        return;
+    }
+    // 这个检查作为第二层防护，以处理可能的竞争条件。
     if (translationJob.isTranslating) {
-        console.log("[SanReader] Translation job already in progress. Ignoring request.");
+        console.warn("[SanReader] Translation job already in progress despite session not being active. Ignoring request.");
         return;
     }
 
