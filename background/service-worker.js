@@ -1,7 +1,7 @@
-import '../common/constants.js';
-import { getEffectiveSettings, getValidatedSettings } from '../common/settings-manager.js';
-import { TranslatorManager } from './translator-manager.js';
-import { AITranslator } from './translators/ai-translator.js';
+import '/lib/browser-polyfill.js'; 
+import { getEffectiveSettings, getValidatedSettings } from '/common/settings-manager.js';
+import { TranslatorManager } from '/background/translator-manager.js';
+import { AITranslator } from '/background/translators/ai-translator.js';
 
 /**
  * Centralized error logger.

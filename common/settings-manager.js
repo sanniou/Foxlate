@@ -11,9 +11,11 @@
  * It combines general rules from constants with dynamically generated language-specific rules.
  * @returns {object} The complete default pre-check rules object.
  */
+import '/lib/browser-polyfill.js'; 
+import * as Constants from '/common/constants.js';
 export function generateDefaultPrecheckRules() { 
     // Start with a deep copy of the general rules from constants.
-    const defaultRules = JSON.parse(JSON.stringify(window.Constants.DEFAULT_PRECHECK_RULES));
+    const defaultRules = JSON.parse(JSON.stringify(Constants.DEFAULT_PRECHECK_RULES));
 
     // 1. Internationalize the names of the general rules using the stable `nameKey`.
     if (defaultRules.general) {
@@ -24,15 +26,15 @@ export function generateDefaultPrecheckRules() {
     }
 
     // 2. Dynamically generate and add language-specific whitelist rules.
-    for (const langCode in window.Constants.LANG_REGEX_MAP) {
-        if (window.Constants.SUPPORTED_LANGUAGES[langCode]) {
-            const langName = browser.i18n.getMessage(window.Constants.SUPPORTED_LANGUAGES[langCode]) || langCode;
+    for (const langCode in Constants.LANG_REGEX_MAP) {
+        if (Constants.SUPPORTED_LANGUAGES[langCode]) {
+            const langName = browser.i18n.getMessage(Constants.SUPPORTED_LANGUAGES[langCode]) || langCode;
             defaultRules[langCode] = [{
                 name: `${browser.i18n.getMessage('precheckRuleContains') || 'Contains '} ${langName}`,
-                regex: window.Constants.LANG_REGEX_MAP[langCode].regex,
+                regex: Constants.LANG_REGEX_MAP[langCode].regex,
                 mode: 'whitelist',
                 enabled: true,
-                flags: window.Constants.LANG_REGEX_MAP[langCode].flags,
+                flags: Constants.LANG_REGEX_MAP[langCode].flags,
             }];
         }
     }
@@ -45,7 +47,7 @@ export function generateDefaultPrecheckRules() {
  */
 export async function getValidatedSettings() {
     const { settings: storedSettings } = await browser.storage.sync.get('settings');
-    const defaultSettings = JSON.parse(JSON.stringify(window.Constants.DEFAULT_SETTINGS));
+    const defaultSettings = JSON.parse(JSON.stringify(Constants.DEFAULT_SETTINGS));
     
     // Precheck rules need special handling due to i18n
     defaultSettings.precheckRules = generateDefaultPrecheckRules();

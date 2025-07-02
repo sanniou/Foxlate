@@ -1,3 +1,6 @@
+import '/lib/browser-polyfill.js'; 
+import * as Constants from '/common/constants.js';
+
 document.addEventListener('DOMContentLoaded', () => {
     const elements = {
         sourceLanguageSelect: document.getElementById('sourceLanguageSelect'),
@@ -104,10 +107,10 @@ document.addEventListener('DOMContentLoaded', () => {
         currentRuleSource = isDomainRule ? currentHostname : 'default';
 
         // Populate UI elements using the effective rule (finalRule)
-        const allSupportedEngines = { ...window.Constants.SUPPORTED_ENGINES, ...(globalSettings.aiEngines || []).reduce((acc, eng) => ({...acc, [`ai:${eng.id}`]: eng.name}), {}) };
+        const allSupportedEngines = { ...Constants.SUPPORTED_ENGINES, ...(globalSettings.aiEngines || []).reduce((acc, eng) => ({...acc, [`ai:${eng.id}`]: eng.name}), {}) };
         populateSelect(elements.engineSelect, allSupportedEngines, finalRule.translatorEngine);
-        populateSelect(elements.sourceLanguageSelect, window.Constants.SUPPORTED_LANGUAGES, finalRule.sourceLanguage);
-        const targetLangs = { ...window.Constants.SUPPORTED_LANGUAGES };
+        populateSelect(elements.sourceLanguageSelect, Constants.SUPPORTED_LANGUAGES, finalRule.sourceLanguage);
+        const targetLangs = { ...Constants.SUPPORTED_LANGUAGES };
         delete targetLangs.auto;
         populateSelect(elements.targetLanguageSelect, targetLangs, finalRule.targetLanguage);
         elements.displayModeSelect.value = finalRule.displayMode;

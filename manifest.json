@@ -18,14 +18,14 @@
   ],
   "background": {
     "scripts": ["background/service-worker.js"],
+    // "service_worker": "background/service-worker.js",
     "type": "module"
   },
   "content_scripts": [
     {
       "matches": ["*://*/*"],
       "js": [
-        "lib/webextension-polyfill.js",
-        "common/constants.js",
+        "lib/browser-polyfill.js",
         "content/strategies/hover-strategy.js",
         "content/strategies/append-strategy.js",
         "content/strategies/replace-strategy.js",

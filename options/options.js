@@ -1,4 +1,6 @@
+import '/lib/browser-polyfill.js'; 
 import { getValidatedSettings, generateDefaultPrecheckRules } from '../common/settings-manager.js';
+import * as Constants from '/common/constants.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Element Cache ---
@@ -435,7 +437,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const confirmationMessage = browser.i18n.getMessage('resetSettingsConfirm') || 'Are you sure you want to reset all settings to their default values? This action cannot be undone.';
         if (window.confirm(confirmationMessage)) {
             try {
-                const defaultSettings = JSON.parse(JSON.stringify(window.Constants.DEFAULT_SETTINGS));
+                const defaultSettings = JSON.parse(JSON.stringify(Constants.DEFAULT_SETTINGS));
                 // Dynamically generate the default precheck rules with i18n names
                 defaultSettings.precheckRules = generateDefaultPrecheckRules();
 
@@ -1110,10 +1112,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Populate Translator Engine dropdown
         const engineSelect = elements.ruleTranslatorEngineSelect;
         engineSelect.innerHTML = `<option value="default">${browser.i18n.getMessage('useDefaultSetting')}</option>`;
-        for (const key in window.Constants.SUPPORTED_ENGINES) {
+        for (const key in Constants.SUPPORTED_ENGINES) {
             const option = document.createElement('option');
             option.value = key;
-            option.textContent = browser.i18n.getMessage(window.Constants.SUPPORTED_ENGINES[key]);
+            option.textContent = browser.i18n.getMessage(Constants.SUPPORTED_ENGINES[key]);
             engineSelect.appendChild(option);
         }
         aiEngines.forEach(engine => {
@@ -1126,21 +1128,21 @@ document.addEventListener('DOMContentLoaded', () => {
         // Populate Target Language dropdown
         const langSelect = elements.ruleTargetLanguageSelect;
         langSelect.innerHTML = `<option value="default">${browser.i18n.getMessage('useDefaultSetting')}</option>`;
-        for (const code in window.Constants.SUPPORTED_LANGUAGES) {
+        for (const code in Constants.SUPPORTED_LANGUAGES) {
             if (code === 'auto') continue; // 'auto' is not a target language
             const option = document.createElement('option');
             option.value = code;
-            option.textContent = browser.i18n.getMessage(window.Constants.SUPPORTED_LANGUAGES[code]);
+            option.textContent = browser.i18n.getMessage(Constants.SUPPORTED_LANGUAGES[code]);
             langSelect.appendChild(option);
         }
 
         // Populate Source Language dropdown
         const sourceLangSelect = elements.ruleSourceLanguageSelect;
         sourceLangSelect.innerHTML = `<option value="default">${browser.i18n.getMessage('useDefaultSetting')}</option>`;
-        for (const code in window.Constants.SUPPORTED_LANGUAGES) {
+        for (const code in Constants.SUPPORTED_LANGUAGES) {
             const option = document.createElement('option');
             option.value = code;
-            option.textContent = browser.i18n.getMessage(window.Constants.SUPPORTED_LANGUAGES[code]);
+            option.textContent = browser.i18n.getMessage(Constants.SUPPORTED_LANGUAGES[code]);
             sourceLangSelect.appendChild(option);
         }
         // Display Mode dropdown is already static in HTML with 'default' option
@@ -1149,10 +1151,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const select = elements.targetLanguage;
         if (!select) return;
 
-        for (const code in window.Constants.SUPPORTED_LANGUAGES) {
+        for (const code in Constants.SUPPORTED_LANGUAGES) {
             const option = document.createElement('option');
             option.value = code;
-            const langKey = window.Constants.SUPPORTED_LANGUAGES[code];
+            const langKey = Constants.SUPPORTED_LANGUAGES[code];
             option.textContent = browser.i18n.getMessage(langKey) || code;
             select.appendChild(option);
         }
