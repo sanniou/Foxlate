@@ -173,31 +173,37 @@ function translateElements(elements) {
 
         const CHUNK_SIZE = effectiveSettings?.parallelRequests || 5;
 
-        let nodesToTranslate = [];
+        // 使用 Set 来防止因处理重叠元素（例如，一个元素是另一个元素的子元素）而导致的重复文本节点。
+        const nodesToTranslate = new Set();
         elements.forEach(el => {
-            nodesToTranslate.push(...findTextNodes(el));
+            // 将找到的节点添加到 Set 中，Set 会自动处理重复项。
+            findTextNodes(el).forEach(node => nodesToTranslate.add(node));
         });
 
-        const validNodes = nodesToTranslate.filter(node => node.parentElement && document.body.contains(node));
+        const validNodes = Array.from(nodesToTranslate).filter(node => node.parentElement && document.body.contains(node));
         if (validNodes.length === 0) return;
 
-        // 给父元素打上ID，并收集文本
+        // 为每个文本节点创建包裹元素，并收集文本进行翻译
         const texts = [];
         const ids = [];
-        const parentElements = new Map();
 
         validNodes.forEach(node => {
-            const parent = node.parentElement;
-            // 为每个文本节点生成唯一ID，而不是父元素
-            const nodeId = `ut-${generateUUID()}`;
-            // 使用自定义属性存储节点的原始内容
-            node.parentElement.dataset.translationId = nodeId;
-            
-            // 只收集当前文本节点的内容
-            const textContent = node.textContent.trim();
-            if (textContent) {
-                parentElements.set(nodeId, parent);
-                texts.push(textContent);
+            const textToTranslate = node.nodeValue.trim();
+            if (textToTranslate.length > 0) {
+                // 创建一个包裹元素来持有文本节点和翻译ID。
+                // 使用 <font> 标签可以减少对页面样式的干扰，因为它通常没有附加样式。
+                const wrapper = document.createElement('font');
+                const nodeId = `ut-${generateUUID()}`;
+                wrapper.dataset.translationId = nodeId;
+
+                // 将原始文本节点的内容移动到包裹元素中，保留原始的空白字符。
+                wrapper.textContent = node.nodeValue;
+
+                // 在DOM中用包裹元素替换原始文本节点。
+                node.parentNode.replaceChild(wrapper, node);
+
+                // 收集ID和要翻译的文本
+                texts.push(textToTranslate);
                 ids.push(nodeId);
             }
         });
