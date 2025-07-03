@@ -6,14 +6,37 @@ window.appendTranslationStrategy = {
      * @returns {string} The base class name ('foxlate-appended-text' or 'foxlate-appended-text foxlate-appended-block').
      */
     _getAppendClassName: function(element) {
-        const parentStyle = element.parentElement ? window.getComputedStyle(element.parentElement) : null;
-        // A list of display values that imply a block-level context for our purpose.
-        const blockContextDisplays = ['block', 'flex', 'grid', 'list-item', 'table', 'flow-root'];
-        const isBlockContext = parentStyle && blockContextDisplays.some(d => parentStyle.display.startsWith(d));
+      const parent = element.parentElement;
+      if (!parent) {
+          return 'foxlate-appended-text'; // Default to inline if no parent
+      }
 
-        return isBlockContext
-            ? 'foxlate-appended-text foxlate-appended-block'
-            : 'foxlate-appended-text';
+      // --- Rule 1: Parent is a clear paragraph-like tag ---
+      // If the parent is a semantic block-level tag, its content is a block.
+      const paragraphLikeTags = new Set(['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'BLOCKQUOTE', 'DD', 'DT', 'FIGCAPTION']);
+      if (paragraphLikeTags.has(parent.tagName)) {
+          return 'foxlate-appended-text foxlate-appended-block';
+      }
+
+      // --- Rule 2: Parent is a generic container (like DIV), check the *next* sibling ---
+      // This handles cases where a text node is not wrapped in a <p> but is followed by a block element.
+      let nextSibling = element.nextSibling;
+      // Skip over any whitespace-only text nodes to find the next meaningful element.
+      while (nextSibling && nextSibling.nodeType === Node.TEXT_NODE && nextSibling.nodeValue.trim() === '') {
+          nextSibling = nextSibling.nextSibling;
+      }
+
+      // If the next significant sibling is a block-level element, our text is likely the end of a line/paragraph.
+      if (nextSibling && nextSibling.nodeType === Node.ELEMENT_NODE) {
+          const nextSiblingStyle = window.getComputedStyle(nextSibling);
+          if (nextSiblingStyle.display === 'block') {
+              return 'foxlate-appended-text foxlate-appended-block';
+          }
+      }
+
+      // --- Default ---
+      // In all other cases (e.g., text followed by inline elements or nothing), default to a simple inline append.
+      return 'foxlate-appended-text';
     },
 
     /**
