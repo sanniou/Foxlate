@@ -21,5 +21,26 @@ window.replaceStrategy = {
             element.innerHTML = element.dataset.originalContent;
             delete element.dataset.originalContent; // 清理属性
         }
+    },
+
+    displayLoading: function(element) {
+        // 仅当尚未保存时，才保存原始 HTML。
+        if (element.dataset.originalContent === undefined) {
+            element.dataset.originalContent = element.innerHTML;
+        }
+        // 添加一个 class 来改变文本样式（例如，变暗），而不是替换它。
+        element.classList.add('foxlate-replacing');
+        // 附加一个加载指示器，而不是替换全部内容
+        if (!element.querySelector('.foxlate-inline-loading')) {
+            const spinner = document.createElement('span');
+            spinner.className = 'foxlate-inline-loading';
+            element.appendChild(spinner);
+        }
+    },
+
+    hideLoading: function(element) {
+        // 移除加载状态的样式和指示器
+        element.classList.remove('foxlate-replacing');
+        element.querySelector('.foxlate-inline-loading')?.remove();
     }
 };

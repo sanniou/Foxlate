@@ -109,5 +109,14 @@ window.hoverStrategy = {
         }
         // 确保在恢复时，如果鼠标恰好还在元素上，工具提示也会被隐藏。
         this._hideTooltip();
+    },
+
+    displayLoading: function(element) {
+        // 使用一个不同的高亮样式来表示正在加载
+        element.classList.add('foxlate-loading-highlight');
+    },
+
+    hideLoading: function(element) {
+        element.classList.remove('foxlate-loading-highlight');
     }
 };

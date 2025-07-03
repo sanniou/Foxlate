@@ -16,7 +16,22 @@ window.appendTranslationStrategy = {
             element.appendChild(translationNode);
         }
     },
+   displayLoading: function(element) {
+       let translationNode = element.querySelector('.foxlate-appended-text');
+       if (translationNode) {
+           translationNode.textContent = ` (翻译中...)`; // 你可以自定义加载文本
+       } else {
+           translationNode = document.createElement('span');
+           translationNode.className = 'foxlate-appended-text loading'; // 添加 loading 类
+           translationNode.textContent = ` (翻译中...)`;
+           element.appendChild(translationNode);
+       }
+    },
 
+    hideLoading: function(element) {
+        // 移除 loading 类，以便区分正常翻译和加载状态
+        element.querySelector('.foxlate-appended-text')?.classList.remove('loading');
+    },
     /**
      * 移除追加的翻译节点。
      * @param {HTMLElement} element - 目标元素。

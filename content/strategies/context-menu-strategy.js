@@ -120,5 +120,14 @@ window.contextMenuStrategy = {
      */
     revertTranslation: function() {
         this._hideTooltip();
+    },
+
+    displayLoading: function(coords, source = 'contextMenu') {
+        const loadingMessage = browser.i18n.getMessage('popupTranslating') || 'Translating...';
+        this._showTooltip(coords, loadingMessage, true, source);
+    },
+
+    hideLoading: function() {
+        this._hideTooltip();
     }
 };

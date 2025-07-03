@@ -209,6 +209,7 @@ function translateElements(elements) {
         // 为每个文本节点创建包裹元素，并收集文本进行翻译
         const texts = [];
         const ids = [];
+        const idToWrapperMap = new Map();
 
         validNodes.forEach(node => {
             const textToTranslate = node.nodeValue.trim();
@@ -225,6 +226,7 @@ function translateElements(elements) {
 
                 // 在DOM中用包裹元素替换原始文本节点。
                 node.parentNode.replaceChild(wrapper, node);
+                idToWrapperMap.set(nodeId, wrapper);
 
                 // 收集ID和要翻译的文本
                 texts.push(textToTranslate);
@@ -248,6 +250,15 @@ function translateElements(elements) {
         for (let i = 0; i < texts.length; i += CHUNK_SIZE) {
             const textChunk = texts.slice(i, i + CHUNK_SIZE);
             const idChunk = ids.slice(i, i + CHUNK_SIZE);
+
+            // 在发送请求前，为当前批次的元素显示加载状态
+            idChunk.forEach(id => {
+                const wrapper = idToWrapperMap.get(id);
+                if (wrapper) {
+                    window.DisplayManager.displayLoading(wrapper, effectiveSettings.displayMode);
+                }
+            });
+
             browser.runtime.sendMessage({
                 type: 'TRANSLATE_TEXT_CHUNK',
                 payload: { texts: textChunk, ids: idChunk, targetLang, sourceLang: 'auto', tabId: translationJob.tabId, translatorEngine }
@@ -476,29 +487,33 @@ async function handleMessage(request, sender) {
                     const { id, success, translatedText, wasTranslated, error } = request.payload;
                     const wrapper = document.querySelector(`[data-translation-id='${id}']`);
 
-                    if (!wrapper) {
-                        // 元素可能在翻译结果返回前已被移除，这是正常情况，无需处理。
-                    } else if (error) {
-                        // 优先处理错误情况。
-                        if (error.includes("interrupted")) {
-                            // 用户主动中断，静默地将包裹元素恢复为原始文本节点。
+                    if (wrapper) {
+                        const displayMode = translationJob.settings?.displayMode || 'replace';
+                        // 1. 首先，隐藏加载状态
+                        window.DisplayManager.hideLoading(wrapper, displayMode);
+
+                        // 2. 然后，根据结果应用最终状态
+                        if (error) {
+                            // 优先处理错误情况。
+                            if (error.includes("interrupted")) {
+                                // 用户主动中断，静默地将包裹元素恢复为原始文本节点。
+                                const originalText = wrapper.dataset.originalText;
+                                if (typeof originalText === 'string' && wrapper.parentNode) {
+                                    wrapper.parentNode.replaceChild(document.createTextNode(originalText), wrapper);
+                                }
+                            } else {
+                                // 其他技术错误，向用户显示视觉提示。
+                                window.DisplayManager.showError(wrapper, error);
+                            }
+                        } else if (success && wasTranslated) {
+                            // 成功翻译，应用显示策略。
+                            window.DisplayManager.apply(wrapper, translatedText, displayMode);
+                        } else if (success && !wasTranslated) {
+                            // 成功但无需翻译（例如源语言与目标语言相同），恢复DOM以移除包裹元素。
                             const originalText = wrapper.dataset.originalText;
                             if (typeof originalText === 'string' && wrapper.parentNode) {
                                 wrapper.parentNode.replaceChild(document.createTextNode(originalText), wrapper);
                             }
-                        } else {
-                            // 其他技术错误，向用户显示视觉提示。
-                            window.DisplayManager.showError(wrapper, error);
-                        }
-                    } else if (success && wasTranslated) {
-                        // 成功翻译，应用显示策略。
-                        const displayMode = translationJob.settings?.displayMode || 'replace';
-                        window.DisplayManager.apply(wrapper, translatedText, displayMode);
-                    } else if (success && !wasTranslated) {
-                        // 成功但无需翻译（例如源语言与目标语言相同），恢复DOM以移除包裹元素。
-                        const originalText = wrapper.dataset.originalText;
-                        if (typeof originalText === 'string' && wrapper.parentNode) {
-                            wrapper.parentNode.replaceChild(document.createTextNode(originalText), wrapper);
                         }
                     }
 
@@ -524,14 +539,10 @@ async function handleMessage(request, sender) {
 
                     // 'coords' 对象对于此消息类型是必需的。
                     if (coords) {
-                         if (isLoading) {
-                            const loadingMessage = browser.i18n.getMessage('popupTranslating') || 'Translating...';
-                            window.contextMenuStrategy.displayTranslation(coords, loadingMessage, true, source);
-                        } else if (success) {
-                            window.contextMenuStrategy.displayTranslation(coords, translatedText, false, source);
-                        } else if (error) {
-                            const errorMessage = browser.i18n.getMessage('testError') || 'Error';
-                            window.contextMenuStrategy.displayTranslation(coords, `${errorMessage}: ${error}`, false, source);
+                        if (isLoading) {                            
+                            window.DisplayManager.displayLoading(coords,'contextMenu');
+                        } else {
+                            window.contextMenuStrategy.displayTranslation(coords, success?translatedText:error, false, source);
                         }
                     }
                     break;

@@ -67,4 +67,31 @@ window.DisplayManager = class DisplayManager {
             }
         }
     }
+
+    static displayLoading(element, displayMode = 'replace') {
+        const strategies = {
+            replace: window.replaceStrategy,
+            append: window.appendTranslationStrategy,
+            contextMenu: window.contextMenuStrategy,
+            hover: window.hoverStrategy,
+        };
+
+        const strategy = strategies[displayMode];
+        if (strategy && strategy.displayLoading) {
+            strategy.displayLoading(element);
+        }
+    }
+
+    static hideLoading(element, displayMode = 'replace') {
+        const strategies = {
+            replace: window.replaceStrategy,
+            append: window.appendTranslationStrategy,
+            contextMenu: window.contextMenuStrategy,
+            hover: window.hoverStrategy,
+        };
+        const strategy = strategies[displayMode];
+        if (strategy && strategy.hideLoading) {
+            strategy.hideLoading(element);
+        }
+    }
 };

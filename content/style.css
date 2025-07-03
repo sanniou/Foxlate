@@ -84,9 +84,50 @@
     background-color: rgba(var(--md-sys-color-primary-rgb, 57, 100, 232), 0.16);
 }
 
+/* “替换”模式下，文本正在加载翻译时的样式 */
+.foxlate-replacing {
+    opacity: 0.7;
+}
+
 /* 加载动画的 Keyframes */
 @keyframes foxlate-spin {
     to {
         transform: rotate(360deg);
     }
+}
+
+.foxlate-loading {
+  display: inline-block;
+  margin-left: 0.5em;
+  animation: foxlate-loading-spin 1s linear infinite;
+}
+
+@keyframes foxlate-loading-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* 为 hover 策略添加新的高亮样式 */
+.foxlate-loading-highlight {
+    /* 你可以选择一个不同的背景色或边框 */
+    background-color: #eee; /* 例如，浅灰色背景 */
+}
+/* Append 模式的加载状态样式 */
+.foxlate-appended-text.loading {
+    opacity: 0.7; /* 稍微降低透明度，表示正在加载 */
+    font-style: normal;
+    /* 可以添加其他样式，例如微调器 */
+}
+
+/* 用于替换模式的内联加载动画 */
+.foxlate-inline-loading {
+    display: inline-block;
+    width: 0.8em; /* 尺寸稍小，不那么突兀 */
+    height: 0.8em;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: foxlate-spin 0.75s linear infinite;
+    vertical-align: -0.1em;
+    margin-left: 6px; /* 与原文保持一点距离 */
 }
