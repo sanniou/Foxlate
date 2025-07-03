@@ -279,27 +279,28 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     /**
-     * Handles the floating label state for <select> elements, which don't
-     * support the :placeholder-shown pseudo-class. It adds/removes an 'is-filled'
-     * class to the parent container based on whether the select has a value.
+     * Initializes the floating label state for a single <select> element.
+     * @param {HTMLSelectElement} selectEl The select element to initialize.
      */
+    const initializeSelectLabel = (selectEl) => {
+        const parentField = selectEl.closest('.m3-form-field.filled');
+        if (!parentField) return;
+
+        const updateState = () => {
+            // A select is considered "filled" if it has a non-empty value.
+            if (selectEl.value) {
+                parentField.classList.add('is-filled');
+            } else {
+                parentField.classList.remove('is-filled');
+            }
+        };
+
+        updateState(); // Run on initial load
+        selectEl.addEventListener('change', updateState); // Run on every change
+    };
+
     const manageSelectLabels = () => {
-        document.querySelectorAll('.m3-form-field.filled select').forEach(selectEl => {
-            const parentField = selectEl.closest('.m3-form-field.filled');
-            if (!parentField) return;
-    
-            const updateState = () => {
-                // A select is considered "filled" if it has a non-empty value.
-                if (selectEl.value) {
-                    parentField.classList.add('is-filled');
-                } else {
-                    parentField.classList.remove('is-filled');
-                }
-            };
-    
-            updateState(); // Run on initial load
-            selectEl.addEventListener('change', updateState); // Run on every change
-        });
+        document.querySelectorAll('.m3-form-field.filled select').forEach(initializeSelectLabel);
     };
 
     const toggleApiFields = () => {
@@ -624,8 +625,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const newRule = { name: '', regex: '', mode: 'blacklist', enabled: true, flags: '' };
         const ruleList = document.querySelector(`#panel-${category} .rule-list`);
         if (ruleList) {
-            // Apply ripple effect to the newly created rule item's buttons
-            ruleList.appendChild(createRuleItemElement(newRule));
+            const newRuleElement = createRuleItemElement(newRule);
+            ruleList.appendChild(newRuleElement);
+
+            // Find the newly created select element and initialize its label state to fix the overlap bug.
+            const newSelect = newRuleElement.querySelector('.rule-mode');
+            if (newSelect) {
+                initializeSelectLabel(newSelect);
+            }
             markSettingAsChanged('precheckRules'); // 添加规则也算作更改
         }
     }
@@ -983,7 +990,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Hide test result
         elements.aiTestResult.style.display = 'none';
-        elements.aiFormTitle.textContent = engine.id ? (browser.i18n.getMessage('edit') || 'Edit') : (browser.i18n.getMessage('addRule') || 'Add');
+        elements.aiFormTitle.textContent = engine.id ? (browser.i18n.getMessage('edit') || 'Edit') : (browser.i18n.getMessage('addAiEngine') || 'Add');
         elements.aiEngineNameInput.value = engine.name || '';
         elements.aiApiKeyInput.value = engine.apiKey || '';
         elements.aiApiUrlInput.value = engine.apiUrl || '';

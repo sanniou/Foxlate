@@ -127,10 +127,6 @@
     "message": "Always Translate",
     "description": "Option for always translate rule."
   },
-  "addRule": {
-    "message": "Add Rule",
-    "description": "Button text to add a new domain rule."
-  },
   "edit": {
     "message": "Edit",
     "description": "Generic edit button text."
@@ -138,6 +134,10 @@
   "addDomainRule": {
     "message": "Add Domain Rule",
     "description": "Button to open the domain rule modal for adding."
+  },
+  "addAiEngine": {
+    "message": "Add AI Engine",
+    "description": "Button text to add a new AI Engine profile."
   },
   "editDomainRule": {
     "message": "Edit Domain Rule",

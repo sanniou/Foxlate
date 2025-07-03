@@ -1,7 +1,7 @@
 @import url('/common/common.css');
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-family: var(--md-sys-font-family);
     margin: 0;
     padding: 24px;
     background-color: var(--md-sys-color-background);
@@ -24,7 +24,7 @@ body.modal-open {
 }
 
 h1 {
-    font-size: 32px;
+    font-size: var(--md-sys-typescale-display-small-font-size);
     font-weight: 600;
     color: var(--md-sys-color-on-surface);
     text-align: center;
@@ -84,7 +84,7 @@ h3 {
     color: var(--md-sys-color-on-surface);
     box-sizing: border-box;
     line-height: 1.2; /* Ensure consistent line height */
-    transition: border-color 0.2s ease;
+    transition: border-color 0.2s ease, padding-bottom 0.2s ease, border-width 0.2s ease;
 }
 .m3-form-field.filled select {
     -webkit-appearance: none;
@@ -129,26 +129,6 @@ h3 {
     color: var(--md-sys-color-primary); /* Change color to primary */
 }
 
-/* Bottom Indicator Line */
-.m3-form-field.filled::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    bottom: 0;
-    width: 0; /* Start with zero width */
-    height: 2px; /* Thickness of the indicator line */
-    background-color: var(--md-sys-color-primary); /* Primary color for indicator */
-    transition: width 0.3s ease-in-out, background-color 0.3s ease-in-out;
-    border-radius: 2px 2px 0 0; /* Rounded top corners for the line */
-}
-
-/* Indicator line expands on focus */
-.m3-form-field.filled input:focus ~ ::after,
-.m3-form-field.filled textarea:focus ~ ::after,
-.m3-form-field.filled select:focus ~ ::after {
-    width: 100%;
-}
-
 /* Placeholder visibility */
 .m3-form-field.filled input::placeholder,
 .m3-form-field.filled textarea::placeholder {
@@ -165,37 +145,21 @@ h3 {
 .m3-form-field.is-invalid input,
 .m3-form-field.is-invalid textarea,
 .m3-form-field.is-invalid select {
-    border-bottom-color: var(--md-sys-color-error); /* Red border */
+    /* Change border color but not width to prevent jump */
+    border-bottom-color: var(--md-sys-color-error);
+    /* Use box-shadow to create the "thicker" line effect without affecting layout */
+    box-shadow: 0 1px 0 0 var(--md-sys-color-error);
 }
 
-.m3-form-field.is-invalid label {
-    color: var(--md-sys-color-error); /* Red label */
-}
-
-.m3-form-field.is-invalid::after {
-    background-color: var(--md-sys-color-error); /* Red indicator line */
-    width: 100%; /* Ensure it's full width on error */
-}
-
-/* Remove old focus styles that conflict */
+/* Unified focus style for all filled fields */
 .m3-form-field.filled input:focus,
-.m3-form-field.filled textarea:focus {
-    outline: none;
-    border-bottom: none; /* Ensure no conflicting border */
-    box-shadow: none; /* Ensure no conflicting box-shadow */
-}
-/* Select element focus needs special handling if it's not using ::after for bottom border */
+.m3-form-field.filled textarea:focus,
 .m3-form-field.filled select:focus {
-    outline: none; /* Remove default outline */
-    border-bottom: 2px solid var(--md-sys-color-primary); /* Keep this for select if ::after is not used */
-    box-shadow: 0 2px 0 var(--md-sys-color-primary); /* Keep this for select if ::after is not used */
-} /* This rule is specifically for select elements */
-
-/* Remove old focus-visible styles that conflict */
-.m3-form-field.filled input:focus-visible,
-.m3-form-field.filled textarea:focus-visible,
-.m3-form-field.filled select:focus-visible {
-    margin-bottom: 0; /* Remove conflicting margin */
+    outline: none;
+    /* Change border color but not width to prevent jump */
+    border-bottom-color: var(--md-sys-color-primary);
+    /* Use box-shadow to create the "thicker" line effect without affecting layout */
+    box-shadow: 0 1px 0 0 var(--md-sys-color-primary);
 }
 
 /* Base label style - this will be overridden for filled fields */
@@ -206,6 +170,11 @@ h3 {
     color: var(--md-sys-color-on-surface-variant);
     font-size: var(--md-sys-typescale-body-small-font-size);
     padding-left: 16px;
+}
+
+/* Error state label color */
+.m3-form-field.is-invalid label {
+    color: var(--md-sys-color-error); /* Red label */
 }
 
 /* Error messages below form fields */
@@ -347,15 +316,15 @@ button.m3-button.danger:hover {
 }
 
 .status-message.success {
-    background-color: #d1e7dd;
-    color: #0f5132;
-    border: 1px solid #badbcc;
+    background-color: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
+    border: 1px solid var(--md-sys-color-primary);
 }
 
 .status-message.error {
-    background-color: #f8d7da;
-    color: #842029;
-    border: 1px solid #f5c2c7;
+    background-color: var(--md-sys-color-error-container);
+    color: var(--md-sys-color-on-error-container);
+    border: 1px solid var(--md-sys-color-error);
 }
 
 .domain-rules-list ul {
@@ -370,6 +339,7 @@ button.m3-button.danger:hover {
     justify-content: space-between;
     padding: 8px 12px;
     border-bottom: 1px solid var(--md-sys-color-outline-variant);
+    transition: background-color 0.2s ease;
 }
 
 .domain-rules-list .rule-actions {
@@ -377,42 +347,8 @@ button.m3-button.danger:hover {
     gap: 8px;
 }
 
-.m3-list-item {
-    background-color: var(--md-sys-color-surface-container-highest);
-    border: 1px solid var(--md-sys-color-outline-variant);
-    padding: 12px 16px; /* Adjusted padding */
-    margin-bottom: 12px; /* More spacing between items */
-    border-radius: 12px; /* M3 rounded corners */
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 16px; /* Space between content and button */
-    font-size: var(--md-sys-typescale-body-large-font-size);
-}
-
-.m3-list-item-content {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-}
-
-.m3-list-item-headline {
-    font-size: var(--md-sys-typescale-body-large-font-size);
-    font-weight: 600;
-    color: var(--md-sys-color-on-surface);
-}
-
-.m3-list-item-supporting-text {
-    font-size: var(--md-sys-typescale-body-medium-font-size);
-    color: var(--md-sys-color-on-surface-variant);
-    margin-top: 4px;
-}
-
-.add-domain-rule-form {
-    display: grid;
-    grid-template-columns: 2fr 1.5fr auto;
-    gap: 16px;
-    align-items: end; /* Aligns button with the bottom of the form fields */
+.domain-rules-list li:hover {
+    background-color: var(--md-sys-state-hover-on-surface);
 }
 
 /* Styles for Pre-check Rules Section */
@@ -435,10 +371,12 @@ button.m3-button.danger:hover {
 
 /* Style for highlighted regex matches */
 .regex-highlight {
-    background-color: #ffff00; /* 亮黄色背景 */
+    /* Use theme colors for a consistent and modern look */
+    background-color: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
     font-weight: bold;
-    padding: 1px 0; /* 少量内边距，视觉效果更好 */
-    border-radius: 2px;
+    padding: 1px 4px; /* A bit more horizontal padding for better readability */
+    border-radius: 4px; /* Slightly larger radius to match M3 style */
 }
 
 
@@ -518,7 +456,7 @@ button.m3-button.danger:hover {
         "name regex flags mode controls"
         "result result result result result"; /* Test result spans all columns */
     gap: 12px; /* Slightly reduced gap */
-    align-items: end;
+    align-items: center; /* Vertically align all items in the rule for a cleaner look */
     padding: 12px 16px; /* Adjusted padding */
     border-radius: 12px;
     background-color: var(--md-sys-color-surface-container-highest);
@@ -563,7 +501,7 @@ button.m3-button.danger:hover {
     display: flex;
     justify-content: flex-end;
     align-items: center;
-    gap: 4px; /* Made more compact */
+    gap: 8px; /* Increased gap for better touch-friendliness */
     padding-bottom: 0; /* Remove padding-bottom as it's now a single row */
 }
 
@@ -590,9 +528,6 @@ button.m3-icon-button.danger:hover {
 }
 button.m3-icon-button.danger { /* Specificity for danger color */
     color: var(--md-sys-color-error);
-}
-button.m3-icon-button:hover, button.m3-icon-button.danger:hover {
-    background-color: rgba(186, 26, 26, 0.08); /* Error state layer */
 }
 
 /* M3 Switch for "Enabled" */
@@ -648,6 +583,25 @@ button.m3-icon-button:hover, button.m3-icon-button.danger:hover {
     margin-top: 15px;
 }
 
+/* Responsive layout for pre-check rule items on smaller screens */
+@media (max-width: 800px) {
+    .rule-item {
+        grid-template-columns: 1fr; /* Switch to a single column layout */
+        grid-template-areas:
+            "name"
+            "regex"
+            "flags"
+            "mode"
+            "controls"
+            "result";
+        gap: 16px; /* Adjust gap for vertical stacking */
+    }
+
+    .rule-item-controls {
+        justify-content: space-between; /* Better spacing for controls in a single row */
+    }
+}
+
 /* --- Test Translation Area --- */
 #test-translation-container {
   margin-top: 20px;
@@ -696,26 +650,29 @@ button.m3-icon-button:hover, button.m3-icon-button.danger:hover {
 }
 
 #manual-test-translate-btn {
-  background-color: var(--md-sys-color-primary);
-  color: white;
-  border: none;
-  border-radius: 50%; /* 正圆形 */
-  width: 40px;
-  height: 40px;
-  padding: 0;
-  cursor: pointer;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  transition: background-color 0.2s, box-shadow 0.2s;
-  flex-shrink: 0;
-  font-size: 0; /* 隐藏按钮上的原始文字 (例如 "翻译") */
+    /* Re-styling as a proper M3 icon button */
+    background-color: var(--md-sys-color-primary);
+    border: none;
+    border-radius: 50%;
+    width: 48px; /* Consistent icon button size */
+    height: 48px;
+    padding: 0;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: background-color 0.2s, box-shadow 0.2s;
+    flex-shrink: 0;
+    font-size: 0; /* Hide the text content set by i18n */
+    /* Use an SVG background for the icon to avoid changing HTML */
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' height='24px' viewBox='0 0 24 24' width='24px' fill='%23FFFFFF'%3e%3cpath d='M0 0h24v24H0V0z' fill='none'/%3e%3cpath d='m12 4-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8-8-8z'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: center;
 }
 
 #manual-test-translate-btn::before {
-  content: '→';
-  font-size: 24px; /* 设置箭头符号的大小 */
-  line-height: 1;
+    /* The arrow is now a background image, so this is no longer needed */
+    content: none;
 }
 
 .test-actions {
@@ -724,8 +681,11 @@ button.m3-icon-button:hover, button.m3-icon-button.danger:hover {
   margin-top: 12px; /* 增加与上方翻译区域的间距 */
 }
 
-.manual-translate-btn:hover {
-  background-color: color-mix(in srgb, var(--md-sys-color-primary), var(--md-sys-state-hover-on-primary));}
+/* Hover effect for the test translation button */
+#manual-test-translate-btn:hover {
+  background-color: color-mix(in srgb, var(--md-sys-color-primary), var(--md-sys-state-hover-on-primary));
+  box-shadow: 0 1px 3px 1px rgba(0,0,0,0.15); /* Add a subtle shadow on hover */
+}
 
 /* --- Modal Styles (M3 Enhanced) --- */
 .modal {
@@ -788,6 +748,23 @@ button.m3-icon-button:hover, button.m3-icon-button.danger:hover {
     text-decoration: none;
 }
 
+/* Override global h3 styles for a more compact look inside modals */
+.modal-content h3 {
+    font-size: var(--md-sys-typescale-title-medium-font-size); /* A bit smaller */
+    color: var(--md-sys-color-on-surface); /* More prominent than the default h3 */
+    margin-top: 24px; /* Reduced margin */
+    margin-bottom: 16px;
+    border-bottom: none; /* No border needed inside the modal form */
+    padding-bottom: 0;
+}
+
+
+/* Action buttons at the bottom of a modal form (e.g., Domain Rules) */
+.modal-actions {
+    justify-content: flex-end; /* Align buttons to the right */
+    margin-top: 24px; /* Add space above the action buttons */
+}
+
 .ai-engine-list ul {
     list-style: none;
     padding: 0;
@@ -813,9 +790,14 @@ button.m3-icon-button:hover, button.m3-icon-button.danger:hover {
     justify-content: space-between;
     align-items: center;
     padding: 12px 16px;
-    border-radius: 12px; /* M3-style rounded corners */
+    border-radius: 12px;
     background-color: var(--md-sys-color-surface-container-highest);
     border: 1px solid var(--md-sys-color-outline-variant);
+    transition: background-color 0.2s ease;
+}
+
+.ai-engine-list li:hover {
+    background-color: var(--md-sys-state-hover-on-surface);
 }
 
 .ai-engine-list .actions {

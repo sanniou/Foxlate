@@ -127,10 +127,6 @@
     "message": "总是翻译",
     "description": "总是翻译规则的选项。"
   },
-  "addRule": {
-    "message": "添加域名规则",
-    "description": "添加新域名规则的按钮文本。"
- },
  "addPrecheckRule": {
     "message": "添加预检查规则",
     "description": "添加新预检查规则的按钮文本。"
@@ -138,6 +134,10 @@
  "edit": {
     "message": "编辑",
     "description": "通用编辑按钮文本。"
+  },
+  "addAiEngine": {
+    "message": "添加 AI 引擎",
+    "description": "添加新 AI 引擎配置的按钮文本。"
   },
   "addDomainRule": {
     "message": "添加域名规则",
