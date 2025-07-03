@@ -416,7 +416,7 @@
     "description": "Error message when the test source text is empty."
   },
   "testNotTranslated": {
-    "message": "原文（未翻译，可能由于预检查规则或语言相同）：",
+    "message": "原文（未翻译，未通过预检查）：",
     "description": "Message for test translation when text is not translated due to pre-check rules or same language."
   },
   "translateButtonText": {

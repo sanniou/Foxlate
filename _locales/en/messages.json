@@ -402,7 +402,7 @@
     "description": "Error message when the test source text is empty."
   },
   "testNotTranslated": {
-    "message": "Original text (not translated due to pre-check rule or same language):",
+    "message": "Original text (not translated due to pre-check rule):",
     "description": "Message for test translation when text is not translated due to pre-check rules or same language."
   },
   "translateButtonText": {
