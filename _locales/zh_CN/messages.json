@@ -131,6 +131,10 @@
     "message": "添加域名规则",
     "description": "添加新域名规则的按钮文本。"
  },
+ "addPrecheckRule": {
+    "message": "添加预检查规则",
+    "description": "添加新预检查规则的按钮文本。"
+  },
  "edit": {
     "message": "编辑",
     "description": "通用编辑按钮文本。"
@@ -598,5 +602,9 @@
   "testRegexInputPlaceholder": {
     "message": "输入文本以测试正则表达式...",
     "description": "测试文本输入框的占位符。"
+  },
+  "runTestButton": {
+    "message": "运行测试",
+    "description": "The button text for running the global pre-check test."
   }
 }

@@ -584,5 +584,13 @@
   "testRegexInputPlaceholder": {
     "message": "Enter text to test against the regex...",
     "description": "Placeholder for the test text input field."
-  }
+  },
+  "runTestButton": {
+    "message": "Run Test",
+    "description": "The button text for running the global pre-check test."
+    },
+    "addPrecheckRule": {
+        "message": "Add Pre-check Rule",
+        "description": "Button text to add a new pre-check rule."
+    }
 }

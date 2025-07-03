@@ -65,6 +65,8 @@ document.addEventListener('DOMContentLoaded', () => {
         ruleCssSelectorOverrideCheckbox: document.getElementById('ruleCssSelectorOverride'),
         cancelDomainRuleBtn: document.getElementById('cancelDomainRuleBtn'),
         saveDomainRuleBtn: document.getElementById('saveDomainRuleBtn'),
+        // Global Pre-check Test Elements
+        runGlobalTestBtn: document.getElementById('runGlobalTestBtn')
     };
     elements.toggleLogBtn = document.getElementById('toggleLogBtn');
     elements.logContent = document.getElementById('log-content');
@@ -507,8 +509,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Create 'Add Rule' Button
             const addRuleBtn = document.createElement('button');
-            addRuleBtn.textContent = browser.i18n.getMessage('addRule');
-            addRuleBtn.className = 'add-rule-btn';
+            addRuleBtn.textContent = browser.i18n.getMessage('addPrecheckRule');
+            addRuleBtn.className = 'add-rule-btn m3-button filled-tonal';
             addRuleBtn.addEventListener('click', () => addRuleToCategory(category));
             panel.appendChild(addRuleBtn);
 
@@ -1335,6 +1337,36 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    /**
+     * Runs a global test of the pre-check rules against the text in the main test input.
+     */
+    const runGlobalPrecheckTest = () => {
+        const testTextInput = document.getElementById('testTextInput');
+        const testText = testTextInput.value;
+
+        // If the test text is empty, we can't run any tests.
+        // Show a general status message and give focus to the input.
+        if (!testText) {
+            showStatusMessage(browser.i18n.getMessage('enterTestText') || 'Please enter test text.', true);
+            testTextInput.focus();
+            // Add a little shake animation for better user feedback
+            testTextInput.closest('.m3-form-field')?.classList.add('error-shake');
+            setTimeout(() => testTextInput.closest('.m3-form-field')?.classList.remove('error-shake'), 500);
+            return;
+        }
+
+        // Find all rule items currently in the DOM and trigger their individual test function.
+        document.querySelectorAll('.rule-item').forEach(item => {
+            const regexInput = item.querySelector('.rule-regex');
+            const flagsInput = item.querySelector('.rule-flags');
+            const resultElement = item.querySelector('.rule-test-result');
+            
+            // Directly call the test logic for each rule.
+            if (regexInput && flagsInput && resultElement) {
+                testRegex(regexInput, flagsInput, resultElement);
+            }
+        });
+    };
 
     // --- Initialization and Event Listeners ---
     const initialize = async () => {
@@ -1381,6 +1413,7 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.importInput.addEventListener('change', importSettings);
         
         const testTextInput = document.getElementById('testTextInput');
+        elements.runGlobalTestBtn.addEventListener('click', runGlobalPrecheckTest);
         if (testTextInput) {
             testTextInput.addEventListener('focus', () => {
                 // Hide all visible test results when the main test text input gets focus

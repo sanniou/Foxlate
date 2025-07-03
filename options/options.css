@@ -447,25 +447,48 @@ button.m3-button.danger:hover {
 .tab-buttons {
     display: flex;
     margin-bottom: 20px;
+    /* Add a bottom border to the container for better separation */
+    border-bottom: 1px solid var(--md-sys-color-outline-variant);
 }
 
 .tab-button {
-    padding: 10px 20px;
+    position: relative; /* Required for the ::after pseudo-element */
+    padding: 12px 20px; /* Slightly more vertical padding */
     cursor: pointer;
     border: none;
     background-color: transparent;
-    border-bottom: 3px solid transparent;
+    /* border-bottom: 3px solid transparent; */ /* Replaced by ::after */
     font-size: var(--md-sys-typescale-label-large-font-size);
     font-weight: 600;
     color: var(--md-sys-color-on-surface-variant);
-    transition: color 0.2s, border-color 0.2s;
+    border-radius: 8px 8px 0 0; /* 为悬停/活动状态添加顶部圆角 */
+    transition: color 0.3s ease, background-color 0.3s ease; /* 同时过渡颜色和背景色 */
+}
+
+.tab-button::after {
+    content: '';
+    position: absolute;
+    bottom: -1px; /* Align with the container's border */
+    left: 0;
+    right: 0;
+    height: 3px;
+    background-color: var(--md-sys-color-primary);
+    border-radius: 3px 3px 0 0; /* Rounded top corners for the indicator */
+    transform: scaleX(0);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .tab-button.active {
     color: var(--md-sys-color-primary);
-    border-bottom-color: var(--md-sys-color-primary);
+    /* 为活动标签页添加微妙的背景色，使其更突出 */
+    background-color: var(--md-sys-state-hover-on-surface);
 }
-.tab-button:hover {
+
+.tab-button.active::after {
+    transform: scaleX(1);
+}
+
+.tab-button:hover:not(.active) { /* 如果标签页已激活，则不应用悬停效果 */
     background-color: var(--md-sys-state-hover-on-surface); /* M3 hover state */
 }
 .tab-button:focus-visible {
