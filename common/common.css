@@ -8,6 +8,7 @@
 
     --md-sys-color-secondary: #595d72;
     --md-sys-color-on-secondary: #ffffff;
+    --md-sys-color-error-rgb: 186, 26, 26; /* RGB version for rgba() */
 
     --md-sys-color-error: #ba1a1a;
     --md-sys-color-on-error: #ffffff;

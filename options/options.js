@@ -55,6 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
         domainRuleFormTitle: document.getElementById('domainRuleFormTitle'),
         editingDomainInput: document.getElementById('editingDomain'),
         ruleDomainInput: document.getElementById('ruleDomain'),
+        ruleDomainError: document.getElementById('ruleDomainError'),
         ruleApplyToSubdomainsCheckbox: document.getElementById('ruleApplyToSubdomains'),
         ruleAutoTranslateSelect: document.getElementById('ruleAutoTranslate'),
         ruleTranslatorEngineSelect: document.getElementById('ruleTranslatorEngine'),
@@ -66,7 +67,9 @@ document.addEventListener('DOMContentLoaded', () => {
         cancelDomainRuleBtn: document.getElementById('cancelDomainRuleBtn'),
         saveDomainRuleBtn: document.getElementById('saveDomainRuleBtn'),
         // Global Pre-check Test Elements
-        runGlobalTestBtn: document.getElementById('runGlobalTestBtn')
+        runGlobalTestBtn: document.getElementById('runGlobalTestBtn'),
+        testTextInput: document.getElementById('testTextInput'),
+        testTextInputError: document.getElementById('testTextInputError')
     };
     elements.toggleLogBtn = document.getElementById('toggleLogBtn');
     elements.logContent = document.getElementById('log-content');
@@ -187,33 +190,39 @@ document.addEventListener('DOMContentLoaded', () => {
     function validateRegexInput(regexInput, flagsInput) {
         const regexValue = regexInput.value.trim();
         const flagsValue = flagsInput.value.trim();
+        const regexField = regexInput.closest('.m3-form-field');
+        const flagsField = flagsInput.closest('.m3-form-field');
+        const regexErrorEl = regexField ? regexField.querySelector('.error-message') : null;
+        const flagsErrorEl = flagsField ? flagsField.querySelector('.error-message') : null;
         let isValid = true;
-        let errorMessage = '';
-
-        // An empty regex is technically valid (matches everything), but we should clear any error state.
+    
+        // Clear previous errors first
+        if (regexField) regexField.classList.remove('is-invalid');
+        if (regexErrorEl) regexErrorEl.textContent = '';
+        if (flagsField) flagsField.classList.remove('is-invalid');
+        if (flagsErrorEl) flagsErrorEl.textContent = '';
+    
+        // An empty regex is technically valid (matches everything), so we don't need to show an error.
         if (regexValue === '') {
-            regexInput.classList.remove('is-invalid');
-            regexInput.removeAttribute('title');
-            flagsInput.classList.remove('is-invalid');
-            flagsInput.removeAttribute('title');
             return true;
         }
-
+    
         try {
             new RegExp(regexValue, flagsValue); // Attempt to create a RegExp object
-            regexInput.classList.remove('is-invalid');
-            regexInput.removeAttribute('title');
-            flagsInput.classList.remove('is-invalid');
-            flagsInput.removeAttribute('title');
         } catch (e) {
             isValid = false;
-            errorMessage = e.message;
-            const invalidRegexMsg = browser.i18n.getMessage('invalidRegex') || 'Invalid Regular Expression';
-            const invalidFlagsMsg = browser.i18n.getMessage('invalidRegexFlags') || 'Invalid Regex Flags';
-            regexInput.classList.add('is-invalid');
-            regexInput.title = `${invalidRegexMsg}: ${errorMessage}`; // Tooltip for error
-            flagsInput.classList.add('is-invalid'); // Mark flags input as invalid too, as the error might be a combination or related.
-            flagsInput.title = `${invalidFlagsMsg}: ${errorMessage}`;
+            const errorMessage = e.message;
+            
+            // Try to pinpoint the error to either the regex or the flags
+            if (errorMessage.toLowerCase().includes('flag')) {
+                // Error is likely in the flags
+                if (flagsField) flagsField.classList.add('is-invalid');
+                if (flagsErrorEl) flagsErrorEl.textContent = errorMessage;
+            } else {
+                // Error is likely in the regex pattern
+                if (regexField) regexField.classList.add('is-invalid');
+                if (regexErrorEl) regexErrorEl.textContent = errorMessage;
+            }
         }
         return isValid;
     }
@@ -245,12 +254,25 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- Helper Functions ---
+    let statusMessageTimeout; // To prevent multiple timeouts from overlapping
+
     const showStatusMessage = (message, isError = false) => {
+        // Clear any existing timeout to ensure the new message gets its full display time
+        if (statusMessageTimeout) {
+            clearTimeout(statusMessageTimeout);
+        }
+
         elements.statusMessage.textContent = message;
-        elements.statusMessage.style.display = 'block';
-        elements.statusMessage.className = `status-message ${isError ? 'error' : 'success'}`;
-        setTimeout(() => {
-            elements.statusMessage.style.display = 'none';
+        // Set base class and then add modifiers
+        elements.statusMessage.className = 'status-message'; 
+        elements.statusMessage.classList.add(isError ? 'error' : 'success');
+        
+        // Make it visible, which triggers the CSS transition
+        elements.statusMessage.classList.add('visible');
+
+        // Set a timeout to hide it again
+        statusMessageTimeout = setTimeout(() => {
+            elements.statusMessage.classList.remove('visible');
         }, 3000);
     };
 
@@ -354,7 +376,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (hasInvalidRegex) {
-            showStatusMessage(browser.i18n.getMessage('invalidRegexWarning'), true);
             elements.saveSettingsBtn.classList.add('error-shake');
             setTimeout(() => elements.saveSettingsBtn.classList.remove('error-shake'), 500);
             return; // Prevent saving if there are invalid regexes
@@ -391,7 +412,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             await browser.storage.sync.set({ settings: settingsToSave });
-            showStatusMessage(browser.i18n.getMessage('saveSettingsSuccess'));
             clearUnsavedChanges(); // Reset tracking after successful save
 
             // --- State: Success ---
@@ -423,7 +443,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 1200); // Display success state for 1.2 seconds for a better feel.
         } catch (error) {
             console.error('Error saving settings:', error);
-            showStatusMessage(browser.i18n.getMessage('saveSettingsError'), true);
             // --- State: Error/Reset ---
             elements.saveSettingsBtn.disabled = false;
             elements.fabIconLoading.classList.remove('active');
@@ -549,10 +568,12 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="m3-form-field filled rule-regex-field">
             <input type="text" id="${randomId}-regex" class="rule-regex" value="${escapeHtml(rule.regex || '')}" placeholder=" ">
             <label for="${randomId}-regex">${regexPlaceholder}</label>
+            <div class="error-message"></div>
         </div>
         <div class="m3-form-field filled rule-flags-field">
             <input type="text" id="${randomId}-flags" class="rule-flags" value="${escapeHtml(rule.flags || '')}" placeholder=" ">
             <label for="${randomId}-flags">${flagsPlaceholder}</label>
+            <div class="error-message"></div>
         </div>
         <div class="m3-form-field filled rule-mode-field">
             <select id="${randomId}-mode" class="rule-mode">
@@ -700,33 +721,35 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelector(`.main-tab-button[data-tab="${tabName}"]`).classList.add('active');
     }
     const renderDomainRules = () => {
-      elements.domainRulesList.innerHTML = "";
+        elements.domainRulesList.innerHTML = ""; // Clear the <ul>
         const rulesArray = Object.entries(domainRules).map(([domain, rule]) => ({ domain, ...rule }));
-        if (rulesArray.length === 0) { // 修复：消息在 ul 元素内显示
-            elements.domainRulesList.innerHTML = `<p>${browser.i18n.getMessage('noRulesFound') || 'No domain rules configured.'}</p>`;
+    
+        if (rulesArray.length === 0) {
+            const li = document.createElement('li');
+            li.className = 'no-rules-message'; // For specific styling
+            li.textContent = browser.i18n.getMessage('noDomainRulesFound') || 'No domain rules configured.';
+            elements.domainRulesList.appendChild(li);
             return;
         }
-        const ul = document.createElement('ul');
+    
         rulesArray.forEach(rule => {
             const li = document.createElement('li');
-            li.className = 'domain-rule-item'; // Add a class for easier selection
-            li.dataset.domain = rule.domain; // Store domain in dataset for easy access
-
+            li.className = 'domain-rule-item';
+            li.dataset.domain = rule.domain;
+    
             li.innerHTML = `
             <span>${escapeHtml(rule.domain)}</span>
             <div class="rule-actions">
                 <button class="edit-rule-btn m3-button text" data-domain="${rule.domain}">${browser.i18n.getMessage('edit') || 'Edit'}</button>
                 <button class="delete-rule-btn m3-button text danger" data-domain="${rule.domain}">${browser.i18n.getMessage('removeRule') || 'Delete'}</button>
             </div>`;
-            ul.appendChild(li);
+            elements.domainRulesList.appendChild(li);
         });
-        elements.domainRulesList.appendChild(ul);
-
-        // Attach event listeners to the buttons
-        ul.querySelectorAll('.edit-rule-btn').forEach(button => {
+    
+        elements.domainRulesList.querySelectorAll('.edit-rule-btn').forEach(button => {
             button.addEventListener('click', (e) => editDomainRule(e.target.dataset.domain));
         });
-        ul.querySelectorAll('.delete-rule-btn').forEach(button => {
+        elements.domainRulesList.querySelectorAll('.delete-rule-btn').forEach(button => {
             button.addEventListener('click', (e) => removeDomainRule(e.target.dataset.domain));
         });
     };
@@ -734,11 +757,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     const removeDomainRule = (domainToRemove) => {
-        if (domainRules[domainToRemove]) {
-            delete domainRules[domainToRemove];
-            renderDomainRules();
-            markSettingAsChanged('domainRules');
-            showStatusMessage(browser.i18n.getMessage('removeRuleSuccess'));
+        const confirmationMessage = browser.i18n.getMessage('confirmDeleteRule') || 'Are you sure you want to delete this rule?';
+        if (window.confirm(confirmationMessage)) {
+            if (domainRules[domainToRemove]) {
+                delete domainRules[domainToRemove];
+                renderDomainRules();
+                markSettingAsChanged('domainRules');
+                showStatusMessage(browser.i18n.getMessage('removeRuleSuccess'));
+            }
         }
     };
 
@@ -757,11 +783,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- 1. Validation ---
         if (!newDomain) {
-            showStatusMessage(browser.i18n.getMessage('domainCannotBeEmpty') || 'Domain cannot be empty.', true);
             elements.ruleDomainInput.closest('.m3-form-field').classList.add('is-invalid');
+            elements.ruleDomainError.textContent = browser.i18n.getMessage('domainCannotBeEmpty') || 'Domain cannot be empty.';
             return;
         }
-        elements.ruleDomainInput.closest('.m3-form-field').classList.remove('is-invalid');
+        // Error is cleared via an input event listener for better UX
 
         // --- 2. Construct rule object, excluding default values for efficiency ---
         const rule = {};
@@ -1060,7 +1086,6 @@ document.addEventListener('DOMContentLoaded', () => {
         isValid = validateAiFormField(elements.aiCustomPromptInput, elements.aiCustomPromptError, 'aiCustomPrompt') && isValid;
 
         if (!isValid) {
-            showStatusMessage(browser.i18n.getMessage('fillAllRequiredFields') || 'Please fill in all required fields.', true);
             return;
         }
 
@@ -1313,7 +1338,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!isValid) {
             elements.aiTestResult.style.display = 'none'; // Hide test result if validation fails
-            showStatusMessage(browser.i18n.getMessage('fillAllRequiredFields') || 'Please fill in all required fields for testing.', true);
             return;
         }
 
@@ -1348,20 +1372,23 @@ document.addEventListener('DOMContentLoaded', () => {
      * Runs a global test of the pre-check rules against the text in the main test input.
      */
     const runGlobalPrecheckTest = () => {
-        const testTextInput = document.getElementById('testTextInput');
-        const testText = testTextInput.value;
-
+        const testText = elements.testTextInput.value;
+        const fieldContainer = elements.testTextInput.closest('.m3-form-field');
+    
         // If the test text is empty, we can't run any tests.
-        // Show a general status message and give focus to the input.
+        // Show an inline validation error instead of a global status message.
         if (!testText) {
-            showStatusMessage(browser.i18n.getMessage('enterTestText') || 'Please enter test text.', true);
-            testTextInput.focus();
-            // Add a little shake animation for better user feedback
-            testTextInput.closest('.m3-form-field')?.classList.add('error-shake');
-            setTimeout(() => testTextInput.closest('.m3-form-field')?.classList.remove('error-shake'), 500);
+            fieldContainer.classList.add('is-invalid');
+            elements.testTextInputError.textContent = browser.i18n.getMessage('enterTestText') || 'Please enter test text.';
+            elements.testTextInput.focus();
+            fieldContainer?.classList.add('error-shake');
+            setTimeout(() => fieldContainer?.classList.remove('error-shake'), 500);
             return;
         }
-
+    
+        // Clear any previous error state if the input is valid.
+        fieldContainer.classList.remove('is-invalid');
+        elements.testTextInputError.textContent = '';
         // Find all rule items currently in the DOM and trigger their individual test function.
         document.querySelectorAll('.rule-item').forEach(item => {
             const regexInput = item.querySelector('.rule-regex');
@@ -1416,17 +1443,33 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.cancelDomainRuleBtn.addEventListener('click', closeDomainRuleModal);
         elements.saveDomainRuleBtn.addEventListener('click', saveDomainRule); // This function will be implemented next
 
+        // Clear domain rule validation error on input
+        elements.ruleDomainInput.addEventListener('input', () => {
+            const field = elements.ruleDomainInput.closest('.m3-form-field');
+            if (field.classList.contains('is-invalid')) {
+                field.classList.remove('is-invalid');
+                elements.ruleDomainError.textContent = '';
+            }
+        });
+
         // Other listeners
         elements.importInput.addEventListener('change', importSettings);
         
-        const testTextInput = document.getElementById('testTextInput');
         elements.runGlobalTestBtn.addEventListener('click', runGlobalPrecheckTest);
-        if (testTextInput) {
-            testTextInput.addEventListener('focus', () => {
+        if (elements.testTextInput) {
+            elements.testTextInput.addEventListener('focus', () => {
                 // Hide all visible test results when the main test text input gets focus
                 document.querySelectorAll('.rule-test-result.show').forEach(resultEl => {
                     resultEl.classList.remove('show');
                 });
+            });
+            // Add an input listener to clear the validation error as the user types.
+            elements.testTextInput.addEventListener('input', () => {
+                const fieldContainer = elements.testTextInput.closest('.m3-form-field');
+                if (fieldContainer.classList.contains('is-invalid')) {
+                    fieldContainer.classList.remove('is-invalid');
+                    elements.testTextInputError.textContent = '';
+                }
             });
         }
         

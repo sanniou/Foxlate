@@ -279,6 +279,16 @@ button.m3-icon-button .ripple {
     background-color: var(--md-sys-state-hover-on-surface);
 }
 
+/* Danger style for text buttons */
+.m3-button.text.danger {
+    color: var(--md-sys-color-error);
+    background-color: transparent; /* Ensure it remains a text button */
+}
+.m3-button.text.danger:hover {
+    /* Use a semi-transparent error color for the hover background */
+    background-color: rgba(var(--md-sys-color-error-rgb), 0.08);
+}
+
 .m3-button.filled-tonal {
     background-color: var(--md-sys-color-primary-container);
     color: var(--md-sys-color-on-primary-container);
@@ -293,38 +303,44 @@ button.m3-icon-button .ripple {
     gap: 10px;
 }
 
+/* Danger style for filled buttons */
 button.m3-button.danger {
     background-color: var(--md-sys-color-error);
     color: var(--md-sys-color-on-error);
 }
 button.m3-button.danger:hover {
-    background-color: color-mix(in srgb, var(--md-sys-color-error), var(--md-sys-state-hover-on-primary));
+    background-color: color-mix(in srgb, var(--md-sys-color-error), var(--md-sys-color-on-error) 8%);
 }
 
-/* Style for invalid input fields (e.g., invalid regex) */
-.m3-form-field.filled input.is-invalid,
-.rule-item input.is-invalid {
-    border-color: var(--md-sys-color-error) !important; /* Red border for invalid input */
-}
-
+/* Snackbar / Toast Notification Style */
 .status-message {
-    margin-top: 20px;
-    padding: 12px 16px;
-    border-radius: 6px;
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translate(-50%, 150%); /* Start off-screen below */
+    padding: 14px 24px;
+    border-radius: 8px;
+    background-color: var(--md-sys-color-surface-container-highest);
+    color: var(--md-sys-color-on-surface);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    z-index: 2000; /* Ensure it's above other content, including modals */
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    max-width: 600px;
     text-align: center;
-    display: none; /* Hidden by default */
+}
+
+.status-message.visible {
+    transform: translate(-50%, 0); /* Slide into view */
 }
 
 .status-message.success {
     background-color: var(--md-sys-color-primary-container);
     color: var(--md-sys-color-on-primary-container);
-    border: 1px solid var(--md-sys-color-primary);
 }
 
 .status-message.error {
     background-color: var(--md-sys-color-error-container);
     color: var(--md-sys-color-on-error-container);
-    border: 1px solid var(--md-sys-color-error);
 }
 
 .domain-rules-list ul {
@@ -349,6 +365,25 @@ button.m3-button.danger:hover {
 
 .domain-rules-list li:hover {
     background-color: var(--md-sys-state-hover-on-surface);
+}
+
+/* Style for the message shown when the domain rules list is empty */
+.domain-rules-list .no-rules-message {
+    padding: 16px;
+    text-align: center;
+    color: var(--md-sys-color-on-surface-variant);
+    font-style: italic;
+    border-bottom: none; /* Remove the separator line for this item */
+}
+
+/* Override global h3 for a more subtle list header */
+.domain-rules-list h3 {
+    font-size: var(--md-sys-typescale-title-medium-font-size);
+    color: var(--md-sys-color-on-surface-variant);
+    margin-top: 0; /* Reset margin as it's inside a container */
+    margin-bottom: 8px;
+    border-bottom: none; /* No border needed for a list header */
+    padding-bottom: 0;
 }
 
 /* Styles for Pre-check Rules Section */

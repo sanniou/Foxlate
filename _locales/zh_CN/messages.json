@@ -43,6 +43,10 @@
     "message": "未配置任何引擎。",
     "description": "Message when no AI engines are configured."
   },
+  "noDomainRulesFound": {
+    "message": "未配置任何域名规则。",
+    "description": "当域名规则列表为空时显示的消息。"
+  },
   "aiApiKey": {
     "message": "AI API 密钥：",
     "description": "AI API 密钥输入框的标签。"

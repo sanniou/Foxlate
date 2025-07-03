@@ -43,6 +43,10 @@
     "message": "No engines configured.",
     "description": "Message when no AI engines are configured."
   },
+  "noDomainRulesFound": {
+    "message": "No domain rules configured.",
+    "description": "Message displayed when the domain rules list is empty."
+  },
   "aiApiKey": {
     "message": "AI API Key:",
     "description": "Label for the AI API key input."
