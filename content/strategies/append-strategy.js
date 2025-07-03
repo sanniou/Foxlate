@@ -1,16 +1,37 @@
 window.appendTranslationStrategy = {
     /**
+     * @private
+     * Determines the correct CSS class for the appended node based on the parent's display style.
+     * @param {HTMLElement} element - The wrapper element (`<font>`) to check against.
+     * @returns {string} The base class name ('foxlate-appended-text' or 'foxlate-appended-text foxlate-appended-block').
+     */
+    _getAppendClassName: function(element) {
+        const parentStyle = element.parentElement ? window.getComputedStyle(element.parentElement) : null;
+        // A list of display values that imply a block-level context for our purpose.
+        const blockContextDisplays = ['block', 'flex', 'grid', 'list-item', 'table', 'flow-root'];
+        const isBlockContext = parentStyle && blockContextDisplays.some(d => parentStyle.display.startsWith(d));
+
+        return isBlockContext
+            ? 'foxlate-appended-text foxlate-appended-block'
+            : 'foxlate-appended-text';
+    },
+
+    /**
      * 在元素后面追加一个包含译文的节点。
      * @param {HTMLElement} element - 目标元素。
      * @param {string} translatedText - 翻译后的文本。
      */
     displayTranslation: function(element, translatedText) {
         // 查找已有的翻译 font 标签，有则更新，无则创建
-        let translationNode = element.querySelector('.foxlate-appended-text');
+        let translationNode = element.querySelector(".foxlate-appended-text");
+
         if (translationNode) {
+            // Node exists, just update it.
             translationNode.textContent = translatedText;
         } else {
-            this.createTranslationNode(element, translatedText);
+            // This path is a fallback for cases where the node wasn't created during the LOADING state.
+            const className = this._getAppendClassName(element);
+            this.createTranslationNode(element, translatedText, className);
         }
     },
     createTranslationNode: function(element, textContent, className = 'foxlate-appended-text') {
@@ -32,14 +53,15 @@ window.appendTranslationStrategy = {
                     translationNode.textContent = '';
                     translationNode.classList.add('loading');
                 } else {
-                    this.createTranslationNode(element,  '', 'foxlate-appended-text loading');
+                    const className = this._getAppendClassName(element) + ' loading';
+                    this.createTranslationNode(element,  '', className);
                 }
                 break;
             case window.DisplayManager.STATES.TRANSLATED:
                 const translatedText = element.dataset.translatedText;
                 if (translatedText) {
                     this.displayTranslation(element, translatedText);
-                    translationNode?.classList.remove('loading');
+                    element.querySelector('.foxlate-appended-text')?.classList.remove('loading', 'error');
                 } else {
                     this.revertTranslation(element);
                 }

@@ -70,6 +70,13 @@
     margin-left: 8px;
     font-style: italic;
 }
+/* 当追加的翻译处于块级上下文时，在其前面添加换行 */
+.foxlate-appended-block::before {
+    content: '\A'; /* CSS中的换行符 */
+    white-space: pre; /* 确保换行符被正确渲染 */
+    display: block; /* 确保伪元素自己是块级，以容纳换行 */
+    line-height: 0.5; /* 调整换行后的间距 */
+}
 
 /* 为已处理并可悬停翻译的文本元素提供高亮样式 */
 .foxlate-hover-highlight {
