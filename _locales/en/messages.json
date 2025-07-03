@@ -549,6 +549,10 @@
     "message": "Translate selected text",
     "description": "Description for the command that translates the selected text."
   },
+  "commandToggleDisplayMode": {
+      "message": "Toggle Page Display Mode",
+      "description": "Command to toggle the display mode for page translation."
+  },
   "enterRegex": {
     "message": "Please enter a regex",
     "description": "Prompt for entering a regular expression."

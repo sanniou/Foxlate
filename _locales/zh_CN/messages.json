@@ -563,6 +563,10 @@
     "message": "翻译选中的文字",
     "description": "用于翻译选定文本的命令描述。"
   },
+  "commandToggleDisplayMode": {
+    "message": "切换页面翻译显示模式",
+    "description": "用于切换页面翻译显示模式的命令描述。"
+  },
   "enterRegex": {
     "message": "请输入正则表达式",
     "description": "提示用户输入正则表达式。"

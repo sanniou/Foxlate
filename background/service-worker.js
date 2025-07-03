@@ -277,6 +277,40 @@ const messageHandlers = {
       return browser.tabs.sendMessage(tabId, { type: 'TOGGLE_TRANSLATION_REQUEST', payload: { tabId } });
   },
 
+  async TOGGLE_DISPLAY_MODE(request) {
+      const { tabId, hostname } = request.payload;
+      if (!tabId || !hostname) {
+          throw new Error("Missing tabId or hostname for TOGGLE_DISPLAY_MODE");
+      }
+
+      const displayModes = ['append', 'replace', 'hover'];
+
+      const effectiveSettings = await getEffectiveSettings(hostname);
+      const { displayMode: currentMode, source: currentRuleSource } = effectiveSettings;
+
+      const currentIndex = displayModes.indexOf(currentMode);
+      const nextIndex = (currentIndex + 1) % displayModes.length;
+      const newMode = displayModes[nextIndex];
+
+      // 重用现有的 SAVE_RULE_CHANGE 处理器来保存更改，从而将保存逻辑集中化，
+      // 避免代码重复。
+      await messageHandlers.SAVE_RULE_CHANGE({ payload: { hostname, ruleSource: currentRuleSource, key: 'displayMode', value: newMode } });
+
+      // 通知内容脚本更新其 UI
+      try {
+          await browser.tabs.sendMessage(tabId, {
+              type: 'UPDATE_DISPLAY_MODE',
+              payload: { displayMode: newMode }
+          });
+      } catch (e) {
+          if (!e.message.includes("Receiving end does not exist")) {
+              logError('TOGGLE_DISPLAY_MODE (sending update)', e);
+          }
+      }
+
+      return { success: true, newMode: newMode };
+  },
+
     // ** 新增中断处理器 **
     async STOP_TRANSLATION(request) {
         const { tabId } = request.payload;
@@ -346,6 +380,20 @@ browser.commands.onCommand.addListener(async (command, tab) => {
       await messageHandlers.TOGGLE_TRANSLATION_REQUEST(request);
     } catch (e) {
       logError('onCommand (toggle-translation)', e);
+    }
+  }
+
+  if (command === "toggle-display-mode") {
+    // Pre-flight check
+    if (!tab || !tab.id || !tab.url || tab.url.startsWith('about:') || tab.url.startsWith('moz-extension:') || tab.url.startsWith('chrome:')) {
+        console.log(`[Foxlate] Command '${command}' ignored on protected page: ${tab?.url}`);
+        return;
+    }
+    try {
+        const hostname = new URL(tab.url).hostname;
+        await messageHandlers.TOGGLE_DISPLAY_MODE({ payload: { tabId: tab.id, hostname: hostname } });
+    } catch (e) {
+        logError('onCommand (toggle-display-mode)', e);
     }
   }
 });

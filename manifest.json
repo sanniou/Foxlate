@@ -42,6 +42,12 @@
         "default": "Alt+S"
       },
       "description": "__MSG_commandTranslateSelection__"
+    },
+    "toggle-display-mode": {
+      "suggested_key": {
+        "default": "Alt+X"
+      },
+      "description": "__MSG_commandToggleDisplayMode__"
     }
   },
   "options_ui": {
