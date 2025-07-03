@@ -8,30 +8,17 @@ window.appendTranslationStrategy = {
         // 查找已有的翻译 font 标签，有则更新，无则创建
         let translationNode = element.querySelector('.foxlate-appended-text');
         if (translationNode) {
-            translationNode.textContent = ` ( ${translatedText} )`;
+            translationNode.textContent = translatedText;
         } else {
-            translationNode = document.createElement('span');
-            translationNode.className = 'foxlate-appended-text'; // 类名用于标识和还原
-            translationNode.textContent = ` ( ${translatedText} )`;
-            element.appendChild(translationNode);
+            this.createTranslationNode(element, translatedText);
         }
     },
-   displayLoading: function(element) {
-       let translationNode = element.querySelector('.foxlate-appended-text');
-       if (translationNode) {
-           translationNode.textContent = ` (翻译中...)`; // 你可以自定义加载文本
-       } else {
-           translationNode = document.createElement('span');
-           translationNode.className = 'foxlate-appended-text loading'; // 添加 loading 类
-           translationNode.textContent = ` (翻译中...)`;
-           element.appendChild(translationNode);
-       }
+    createTranslationNode: function(element, textContent, className = 'foxlate-appended-text') {
+        let translationNode = document.createElement('span');
+        translationNode.className = className; // 类名用于标识和还原
+        translationNode.textContent = textContent;
+        element.appendChild(translationNode);
     },
-
-    hideLoading: function(element) {
-        // 移除 loading 类，以便区分正常翻译和加载状态
-        element.querySelector('.foxlate-appended-text')?.classList.remove('loading');
-    },    
 
     updateUI: function(element, state) {
         let translationNode = element.querySelector('.foxlate-appended-text');
@@ -42,13 +29,10 @@ window.appendTranslationStrategy = {
                 break;
             case window.DisplayManager.STATES.LOADING:
                 if (translationNode) {
-                    translationNode.textContent = ` (翻译中...)`;
+                    translationNode.textContent = '';
                     translationNode.classList.add('loading');
                 } else {
-                    translationNode = document.createElement('span');
-                    translationNode.className = 'foxlate-appended-text loading';
-                    translationNode.textContent = ` (翻译中...)`;
-                    element.appendChild(translationNode);
+                    this.createTranslationNode(element,  '', 'foxlate-appended-text loading');
                 }
                 break;
             case window.DisplayManager.STATES.TRANSLATED:
@@ -61,7 +45,21 @@ window.appendTranslationStrategy = {
                 }
                 break;
             case window.DisplayManager.STATES.ERROR:
-                this.revertTranslation(element); // 出错时移除翻译标记
+                // 不再直接移除，而是在追加的节点中显示错误信息
+                if (!translationNode) {
+                    // 如果节点不存在（例如，加载状态之前就出错了），则创建一个
+                    this.createTranslationNode(element, '', 'foxlate-appended-text');
+                    translationNode = element.querySelector('.foxlate-appended-text');
+                }
+
+                if (translationNode) {
+                    const errorMessage = element.dataset.errorMessage || 'Unknown error';
+                    const errorPrefix = browser.i18n.getMessage('contextMenuErrorPrefix') || 'Error';
+
+                    translationNode.classList.remove('loading');
+                    translationNode.classList.add('error'); // 添加 error 类以便 CSS 设置样式
+                    translationNode.textContent = `${errorPrefix}: ${errorMessage}`;
+                }
                 break;
             default:
                 console.warn(`[Append Strategy] Unknown state: ${state}`);

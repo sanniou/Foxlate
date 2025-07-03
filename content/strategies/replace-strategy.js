@@ -23,37 +23,28 @@ window.replaceStrategy = {
         }
     },
 
-    displayLoading: function(element) {
-        // 仅当尚未保存时，才保存原始 HTML。
-        if (element.dataset.originalContent === undefined) {
-            element.dataset.originalContent = element.innerHTML;
-        }
-        // 添加一个 class 来改变文本样式（例如，变暗），而不是替换它。
-        element.classList.add('foxlate-replacing');
-        // 附加一个加载指示器，而不是替换全部内容
-        if (!element.querySelector('.foxlate-inline-loading')) {
-            const spinner = document.createElement('span');
-            spinner.className = 'foxlate-inline-loading';
-            element.appendChild(spinner);
-        }
-    },
-
-    hideLoading: function(element) {
-        // 移除加载状态的样式和指示器
-        element.classList.remove('foxlate-replacing');
-        element.querySelector('.foxlate-inline-loading')?.remove();
-    }
-    ,
     updateUI: function(element, state) {
         switch (state) {
             case window.DisplayManager.STATES.ORIGINAL:
                 this.revertTranslation(element);
                 break;
             case window.DisplayManager.STATES.LOADING:
-                this.displayLoading(element);
+                // 仅当尚未保存时，才保存原始 HTML。
+                if (element.dataset.originalContent === undefined) {
+                    element.dataset.originalContent = element.innerHTML;
+                }
+                // 添加一个 class 来改变文本样式（例如，变暗），而不是替换它。
+                element.classList.add('foxlate-replacing');
+                // 附加一个加载指示器，而不是替换全部内容
+                if (!element.querySelector('.foxlate-inline-loading')) {
+                    const spinner = document.createElement('span');
+                    spinner.className = 'foxlate-inline-loading';
+                    element.appendChild(spinner);
+                }
                 break;
             case window.DisplayManager.STATES.TRANSLATED:
-                this.hideLoading(element); // 确保在处理此状态前移除加载状态
+                element.classList.remove('foxlate-replacing');
+                element.querySelector('.foxlate-inline-loading')?.remove();
                 const translatedText = element.dataset.translatedText;
                 if (translatedText) {
                     this.displayTranslation(element, translatedText);
@@ -62,10 +53,14 @@ window.replaceStrategy = {
                 }
                 break;
             case window.DisplayManager.STATES.ERROR:
-                this.hideLoading(element); // 确保在显示错误前移除加载状态
+                element.classList.remove('foxlate-replacing');
+                element.querySelector('.foxlate-inline-loading')?.remove();
                 // 错误状态：显示错误信息，并添加错误样式
+                // 为了保持一致性，我们使用与 append 策略类似的格式
                 const errorMessage = element.dataset.errorMessage || 'Translation Error';
-                element.innerHTML = `<span class="foxlate-error">${errorMessage}</span>`;
+                const errorPrefix = browser.i18n.getMessage('contextMenuErrorPrefix') || 'Error';
+                // 直接替换内容为带图标的错误信息
+                element.innerHTML = `⚠️ ${errorPrefix}: ${errorMessage}`;
                 element.classList.add('foxlate-error-underline');
                 break;
             default:

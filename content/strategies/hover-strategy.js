@@ -23,12 +23,15 @@ window.hoverStrategy = {
      * 显示工具提示，并将其定位在目标元素的上方或下方。
      * @param {HTMLElement} targetElement - 触发悬停的元素。
      * @param {string} text - 要在工具提示中显示的文本。
+     * @param {boolean} isError - 是否为错误提示。
      */
-    _showTooltip: function(targetElement, text) {
+    _showTooltip: function(targetElement, text, isError = false) {
         this._createTooltip();
         if (!this._tooltipEl) return;
 
         this._tooltipEl.textContent = text;
+        // 根据 isError 标志切换错误样式
+        this._tooltipEl.classList.toggle('error', isError);
         this._tooltipEl.classList.add('visible');
 
         const targetRect = targetElement.getBoundingClientRect();
@@ -78,8 +81,10 @@ window.hoverStrategy = {
         // 此策略的核心职责是添加事件监听器，以响应用户交互。
         const handleMouseEnter = () => {
             const currentTranslatedText = element.dataset.translatedText;
+            const state = window.DisplayManager.getElementState(element);
             if (currentTranslatedText) {
-                this._showTooltip(element, currentTranslatedText);
+                // 检查当前状态，如果是错误状态，则以错误样式显示工具提示
+                this._showTooltip(element, currentTranslatedText, state === window.DisplayManager.STATES.ERROR);
             }
         };
 
@@ -111,25 +116,18 @@ window.hoverStrategy = {
         this._hideTooltip();
     },
 
-    displayLoading: function(element) {
-        // 使用一个不同的高亮样式来表示正在加载
-        element.classList.add('foxlate-loading-highlight');
-    },
-
-    hideLoading: function(element) {
-        element.classList.remove('foxlate-loading-highlight');
-    },    
-
     updateUI: function(element, state) {
         switch (state) {
             case window.DisplayManager.STATES.ORIGINAL:
                 this.revertTranslation(element);
                 break;
             case window.DisplayManager.STATES.LOADING:
-                this.displayLoading(element);
+                // 使用一个不同的高亮样式来表示正在加载
+                element.classList.add('foxlate-loading-highlight');
                 break;
             case window.DisplayManager.STATES.TRANSLATED:
-                this.hideLoading(element); // 确保在处理此状态前移除加载状态
+                // 确保在处理此状态前移除加载状态
+                element.classList.remove('foxlate-loading-highlight');
                 const translatedText = element.dataset.translatedText;
                 if (translatedText) {
                     this.displayTranslation(element, translatedText);
@@ -138,11 +136,14 @@ window.hoverStrategy = {
                 }
                 break;
             case window.DisplayManager.STATES.ERROR:
-                this.hideLoading(element); // 确保在显示错误前移除加载状态
+                // 确保在显示错误前移除加载状态
+                element.classList.remove('foxlate-loading-highlight');
                 // 出错时，可以考虑修改悬停文本，或添加错误图标
+                const errorPrefix = browser.i18n.getMessage('contextMenuErrorPrefix') || 'Error';
                 const errorMessage = element.dataset.errorMessage || 'Translation Error';
-                element.dataset.translatedText = `Error: ${errorMessage}`; // 更新悬停文本
-                this.displayTranslation(element, `Error: ${errorMessage}`); // 立即更新悬停提示
+                const fullErrorMessage = `${errorPrefix}: ${errorMessage}`;
+                element.dataset.translatedText = fullErrorMessage; // 更新悬停文本
+                this.displayTranslation(element, fullErrorMessage); // 附加监听器，悬停时将显示错误
                 break;
             default:
                 console.warn(`[Hover Strategy] Unknown state: ${state}`);

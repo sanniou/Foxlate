@@ -64,17 +64,17 @@ window.contextMenuStrategy = {
      * @private
      * 显示带有提供文本的工具提示并设置监听器。
      */
-    _showTooltip: function(coords, text, isLoading = false, source) {
+    _showTooltip: function(coords, text, isLoading = false, source, isError = false) {
         this._createTooltip();
         if (!this._tooltipEl) return;
 
         // Don't hide here, as it clears listeners that might be needed.
         // The logic in updateUI will handle showing/hiding.
 
-        this._tooltipEl.classList.toggle('from-shortcut', source === 'shortcut');
         this._tooltipEl.textContent = text;
         this._tooltipEl.classList.toggle('loading', isLoading);
-        this._tooltipEl.classList.remove('error'); // Reset error state
+        this._tooltipEl.classList.toggle('error', isError);
+        this._tooltipEl.classList.toggle('from-shortcut', source === 'shortcut');
 
         this._updateTooltipPosition(coords);
         this._tooltipEl.classList.add('visible');
@@ -154,17 +154,14 @@ window.contextMenuStrategy = {
             case window.DisplayManager.STATES.TRANSLATED:
                 const translatedText = target.dataset.translatedText;
                 if (translatedText) {
-                    this._showTooltip(coords, translatedText, false, source);
+                    this._showTooltip(coords, translatedText, false, source, false);
                 }
                 break;
 
             case window.DisplayManager.STATES.ERROR:
                 const errorMessage = target.dataset.errorMessage || 'Translation Error';
                 const fullErrorMessage = `${browser.i18n.getMessage('contextMenuErrorPrefix') || 'Error'}: ${errorMessage}`;
-                this._showTooltip(coords, fullErrorMessage, false, source);
-                if (this._tooltipEl) {
-                    this._tooltipEl.classList.add('error');
-                }
+                this._showTooltip(coords, fullErrorMessage, false, source, true);
                 break;
 
             default:
