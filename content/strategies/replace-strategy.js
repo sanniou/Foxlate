@@ -53,6 +53,7 @@ window.replaceStrategy = {
                 this.displayLoading(element);
                 break;
             case window.DisplayManager.STATES.TRANSLATED:
+                this.hideLoading(element); // 确保在处理此状态前移除加载状态
                 const translatedText = element.dataset.translatedText;
                 if (translatedText) {
                     this.displayTranslation(element, translatedText);
@@ -61,6 +62,7 @@ window.replaceStrategy = {
                 }
                 break;
             case window.DisplayManager.STATES.ERROR:
+                this.hideLoading(element); // 确保在显示错误前移除加载状态
                 // 错误状态：显示错误信息，并添加错误样式
                 const errorMessage = element.dataset.errorMessage || 'Translation Error';
                 element.innerHTML = `<span class="foxlate-error">${errorMessage}</span>`;
