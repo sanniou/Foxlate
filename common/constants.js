@@ -33,10 +33,10 @@ export const DEFAULT_PRECHECK_RULES = {
         { nameKey: 'precheckRulePunctuation', name: 'Numbers, Punctuation, Symbols', regex: '^[\\d\\s\\p{P}\\p{S}]+$', mode: 'blacklist', enabled: true, flags: 'u' },
         { nameKey: 'precheckRuleEmoji', name: 'Single Emoji', regex: '^\\p{Emoji}$', mode: 'blacklist', enabled: true, flags: 'u' },
         { nameKey: 'precheckRuleSingleWord', name: 'Single English Letter', regex: '^[A-Za-z]$', mode: 'blacklist', enabled: true, flags: '' },
-        { nameKey: 'precheckRuleAcronymsGeneral', name: 'General Acronyms', regex: '^\\b(OK|DIY|FAQ|ID|PIN|SIM|SMS|TV|ASAP|AKA|FYI)\\b$', mode: 'blacklist', enabled: true, flags: 'i' },
-        { nameKey: 'precheckRuleAcronymsTech', name: 'Tech Acronyms', regex: '^\\b(AI|CPU|GPU|API|URL|HTTP|HTTPS|PDF|HTML|CSS|JS|JSON|XML|SQL|RAM|ROM|OS|PC|USB|WIFI|GPS|ICP)\\b$', mode: 'blacklist', enabled: true, flags: 'i' },
-        { nameKey: 'precheckRuleAcronymsBusiness', name: 'Business Acronyms', regex: '^\\b(CEO|CFO|CTO|HR|PR|AD|VIP|B2B|B2C|ROI|KPI)\\b$', mode: 'blacklist', enabled: true, flags: 'i' },
-        { nameKey: 'precheckRuleAcronymsGov', name: 'Government & Org Acronyms', regex: '^\\b(WHO|CN|NASA|FBI|CIA|UFO|UN|EU|NATO)\\b$', mode: 'blacklist', enabled: true, flags: 'i' },
+        { nameKey: 'precheckRuleAcronymsGeneral', name: 'General Acronyms', regex: '\\b(OK|DIY|FAQ|ID|PIN|SIM|SMS|TV|ASAP|AKA|FYI)\\b', mode: 'blacklist', enabled: true, flags: 'gi' },
+        { nameKey: 'precheckRuleAcronymsTech', name: 'Tech Acronyms', regex: '\\b(AI|CPU|GPU|API|URL|HTTP|HTTPS|PDF|HTML|CSS|JS|JSON|XML|SQL|RAM|ROM|OS|PC|USB|WIFI|GPS|ICP)\\b', mode: 'blacklist', enabled: true, flags: 'gi' },
+        { nameKey: 'precheckRuleAcronymsBusiness', name: 'Business Acronyms', regex: '\\b(CEO|CFO|CTO|HR|PR|AD|VIP|B2B|B2C|ROI|KPI)\\b', mode: 'blacklist', enabled: true, flags: 'gi' },
+        { nameKey: 'precheckRuleAcronymsGov', name: 'Government & Org Acronyms', regex: '\\b(WHO|CN|NASA|FBI|CIA|UFO|UN|EU|NATO)\\b', mode: 'blacklist', enabled: true, flags: 'gi' },
     ],
 };
 

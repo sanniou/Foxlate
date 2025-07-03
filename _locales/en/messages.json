@@ -465,6 +465,10 @@
     "message": "[Pre-check] Rule \"$1\" ($2) did not match.",
     "description": "Log entry when a pre-check rule does not match. Placeholders: [ruleName, ruleMode]"
   },
+  "logEntryPrecheckEraserUsed": {
+    "message": "[Pre-check] Rule \"$1\" ($2) was used as an eraser, removing matched parts.",
+    "description": "Log entry when a pre-check rule is used as an eraser. Placeholders: [ruleName, ruleMode]"
+  },
   "logEntryPrecheckNoTranslation": {
     "message": "[Pre-check] Text determined not to require translation. Returning original text.",
     "description": "Log entry when pre-check determines no translation is needed."

@@ -479,6 +479,10 @@
     "message": "[预检查] 规则 \"$1\" ($2) 未匹配。",
     "description": "Log entry when a pre-check rule does not match. Placeholders: [ruleName, ruleMode]"
   },
+  "logEntryPrecheckEraserUsed": {
+    "message": "[预检查] 规则 \"$1\" ($2) 作为橡皮擦使用，移除了匹配部分。",
+    "description": "Log entry when a pre-check rule is used as an eraser. Placeholders: [ruleName, ruleMode]"
+  },
   "logEntryPrecheckNoTranslation": {
     "message": "[预检查] 文本被判定无需翻译。返回原文。",
     "description": "Log entry when pre-check determines no translation is needed."
