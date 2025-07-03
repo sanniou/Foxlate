@@ -4,6 +4,7 @@ import { TranslatorManager } from '/background/translator-manager.js';
 import { AITranslator } from '/background/translators/ai-translator.js';
 
 const CONTENT_SCRIPT_FILES = [
+    "common/precheck.js", // Must be before content-script.js
     "lib/browser-polyfill.js",
     "content/strategies/replace-strategy.js",
     "content/strategies/append-strategy.js",

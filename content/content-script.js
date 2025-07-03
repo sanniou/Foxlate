@@ -213,7 +213,8 @@ function translateElements(elements) {
 
         validNodes.forEach(node => {
             const textToTranslate = node.nodeValue.trim();
-            if (textToTranslate.length > 0) {
+            // *** 在创建包裹元素之前执行预检查 ***
+            if (textToTranslate.length > 0 && window.shouldTranslate(textToTranslate, effectiveSettings).result) {
                 // 创建一个包裹元素来持有文本节点和翻译ID。
                 // 使用 <font> 标签可以减少对页面样式的干扰，因为它通常没有附加样式。
                 const wrapper = document.createElement('font');

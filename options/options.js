@@ -1198,12 +1198,31 @@ document.addEventListener('DOMContentLoaded', () => {
         const sourceText = document.getElementById('test-source-text').value.trim();
         const resultArea = document.getElementById('test-result-area');
         
-        elements.aiTestResult.style.display = 'none'; // Hide AI test result if testing from main area
+        elements.aiTestResult.style.display = 'none';
         if (!sourceText) {
             resultArea.textContent = browser.i18n.getMessage('testSourceEmpty') || 'Please enter text to translate.';
             resultArea.className = 'test-result-area error';
             return;
         }
+
+        // --- Pre-check Logic ---
+        const currentUiSettings = {
+            targetLanguage: elements.targetLanguage.value,
+            precheckRules: getPrecheckRulesFromUI()
+        };
+
+        const precheck = window.shouldTranslate(sourceText, currentUiSettings);
+        // 始终首先显示预检查日志。
+        elements.logContent.textContent = precheck.log.join('\n');
+        document.getElementById('test-log-area').style.display = 'block';
+        elements.toggleLogBtn.textContent = browser.i18n.getMessage('hideLogButton') || 'Hide Log';
+
+        if (!precheck.result) {
+            resultArea.textContent = `${browser.i18n.getMessage('testNotTranslated')} ${sourceText}`;
+            resultArea.className = 'test-result-area success';
+            return;
+        }
+        // --- End of Pre-check Logic ---
 
         resultArea.textContent = browser.i18n.getMessage('testing') || 'Translating...';
         resultArea.className = 'test-result-area';
@@ -1244,13 +1263,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             console.log('[Options Page Debug] Received response from service worker:', JSON.parse(JSON.stringify(response))); // Debug log
 
-            // 显示日志
+            // 将翻译日志追加到现有的预检查日志之后。
             if (response.log && response.log.length > 0) {
-                elements.logContent.textContent = response.log.join('\n');
-                document.getElementById('test-log-area').style.display = 'block'; // 确保日志区域可见
-                elements.toggleLogBtn.textContent = browser.i18n.getMessage('hideLogButton') || 'Hide Log';
-            } else {
-                elements.logContent.textContent = 'No detailed logs available.';
+                elements.logContent.textContent += '\n' + response.log.join('\n');
             }
 
             if (response.success) { // 处理翻译结果

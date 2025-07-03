@@ -78,74 +78,20 @@ async function executeTranslation(text, targetLang, sourceLang = 'auto', engine,
     }
 
     try {
+        // This simple check remains in the backend as a final safeguard.
         if (sourceLang !== 'auto' && sourceLang === targetLang) {
             log.push(browser.i18n.getMessage('logEntryPrecheckMatch', [browser.i18n.getMessage('precheckRuleSameLanguage'), 'blacklist']));
             log.push(browser.i18n.getMessage('logEntryPrecheckNoTranslation'));
             return { text: text, translated: false, log: log };
         }
-
         const processedText = preProcess(text);
         if (!processedText) {
             log.push(browser.i18n.getMessage('logEntryPrecheckNoTranslation'));
             return { text: "", translated: false, log: log };
         }
 
-        const settings = await getValidatedSettings();
-        const precheckRules = settings.precheckRules;
-
-        if (!precheckRules || Object.keys(precheckRules).length === 0) {
-            const errorMessage = "预检查规则未配置或为空，请检查设置。";
-            log.push(browser.i18n.getMessage('logEntryPrecheckError', errorMessage));
-            return { text: "", translated: false, log: log, error: errorMessage };
-        }
-
-        log.push(browser.i18n.getMessage('logEntryPrecheckStart'));
-        if (precheckRules.general) {
-            for (const rule of precheckRules.general) {
-                if (rule.enabled && rule.mode === 'blacklist') {
-                    try {
-                        const regex = new RegExp(rule.regex, rule.flags);
-                        if (regex.test(processedText)) {
-                            log.push(browser.i18n.getMessage('logEntryPrecheckMatch', [rule.name, 'blacklist']));
-                            log.push(browser.i18n.getMessage('logEntryPrecheckNoTranslation'));
-                            return { text: text, translated: false, log: log };
-                        } else {
-                            log.push(browser.i18n.getMessage('logEntryPrecheckNoMatch', [rule.name, 'blacklist']));
-                        }
-                    } catch (e) {
-                        log.push(browser.i18n.getMessage('logEntryPrecheckRuleError', [rule.name, e.message]));
-                    }
-                }
-            }
-        }
-
-        const whitelistRule = precheckRules[targetLang]?.find(rule => rule.mode === 'whitelist' && rule.enabled);
-        if (whitelistRule) {
-            try {
-                const letterChars = processedText.match(/\p{L}/gu);
-                if (!letterChars) {
-                    log.push(browser.i18n.getMessage('logEntryPrecheckMatch', [browser.i18n.getMessage('precheckRulePunctuation'), 'blacklist']));
-                    log.push(browser.i18n.getMessage('logEntryPrecheckNoTranslation'));
-                    return { text: text, translated: false, log: log };
-                }
-                const allLettersString = letterChars.join('');
-                const flags = whitelistRule.flags || '';
-                const globalFlags = flags.includes('g') ? flags : flags + 'g';
-                const langRegex = new RegExp(whitelistRule.regex, globalFlags);
-                const remainingChars = allLettersString.replace(langRegex, '');
-                if (remainingChars.length === 0) {
-                    log.push(browser.i18n.getMessage('logEntryPrecheckMatch', [whitelistRule.name, 'whitelist']));
-                    log.push(browser.i18n.getMessage('logEntryPrecheckNoTranslation'));
-                    return { text: text, translated: false, log: log };
-                } else {
-                    log.push(browser.i18n.getMessage('logEntryPrecheckNoMatch', [whitelistRule.name, 'whitelist']));
-                }
-            } catch (e) {
-                log.push(browser.i18n.getMessage('logEntryPrecheckRuleError', [whitelistRule.name, e.message]));
-            }
-        } else {
-            log.push(browser.i18n.getMessage('logEntryPrecheckNoWhitelistRule', targetLang));
-        }
+        // Pre-check logic is now handled in content-script.js before sending the request.
+        // The service worker now assumes that any text it receives is meant to be translated.
 
         const cacheKey = `${sourceLang}:${targetLang}:${processedText}`;
         if (translationCache.has(cacheKey)) {
@@ -172,6 +118,7 @@ async function executeTranslation(text, targetLang, sourceLang = 'auto', engine,
             if (!engine || !engine.startsWith('ai:')) {
                 throw new Error(`Invalid AI engine identifier provided: ${engine}`);
             }
+            // AI engines need the full settings object to find their specific configuration.
             const settings = await getValidatedSettings();
             const selectedEngineId = engine.split(':')[1];
             const aiConfig = settings.aiEngines.find(e => e.id === selectedEngineId);
@@ -179,11 +126,8 @@ async function executeTranslation(text, targetLang, sourceLang = 'auto', engine,
             if (!aiConfig) {
                 throw new Error(`Selected AI engine configuration not found for ID: ${selectedEngineId}`);
             }
-            // 注意：translator.translate 方法需要被修改以接受 signal 参数
-            // 例如：translator.translate(text, target, source, options, signal)
             ({ text: translatedResult, log: translatorLog } = await translator.translate(processedText, targetLang, sourceLang, aiConfig, signal));
         } else {
-            // 注意：translator.translate 方法需要被修改以接受 signal 参数
             ({ text: translatedResult, log: translatorLog } = await translator.translate(processedText, targetLang, sourceLang, null, signal));
         }
         log.push(...translatorLog);
