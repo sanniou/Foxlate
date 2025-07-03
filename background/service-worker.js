@@ -36,6 +36,34 @@ function logError(context, error) {
 }
 
 /**
+ * Registers a hostname for automatic translation within a specific tab for the current session.
+ * @param {number} tabId The ID of the tab.
+ * @param {string} hostname The hostname to register for the tab.
+ */
+async function registerSessionTranslation(tabId, hostname) {
+    if (!tabId || !hostname) return;
+    const { sessionTabTranslations = {} } = await browser.storage.session.get('sessionTabTranslations');
+    if (sessionTabTranslations[tabId] !== hostname) {
+        sessionTabTranslations[tabId] = hostname;
+        await browser.storage.session.set({ sessionTabTranslations });
+        console.log(`[Foxlate Session] Registered ${hostname} for auto-translation in tab ${tabId}.`);
+    }
+}
+
+/**
+ * Unregisters a tab from session-based automatic translation.
+ * @param {number} tabId The ID of the tab to unregister.
+ */
+async function unregisterSessionTranslation(tabId) {
+    if (!tabId) return;
+    const { sessionTabTranslations = {} } = await browser.storage.session.get('sessionTabTranslations');
+    if (sessionTabTranslations[tabId]) {
+        delete sessionTabTranslations[tabId];
+        await browser.storage.session.set({ sessionTabTranslations });
+        console.log(`[Foxlate Session] Unregistered auto-translation for tab ${tabId}.`);
+    }
+}
+/**
  * Ensures content scripts are injected and ready in a tab.
  * Prevents re-injection and handles errors on restricted pages.
  * @param {number} tabId The ID of the tab.
@@ -329,10 +357,23 @@ const messageHandlers = {
     //  TRANSLATION_STATUS_BROADCAST 消息不再需要
     //  所有的状态更新都通过 content-script 发起，并由 popup 监听
 
-  async TRANSLATION_STATUS_UPDATE(request) {
+  async TRANSLATION_STATUS_UPDATE(request, sender) {
     const { status, tabId } = request.payload;
     if (tabId) {
       await setBadgeAndState(tabId, status);
+      // When the content script reports its state, update the session-based auto-translate list.
+      if (sender.tab?.url) {
+          try {
+              const hostname = new URL(sender.tab.url).hostname;
+              if (status === 'translated' || status === 'loading') {
+                  await registerSessionTranslation(tabId, hostname);
+              } else if (status === 'original') {
+                  await unregisterSessionTranslation(tabId);
+              }
+          } catch (e) {
+              logError('TRANSLATION_STATUS_UPDATE (session management)', e);
+          }
+      }
     } else {
       logError('TRANSLATION_STATUS_UPDATE', new Error('Missing tabId in status update payload.'));
     }
@@ -465,7 +506,11 @@ async function handleNavigation(details) {
     try {
         const { tabId, url } = details;
         const hostname = new URL(url).hostname;
+
+        // Check both permanent rule and session-based rule
         const effectiveRule = await getEffectiveSettings(hostname);
+        const { sessionTabTranslations = {} } = await browser.storage.session.get('sessionTabTranslations');
+        const isSessionTranslate = sessionTabTranslations[tabId] === hostname;
 
         // 1. 无论是否自动翻译，先注入脚本
         const scriptsReady = await ensureScriptsInjected(tabId);
@@ -475,8 +520,8 @@ async function handleNavigation(details) {
         }
 
         // 2. 然后，根据规则判断是否触发自动翻译
-        if (effectiveRule.autoTranslate === 'always') {
-            console.log(`[Auto-Translate] Rule for '${hostname}' matched on navigation. Initiating translation for tab ${tabId}.`);
+        if (effectiveRule.autoTranslate === 'always' || isSessionTranslate) {
+            console.log(`[Auto-Translate] Rule for '${hostname}' matched on navigation (Reason: ${isSessionTranslate ? 'session' : 'permanent'}). Initiating translation for tab ${tabId}.`);
             await browser.tabs.sendMessage(tabId, { type: 'TRANSLATE_PAGE_REQUEST', payload: { tabId } });
         }
     } catch (error) {
@@ -490,14 +535,30 @@ browser.webNavigation.onHistoryStateUpdated.addListener(handleNavigation, { url:
 
 browser.tabs.onRemoved.addListener(async (tabId) => {
   try {
-    // 当标签页被移除时，我们只需要清理其在会话存储中的状态。
-    // 调用 setBadgeAndState 会尝试更新一个不存在的标签页的角标，从而导致错误。
-    const { tabTranslationStates = {} } = await browser.storage.session.get('tabTranslationStates');
+    // Get all session data at once
+    const sessionData = await browser.storage.session.get(['tabTranslationStates', 'sessionTabTranslations']);
+    const { tabTranslationStates = {}, sessionTabTranslations = {} } = sessionData;
+    let needsUpdate = false;
+
+    // Clean up translation state
     if (tabTranslationStates[tabId]) {
       delete tabTranslationStates[tabId];
-      await browser.storage.session.set({ tabTranslationStates });
+      needsUpdate = true;
       console.log(`Cleaned up translation state for closed tab ${tabId}.`);
     }
+
+    // Clean up session auto-translation rule
+    if (sessionTabTranslations[tabId]) {
+        delete sessionTabTranslations[tabId];
+        needsUpdate = true;
+        console.log(`Cleaned up session auto-translation rule for closed tab ${tabId}.`);
+    }
+    
+    // Write back to storage only if something changed
+    if (needsUpdate) {
+        await browser.storage.session.set({ tabTranslationStates, sessionTabTranslations });
+    }
+
   } catch (error) {
     logError('tabs.onRemoved listener', error);
   }
