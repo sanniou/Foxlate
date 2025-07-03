@@ -78,7 +78,11 @@ if (typeof window.shouldTranslate !== 'function') {
                 try {
                     const flags = langWhitelistRule.flags?.includes('g') ? langWhitelistRule.flags : (langWhitelistRule.flags || '') + 'g';
                     const regex = new RegExp(langWhitelistRule.regex, flags);
+                    const textBefore = remainingText;
                     remainingText = remainingText.replace(regex, '');
+                    if (textBefore !== remainingText) {
+                        log.push(browser.i18n.getMessage('logEntryPrecheckEraserUsed', [langWhitelistRule.name, 'whitelist']));
+                    }
                 } catch (e) {
                     log.push(browser.i18n.getMessage('logEntryPrecheckRuleError', [langWhitelistRule.name, e.message]));
                 }
@@ -86,9 +90,15 @@ if (typeof window.shouldTranslate !== 'function') {
         }
 
         // 2c: 移除中性字符（数字、空格、标点、符号）。
+        const textBeforeNeutral = remainingText;
         remainingText = remainingText.replace(/[\d\s\p{P}\p{S}]/gu, '');
+        if (textBeforeNeutral !== remainingText) {
+            log.push(browser.i18n.getMessage('logEntryPrecheckNeutralRemoved'));
+        }
 
         // --- 步骤 3: 最终决策 ---
+        // 添加一个最终检查日志，显示在所有擦除操作后还剩下什么。
+        log.push(browser.i18n.getMessage('logEntryPrecheckFinalCheck', [remainingText]));
         if (remainingText.length === 0) {
             // 如果经过三轮“擦除”后什么都没剩下，说明文本完全由已知部分构成，无需翻译。
             log.push(browser.i18n.getMessage('logEntryPrecheckNoTranslation'));

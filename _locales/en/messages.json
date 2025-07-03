@@ -469,6 +469,14 @@
     "message": "[Pre-check] Rule \"$1\" ($2) was used as an eraser, removing matched parts.",
     "description": "Log entry when a pre-check rule is used as an eraser. Placeholders: [ruleName, ruleMode]"
   },
+  "logEntryPrecheckNeutralRemoved": {
+    "message": "[Pre-check] Neutral characters (digits, spaces, punctuation, symbols) were removed.",
+    "description": "Log entry when neutral characters are removed during pre-check."
+  },
+  "logEntryPrecheckFinalCheck": {
+    "message": "[Pre-check] Text after all erasures: \"$1\"",
+    "description": "Log entry showing the final text after erasures. Placeholder: [remainingText]"
+  },
   "logEntryPrecheckNoTranslation": {
     "message": "[Pre-check] Text determined not to require translation. Returning original text.",
     "description": "Log entry when pre-check determines no translation is needed."

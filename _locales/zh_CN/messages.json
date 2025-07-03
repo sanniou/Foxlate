@@ -483,6 +483,14 @@
     "message": "[预检查] 规则 \"$1\" ($2) 作为橡皮擦使用，移除了匹配部分。",
     "description": "Log entry when a pre-check rule is used as an eraser. Placeholders: [ruleName, ruleMode]"
   },
+  "logEntryPrecheckNeutralRemoved": {
+    "message": "[预检查] 中性字符（数字、空格、标点、符号）已被移除。",
+    "description": "Log entry when neutral characters are removed during pre-check."
+  },
+  "logEntryPrecheckFinalCheck": {
+    "message": "[预检查] 所有擦除操作后剩余文本: \"$1\"",
+    "description": "Log entry showing the final text after erasures. Placeholder: [remainingText]"
+  },
   "logEntryPrecheckNoTranslation": {
     "message": "[预检查] 文本被判定无需翻译。返回原文。",
     "description": "Log entry when pre-check determines no translation is needed."
