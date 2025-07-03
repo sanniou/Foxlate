@@ -118,5 +118,32 @@ window.hoverStrategy = {
 
     hideLoading: function(element) {
         element.classList.remove('foxlate-loading-highlight');
+    },    
+
+    updateUI: function(element, state) {
+        switch (state) {
+            case window.DisplayManager.STATES.ORIGINAL:
+                this.revertTranslation(element);
+                break;
+            case window.DisplayManager.STATES.LOADING:
+                this.displayLoading(element);
+                break;
+            case window.DisplayManager.STATES.TRANSLATED:
+                const translatedText = element.dataset.translatedText;
+                if (translatedText) {
+                    this.displayTranslation(element, translatedText);
+                } else {
+                    this.revertTranslation(element);
+                }
+                break;
+            case window.DisplayManager.STATES.ERROR:
+                // 出错时，可以考虑修改悬停文本，或添加错误图标
+                const errorMessage = element.dataset.errorMessage || 'Translation Error';
+                element.dataset.translatedText = `Error: ${errorMessage}`; // 更新悬停文本
+                this.displayTranslation(element, `Error: ${errorMessage}`); // 立即更新悬停提示
+                break;
+            default:
+                console.warn(`[Hover Strategy] Unknown state: ${state}`);
+        }
     }
 };

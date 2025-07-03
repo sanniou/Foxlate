@@ -247,50 +247,22 @@ const messageHandlers = {
     return getEffectiveSettings(hostname);
   },
 
-  async GET_VALIDATED_SETTINGS() {
+  async GET_VALIDATED_SETTINGS() { // Still needed by options.js
     return getValidatedSettings();
   },
 
-  async INITIATE_PAGE_TRANSLATION(request) {
-    const { tabId } = request.payload;
-    try {
-      // Ensure scripts are ready before sending the request.
+  async TOGGLE_TRANSLATION_REQUEST(request) {
+      const { tabId } = request.payload;
       const scriptsReady = await ensureScriptsInjected(tabId);
       if (!scriptsReady) {
-          throw new Error("Failed to inject scripts into the page.");
+          // If scripts can't be injected, we can't do anything.
+          // We should also clear any lingering state for this tab.
+          await setBadgeAndState(tabId, 'original');
+          throw new Error(`Failed to inject scripts into tab ${tabId}.`);
       }
-
-      // 立即设置加载状态和角标
-      await setBadgeAndState(tabId, 'loading');
-      await browser.tabs.sendMessage(tabId, { type: 'TRANSLATE_PAGE_REQUEST', payload: { tabId } });
-      return { success: true };
-    } catch (error) {
-      logError('INITIATE_PAGE_TRANSLATION handler', error);
-      await setBadgeAndState(tabId, 'original');
-      return { success: false, error: error.message };
-    }
-  },
-
-  async REVERT_PAGE_TRANSLATION_REQUEST(request) {
-    const { tabId } = request.payload;
-    // Ensure scripts are present to handle the revert command.
-    const scriptsReady = await ensureScriptsInjected(tabId);
-    if (!scriptsReady) {
-        // If scripts can't be injected, there's nothing to revert.
-        // Just clear the state from the background.
-        await setBadgeAndState(tabId, 'original');
-        return { success: true };
-    }
-    // ** 调用中断功能 **
-    await TranslatorManager.interruptAll();
-    await setBadgeAndState(tabId, 'original');
-    try {
-      await browser.tabs.sendMessage(tabId, { type: 'REVERT_PAGE_TRANSLATION', payload: { tabId } });
-      return { success: true };
-    } catch (error) {
-      logError('REVERT_PAGE_TRANSLATION_REQUEST handler', error);
-      return { success: false, error: error.message };
-    } 
+      // Forward the request to the content script, which holds the state.
+      // The content script will decide whether to translate or revert.
+      return browser.tabs.sendMessage(tabId, { type: 'TOGGLE_TRANSLATION_REQUEST', payload: { tabId } });
   },
 
     // ** 新增中断处理器 **
@@ -347,18 +319,16 @@ browser.commands.onCommand.addListener(async (command, tab) => {
     return;
   }
 
-  const scriptsReady = await ensureScriptsInjected(tab.id);
-  if (!scriptsReady) return;
-
   if (command === "toggle-translation") {
-    browser.tabs.sendMessage(tab.id, {
-      type: "TOGGLE_TRANSLATION_REQUEST",
-      payload: { tabId: tab.id }
-    }).catch(e => {
-        if (!e.message.includes("Receiving end does not exist")) {
-            logError('onCommand (toggle-translation)', e);
-        }
-    });
+    // Send the request to the service worker itself to use the unified handler.
+    try {
+      // Instead of sending a message to self (which can be unreliable as the worker might sleep),
+      // we directly call the handler function. This is more robust and avoids race conditions.
+      const request = { payload: { tabId: tab.id } };
+      await messageHandlers.TOGGLE_TRANSLATION_REQUEST(request);
+    } catch (e) {
+      logError('onCommand (toggle-translation)', e);
+    }
   }
 });
 

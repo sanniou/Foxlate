@@ -43,4 +43,32 @@ window.replaceStrategy = {
         element.classList.remove('foxlate-replacing');
         element.querySelector('.foxlate-inline-loading')?.remove();
     }
+    ,
+    updateUI: function(element, state) {
+        switch (state) {
+            case window.DisplayManager.STATES.ORIGINAL:
+                this.revertTranslation(element);
+                break;
+            case window.DisplayManager.STATES.LOADING:
+                this.displayLoading(element);
+                break;
+            case window.DisplayManager.STATES.TRANSLATED:
+                const translatedText = element.dataset.translatedText;
+                if (translatedText) {
+                    this.displayTranslation(element, translatedText);
+                } else {
+                    this.revertTranslation(element);
+                }
+                break;
+            case window.DisplayManager.STATES.ERROR:
+                // 错误状态：显示错误信息，并添加错误样式
+                const errorMessage = element.dataset.errorMessage || 'Translation Error';
+                element.innerHTML = `<span class="foxlate-error">${errorMessage}</span>`;
+                element.classList.add('foxlate-error-underline');
+                break;
+            default:
+                console.warn(`[Replace Strategy] Unknown state: ${state}`);
+                break;
+        }
+    }
 };

@@ -1,97 +1,155 @@
 window.DisplayManager = class DisplayManager {
-    static apply(element, translatedText, displayMode = 'replace') {
-        const strategies = { // 确保这里的 key 与 popup.html 中的 value 一致
-            replace: window.replaceStrategy,
-            append: window.appendTranslationStrategy,
-            contextMenu: window.contextMenuStrategy, // 添加新的 strategy
-            hover: window.hoverStrategy,
-        };
-        const strategy = strategies[displayMode];
-        if (strategy) {
-            // 策略自身负责处理 DOM 修改和状态保存
-            strategy.displayTranslation(element, translatedText); // 传递译文
-            element.dataset.translationStrategy = displayMode;
-            element.dataset.translated = "true";
-            element.dataset.translatedText = translatedText; // 存储译文，以便切换模式时使用
-            element.classList.add('universal-translator-translated');
+    static STATES = {
+        ORIGINAL: 'original',
+        LOADING: 'loading',
+        TRANSLATED: 'translated',
+        ERROR: 'error',
+    };
+
+    static elementStates = new Map(); // 存储元素状态
+
+    // 跟踪临时的、非 DOM 绑定的翻译任务，例如右键菜单。
+    static activeEphemeralTargets = new Map();
+
+    static getElementState(element) {
+        return this.elementStates.get(element) || this.STATES.ORIGINAL;
+    }
+
+    static setElementState(element, newState) {
+        this.elementStates.set(element, newState);
+
+        // Manage a common class for translated elements, only for real DOM nodes
+        if (element instanceof HTMLElement) {
+            if (newState === this.STATES.TRANSLATED) {
+                element.classList.add('universal-translator-translated');
+            } else {
+                element.classList.remove('universal-translator-translated');
+            }
+        }
+
+        // 根据新状态更新 UI
+        this.updateElementUI(element, newState);
+    }
+
+    static updateElementUI(element, state) {
+        const displayMode = element.dataset.translationStrategy;
+        if (!displayMode) {
+            console.error("[DisplayManager] Cannot update UI. Element is missing 'data-translation-strategy'.", element);
+            return;
+        }
+
+        const strategy = this.getStrategy(displayMode);
+        if (strategy && strategy.updateUI) {
+            strategy.updateUI(element, state);
+        } else {
+            console.error(`[DisplayManager] Strategy "${displayMode}" not found or does not have an updateUI method.`);
         }
     }
+
     static revert(element) {
         const displayMode = element.dataset.translationStrategy;
-        if (!displayMode) return;
-        const strategies = {
-            replace: window.replaceStrategy,
-            append: window.appendTranslationStrategy,
-            contextMenu: window.contextMenuStrategy, // 添加新的 strategy
-            hover: window.hoverStrategy,
-        };
-        const strategy = strategies[displayMode];
-        if (strategy) {
-            // 策略自身负责恢复原始状态
+        const strategy = this.getStrategy(displayMode); // This will be undefined if displayMode is missing
+
+        if (strategy && strategy.revertTranslation) {
             strategy.revertTranslation(element);
+        }
+
+        // Always perform cleanup, regardless of strategy success
+        if (element instanceof HTMLElement) {
             element.classList.remove('universal-translator-translated');
         }
-    }
-    static showError(element, errorMessage) {
-        element.classList.add('foxlate-error-underline');
-        element.dataset.errorMessage = errorMessage;
-        element.title = `Translation Error: ${errorMessage}`;
-    }
-    static updateDisplayMode(newDisplayMode) {
-        const translatedElements = document.querySelectorAll('[data-translated="true"]');
-        const strategies = {
-            replace: window.replaceStrategy,
-            append: window.appendTranslationStrategy,
-            contextMenu: window.contextMenuStrategy,
-            hover: window.hoverStrategy,
-        };
+        this.elementStates.delete(element);
         
+        if (displayMode && this.activeEphemeralTargets.get(displayMode) === element) {
+            this.activeEphemeralTargets.delete(displayMode);
+        }
+    }
+
+    static getStrategy(displayMode) {
+        const strategies = {
+            replace: window.replaceStrategy,
+            append: window.appendTranslationStrategy,
+            contextMenu: window.contextMenuStrategy,
+            hover: window.hoverStrategy,
+        };
+        return strategies[displayMode];
+    }
+
+    static updateDisplayMode(newDisplayMode) {
+        // Find all elements that are currently translated.
+        const translatedElements = document.querySelectorAll('.universal-translator-translated');
+
         for (const element of translatedElements) {
+            // Get the old strategy before we change the dataset attribute
             const oldDisplayMode = element.dataset.translationStrategy;
-            const translatedText = element.dataset.translatedText;
-            
-            if (!translatedText || oldDisplayMode === newDisplayMode) {
-                continue;
-            }
-            
-            const oldStrategy = strategies[oldDisplayMode];
-            const newStrategy = strategies[newDisplayMode];
-            
-            if (oldStrategy && newStrategy) {
-                // 1. 仅恢复旧策略引入的特定UI（例如，移除附加的span或事件监听器）。
+            const oldStrategy = this.getStrategy(oldDisplayMode);
+
+            // Revert the UI changes made by the old strategy.
+            // This should restore the element's content/structure to its pre-translation state.
+            if (oldStrategy && oldStrategy.revertTranslation) {
                 oldStrategy.revertTranslation(element);
-                // 2. 应用新策略的UI。
-                newStrategy.displayTranslation(element, translatedText);
-                // 3. 只更新策略标识符。其他状态（如 .universal-translator-translated 类）保持不变。
-                element.dataset.translationStrategy = newDisplayMode;
             }
+
+            // Now, set the new strategy for the element.
+            element.dataset.translationStrategy = newDisplayMode;
+            // Re-apply the UI for the 'TRANSLATED' state using the new strategy.
+            // The element's state is still 'TRANSLATED', we're just changing how it's displayed.
+            this.updateElementUI(element, this.STATES.TRANSLATED);
         }
     }
 
-    static displayLoading(element, displayMode = 'replace') {
-        const strategies = {
-            replace: window.replaceStrategy,
-            append: window.appendTranslationStrategy,
-            contextMenu: window.contextMenuStrategy,
-            hover: window.hoverStrategy,
-        };
-
-        const strategy = strategies[displayMode];
-        if (strategy && strategy.displayLoading) {
-            strategy.displayLoading(element);
+    static displayLoading(element, displayMode) {
+        if (!displayMode) {
+            console.error("[DisplayManager] displayLoading requires a displayMode.", element);
+            return;
         }
+        // 在状态机生命周期的开始，将策略存储在元素上。
+        element.dataset.translationStrategy = displayMode;
+        this.setElementState(element, this.STATES.LOADING);
     }
 
-    static hideLoading(element, displayMode = 'replace') {
-        const strategies = {
-            replace: window.replaceStrategy,
-            append: window.appendTranslationStrategy,
-            contextMenu: window.contextMenuStrategy,
-            hover: window.hoverStrategy,
-        };
-        const strategy = strategies[displayMode];
-        if (strategy && strategy.hideLoading) {
-            strategy.hideLoading(element);
+    static displayTranslation(element, translatedText) {
+        element.dataset.translatedText = translatedText;
+        this.setElementState(element, this.STATES.TRANSLATED);
+    }
+
+    static displayError(element, errorMessage) {
+        element.dataset.errorMessage = errorMessage;
+        this.setElementState(element, this.STATES.ERROR);
+    }
+
+    /**
+     * 处理临时的、非 DOM 绑定的翻译生命周期（例如右键菜单）。
+     * @param {object} payload - 从后台脚本接收的事件负载。
+     */
+    static handleEphemeralTranslation(payload) {
+        const { isLoading, success, translatedText, error, coords, source } = payload;
+        const displayMode = 'contextMenu';
+
+        let target;
+        if (isLoading) {
+            if (this.activeEphemeralTargets.has(displayMode)) {
+                this.revert(this.activeEphemeralTargets.get(displayMode));
+            }
+
+            target = {
+                dataset: {
+                    clientX: coords.clientX,
+                    clientY: coords.clientY,
+                    source: source,
+                }
+            };
+            this.activeEphemeralTargets.set(displayMode, target);
+            this.displayLoading(target, displayMode);
+        } else {
+            target = this.activeEphemeralTargets.get(displayMode);
+            if (!target) return;
+
+            if (success) {
+                this.displayTranslation(target, translatedText);
+            } else if (error) {
+                this.displayError(target, error);
+            }
         }
     }
 };

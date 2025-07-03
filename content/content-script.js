@@ -380,7 +380,13 @@ async function performPageTranslation(tabId) {
     }
 
    translationJob = {
-        totalChunks: 0, completedChunks: 0, tabId: tabId, isTranslating: false, settings: effectiveSettings
+        mutationQueue: new Set(),
+        idleCallbackId: null,
+        totalChunks: 0,
+        completedChunks: 0,
+        tabId: tabId,
+        isTranslating: false,
+        settings: effectiveSettings
     };
 
     initializeObservers();
@@ -402,6 +408,10 @@ async function revertPageTranslation(tabId) {
     // 清除全局的翻译会话标记。
     delete document.body.dataset.translationSession;
     
+    // 在恢复所有包裹元素之前，先在 DisplayManager 中清理状态，
+    // 这样可以避免在恢复过程中触发不必要的 UI 更新或错误，并防止内存泄漏。
+    window.DisplayManager.elementStates.clear();
+
     // 查找所有由我们创建的包裹元素，无论它们是否已翻译、正在翻译或出错。
     // 'font[data-translation-id]' 是最可靠的选择器。
     const wrappers = document.querySelectorAll('font[data-translation-id]');
@@ -443,6 +453,7 @@ async function togglePageTranslation(tabId) {
     if (isSessionActive) {
         // 如果会话已激活，意味着页面已翻译或正在加载。正确的操作是恢复原文。
         console.log("[SanReader] 快捷键切换：恢复页面原文。");
+        await browser.runtime.sendMessage({ type: 'STOP_TRANSLATION', payload: { tabId } });
         await revertPageTranslation(tabId);
     } else {
         // 如果会话未激活，页面处于原始状态。正确的操作是开始翻译。
@@ -459,27 +470,24 @@ async function handleMessage(request, sender) {
             case 'PING':
                 return Promise.resolve({ status: 'PONG' });
 
-            case 'PING':
-                return { status: 'PONG' };
-
             case 'SETTINGS_UPDATED':
                 console.log("[Content Script] Received settings update. Updating local cache.");
                 // Re-fetch and cache the effective settings for subsequent operations.
-                translationJob.settings = await getEffectiveSettings();
-                return; // No response needed
+                if (translationJob.isTranslating || document.body.dataset.translationSession === 'active') {
+                    translationJob.settings = await getEffectiveSettings();
+                }
+                return { success: true };
 
             case 'TRANSLATE_PAGE_REQUEST':
-                await performPageTranslation(request.payload?.tabId);
-                // **(调试) 输出调用栈**
-                console.log("[SanReader] performPageTranslation called:", new Error().stack);
+                await performPageTranslation(request.payload.tabId);
                 return { success: true };
 
             case 'REVERT_PAGE_TRANSLATION':
-                await revertPageTranslation(request.payload?.tabId);
-                break;
+                await revertPageTranslation(request.payload.tabId);
+                return { success: true };
 
             case 'TOGGLE_TRANSLATION_REQUEST':
-                await togglePageTranslation(request.payload?.tabId);
+                await togglePageTranslation(request.payload.tabId);
                 return { success: true };
 
             case 'TRANSLATION_CHUNK_RESULT':
@@ -487,111 +495,80 @@ async function handleMessage(request, sender) {
                     const { id, success, translatedText, wasTranslated, error } = request.payload;
                     const wrapper = document.querySelector(`[data-translation-id='${id}']`);
 
-                    if (wrapper) {
-                        const displayMode = translationJob.settings?.displayMode || 'replace';
-                        // 1. 首先，隐藏加载状态
-                        window.DisplayManager.hideLoading(wrapper, displayMode);
+                    if (!wrapper) {
+                        // The element might have been removed from the DOM, which is fine.
+                        return;
+                    }
 
-                        // 2. 然后，根据结果应用最终状态
-                        if (error) {
-                            // 优先处理错误情况。
-                            if (error.includes("interrupted")) {
-                                // 用户主动中断，静默地将包裹元素恢复为原始文本节点。
-                                const originalText = wrapper.dataset.originalText;
-                                if (typeof originalText === 'string' && wrapper.parentNode) {
-                                    wrapper.parentNode.replaceChild(document.createTextNode(originalText), wrapper);
-                                }
-                            } else {
-                                // 其他技术错误，向用户显示视觉提示。
-                                window.DisplayManager.showError(wrapper, error);
-                            }
-                        } else if (success && wasTranslated) {
-                            // 成功翻译，应用显示策略。
-                            window.DisplayManager.apply(wrapper, translatedText, displayMode);
-                        } else if (success && !wasTranslated) {
-                            // 成功但无需翻译（例如源语言与目标语言相同），恢复DOM以移除包裹元素。
-                            const originalText = wrapper.dataset.originalText;
-                            if (typeof originalText === 'string' && wrapper.parentNode) {
-                                wrapper.parentNode.replaceChild(document.createTextNode(originalText), wrapper);
-                            }
+                    if (error) {
+                        // Handle errors, including user interruption
+                        console.log(`[Content Script] Translation for chunk ${id} failed or was interrupted:`, error);
+                        // Revert the specific element cleanly
+                        window.DisplayManager.revert(wrapper);
+                        if (wrapper.parentNode) {
+                            const originalTextNode = document.createTextNode(wrapper.dataset.originalText || '');
+                            wrapper.parentNode.replaceChild(originalTextNode, wrapper);
+                        }
+                    } else if (success && wasTranslated) {
+                        // Success and was actually translated
+                        window.DisplayManager.displayTranslation(wrapper, translatedText);
+                    } else {
+                        // Success but was not translated (e.g., source lang equals target lang)
+                        // Revert the element to its original state
+                        window.DisplayManager.revert(wrapper);
+                        if (wrapper.parentNode) {
+                            const originalTextNode = document.createTextNode(wrapper.dataset.originalText || '');
+                            wrapper.parentNode.replaceChild(originalTextNode, wrapper);
                         }
                     }
 
+                    // Update progress
                     translationJob.completedChunks++;
                     if (translationJob.completedChunks >= translationJob.totalChunks) {
                         translationJob.isTranslating = false;
                         browser.runtime.sendMessage({
                             type: 'TRANSLATION_STATUS_UPDATE',
                             payload: { status: 'translated', tabId: translationJob.tabId }
-                        }).catch(e => logError('reportTranslationStatus (all chunks done)', e));
+                        }).catch(e => logError('reportTranslationStatus (completed)', e));
                     }
-                    break;
                 }
+                return { success: true };
 
             case 'UPDATE_DISPLAY_MODE':
-                window.DisplayManager.updateDisplayMode(request.payload.displayMode);
-                break;
+                const { displayMode } = request.payload;
+                if (translationJob.settings) {
+                    translationJob.settings.displayMode = displayMode;
+                }
+                window.DisplayManager.updateDisplayMode(displayMode);
+                return { success: true };
 
-            case 'DISPLAY_SELECTION_TRANSLATION': //  处理右键翻译结果
+            case 'REQUEST_TRANSLATION_STATUS':
                 {
-                    // 后台脚本现在会提供所有必要的细节，包括坐标。
-                    const { isLoading, success, translatedText, error, coords, source } = request.payload;
-
-                    // 'coords' 对象对于此消息类型是必需的。
-                    if (coords) {
-                        if (isLoading) {                            
-                            window.DisplayManager.displayLoading(coords,'contextMenu');
-                        } else {
-                            window.contextMenuStrategy.displayTranslation(coords, success?translatedText:error, false, source);
-                        }
+                    let state = 'original';
+                    if (document.body.dataset.translationSession === 'active') {
+                        state = translationJob.isTranslating ? 'loading' : 'translated';
                     }
-                    break;
+                    return Promise.resolve({ state });
                 }
-                
-            case 'REQUEST_TRANSLATION_STATUS': {
-                const sessionActive = document.body.dataset.translationSession === 'active';
-                let state = 'original';
 
-                if (sessionActive) {
-                    // 页面处于翻译会话中，根据是否在忙碌来决定是“加载中”还是“已翻译”
-                    state = translationJob.isTranslating ? 'loading' : 'translated';
-                }
-                // 如果会话未激活，状态保持 'original'
-                return { state: state };
-            }
+            case 'DISPLAY_SELECTION_TRANSLATION':
+                // This message is now handled by the DisplayManager for ephemeral targets
+                window.DisplayManager.handleEphemeralTranslation(request.payload);
+                return { success: true };
+
+            default:
+                console.warn(`[Content Script] Unhandled message type: ${request.type}`);
+                break;
         }
     } catch (error) {
         logError(`handleMessage (type: ${request.type})`, error);
-        // 将错误传播给发送方，以便 popup 中的 promise 可以 reject。
-        throw error;
+        // It's important to return a rejected promise or an error object
+        // if the sender is expecting a response.
+        return Promise.reject(error);
     }
 }
 
-/**
- * (新) 检查是否需要自动翻译。
- * 在内容脚本加载后，主动向后台查询当前页面是否应根据规则自动翻译。
- */
-async function triggerAutoTranslationCheck() {
-}
+// --- Initialization ---
 
-function initializeContentScript() {
-    if (window.hasInitialized) return;
-    window.hasInitialized = true;
-
-    console.log("[SanReader] Content script initializing...");
-    if (!window.DisplayManager) {
-        logError('initializeContentScript', new Error("DisplayManager is not available."));
-        return;
-    }
-    try {
-        browser.runtime.onMessage.addListener(handleMessage);
-        console.log("[SanReader] Message listener set up successfully.");
-
-        // 在动态注入模型中，不再需要内容脚本主动发起检查。
-        // 后台脚本将在需要时注入此脚本并发送命令。
-    } catch (error) {
-        logError('initializeContentScript', new Error("Failed to set up message listener: " + error.message));
-    }
-}
-
-initializeContentScript();
+// Add the message listener
+browser.runtime.onMessage.addListener(handleMessage);

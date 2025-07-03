@@ -31,7 +31,43 @@ window.appendTranslationStrategy = {
     hideLoading: function(element) {
         // 移除 loading 类，以便区分正常翻译和加载状态
         element.querySelector('.foxlate-appended-text')?.classList.remove('loading');
+    },    
+
+    updateUI: function(element, state) {
+        let translationNode = element.querySelector('.foxlate-appended-text');
+
+        switch (state) {
+            case window.DisplayManager.STATES.ORIGINAL:
+                this.revertTranslation(element);
+                break;
+            case window.DisplayManager.STATES.LOADING:
+                if (translationNode) {
+                    translationNode.textContent = ` (翻译中...)`;
+                    translationNode.classList.add('loading');
+                } else {
+                    translationNode = document.createElement('span');
+                    translationNode.className = 'foxlate-appended-text loading';
+                    translationNode.textContent = ` (翻译中...)`;
+                    element.appendChild(translationNode);
+                }
+                break;
+            case window.DisplayManager.STATES.TRANSLATED:
+                const translatedText = element.dataset.translatedText;
+                if (translatedText) {
+                    this.displayTranslation(element, translatedText);
+                    translationNode?.classList.remove('loading');
+                } else {
+                    this.revertTranslation(element);
+                }
+                break;
+            case window.DisplayManager.STATES.ERROR:
+                this.revertTranslation(element); // 出错时移除翻译标记
+                break;
+            default:
+                console.warn(`[Append Strategy] Unknown state: ${state}`);
+        }
     },
+
     /**
      * 移除追加的翻译节点。
      * @param {HTMLElement} element - 目标元素。

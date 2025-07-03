@@ -19,6 +19,12 @@ window.contextMenuStrategy = {
 
     /**
      * @private
+     * 持有当前操作的状态目标对象。
+     */
+    _currentTarget: null,
+
+    /**
+     * @private
      * 如果工具提示元素不存在，则创建它。
      */
     _createTooltip: function() {
@@ -58,15 +64,17 @@ window.contextMenuStrategy = {
      * @private
      * 显示带有提供文本的工具提示并设置监听器。
      */
-    _showTooltip: function(coords, text, isLoading = false, source = 'contextMenu') {
+    _showTooltip: function(coords, text, isLoading = false, source) {
         this._createTooltip();
         if (!this._tooltipEl) return;
 
-        this._hideTooltip(); // 先隐藏任何现有的，并清理监听器
+        // Don't hide here, as it clears listeners that might be needed.
+        // The logic in updateUI will handle showing/hiding.
 
         this._tooltipEl.classList.toggle('from-shortcut', source === 'shortcut');
         this._tooltipEl.textContent = text;
         this._tooltipEl.classList.toggle('loading', isLoading);
+        this._tooltipEl.classList.remove('error'); // Reset error state
 
         this._updateTooltipPosition(coords);
         this._tooltipEl.classList.add('visible');
@@ -75,11 +83,11 @@ window.contextMenuStrategy = {
             if (this._tooltipEl && this._tooltipEl.contains(e.target)) {
                 return;
             }
-            this._hideTooltip();
+            window.DisplayManager.revert(this._currentTarget);
         };
 
         this._activeScrollHandler = () => {
-            this._hideTooltip();
+            window.DisplayManager.revert(this._currentTarget);
         };
 
         setTimeout(() => {
@@ -109,25 +117,58 @@ window.contextMenuStrategy = {
     },
 
     /**
-     * 显示右键翻译的工具提示。
-     */
-    displayTranslation: function(coords, translatedText, isLoading = false, source = 'contextMenu') {
-        this._showTooltip(coords, translatedText, isLoading, source);
-    },
-
-    /**
      * 隐藏右键翻译的工具提示并清理其监听器。
+     * @param {object} target - The state object for this translation.
      */
-    revertTranslation: function() {
+    revertTranslation: function(target) {
         this._hideTooltip();
+        // The cleanup of activeEphemeralTargets is now handled inside DisplayManager.revert
+        this._currentTarget = null;
     },
 
-    displayLoading: function(coords, source = 'contextMenu') {
-        const loadingMessage = browser.i18n.getMessage('popupTranslating') || 'Translating...';
-        this._showTooltip(coords, loadingMessage, true, source);
-    },
+    updateUI: function(element, state) {
+        // For this strategy, 'element' is a plain state object, not a DOM element.
+        const target = element;
+        this._currentTarget = target; // Keep track of the current target for event handlers.
 
-    hideLoading: function() {
+        const coords = {
+            clientX: parseFloat(target.dataset.clientX),
+            clientY: parseFloat(target.dataset.clientY),
+        };
+        const source = target.dataset.source;
+
+        // Ensure tooltip exists and clear previous listeners before showing a new one.
         this._hideTooltip();
+
+        switch (state) {
+            case window.DisplayManager.STATES.ORIGINAL:
+                // Revert is handled by DisplayManager calling revertTranslation, which cleans up.
+                // No UI to show for the original state.
+                break;
+
+            case window.DisplayManager.STATES.LOADING:
+                const loadingMessage = browser.i18n.getMessage('popupTranslating') || 'Translating...';
+                this._showTooltip(coords, loadingMessage, true, source);
+                break;
+
+            case window.DisplayManager.STATES.TRANSLATED:
+                const translatedText = target.dataset.translatedText;
+                if (translatedText) {
+                    this._showTooltip(coords, translatedText, false, source);
+                }
+                break;
+
+            case window.DisplayManager.STATES.ERROR:
+                const errorMessage = target.dataset.errorMessage || 'Translation Error';
+                const fullErrorMessage = `${browser.i18n.getMessage('contextMenuErrorPrefix') || 'Error'}: ${errorMessage}`;
+                this._showTooltip(coords, fullErrorMessage, false, source);
+                if (this._tooltipEl) {
+                    this._tooltipEl.classList.add('error');
+                }
+                break;
+
+            default:
+                console.warn(`[ContextMenu Strategy] Unknown state: ${state}`);
+        }
     }
 };
