@@ -345,6 +345,10 @@
     "message": "Single English Letter",
     "description": "Name of the default rule that matches a single English letter."
   },
+  "precheckRuleEmail": {
+    "message": "Email Address",
+    "description": "Default rule to match email addresses."
+  },
   "precheckRuleAcronymsGeneral": {
     "message": "General Acronyms",
     "description": "Name of the default rule that matches common general-purpose acronyms."

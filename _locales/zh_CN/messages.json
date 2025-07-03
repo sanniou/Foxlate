@@ -359,6 +359,10 @@
     "message": "单个英文字母",
     "description": "Name of the default rule that matches a single English letter."
   },
+  "precheckRuleEmail": {
+    "message": "电子邮件地址",
+    "description": "匹配电子邮件地址的默认规则。"
+  },
   "precheckRuleAcronymsGeneral": {
     "message": "通用缩写词",
     "description": "匹配常用通用缩写词的默认规则。"
