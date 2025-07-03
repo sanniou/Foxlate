@@ -126,6 +126,14 @@ window.contextMenuStrategy = {
         this._currentTarget = null;
     },
 
+    /**
+     * Implements the global cleanup interface for DisplayManager.
+     * This ensures the context menu panel is hidden during a full page revert.
+     */
+    globalCleanup: function() {
+        this.revertTranslation(this._currentTarget);
+    },
+
     updateUI: function(element, state) {
         // For this strategy, 'element' is a plain state object, not a DOM element.
         const target = element;

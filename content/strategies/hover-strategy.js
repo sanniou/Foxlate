@@ -116,6 +116,14 @@ window.hoverStrategy = {
         this._hideTooltip();
     },
 
+    /**
+     * Implements the global cleanup interface for DisplayManager.
+     * This ensures any visible hover tooltip is hidden during a full page revert.
+     */
+    globalCleanup: function() {
+        this._hideTooltip();
+    },
+
     updateUI: function(element, state) {
         switch (state) {
             case window.DisplayManager.STATES.ORIGINAL:

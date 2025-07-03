@@ -405,34 +405,35 @@ async function performPageTranslation(tabId) {
 }
 
 async function revertPageTranslation(tabId) {
+    console.log("[SanReader] Reverting entire page translation...");
     stopObservers();
-    // 清除全局的翻译会话标记。
+
+    // 1. Clear the global translation session flag.
     delete document.body.dataset.translationSession;
-    
-    // 在恢复所有包裹元素之前，先在 DisplayManager 中清理状态，
-    // 这样可以避免在恢复过程中触发不必要的 UI 更新或错误，并防止内存泄漏。
-    window.DisplayManager.elementStates.clear();
 
-    // 查找所有由我们创建的包裹元素，无论它们是否已翻译、正在翻译或出错。
-    // 'font[data-translation-id]' 是最可靠的选择器。
+    // 2. Reset the entire translation job object to its initial state.
+    translationJob = {
+        mutationQueue: new Set(),
+        idleCallbackId: null,
+        totalChunks: 0,
+        completedChunks: 0,
+        tabId: null,
+        isTranslating: false,
+        settings: null,
+    };
+
+    // 3. Hide any floating UI elements (like context menu or hover tooltips).
+    // This is now handled by a dedicated method in DisplayManager for better encapsulation.
+    window.DisplayManager.hideAllEphemeralUI();
+
+    // 4. Find all wrapper elements and revert them one by one using the single-source-of-truth function.
+    // This eliminates code duplication and ensures consistent behavior.
     const wrappers = document.querySelectorAll('font[data-translation-id]');
+    wrappers.forEach(revertElement);
 
-    wrappers.forEach(wrapper => {
-        // 检查是否有保存的原始文本
-        const originalText = wrapper.dataset.originalText;
-        if (typeof originalText === 'string' && wrapper.parentNode) {
-            // 创建原始的文本节点
-            const textNode = document.createTextNode(originalText);
-            // 用原始文本节点替换包裹元素，彻底恢复DOM
-            wrapper.parentNode.replaceChild(textNode, wrapper);
-        } else if (wrapper.parentNode) {
-            // 如果没有原始文本（异常情况），为避免留下空标签，直接移除
-            wrapper.parentNode.removeChild(wrapper);
-        }
-    });
+    console.log(`[SanReader] Reverted ${wrappers.length} translated elements.`);
 
-    translationJob.isTranslating = false;
-
+    // Notify the background script that the page is back to its original state.
     try {
         await browser.runtime.sendMessage({
             type: 'TRANSLATION_STATUS_UPDATE',
@@ -440,6 +441,30 @@ async function revertPageTranslation(tabId) {
         });
     } catch (e) {
         logError('revertPageTranslation', e);
+    }
+}
+
+/**
+ * Reverts a single translated element wrapper back to its original text node,
+ * and cleans up its associated state. This is the single source of truth for
+ * reverting any element.
+ * @param {HTMLElement} wrapper - The <font> element wrapping the original text.
+ */
+function revertElement(wrapper) {
+    if (!wrapper) return;
+
+    // Let the DisplayManager handle strategy-specific UI cleanup and state removal.
+    window.DisplayManager.revert(wrapper);
+
+    // Restore the original DOM structure if the wrapper is still in the DOM.
+    if (wrapper.parentNode) {
+        const originalText = wrapper.dataset.originalText; // This was saved before translation
+        if (typeof originalText === 'string') {
+            wrapper.replaceWith(document.createTextNode(originalText));
+        } else {
+            // Fallback if original text is missing.
+            wrapper.remove();
+        }
     }
 }
 
@@ -504,23 +529,15 @@ async function handleMessage(request, sender) {
                     if (error) {
                         // Handle errors, including user interruption
                         console.log(`[Content Script] Translation for chunk ${id} failed or was interrupted:`, error);
-                        // Revert the specific element cleanly
-                        window.DisplayManager.revert(wrapper);
-                        if (wrapper.parentNode) {
-                            const originalTextNode = document.createTextNode(wrapper.dataset.originalText || '');
-                            wrapper.parentNode.replaceChild(originalTextNode, wrapper);
-                        }
+                        // Revert the specific element cleanly using the centralized function.
+                        revertElement(wrapper);
                     } else if (success && wasTranslated) {
                         // Success and was actually translated
                         window.DisplayManager.displayTranslation(wrapper, translatedText);
                     } else {
-                        // Success but was not translated (e.g., source lang equals target lang)
-                        // Revert the element to its original state
-                        window.DisplayManager.revert(wrapper);
-                        if (wrapper.parentNode) {
-                            const originalTextNode = document.createTextNode(wrapper.dataset.originalText || '');
-                            wrapper.parentNode.replaceChild(originalTextNode, wrapper);
-                        }
+                        // Success but was not translated (e.g., source lang equals target lang).
+                        // Revert the element to its original state using the centralized function.
+                        revertElement(wrapper);
                     }
 
                     // Update progress

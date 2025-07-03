@@ -21,7 +21,18 @@ const CSS_FILES = ["content/style.css"];
  * @param {Error} error - The error object.
  */
 function logError(context, error) {
-  console.error(`[Foxlate Error] in ${context}:`, error.message, error.stack);
+    // This function is now robust and can handle non-Error objects.
+    if (error instanceof Error) {
+        // Filter out user-interrupted "errors" as they are not true exceptions.
+        if (error.message.includes("interrupted")) {
+            console.log(`[Foxlate] Task interrupted in ${context}.`);
+            return;
+        }
+        console.error(`[Foxlate Error] in ${context}:`, error.message, error.stack);
+    } else {
+        // Handle cases where 'error' is not an Error object (e.g., a string, or undefined).
+        console.error(`[Foxlate Error] in ${context}:`, error || 'An unknown error occurred.');
+    }
 }
 
 /**
@@ -321,9 +332,15 @@ browser.commands.onCommand.addListener(async (command, tab) => {
   }
 
   if (command === "toggle-translation") {
+    // Pre-flight check: Do not attempt to message tabs where content scripts cannot run.
+    if (!tab || !tab.id || tab.url?.startsWith('about:') || tab.url?.startsWith('moz-extension:') || tab.url?.startsWith('chrome:')) {
+        console.log(`[Foxlate] Command '${command}' ignored on protected page: ${tab?.url}`);
+        return;
+    }
+
     // Send the request to the service worker itself to use the unified handler.
     try {
-      // Instead of sending a message to self (which can be unreliable as the worker might sleep),
+      // Instead of sending a message to self (which can be a bit unreliable),
       // we directly call the handler function. This is more robust and avoids race conditions.
       const request = { payload: { tabId: tab.id } };
       await messageHandlers.TOGGLE_TRANSLATION_REQUEST(request);

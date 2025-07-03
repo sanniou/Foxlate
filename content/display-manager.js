@@ -6,6 +6,13 @@ window.DisplayManager = class DisplayManager {
         ERROR: 'error',
     };
 
+    static _strategies = {
+        replace: window.replaceStrategy,
+        append: window.appendTranslationStrategy,
+        contextMenu: window.contextMenuStrategy,
+        hover: window.hoverStrategy,
+    };
+
     static elementStates = new Map(); // 存储元素状态
 
     // 跟踪临时的、非 DOM 绑定的翻译任务，例如右键菜单。
@@ -59,20 +66,10 @@ window.DisplayManager = class DisplayManager {
             element.classList.remove('universal-translator-translated');
         }
         this.elementStates.delete(element);
-        
-        if (displayMode && this.activeEphemeralTargets.get(displayMode) === element) {
-            this.activeEphemeralTargets.delete(displayMode);
-        }
     }
 
     static getStrategy(displayMode) {
-        const strategies = {
-            replace: window.replaceStrategy,
-            append: window.appendTranslationStrategy,
-            contextMenu: window.contextMenuStrategy,
-            hover: window.hoverStrategy,
-        };
-        return strategies[displayMode];
+        return this._strategies[displayMode];
     }
 
     static updateDisplayMode(newDisplayMode) {
@@ -116,6 +113,19 @@ window.DisplayManager = class DisplayManager {
     static displayError(element, errorMessage) {
         element.dataset.errorMessage = errorMessage;
         this.setElementState(element, this.STATES.ERROR);
+    }
+
+    /**
+     * Triggers a global cleanup for all strategies.
+     * This is used to hide any non-element-bound UI (like floating panels)
+     * during a full page revert, ensuring no UI elements are left behind.
+     */
+    static hideAllEphemeralUI() {
+        // Iterate through all known strategies and call their global cleanup method if it exists.
+        // This is a clean, decoupled way to handle global state resets.
+        for (const strategy of Object.values(this._strategies)) {
+            strategy?.globalCleanup?.();
+        }
     }
 
     /**
