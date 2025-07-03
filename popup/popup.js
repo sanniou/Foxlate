@@ -99,14 +99,11 @@ document.addEventListener('DOMContentLoaded', () => {
             payload: { hostname: currentHostname }
         });
 
-        // The source of the rule is no longer determined in the popup.
-        // We can simplify the indicator or remove it if not needed.
-        // For now, let's just say if a domain rule was applied.
-        const globalSettings = await browser.runtime.sendMessage({ type: 'GET_VALIDATED_SETTINGS' });
-        const isDomainRule = finalRule.source !== 'default'; // This assumes getEffectiveSettings adds a 'source' property.
-        currentRuleSource = isDomainRule ? currentHostname : 'default';
+        // The 'source' property is now reliably provided by getEffectiveSettings.
+        currentRuleSource = finalRule.source;
 
         // Populate UI elements using the effective rule (finalRule)
+        const globalSettings = await browser.runtime.sendMessage({ type: 'GET_VALIDATED_SETTINGS' });
         const allSupportedEngines = { ...Constants.SUPPORTED_ENGINES, ...(globalSettings.aiEngines || []).reduce((acc, eng) => ({...acc, [`ai:${eng.id}`]: eng.name}), {}) };
         populateSelect(elements.engineSelect, allSupportedEngines, finalRule.translatorEngine);
         populateSelect(elements.sourceLanguageSelect, Constants.SUPPORTED_LANGUAGES, finalRule.sourceLanguage);
@@ -117,7 +114,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         elements.autoTranslateCheckbox.disabled = !currentHostname;
         elements.autoTranslateCheckbox.checked = finalRule.autoTranslate === 'always';
-        elements.currentRuleIndicator.textContent = `Rule: ${currentRuleSource}`;
+        
+        if (currentRuleSource === 'default') {
+            elements.currentRuleIndicator.textContent = browser.i18n.getMessage('popupRuleDefault') || 'Using default settings';
+        } else {
+            // Keep the UI clean by only showing the domain.
+            elements.currentRuleIndicator.textContent = currentRuleSource;
+        }
 
         await updateButtonStateFromContentScript();
         manageSelectLabels();

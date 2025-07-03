@@ -290,6 +290,10 @@
     "message": "使用 Foxlate 翻译 '%s'",
     "description": "右键菜单中翻译选中文本的条目。%s 是选中文本的占位符。"
   },
+  "popupRuleDefault": {
+    "message": "正在使用默认设置",
+    "description": "弹窗中提示当前正在使用默认规则的文本。"
+  },
   "popupShowOriginal": {
     "message": "显示原文",
     "description": "将页面恢复到原始状态的按钮文本。"

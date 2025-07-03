@@ -87,26 +87,23 @@ export async function getValidatedSettings() {
  */
 export async function getEffectiveSettings(hostname) {
     const settings = await getValidatedSettings();
-
-    if (!hostname) {
-        // If no hostname is provided, return the validated global settings.
-        // The CSS selector logic below will correctly fall back to the default.
-        return settings;
-    }
-
-    const domainRules = settings.domainRules || {};
     let effectiveRule = {};
+    let ruleSource = 'default'; // Start with default
 
-    // Find the most specific domain rule that matches the current hostname.
-    const matchingDomain = Object.keys(domainRules)
-        .filter(d => hostname.endsWith(d))
-        .sort((a, b) => b.length - a.length)[0];
+    if (hostname) {
+        const domainRules = settings.domainRules || {};
+        // Find the most specific domain rule that matches the current hostname.
+        const matchingDomain = Object.keys(domainRules)
+            .filter(d => hostname.endsWith(d))
+            .sort((a, b) => b.length - a.length)[0];
 
-    if (matchingDomain) {
-        const rule = domainRules[matchingDomain];
-        // Ensure subdomain application is respected.
-        if (rule.applyToSubdomains !== false || hostname === matchingDomain) {
-            effectiveRule = rule;
+        if (matchingDomain) {
+            const rule = domainRules[matchingDomain];
+            // Ensure subdomain application is respected.
+            if (rule.applyToSubdomains !== false || hostname === matchingDomain) {
+                effectiveRule = rule;
+                ruleSource = matchingDomain; // A domain rule is being applied
+            }
         }
     }
 
@@ -134,6 +131,9 @@ export async function getEffectiveSettings(hostname) {
     else {
         finalSettings.translationSelector = defaultSelector;
     }
+
+    // Add the source property to the final object
+    finalSettings.source = ruleSource;
 
     return finalSettings;
 }

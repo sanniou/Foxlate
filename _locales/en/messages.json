@@ -287,6 +287,10 @@
     "message": "Translate '%s' with Foxlate",
     "description": "Context menu item for translating selected text. %s is the placeholder for the selected text."
   },
+  "popupRuleDefault": {
+    "message": "Using default settings",
+    "description": "Text in popup indicating that default rules are active."
+  },
   "popupAbout": { "message": "About" },
   "popupDisplayMode": {
     "message": "Display Mode:",
