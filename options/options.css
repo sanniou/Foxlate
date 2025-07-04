@@ -71,6 +71,11 @@ h3 {
     border-radius: 4px 4px 0 0; /* M3 filled fields typically have rounded top corners */
     background-color: var(--md-sys-color-surface-container-highest); /* Background for the whole field */
 }
+.m3-form-field.filled:hover {
+    /* M3 Hover state: apply a subtle overlay */
+    background-color: color-mix(in srgb, var(--md-sys-color-surface-container-highest), var(--md-sys-color-on-surface) 4%);
+}
+
 .m3-form-field.filled input,
 .m3-form-field.filled textarea,
 .m3-form-field.filled select {
@@ -162,6 +167,27 @@ h3 {
     box-shadow: 0 1px 0 0 var(--md-sys-color-primary);
 }
 
+/* Disabled state for filled fields */
+.m3-form-field.filled input:disabled,
+.m3-form-field.filled textarea:disabled,
+.m3-form-field.filled select:disabled {
+    background-color: transparent; /* Background is handled by the container */
+    color: color-mix(in srgb, var(--md-sys-color-on-surface), transparent 62%); /* on-surface @ 38% opacity */
+    border-bottom-color: color-mix(in srgb, var(--md-sys-color-on-surface), transparent 88%);
+    cursor: not-allowed;
+}
+.m3-form-field.filled.disabled { /* Add a class to the container for disabled state */
+    background-color: color-mix(in srgb, var(--md-sys-color-on-surface), transparent 96%);
+}
+.m3-form-field.filled select:disabled {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='rgba(0,0,0,0.38)'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
+}
+.m3-form-field.filled input:disabled + label,
+.m3-form-field.filled textarea:disabled + label,
+.m3-form-field.filled select:disabled + label {
+    color: color-mix(in srgb, var(--md-sys-color-on-surface), transparent 62%);
+}
+
 /* Base label style - this will be overridden for filled fields */
 .m3-form-field > label {
     display: block;
@@ -187,6 +213,11 @@ h3 {
 }
 .m3-form-field.is-invalid .error-message {
     display: block; /* Show when invalid */
+}
+
+/* Shake animation for invalid fields on submission attempt */
+.m3-form-field.error-shake {
+    animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
 }
 
 .m3-helper-text {
@@ -743,11 +774,14 @@ button.m3-icon-button.danger { /* Specificity for danger color */
     /* Animation for the overlay */
     overflow-y: auto; /* 允许弹窗内容垂直滚动 */
     opacity: 0;
-    transition: opacity 0.3s ease-out;
+    /* M3 Spec: Scrim fades in with linear easing */
+    transition: opacity 150ms linear;
+    pointer-events: none; /* Prevent interaction when hidden */
 }
 
 .modal.is-visible {
     opacity: 1;
+    pointer-events: auto; /* Allow interaction when visible */
 }
 
 .modal-content {
@@ -760,10 +794,11 @@ button.m3-icon-button.danger { /* Specificity for danger color */
     border-radius: 28px; /* M3 Large border radius */
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     position: relative;
-    /* Animation for the content */
-    transform: translateY(20px);
+    /* Animation for the content: slide up and fade in */
+    transform: translateY(30px); /* Start slightly lower */
     opacity: 0;
-    transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+    /* M3 Spec: Use standard decelerate curve and duration for dialogs */
+    transition: transform 300ms cubic-bezier(0.4, 0, 0.2, 1), opacity 300ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .modal.is-visible .modal-content {

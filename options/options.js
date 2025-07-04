@@ -377,8 +377,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (hasInvalidRegex) {
             elements.saveSettingsBtn.classList.add('error-shake');
+            const firstInvalidField = document.querySelector('.rule-item .m3-form-field.is-invalid');
+            if (firstInvalidField) {
+                firstInvalidField.classList.add('error-shake');
+                setTimeout(() => firstInvalidField.classList.remove('error-shake'), 500);
+            }
             setTimeout(() => elements.saveSettingsBtn.classList.remove('error-shake'), 500);
-            return; // Prevent saving if there are invalid regexes
         }
         // --- State: Saving ---
         elements.saveSettingsBtn.disabled = true;
@@ -783,8 +787,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- 1. Validation ---
         if (!newDomain) {
-            elements.ruleDomainInput.closest('.m3-form-field').classList.add('is-invalid');
+            const field = elements.ruleDomainInput.closest('.m3-form-field');
+            field.classList.add('is-invalid');
             elements.ruleDomainError.textContent = browser.i18n.getMessage('domainCannotBeEmpty') || 'Domain cannot be empty.';
+            // Add shake animation for direct feedback
+            field.classList.add('error-shake');
+            setTimeout(() => field.classList.remove('error-shake'), 500);
             return;
         }
         // Error is cleared via an input event listener for better UX
@@ -956,6 +964,12 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.ruleCssSelectorTextarea.value = ruleData.cssSelector || '';
         // Default to false if not specified
         elements.ruleCssSelectorOverrideCheckbox.checked = ruleData.cssSelectorOverride || false;
+
+        // Ensure all select labels are correctly positioned after populating values.
+        elements.domainRuleModal.querySelectorAll('.m3-form-field.filled select').forEach(initializeSelectLabel);
+        // Also clear any previous validation state
+        elements.ruleDomainInput.closest('.m3-form-field').classList.remove('is-invalid');
+        elements.ruleDomainError.textContent = '';
     };
 
     const closeDomainRuleModal = () => {
@@ -1086,6 +1100,12 @@ document.addEventListener('DOMContentLoaded', () => {
         isValid = validateAiFormField(elements.aiCustomPromptInput, elements.aiCustomPromptError, 'aiCustomPrompt') && isValid;
 
         if (!isValid) {
+            // Find the first invalid field and shake it for better user feedback
+            const firstInvalidField = elements.aiEngineForm.querySelector('.m3-form-field.is-invalid');
+            if (firstInvalidField) {
+                firstInvalidField.classList.add('error-shake');
+                setTimeout(() => firstInvalidField.classList.remove('error-shake'), 500);
+            }
             return;
         }
 
@@ -1432,7 +1452,16 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.manageAiEnginesBtn.addEventListener('click', openAiEngineModal);
         elements.closeAiEngineModalBtn.addEventListener('click', closeAiEngineModal);
         elements.addAiEngineBtn.addEventListener('click', addAiEngine);
-        elements.aiEngineForm.addEventListener('input', clearAiFormErrors); // Clear errors on input
+        // Clear the specific field's error on input for better UX
+        elements.aiEngineForm.addEventListener('input', (event) => {
+            const field = event.target.closest('.m3-form-field');
+            if (field && field.classList.contains('is-invalid')) {
+                field.classList.remove('is-invalid');
+                const errorDiv = field.querySelector('.error-message');
+                if (errorDiv) errorDiv.textContent = '';
+                field.classList.remove('error-shake'); // Also remove shake class if present
+            }
+        });
         elements.saveAiEngineBtn.addEventListener('click', saveAiEngine);
         elements.cancelAiEngineBtn.addEventListener('click', hideAiEngineForm);
         elements.testAiEngineBtn.addEventListener('click', testAiEngineConnection);
@@ -1449,6 +1478,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (field.classList.contains('is-invalid')) {
                 field.classList.remove('is-invalid');
                 elements.ruleDomainError.textContent = '';
+                field.classList.remove('error-shake');
             }
         });
 
