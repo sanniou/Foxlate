@@ -336,27 +336,42 @@ function findTranslatableRootElements(effectiveSettings, rootNodes = [document.b
 }
 
 
-async function togglePageTranslation(tabId) {
-    console.trace(`[SanReader] togglePageTranslation called for tabId: ${tabId}`);
+async function togglePageTranslation(tabId, action) {
+    console.trace(`[SanReader] togglePageTranslation called for tabId: ${tabId}, action: ${action}`); // 记录 action
 
     // 页面翻译状态的唯一真实来源是 body 上的 `data-translation-session` 属性。
     const isSessionActive = document.body.dataset.translationSession === 'active';
 
-    if (isSessionActive) {
-        // 如果会话已激活，意味着页面已翻译或正在加载。正确的操作是恢复原文。
-        console.log("[SanReader] Toggling: Reverting page to original.");
-        // 在恢复之前，我们必须首先停止任何正在进行的翻译任务，以避免竞争条件。
-        await browser.runtime.sendMessage({ type: 'STOP_TRANSLATION', payload: { tabId } });
-        await revertPageTranslation(tabId);
-    } else {
-        // 如果会话未激活，页面处于原始状态。正确的操作是开始翻译。
-        console.log("[SanReader] Toggling: Starting page translation.");
+    switch (action) {
+        case 'translate':
+            if (!isSessionActive) {
+                console.log("[SanReader] Starting page translation.");
+                await startPageTranslation(tabId); // 启动翻译，见下文
+            } else {
+                console.log("[SanReader] Page is already translated. Doing nothing.");
+            }
+            break;
+        case 'revert':
+            if (isSessionActive) {
+                console.log("[SanReader] Reverting page to original.");
+            // 在恢复之前，我们必须首先停止任何正在进行的翻译任务，以避免竞争条件。
+            await browser.runtime.sendMessage({ type: 'STOP_TRANSLATION', payload: { tabId } });
+            await revertPageTranslation(tabId);
+            } else {
+                console.log("[SanReader] Page is not translated. Doing nothing.");
+            }
+            break;
+        default:
+            console.warn(`[SanReader] Unknown action: ${action}`);
+    }
+}
 
-        // 添加一个内部检查，以防止在极端的竞争条件下重复启动任务。
-        if (translationJob.isTranslating) {
-            console.warn("[SanReader] A translation job is already in progress. Ignoring new request.");
-            return;
-        }
+async function startPageTranslation(tabId) {
+    // 添加一个内部检查，以防止在极端的竞争条件下重复启动任务。
+    if (translationJob.isTranslating) {
+        console.warn("[SanReader] A translation job is already in progress. Ignoring new request.");
+        return;
+    }
 
         // 设置一个全局标记，表示翻译会话已开始。
         document.body.dataset.translationSession = 'active';
@@ -414,7 +429,6 @@ async function togglePageTranslation(tabId) {
         }
 
         startObservers();
-    }
 }
 
 /**
@@ -541,15 +555,18 @@ async function handleMessage(request, sender) {
                 return { success: true };
 
             case 'TRANSLATE_PAGE_REQUEST':
-                await togglePageTranslation(request.payload.tabId);
+                await togglePageTranslation(request.payload.tabId, 'translate');
                 return { success: true };
 
             case 'REVERT_PAGE_TRANSLATION':
-                await revertPageTranslation(request.payload.tabId);
+                await togglePageTranslation(request.payload.tabId, 'revert');
                 return { success: true };
 
             case 'TOGGLE_TRANSLATION_REQUEST':
-                await togglePageTranslation(request.payload.tabId);
+                // 明确地确定切换意图，而不是依赖 togglePageTranslation 内部的回退逻辑。
+                // 这使得代码意图更清晰。
+                const isSessionActiveForToggle = document.body.dataset.translationSession === 'active';
+                await togglePageTranslation(request.payload.tabId, isSessionActiveForToggle ? 'revert' : 'translate');
                 return { success: true };
 
             case 'TRANSLATION_CHUNK_RESULT':
