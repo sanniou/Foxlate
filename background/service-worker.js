@@ -2,18 +2,9 @@ import '/lib/browser-polyfill.js';
 import { getEffectiveSettings, getValidatedSettings } from '/common/settings-manager.js';
 import { TranslatorManager } from '/background/translator-manager.js';
 import { AITranslator } from '/background/translators/ai-translator.js';
-
-const CONTENT_SCRIPT_FILES = [
-    "common/precheck.js", // Must be before content-script.js
-    "lib/browser-polyfill.js",
-    "content/strategies/replace-strategy.js",
-    "content/strategies/append-strategy.js",
-    "content/strategies/hover-strategy.js",
-    "content/strategies/context-menu-strategy.js",
-    "content/display-manager.js",
-    "content/content-script.js"
-];
 const CSS_FILES = ["content/style.css"];
+
+const CORE_SCRIPT_FILES = ["common/precheck.js", "lib/browser-polyfill.js", "content/strategies/replace-strategy.js", "content/strategies/append-strategy.js", "content/strategies/hover-strategy.js", "content/strategies/context-menu-strategy.js", "content/display-manager.js", "content/content-script.js"];
 
 /**
  * Centralized error logger.
@@ -64,27 +55,58 @@ async function unregisterSessionTranslation(tabId) {
     }
 }
 /**
- * Ensures content scripts are injected and ready in a tab.
- * Prevents re-injection and handles errors on restricted pages.
+ * Ensures specific content scripts are injected and ready in a given frame of a tab.
+ * Uses session storage to track injected scripts and prevent re-injection.
  * @param {number} tabId The ID of the tab.
- * @returns {Promise<boolean>} True if scripts are ready, false otherwise.
+ * @param {number} frameId The ID of the frame within the tab.
+ * @param {string[]} scriptsToInject An array of script file paths to inject.
+ * @returns {Promise<boolean>} True if scripts are ready or successfully injected, false otherwise.
  */
-async function ensureScriptsInjected(tabId) {
-    try {
-        // Ping the content script to see if it's already there.
-        const response = await browser.tabs.sendMessage(tabId, { type: 'PING' });
-        if (response?.status === 'PONG') {
-            return true; // Already injected and ready.
-        }
-    } catch (e) {
-        // Error means content script is not there. This is expected.
+async function ensureScriptsInjected(tabId, frameId, scriptsToInject) {
+    if (!scriptsToInject || scriptsToInject.length === 0) {
+        return true; // Nothing to inject.
     }
+
+    // Use a per-tab session key to store injection status for all its frames.
+    const sessionKey = `injected_scripts_${tabId}`;
     try {
-        await browser.scripting.insertCSS({ target: { tabId }, files: CSS_FILES });
-        await browser.scripting.executeScript({ target: { tabId }, files: CONTENT_SCRIPT_FILES });
+        const { [sessionKey]: sessionData = {} } = await browser.storage.session.get(sessionKey);
+        
+        const frameScripts = sessionData[frameId] || [];
+        const cssInjected = sessionData.css || false;
+
+        // Determine which scripts are new and need to be injected.
+        const newScripts = scriptsToInject.filter(script => !frameScripts.includes(script));
+
+        // Inject CSS if it hasn't been injected in this tab yet.
+        if (!cssInjected) {
+            await browser.scripting.insertCSS({ target: { tabId }, files: CSS_FILES });
+            sessionData.css = true;
+        }
+
+        if (newScripts.length > 0) {
+            await browser.scripting.executeScript({
+                target: { tabId, frameIds: [frameId] },
+                files: newScripts
+            });
+            // Update the list of injected scripts for the frame.
+            sessionData[frameId] = [...frameScripts, ...newScripts];
+
+            // If content-script.js is being injected in the main frame (frameId 0),
+            // inject the tabId into the window object before content-script.js runs.
+            if (frameId === 0 && newScripts.includes("content/content-script.js")) {
+                await browser.scripting.executeScript({
+                    target: { tabId, frameIds: [frameId] },
+                    function: (tabId) => { window.__sanreader_tabId = tabId; },
+                    args: [tabId]
+                });
+            }
+        }
+
+        await browser.storage.session.set({ [sessionKey]: sessionData });
         return true;
     } catch (error) {
-        logError(`ensureScriptsInjected for tab ${tabId}`, new Error(`Failed to inject scripts. This can happen on special pages (e.g., chrome://). Error: ${error.message}`));
+        logError(`ensureScriptsInjected for tab ${tabId}, frame ${frameId}`, new Error(`Failed to inject scripts. This can happen on special pages (e.g., chrome://). Error: ${error.message}`));
         return false;
     }
 }
@@ -144,8 +166,9 @@ async function getSelectionDetailsFromTab(tabId) {
  * @param {string} source - The source of the trigger ('contextMenu' or 'shortcut').
  */
 async function handleSelectionTranslation(tab, source) {
-  // First, ensure the content scripts are ready to display the result.
-  const scriptsReady = await ensureScriptsInjected(tab.id);
+  // First, ensure the core content scripts are ready in the main frame to display the result.
+  // frameId 0 is the main document frame.
+  const scriptsReady = await ensureScriptsInjected(tab.id, 0, CORE_SCRIPT_FILES);
   if (!scriptsReady) {
       logError('handleSelectionTranslation', new Error(`Could not inject scripts into tab ${tab.id}.`));
       return;
@@ -293,7 +316,7 @@ const messageHandlers = {
 
   async TOGGLE_TRANSLATION_REQUEST(request) {
       const { tabId } = request.payload;
-      const scriptsReady = await ensureScriptsInjected(tabId);
+      const scriptsReady = await ensureScriptsInjected(tabId, 0, CORE_SCRIPT_FILES);
       if (!scriptsReady) {
           // If scripts can't be injected, we can't do anything.
           // We should also clear any lingering state for this tab.
@@ -339,6 +362,19 @@ const messageHandlers = {
       return { success: true, newMode: newMode };
   },
 
+   // 新增：处理字幕翻译开关状态更新
+   async UPDATE_SUBTITLE_TRANSLATION_STATUS(request, sender) {
+        const { tabId, enabled, disabled } = request.payload;
+        try {
+            await browser.action.setIcon({ tabId, path: enabled ? "icons/icon48.png" : "icons/icon48-disabled.png" });
+            await browser.action.setTitle({ tabId, title: enabled ? "Foxlate (Subtitles Enabled)" : "Foxlate (Subtitles Disabled)" });
+            // 你还可以选择存储这个状态，以便在标签页重新加载时保持状态一致。
+            // 例如，使用 browser.storage.session.set({ [`subtitle_${tabId}`]: enabled });
+        } catch (error) {
+            logError('UPDATE_SUBTITLE_TRANSLATION_STATUS', error);
+        }
+        return { success: true };
+    },
     // ** 新增中断处理器 **
     async STOP_TRANSLATION(request) {
         const { tabId } = request.payload;
@@ -492,17 +528,36 @@ browser.runtime.onMessage.addListener((request, sender) => {
 
 /**
  * A unified handler for navigation events to check for auto-translation.
- * This is triggered by both full page loads and SPA navigations.
- * @param {object} details - The event details from webNavigation.
- * @param {number} details.tabId - The ID of the tab.
- * @param {string} details.url - The new URL of the frame.
- * @param {number} details.frameId - The ID of the frame.
+ * Handles both full page loads and SPA navigations.
  */
 async function handleNavigation(details) {
-    // Only act on the main frame of the page.
-    if (details.frameId !== 0) {
+    const { tabId, url, frameId } = details;
+    const isMainFrame = frameId === 0;
+
+    // 1. 注入核心内容脚本（仅限主框架）
+    if (isMainFrame) {
+      let scriptsReady = await ensureScriptsInjected(tabId, frameId, CORE_SCRIPT_FILES);
+      if (!scriptsReady) {
+        logError(`handleNavigation (main frame) for ${url}`, new Error("Failed to inject core scripts."));
         return;
+      }
     }
+
+    // 2. 检查是否需要注入字幕策略脚本
+    const subtitleStrategyFiles = await getMatchingSubtitleStrategyFiles(url, isMainFrame);
+
+    if (subtitleStrategyFiles.length > 0) {
+      const scriptsReady = await ensureScriptsInjected(tabId, frameId, subtitleStrategyFiles);
+      if (!scriptsReady) {
+        logError(`handleNavigation (subtitle strategy) for ${url}`, new Error("Failed to inject subtitle strategy scripts."));
+        return;
+      }
+    }
+
+    // 3. 处理自动翻译（仅限主框架，且在核心脚本注入成功后）
+    if (!isMainFrame) return;
+
+    // 检查是否需要自动翻译，与之前逻辑相同
     try {
         const { tabId, url } = details;
         const hostname = new URL(url).hostname;
@@ -512,13 +567,6 @@ async function handleNavigation(details) {
         const { sessionTabTranslations = {} } = await browser.storage.session.get('sessionTabTranslations');
         const isSessionTranslate = sessionTabTranslations[tabId] === hostname;
 
-        // 1. 无论是否自动翻译，先注入脚本
-        const scriptsReady = await ensureScriptsInjected(tabId);
-        if (!scriptsReady) {
-            logError(`handleNavigation for ${details.url}`, new Error("Failed to inject scripts."));
-            return;
-        }
-
         // 2. 然后，根据规则判断是否触发自动翻译
         if (effectiveRule.autoTranslate === 'always' || isSessionTranslate) {
             console.log(`[Auto-Translate] Rule for '${hostname}' matched on navigation (Reason: ${isSessionTranslate ? 'session' : 'permanent'}). Initiating translation for tab ${tabId}.`);
@@ -526,6 +574,77 @@ async function handleNavigation(details) {
         }
     } catch (error) {
         logError(`handleNavigation for ${details.url}`, error);
+    }
+}
+
+/**
+ * 检查 URL 是否匹配任何字幕策略的 iframe 模式，并返回相应的脚本文件列表。
+ * @param {string} url - 要检查的 URL。
+ * @param {boolean} isMainFrame - 是否为主框架。
+ * @returns {Promise<string[]>} - 匹配的脚本文件列表。
+ */
+async function getMatchingSubtitleStrategyFiles(url, isMainFrame) {
+    const subtitleStrategyFiles = [];
+
+    // 只在 iframe 中检查
+    if (isMainFrame) return subtitleStrategyFiles;
+
+    // 动态导入策略模块
+    const youtubeModule = await import('/content/subtitle/youtube-subtitle-strategy.js');
+    const bilibiliModule = await import('/content/subtitle/bilibili-subtitle-strategy.js');
+
+    // 遍历策略并检查匹配
+    for (const Strategy of [youtubeModule.YouTubeSubtitleStrategy, bilibiliModule.BilibiliSubtitleStrategy]) {
+        if (doesUrlMatchPatterns(url, Strategy.iframePatterns)) {
+            subtitleStrategyFiles.push(...getSubtitleStrategyScriptFiles(Strategy.name));
+        }
+    }
+
+    return subtitleStrategyFiles;
+}
+
+/**
+ * 检查 URL 是否匹配一组通配符模式。
+ * @param {string} url - 要检查的 URL。
+ * @param {string[]} patterns - 通配符模式数组。
+ * @returns {boolean} - 如果 URL 匹配任何模式，则返回 true。
+ */
+function doesUrlMatchPatterns(url, patterns) {
+    if (!patterns || patterns.length === 0) return false;
+
+    const matches = (pattern, url) => {
+        const regex = new RegExp('^' + pattern.replace(/\./g, '\\.').replace(/\*/g, '.*') + '$');
+        return regex.test(url);
+    };
+
+    return patterns.some(pattern => matches(pattern, url));
+}
+
+/**
+ * 根据策略名称返回字幕策略相关的脚本文件。
+ * @param {string} strategyName - 策略名称（目前支持 "YouTubeSubtitleStrategy" 或 "BilibiliSubtitleStrategy"）。
+ * @returns {string[]} - 包含策略脚本及其依赖项的脚本文件列表。
+ */
+function getSubtitleStrategyScriptFiles(strategyName) {
+    const baseFiles = [
+        "content/subtitle/video-subtitle-observer.js", // 策略的依赖项
+        "content/subtitle/subtitle-manager.js", // 管理器也需要，即使在 iframe 中
+    ];
+
+    switch (strategyName) {
+        case "YouTubeSubtitleStrategy":
+            return [
+                ...baseFiles,
+                "content/subtitle/youtube-subtitle-strategy.js", // YouTube 策略
+            ];
+        case "BilibiliSubtitleStrategy":
+            return [
+                ...baseFiles,
+                "content/subtitle/bilibili-subtitle-strategy.js", // Bilibili 策略
+            ];
+        default:
+            console.warn(`[getSubtitleStrategyScriptFiles] Unknown strategy: ${strategyName}`);
+            return [];
     }
 }
 

@@ -601,4 +601,12 @@
         "message": "URL",
         "description": "Default rule to match URLs."
     }
+,    "popupEnableSubtitles": {
+        "message": "Enable Subtitle Translation",
+        "description": "Toggle label to enable/disable subtitle translation in the popup."
+    }
+,    "popupSubtitlesHint": {
+        "message": "Works only on supported video pages",
+        "description": "Hint text for the subtitle translation toggle."
+    }
 }

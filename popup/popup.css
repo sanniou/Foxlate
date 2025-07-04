@@ -284,3 +284,26 @@ footer {
     font-size: 10px; /* 更小字体 */
     color: var(--md-sys-color-on-surface-variant);
 }
+
+/* --- Subtitle Controls Section --- */
+.subtitle-controls {
+    border-top: 1px solid var(--md-sys-color-outline-variant);
+    padding-top: 12px;
+}
+
+.subtitle-controls .control-label {
+    font-size: var(--md-sys-typescale-body-large-font-size);
+    color: var(--md-sys-color-on-surface);
+    flex-grow: 1; /* Pushes the switch to the right */
+    user-select: none;
+}
+
+.subtitle-controls .m3-switch.no-label {
+    gap: 0; /* Remove gap since there is no internal label */
+}
+
+.control-hint {
+    font-size: 11px;
+    color: var(--md-sys-color-on-surface-variant);
+    margin: 4px 0 0 0; /* Adjust margin */
+}

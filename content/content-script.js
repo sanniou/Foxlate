@@ -295,6 +295,9 @@ function stopObservers() {
  * @returns {Promise<object>} - 合并后的有效配置对象。
  */
 async function getEffectiveSettings() {
+    // 将此函数暴露到 window 对象，以便其他内容脚本模块可以访问
+    window.getEffectiveSettings = getEffectiveSettings;
+
     return browser.runtime.sendMessage({
         type: 'GET_EFFECTIVE_SETTINGS',
         payload: { hostname: window.location.hostname }
@@ -333,7 +336,7 @@ function findTranslatableRootElements(effectiveSettings, rootNodes = [document.b
 }
 
 
-async function performPageTranslation(tabId) {
+async function togglePageTranslation(tabId) {
     // 幂等性检查：如果翻译会话已经激活，则不执行任何操作。
     // 这是最可靠的单一事实来源，可以防止在已翻译或正在翻译的页面上重新启动该过程。
     if (document.body.dataset.translationSession === 'active') {
@@ -346,62 +349,99 @@ async function performPageTranslation(tabId) {
         return;
     }
 
-    // 设置一个全局标记，表示翻译会话已开始。
-    document.body.dataset.translationSession = 'active';
+    // 页面翻译状态的唯一真实来源是 body 上的 `data-translation-session` 属性。
+    const isSessionActive = document.body.dataset.translationSession === 'active';
 
-    console.log("[SanReader] Starting page translation process...");
-    stopObservers();
-    
-    let effectiveSettings;
-    try {
-        effectiveSettings = await getEffectiveSettings();
-        console.log("[SanReader] Effective settings for this page:", effectiveSettings);
-
-        // 校验核心设置
-        if (!effectiveSettings.targetLanguage) {
-            logError('performPageTranslation', new Error(browser.i18n.getMessage('errorMissingTargetLanguage') || 'Target language is not configured.'));
-            revertPageTranslation(tabId); // Clean up UI
-            return;
-        }
-        if (!effectiveSettings.translatorEngine) {
-            logError('performPageTranslation', new Error(browser.i18n.getMessage('errorMissingEngine') || 'Translation engine is not configured.'));
-            revertPageTranslation(tabId); // Clean up UI
-            return;
-        }
-        // 检查 translationSelector 是否为 undefined，允许其为空字符串 ""
-        if (typeof effectiveSettings.translationSelector === 'undefined') {
-            logError('performPageTranslation', new Error(browser.i18n.getMessage('errorMissingSelector') || 'CSS selector for translation is not configured.'));
-            revertPageTranslation(tabId); // Clean up UI
-            return;
-        }
-    } catch (error) {
-        logError('performPageTranslation', error);
-        console.error("[SanReader] Failed to retrieve effective settings. Please check your configuration.");
-        return; // 停止执行，不再进行翻译
-    }
-
-   translationJob = {
-        mutationQueue: new Set(),
-        idleCallbackId: null,
-        totalChunks: 0,
-        completedChunks: 0,
-        tabId: tabId,
-        isTranslating: false,
-        settings: effectiveSettings
-    };
-
-    initializeObservers();
-
-    const elementsToObserve = findTranslatableRootElements(effectiveSettings);
-    console.log(`[SanReader] Found ${elementsToObserve.length} root elements to observe for translation.`);
-
-    if (elementsToObserve.length > 0) {
-        observeElements(elementsToObserve);
+    if (isSessionActive) {
+        // 如果会话已激活，意味着页面已翻译或正在加载。正确的操作是恢复原文。
+        console.log("[SanReader] 快捷键切换：恢复页面原文。");
+        await browser.runtime.sendMessage({ type: 'STOP_TRANSLATION', payload: { tabId } });
+        await revertPageTranslation(tabId);
     } else {
-        console.warn("[SanReader] No translatable elements found to observe initially.");
+        // 如果会话未激活，页面处于原始状态。正确的操作是开始翻译。
+        console.log("[SanReader] 快捷键切换：开始页面翻译。");
+
+        // 设置一个全局标记，表示翻译会话已开始。
+        document.body.dataset.translationSession = 'active';
+
+        console.log("[SanReader] Starting page translation process...");
+        stopObservers();
+
+        let effectiveSettings;
+        try {
+            effectiveSettings = await getEffectiveSettings();
+            console.log("[SanReader] Effective settings for this page:", effectiveSettings);
+
+            // 校验核心设置
+            if (!effectiveSettings.targetLanguage) {
+                throw new Error(browser.i18n.getMessage('errorMissingTargetLanguage') || 'Target language is not configured.');
+            }
+            if (!effectiveSettings.translatorEngine) {
+                throw new Error(browser.i18n.getMessage('errorMissingEngine') || 'Translation engine is not configured.');
+            }
+            // 检查 translationSelector 是否为 undefined，允许其为空字符串 ""
+            if (typeof effectiveSettings.translationSelector === 'undefined') {
+                throw new Error(browser.i18n.getMessage('errorMissingSelector') || 'CSS selector for translation is not configured.');
+            }
+        } catch (error) {
+            logError('togglePageTranslation (settings)', error); // 更新错误日志
+            console.error("[SanReader] Failed to retrieve effective settings. Please check your configuration.");
+            // 确保 UI 状态得到清理
+            delete document.body.dataset.translationSession;
+            await browser.runtime.sendMessage({
+                type: 'TRANSLATION_STATUS_UPDATE',
+                payload: { status: 'original', tabId: tabId }
+            });
+            return; // 停止执行，不再进行翻译
+        }
+
+        translationJob = {
+            mutationQueue: new Set(),
+            idleCallbackId: null,
+            totalChunks: 0,
+            completedChunks: 0,
+            tabId: tabId,
+            isTranslating: false,
+            settings: effectiveSettings
+        };
+
+        initializeObservers();
+
+        const elementsToObserve = findTranslatableRootElements(effectiveSettings);
+        console.log(`[SanReader] Found ${elementsToObserve.length} root elements to observe for translation.`);
+
+        if (elementsToObserve.length > 0) {
+            observeElements(elementsToObserve);
+        } else {
+            console.warn("[SanReader] No translatable elements found to observe initially.");
+        }
+
+        startObservers();
     }
-    
-    startObservers();
+}
+
+/**
+ * Reverts a single translated element wrapper back to its original text node,
+ * and cleans up its associated state. This is the single source of truth for
+ * reverting any element.
+ * @param {HTMLElement} wrapper - The <font> element wrapping the original text.
+ */
+function revertElement(wrapper) {
+    if (!wrapper) return;
+
+    // Let the DisplayManager handle strategy-specific UI cleanup and state removal.
+    window.DisplayManager.revert(wrapper);
+
+    // Restore the original DOM structure if the wrapper is still in the DOM.
+    if (wrapper.parentNode) {
+        const originalText = wrapper.dataset.originalText; // This was saved before translation
+        if (typeof originalText === 'string') {
+            wrapper.replaceWith(document.createTextNode(originalText));
+        } else {
+            // Fallback if original text is missing.
+            wrapper.remove();
+        }
+    }
 }
 
 async function revertPageTranslation(tabId) {
@@ -444,49 +484,12 @@ async function revertPageTranslation(tabId) {
     }
 }
 
-/**
- * Reverts a single translated element wrapper back to its original text node,
- * and cleans up its associated state. This is the single source of truth for
- * reverting any element.
- * @param {HTMLElement} wrapper - The <font> element wrapping the original text.
- */
-function revertElement(wrapper) {
-    if (!wrapper) return;
 
-    // Let the DisplayManager handle strategy-specific UI cleanup and state removal.
-    window.DisplayManager.revert(wrapper);
 
-    // Restore the original DOM structure if the wrapper is still in the DOM.
-    if (wrapper.parentNode) {
-        const originalText = wrapper.dataset.originalText; // This was saved before translation
-        if (typeof originalText === 'string') {
-            wrapper.replaceWith(document.createTextNode(originalText));
-        } else {
-            // Fallback if original text is missing.
-            wrapper.remove();
-        }
-    }
-}
 
-/**
- * (新) 根据当前页面的翻译状态，切换翻译或恢复原文。
- * @param {number} tabId - 当前标签页的 ID。
- */
-async function togglePageTranslation(tabId) {
-    // 页面翻译状态的唯一真实来源是 body 上的 `data-translation-session` 属性。
-    const isSessionActive = document.body.dataset.translationSession === 'active';
 
-    if (isSessionActive) {
-        // 如果会话已激活，意味着页面已翻译或正在加载。正确的操作是恢复原文。
-        console.log("[SanReader] 快捷键切换：恢复页面原文。");
-        await browser.runtime.sendMessage({ type: 'STOP_TRANSLATION', payload: { tabId } });
-        await revertPageTranslation(tabId);
-    } else {
-        // 如果会话未激活，页面处于原始状态。正确的操作是开始翻译。
-        console.log("[SanReader] 快捷键切换：开始页面翻译。");
-        await performPageTranslation(tabId);
-    }
-}
+
+
 
 // --- Message Handling & UI ---
 
@@ -574,19 +577,37 @@ async function handleMessage(request, sender) {
                 window.DisplayManager.handleEphemeralTranslation(request.payload);
                 return { success: true };
 
+            case 'TOGGLE_SUBTITLE_TRANSLATION':
+                window.subtitleManager.toggle(request.payload.enabled);
+                return { success: true };
+
+            case 'REQUEST_SUBTITLE_TRANSLATION_STATUS':
+                return Promise.resolve(window.subtitleManager.getStatus());
+
             default:
                 console.warn(`[Content Script] Unhandled message type: ${request.type}`);
                 break;
         }
     } catch (error) {
         logError(`handleMessage (type: ${request.type})`, error);
-        // It's important to return a rejected promise or an error object
-        // if the sender is expecting a response.
         return Promise.reject(error);
     }
 }
 
 // --- Initialization ---
 
-// Add the message listener
-browser.runtime.onMessage.addListener(handleMessage);
+function main() {
+    // 添加消息监听器
+    browser.runtime.onMessage.addListener(handleMessage);
+
+    // 假设在 content script 加载时，document 已经存在，可以直接访问 window 对象
+    translationJob.tabId = window.__sanreader_tabId; 
+
+    // 将 getEffectiveSettings 暴露给其他模块（如 SubtitleManager）
+    window.getEffectiveSettings = getEffectiveSettings;
+
+    // 初始化字幕管理器，它将自动检测并激活合适的策略
+    window.subtitleManager.initialize();
+}
+
+main();

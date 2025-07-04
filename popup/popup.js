@@ -10,7 +10,9 @@ document.addEventListener('DOMContentLoaded', () => {
         translatePageBtn: document.getElementById('translatePageBtn'),
         autoTranslateCheckbox: document.getElementById('autoTranslate'),
         currentRuleIndicator: document.getElementById('currentRuleIndicator'),
-        openOptionsBtn: document.getElementById('openOptionsBtn'),
+        openOptionsBtn: document.getElementById('openOptionsBtn'),        
+        enableSubtitlesCheckbox: document.getElementById('enableSubtitles'), // 新增：字幕开关
+        subtitleControlsSection: document.querySelector('.subtitle-controls'),
         versionDisplay: document.getElementById('versionDisplay'),
         aboutBtn: document.getElementById('aboutBtn')
     };
@@ -115,6 +117,39 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.autoTranslateCheckbox.disabled = !currentHostname;
         elements.autoTranslateCheckbox.checked = finalRule.autoTranslate === 'always';
         
+        // --- 字幕控件可见性逻辑 ---
+        // 默认隐藏。只有当内容脚本在一个支持的页面（YouTube）上确认
+        // 它处于一个视频观看页面时，才会显示它。
+        elements.subtitleControlsSection.style.display = 'none';
+
+        // 无论域名如何，都尝试从内容脚本获取字幕状态。
+        // 内容脚本中的 SubtitleManager 将知道当前页面是否支持字幕。
+        try {
+            const response = await browser.tabs.sendMessage(activeTabId, { type: 'REQUEST_SUBTITLE_TRANSLATION_STATUS' });
+            // 仅当内容脚本确认它在一个支持的页面上时（!response.disabled），才显示控件。
+            if (response && !response.disabled) {
+                elements.subtitleControlsSection.style.display = ''; // 显示该部分
+
+                // 加载已保存的设置为开关的默认状态。
+                const { subtitleTranslationEnabled = true } = finalRule;
+                elements.enableSubtitlesCheckbox.checked = subtitleTranslationEnabled;
+
+                // 来自内容脚本的实时“启用”状态会覆盖已保存的设置以用于UI显示。
+                if (response.enabled !== undefined) {
+                    elements.enableSubtitlesCheckbox.checked = response.enabled;
+                }
+                
+                // 因为我们已经检查了 !response.disabled，所以开关应该是可用的。
+                elements.enableSubtitlesCheckbox.disabled = false;
+            }
+        } catch (e) {
+            // 如果无法与内容脚本通信（例如，在 about:blank 或受限制的页面上），
+            // 这很正常。保持控件隐藏即可。
+            if (!e.message.includes("Receiving end does not exist")) {
+                 console.warn("[Popup] Could not get subtitle translation status from content script. Keeping subtitle control hidden.", e);
+            }
+        }
+
         if (currentRuleSource === 'default') {
             elements.currentRuleIndicator.textContent = browser.i18n.getMessage('popupRuleDefault') || 'Using default settings';
         } else {
@@ -248,6 +283,26 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (error) {
                 console.warn(`[Popup] Could not send display mode update. Content script may not be active.`, error.message);
             }
+        });
+
+        // 初始化字幕开关事件监听
+        elements.enableSubtitlesCheckbox.addEventListener('change', async (e) => {
+            const enabled = e.target.checked;
+            // 1.  通知 content script 更新状态
+            try {
+                await browser.tabs.sendMessage(activeTabId, {
+                    type: 'TOGGLE_SUBTITLE_TRANSLATION',
+                    payload: { enabled }
+                });
+            } catch (error) {
+                console.error("[Popup] Error toggling subtitle translation in content script:", error);
+                // 状态同步失败，可以考虑弹窗提示用户
+                // alert("Failed to update subtitle translation status in the page.");
+                // 或者回滚 UI 状态
+                e.target.checked = !enabled;
+            }
+            // 2.  （可选）同时更新全局设置，这样新打开的 YouTube 页面会使用相同的状态
+            await saveChangeToRule('subtitleTranslationEnabled', enabled);
         });
 
     };

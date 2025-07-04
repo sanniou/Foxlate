@@ -613,6 +613,14 @@
   },
   "precheckRuleUrl": {
     "message": "URL",
-    "description": "Default rule to match URLs."
+    "description": "匹配 URL 的默认规则。"
+  },  
+  "popupEnableSubtitles": {
+      "message": "启用字幕翻译",
+      "description": "在弹窗中启用/禁用字幕翻译的开关标签"
+  }
+,  "popupSubtitlesHint": {
+      "message": "仅在支持的视频页面生效",
+      "description": "字幕翻译开关的提示文字。"
   }
 }

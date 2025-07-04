@@ -1,0 +1,76 @@
+// content/strategies/youtube-subtitle-strategy.js
+import { VideoSubtitleObserver } from './video-subtitle-observer.js';
+
+class YouTubeSubtitleStrategy {
+  constructor(onSubtitleChange) {
+    this.onSubtitleChange = onSubtitleChange;
+    this.observer = null;
+    // 绑定 SPA 导航处理函数，确保 this 上下文正确
+    this.spaNavigationHandler = this.spaNavigationHandler.bind(this);
+  }
+
+  static isSupportedPage() {
+    return window.location.hostname.includes('youtube.com') && window.location.pathname.startsWith('/watch');
+  }
+
+  /**
+   * YouTube 字幕在主文档中，不需要注入到任何 iframe。
+   */
+  static iframePatterns = [];
+
+  initialize() {
+    // 此方法由管理器调用一次，负责设置所有内容，包括持久的 SPA 监听器
+    if (!YouTubeSubtitleStrategy.isSupportedPage()) return;
+
+    console.log("[YouTubeStrategy] Initializing for the first time.");
+    this.startObserver(); // 在当前页面上启动观察
+
+    // 添加 SPA 导航监听器，此监听器将在此策略的整个生命周期中存在
+    document.body.addEventListener('yt-navigate-finish', this.spaNavigationHandler);
+  }
+
+  startObserver() {
+    // 此方法只处理 MutationObserver 的启动
+    if (!YouTubeSubtitleStrategy.isSupportedPage()) return;
+
+    // 在创建新观察器之前，清理任何旧的观察器
+    this.stopObserver();
+
+    console.log("[YouTubeStrategy] Starting observer.");
+    const observerOptions = {
+        targetSelector: '.ytp-caption-window-container',
+        segmentSelector: '.ytp-caption-segment',
+    };
+    this.observer = new VideoSubtitleObserver(this.onSubtitleChange, observerOptions);
+    this.observer.start();
+  }
+
+  stopObserver() {
+    if (this.observer) {
+      this.observer.stop();
+      this.observer = null;
+      console.log("[YouTubeStrategy] Stopped observer.");
+    }
+  }
+
+  cleanup() {
+    // 完全清理，由管理器在不再需要此策略时调用
+    this.stopObserver();
+    document.body.removeEventListener('yt-navigate-finish', this.spaNavigationHandler);
+    console.log("[YouTubeStrategy] Fully cleaned up (observer and SPA listener).");
+  }
+
+  getStatus() {
+    const canHaveSubtitles = YouTubeSubtitleStrategy.isSupportedPage();
+    const isEnabled = !!this.observer; // 如果观察器实例存在，则功能为“已启用”。
+    return { enabled: isEnabled, disabled: !canHaveSubtitles };
+  }
+
+  spaNavigationHandler() {
+    console.log('[YouTubeStrategy] SPA navigation detected. Restarting observer.');
+    // 在 SPA 内部导航时，我们只需要重启观察器，而不是整个策略
+    setTimeout(() => this.startObserver(), 500);
+  }
+}
+
+export { YouTubeSubtitleStrategy };
