@@ -337,29 +337,26 @@ function findTranslatableRootElements(effectiveSettings, rootNodes = [document.b
 
 
 async function togglePageTranslation(tabId) {
-    // 幂等性检查：如果翻译会话已经激活，则不执行任何操作。
-    // 这是最可靠的单一事实来源，可以防止在已翻译或正在翻译的页面上重新启动该过程。
-    if (document.body.dataset.translationSession === 'active') {
-        console.log("[SanReader] Translation session is already active. Ignoring request.");
-        return;
-    }
-    // 这个检查作为第二层防护，以处理可能的竞争条件。
-    if (translationJob.isTranslating) {
-        console.warn("[SanReader] Translation job already in progress despite session not being active. Ignoring request.");
-        return;
-    }
+    console.trace(`[SanReader] togglePageTranslation called for tabId: ${tabId}`);
 
     // 页面翻译状态的唯一真实来源是 body 上的 `data-translation-session` 属性。
     const isSessionActive = document.body.dataset.translationSession === 'active';
 
     if (isSessionActive) {
         // 如果会话已激活，意味着页面已翻译或正在加载。正确的操作是恢复原文。
-        console.log("[SanReader] 快捷键切换：恢复页面原文。");
+        console.log("[SanReader] Toggling: Reverting page to original.");
+        // 在恢复之前，我们必须首先停止任何正在进行的翻译任务，以避免竞争条件。
         await browser.runtime.sendMessage({ type: 'STOP_TRANSLATION', payload: { tabId } });
         await revertPageTranslation(tabId);
     } else {
         // 如果会话未激活，页面处于原始状态。正确的操作是开始翻译。
-        console.log("[SanReader] 快捷键切换：开始页面翻译。");
+        console.log("[SanReader] Toggling: Starting page translation.");
+
+        // 添加一个内部检查，以防止在极端的竞争条件下重复启动任务。
+        if (translationJob.isTranslating) {
+            console.warn("[SanReader] A translation job is already in progress. Ignoring new request.");
+            return;
+        }
 
         // 设置一个全局标记，表示翻译会话已开始。
         document.body.dataset.translationSession = 'active';
@@ -544,7 +541,7 @@ async function handleMessage(request, sender) {
                 return { success: true };
 
             case 'TRANSLATE_PAGE_REQUEST':
-                await performPageTranslation(request.payload.tabId);
+                await togglePageTranslation(request.payload.tabId);
                 return { success: true };
 
             case 'REVERT_PAGE_TRANSLATION':
@@ -583,11 +580,22 @@ async function handleMessage(request, sender) {
                 return { success: true };
 
             case 'TOGGLE_SUBTITLE_TRANSLATION':
-                window.subtitleManager.toggle(request.payload.enabled);
+                if (window.subtitleManager && typeof window.subtitleManager.toggle === 'function') {
+                    window.subtitleManager.toggle(request.payload.enabled);
+                } else {
+                    // 如果管理器不可用，记录一个警告但不要抛出错误，因为这在非视频页面是预期行为。
+                    console.warn("[Content Script] Subtitle manager not available to toggle. This is expected on non-supported pages.");
+                }
                 return { success: true };
 
             case 'REQUEST_SUBTITLE_TRANSLATION_STATUS':
-                return Promise.resolve(window.subtitleManager.getStatus());
+                if (window.subtitleManager && typeof window.subtitleManager.getStatus === 'function') {
+                    return Promise.resolve(window.subtitleManager.getStatus());
+                }
+                // 如果 subtitleManager 不存在，返回一个安全的、表示“已禁用”的默认状态。
+                // 这可以防止在非视频页面上，popup 查询状态时发生错误。
+                // popup.js 会根据 `disabled: true` 来决定是否隐藏字幕控件。
+                return Promise.resolve({ enabled: false, disabled: true });
 
             default:
                 console.warn(`[Content Script] Unhandled message type: ${request.type}`);
@@ -612,7 +620,10 @@ function main() {
     window.getEffectiveSettings = getEffectiveSettings;
 
     // 初始化字幕管理器，它将自动检测并激活合适的策略
-    window.subtitleManager.initialize();
+    // 添加保护，以防 subtitleManager 脚本尚未加载或在当前页面上不受支持。
+    if (window.subtitleManager && typeof window.subtitleManager.initialize === 'function') {
+        window.subtitleManager.initialize();
+    }
 }
 
 main();

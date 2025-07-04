@@ -97,7 +97,7 @@ async function ensureScriptsInjected(tabId, frameId, scriptsToInject) {
             if (frameId === 0 && newScripts.includes("content/content-script.js")) {
                 await browser.scripting.executeScript({
                     target: { tabId, frameIds: [frameId] },
-                    function: (tabId) => { window.__sanreader_tabId = tabId; },
+                    func: (tabId) => { window.__sanreader_tabId = tabId; },
                     args: [tabId]
                 });
             }
@@ -533,6 +533,13 @@ browser.runtime.onMessage.addListener((request, sender) => {
 async function handleNavigation(details) {
     const { tabId, url, frameId } = details;
     const isMainFrame = frameId === 0;
+
+    // 当主框架发生导航时（例如页面刷新或新页面加载），
+    // 我们必须清除该标签页的旧注入状态记录。
+    // 这可以确保在新的页面上下文中重新注入所有必需的脚本。
+    if (isMainFrame) {
+        await browser.storage.session.remove(`injected_scripts_${tabId}`);
+    }
 
     // 1. 注入核心内容脚本（仅限主框架）
     if (isMainFrame) {
