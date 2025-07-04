@@ -1123,9 +1123,7 @@ document.addEventListener('DOMContentLoaded', () => {
         markSettingAsChanged('aiEngines'); // Mark settings as changed
         renderAiEngineList();
         populateAiEngineOptions(); // Update main dropdown
-        elements.aiEngineForm.style.display = 'none';
-        clearAiFormErrors(); // Clear errors after successful save
-        currentEditingAiEngineId = null;
+        hideAiEngineForm(); // Hide form and test results, and clear state
     };
 
     const removeAiEngine = (id) => {
@@ -1362,7 +1360,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         elements.aiTestResult.textContent = browser.i18n.getMessage('testing') || 'Testing...';
-        elements.aiTestResult.className = 'status-message';
+        // Reset classes and make visible
+        elements.aiTestResult.classList.remove('success', 'error');
         elements.aiTestResult.style.display = 'block';
 
         try {
@@ -1376,15 +1375,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (response.success) {
                 elements.aiTestResult.textContent = `${browser.i18n.getMessage('testOriginal')}: test, ${browser.i18n.getMessage('testTranslated')}: ${response.translatedText.text}`;
-                elements.aiTestResult.className = 'status-message success';
+                elements.aiTestResult.classList.add('success');
             } else {
                 elements.aiTestResult.textContent = `${browser.i18n.getMessage('testError')}: ${response.error}`;
-                elements.aiTestResult.className = 'status-message error';
+                elements.aiTestResult.classList.add('error');
             }
         } catch (error) {
             console.error('AI connection test error:', error);
             elements.aiTestResult.textContent = `${browser.i18n.getMessage('testError')}: ${error.message}`;
-            elements.aiTestResult.className = 'status-message error';
+            elements.aiTestResult.classList.add('error');
         }
     };
 

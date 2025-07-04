@@ -610,5 +610,9 @@
   "runTestButton": {
     "message": "运行测试",
     "description": "The button text for running the global pre-check test."
+  },
+  "precheckRuleUrl": {
+    "message": "URL",
+    "description": "Default rule to match URLs."
   }
 }

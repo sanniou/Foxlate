@@ -596,5 +596,9 @@
     "addPrecheckRule": {
         "message": "Add Pre-check Rule",
         "description": "Button text to add a new pre-check rule."
+    },
+    "precheckRuleUrl": {
+        "message": "URL",
+        "description": "Default rule to match URLs."
     }
 }
