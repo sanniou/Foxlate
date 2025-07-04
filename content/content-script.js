@@ -484,12 +484,48 @@ async function revertPageTranslation(tabId) {
     }
 }
 
+/**
+ * (新) 处理单个翻译块的结果。
+ * @param {object} payload - 从后台脚本接收的负载。
+ */
+function handleChunkResult(payload) {
+    const { id, success, translatedText, wasTranslated, error } = payload;
+    const wrapper = document.querySelector(`[data-translation-id='${id}']`);
 
+    if (!wrapper) {
+        // 元素可能已从 DOM 中移除，这是正常情况。
+        return;
+    }
 
+    // 简化的条件：仅在成功翻译时显示。
+    // 否则，恢复元素。
+    if (success && wasTranslated) {
+        window.DisplayManager.displayTranslation(wrapper, translatedText);
+    } else {
+        // 这涵盖了：
+        // 1. 显式错误（error 不为 null）。
+        // 2. 成功但未翻译（例如，源语言与目标语言相同）。
+        // 3. 中断错误。
+        if (error) {
+            console.log(`[Content Script] Chunk ${id} translation failed or was interrupted:`, error);
+        }
+        revertElement(wrapper);
+    }
+}
 
-
-
-
+/**
+ * (新) 更新页面翻译的整体进度。
+ */
+function updateTranslationProgress() {
+    translationJob.completedChunks++;
+    if (translationJob.completedChunks >= translationJob.totalChunks) {
+        translationJob.isTranslating = false;
+        browser.runtime.sendMessage({
+            type: 'TRANSLATION_STATUS_UPDATE',
+            payload: { status: 'translated', tabId: translationJob.tabId }
+        }).catch(e => logError('reportTranslationStatus (completed)', e));
+    }
+}
 
 // --- Message Handling & UI ---
 
@@ -520,39 +556,8 @@ async function handleMessage(request, sender) {
                 return { success: true };
 
             case 'TRANSLATION_CHUNK_RESULT':
-                {
-                    const { id, success, translatedText, wasTranslated, error } = request.payload;
-                    const wrapper = document.querySelector(`[data-translation-id='${id}']`);
-
-                    if (!wrapper) {
-                        // The element might have been removed from the DOM, which is fine.
-                        return;
-                    }
-
-                    if (error) {
-                        // Handle errors, including user interruption
-                        console.log(`[Content Script] Translation for chunk ${id} failed or was interrupted:`, error);
-                        // Revert the specific element cleanly using the centralized function.
-                        revertElement(wrapper);
-                    } else if (success && wasTranslated) {
-                        // Success and was actually translated
-                        window.DisplayManager.displayTranslation(wrapper, translatedText);
-                    } else {
-                        // Success but was not translated (e.g., source lang equals target lang).
-                        // Revert the element to its original state using the centralized function.
-                        revertElement(wrapper);
-                    }
-
-                    // Update progress
-                    translationJob.completedChunks++;
-                    if (translationJob.completedChunks >= translationJob.totalChunks) {
-                        translationJob.isTranslating = false;
-                        browser.runtime.sendMessage({
-                            type: 'TRANSLATION_STATUS_UPDATE',
-                            payload: { status: 'translated', tabId: translationJob.tabId }
-                        }).catch(e => logError('reportTranslationStatus (completed)', e));
-                    }
-                }
+                handleChunkResult(request.payload);
+                updateTranslationProgress();
                 return { success: true };
 
             case 'UPDATE_DISPLAY_MODE':
