@@ -66,6 +66,12 @@ window.DisplayManager = class DisplayManager {
             element.classList.remove('universal-translator-translated');
         }
         this.elementStates.delete(element);
+
+        // If this was an ephemeral target, also remove it from the active map
+        // to ensure immediate cleanup and prevent potential memory leaks.
+        if (this.activeEphemeralTargets.has(displayMode) && this.activeEphemeralTargets.get(displayMode) === element) {
+            this.activeEphemeralTargets.delete(displayMode);
+        }
     }
 
     static getStrategy(displayMode) {

@@ -131,7 +131,9 @@ window.contextMenuStrategy = {
      * This ensures the context menu panel is hidden during a full page revert.
      */
     globalCleanup: function() {
-        this.revertTranslation(this._currentTarget);
+        if (this._currentTarget) {
+            window.DisplayManager.revert(this._currentTarget);
+        }
     },
 
     updateUI: function(element, state) {
