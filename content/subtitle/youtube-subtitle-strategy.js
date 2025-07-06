@@ -14,6 +14,11 @@ class YouTubeSubtitleStrategy {
   }
 
   /**
+   * YouTube 策略在主框架的 /watch 页面上激活。
+   */
+  static mainFramePatterns = ["*://*.youtube.com/watch*"];
+
+  /**
    * YouTube 字幕在主文档中，不需要注入到任何 iframe。
    */
   static iframePatterns = [];
@@ -61,9 +66,11 @@ class YouTubeSubtitleStrategy {
   }
 
   getStatus() {
-    const canHaveSubtitles = YouTubeSubtitleStrategy.isSupportedPage();
-    const isEnabled = !!this.observer; // 如果观察器实例存在，则功能为“已启用”。
-    return { enabled: isEnabled, disabled: !canHaveSubtitles };
+    // isSupported: 页面是否支持此策略（例如，是否为 YouTube 观看页面）。
+    const isSupported = YouTubeSubtitleStrategy.isSupportedPage();
+    // isEnabled: 功能当前是否已激活（例如，用户是否已打开字幕翻译开关）。
+    const isEnabled = !!this.observer;
+    return { isSupported, isEnabled };
   }
 
   spaNavigationHandler() {

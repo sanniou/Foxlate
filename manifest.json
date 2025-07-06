@@ -56,7 +56,13 @@
   },
   "web_accessible_resources": [
     {
-      "resources": [ "common/common.css" ],
+      "resources": [
+        "content/style.css",
+        "content/subtitle/subtitle-manager.js",
+        "content/subtitle/youtube-subtitle-strategy.js",
+        "content/subtitle/bilibili-subtitle-strategy.js",
+        "content/subtitle/video-subtitle-observer.js"
+      ],
       "matches": [ "<all_urls>" ]
     }
   ],

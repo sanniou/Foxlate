@@ -4,27 +4,26 @@ import { BilibiliSubtitleStrategy } from './bilibili-subtitle-strategy.js';
 
 class SubtitleManager {
     constructor() {
-        this.activeStrategy = null;
-        // 在此注册所有可用的策略
+        this.strategy = null; // 持有策略实例，无论是否激活
+        this.isEnabled = false; // 跟踪用户启用/禁用状态
         this.availableStrategies = [
             YouTubeSubtitleStrategy,
             BilibiliSubtitleStrategy,
         ];
+        // 构造时即确定策略，但不激活
+        this.determineStrategy();
     }
 
     /**
-     * 查找并初始化当前页面匹配的字幕策略。
+     * 查找当前页面匹配的字幕策略，并实例化它，但不激活。
      */
-    initialize() {
-        this.cleanup();
-
+    determineStrategy() {
         for (const Strategy of this.availableStrategies) {
-            // 策略需要能静态地判断页面是否受支持
             if (Strategy.isSupportedPage()) {
                 console.log(`[SubtitleManager] Found matching strategy: ${Strategy.name}`);
-                this.activeStrategy = new Strategy(this.onSubtitleChange.bind(this));
-                this.activeStrategy.initialize();
-                break; // 找到第一个匹配的策略后即停止
+                this.strategy = new Strategy(this.onSubtitleChange.bind(this));
+                // 注意：此处不再自动调用 initialize()
+                break;
             }
         }
     }
@@ -85,19 +84,33 @@ class SubtitleManager {
     }
 
     toggle(enabled) {
-        enabled ? this.initialize() : this.cleanup();
+        this.isEnabled = enabled;
+        if (this.strategy) {
+            if (enabled) {
+                console.log("[SubtitleManager] Enabling strategy.");
+                this.strategy.initialize();
+            } else {
+                console.log("[SubtitleManager] Disabling strategy.");
+                this.strategy.cleanup();
+            }
+        }
     }
 
     getStatus() {
-        return this.activeStrategy ? this.activeStrategy.getStatus() : { enabled: false, disabled: true };
+        const isSupported = !!this.strategy;
+        // isEnabled 直接从管理器自身状态获取
+        return { isSupported, isEnabled: this.isEnabled };
     }
 
+    // cleanup 方法现在不是必需的了，因为 toggle(false) 会处理
+    // 但保留一个空的或轻量级的 cleanup 可能对未来有益
     cleanup() {
-        if (this.activeStrategy) {
-            this.activeStrategy.cleanup();
-            this.activeStrategy = null;
+        if (this.strategy) {
+            this.strategy.cleanup();
+            this.isEnabled = false;
         }
     }
 }
 
+// 初始化时，不再自动启动，而是等待来自 popup 的指令
 window.subtitleManager = new SubtitleManager();

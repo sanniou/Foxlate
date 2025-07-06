@@ -554,10 +554,22 @@ async function handleNavigation(details) {
     const subtitleStrategyFiles = await getMatchingSubtitleStrategyFiles(url, isMainFrame);
 
     if (subtitleStrategyFiles.length > 0) {
-      const scriptsReady = await ensureScriptsInjected(tabId, frameId, subtitleStrategyFiles);
-      if (!scriptsReady) {
-        logError(`handleNavigation (subtitle strategy) for ${url}`, new Error("Failed to inject subtitle strategy scripts."));
-        return;
+      // 模块脚本（使用 import/export）不能通过 `files` 属性注入，
+      // 因为那样会将它们作为常规脚本处理，从而导致语法错误。
+      // 正确的方法是使用动态 import() 在页面上下文中将它们作为模块加载。
+      // 我们只需要加载入口点 `subtitle-manager.js`，浏览器会自动处理其依赖关系。
+      try {
+        await browser.scripting.executeScript({
+          target: { tabId, frameIds: [frameId] },
+          func: () => {
+            // 动态 import() 中的路径是相对于页面 URL 解析的。
+            // 我们必须使用 browser.runtime.getURL() 来构建指向扩展资源的绝对 URL。
+            const modulePath = browser.runtime.getURL('content/subtitle/subtitle-manager.js');
+            import(modulePath);
+          }
+        });
+      } catch (e) {
+        logError(`handleNavigation (subtitle module injection) for ${url}`, e);
       }
     }
 
@@ -593,17 +605,20 @@ async function handleNavigation(details) {
 async function getMatchingSubtitleStrategyFiles(url, isMainFrame) {
     const subtitleStrategyFiles = [];
 
-    // 只在 iframe 中检查
-    if (isMainFrame) return subtitleStrategyFiles;
-
     // 动态导入策略模块
     const youtubeModule = await import('/content/subtitle/youtube-subtitle-strategy.js');
     const bilibiliModule = await import('/content/subtitle/bilibili-subtitle-strategy.js');
 
+    const strategies = [youtubeModule.YouTubeSubtitleStrategy, bilibiliModule.BilibiliSubtitleStrategy];
+
     // 遍历策略并检查匹配
-    for (const Strategy of [youtubeModule.YouTubeSubtitleStrategy, bilibiliModule.BilibiliSubtitleStrategy]) {
-        if (doesUrlMatchPatterns(url, Strategy.iframePatterns)) {
+    for (const Strategy of strategies) {
+        // 根据框架类型选择要检查的模式
+        const patterns = isMainFrame ? Strategy.mainFramePatterns : Strategy.iframePatterns;
+        if (doesUrlMatchPatterns(url, patterns)) {
             subtitleStrategyFiles.push(...getSubtitleStrategyScriptFiles(Strategy.name));
+            // 假设一个 URL 只会匹配一个策略，找到后即可中断循环
+            break;
         }
     }
 

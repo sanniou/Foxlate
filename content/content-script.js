@@ -609,10 +609,8 @@ async function handleMessage(request, sender) {
                 if (window.subtitleManager && typeof window.subtitleManager.getStatus === 'function') {
                     return Promise.resolve(window.subtitleManager.getStatus());
                 }
-                // 如果 subtitleManager 不存在，返回一个安全的、表示“已禁用”的默认状态。
-                // 这可以防止在非视频页面上，popup 查询状态时发生错误。
-                // popup.js 会根据 `disabled: true` 来决定是否隐藏字幕控件。
-                return Promise.resolve({ enabled: false, disabled: true });
+                // 如果 subtitleManager 不存在，返回一个表示“不支持”和“未启用”的默认状态。
+                return Promise.resolve({ isSupported: false, isEnabled: false });
 
             default:
                 console.warn(`[Content Script] Unhandled message type: ${request.type}`);
@@ -636,11 +634,6 @@ function main() {
     // 将 getEffectiveSettings 暴露给其他模块（如 SubtitleManager）
     window.getEffectiveSettings = getEffectiveSettings;
 
-    // 初始化字幕管理器，它将自动检测并激活合适的策略
-    // 添加保护，以防 subtitleManager 脚本尚未加载或在当前页面上不受支持。
-    if (window.subtitleManager && typeof window.subtitleManager.initialize === 'function') {
-        window.subtitleManager.initialize();
-    }
 }
 
 main();

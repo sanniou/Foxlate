@@ -14,6 +14,11 @@ class BilibiliSubtitleStrategy {
   }
 
   /**
+   * Bilibili 策略不在任何主框架页面上激活。
+   */
+  static mainFramePatterns = [];
+
+  /**
    * Bilibili 策略需要在其播放器 iframe 中注入脚本。
    * 此模式将由 service-worker 用来决定是否注入脚本。
    */
@@ -51,9 +56,11 @@ class BilibiliSubtitleStrategy {
   }
 
   getStatus() {
-    const canHaveSubtitles = BilibiliSubtitleStrategy.isSupportedPage();
+    // isSupported: 页面是否支持此策略（例如，是否为 Bilibili 播放器 iframe）。
+    const isSupported = BilibiliSubtitleStrategy.isSupportedPage();
+    // isEnabled: 功能当前是否已激活。
     const isEnabled = !!this.observer;
-    return { enabled: isEnabled, disabled: !canHaveSubtitles };
+    return { isSupported, isEnabled };
   }
 }
 

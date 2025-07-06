@@ -125,22 +125,28 @@ document.addEventListener('DOMContentLoaded', () => {
         // 无论域名如何，都尝试从内容脚本获取字幕状态。
         // 内容脚本中的 SubtitleManager 将知道当前页面是否支持字幕。
         try {
-            const response = await browser.tabs.sendMessage(activeTabId, { type: 'REQUEST_SUBTITLE_TRANSLATION_STATUS' });
-            // 仅当内容脚本确认它在一个支持的页面上时（!response.disabled），才显示控件。
-            if (response && !response.disabled) {
-                elements.subtitleControlsSection.style.display = ''; // 显示该部分
+            const status = await browser.tabs.sendMessage(activeTabId, { type: 'REQUEST_SUBTITLE_TRANSLATION_STATUS' });
+            
+            // 如果页面支持字幕翻译，则显示控件。
+            // `isSupported` 决定了控件的可见性。
+            if (status && status.isSupported) {
+                elements.subtitleControlsSection.style.display = ''; // 显示控件
+                elements.enableSubtitlesCheckbox.disabled = false; // 启用开关
 
-                // 加载已保存的设置为开关的默认状态。
-                const { subtitleTranslationEnabled = true } = finalRule;
-                elements.enableSubtitlesCheckbox.checked = subtitleTranslationEnabled;
+                // `isEnabled` 是来自内容脚本的实时状态，是 UI 的唯一真实来源。
+                elements.enableSubtitlesCheckbox.checked = status.isEnabled;
 
-                // 来自内容脚本的实时“启用”状态会覆盖已保存的设置以用于UI显示。
-                if (response.enabled !== undefined) {
-                    elements.enableSubtitlesCheckbox.checked = response.enabled;
+                // 如果设置要求启用，但当前未启用，则发送启用消息
+                if (finalRule.subtitleTranslationEnabled && !status.isEnabled) {
+                    console.log("[Popup] Subtitle translation is enabled in settings but not active. Activating now.");
+                    browser.tabs.sendMessage(activeTabId, {
+                        type: 'TOGGLE_SUBTITLE_TRANSLATION',
+                        payload: { enabled: true }
+                    }).then(() => {
+                        // 更新 UI 以反映新状态
+                        elements.enableSubtitlesCheckbox.checked = true;
+                    }).catch(e => console.error("[Popup] Failed to auto-enable subtitle translation:", e));
                 }
-                
-                // 因为我们已经检查了 !response.disabled，所以开关应该是可用的。
-                elements.enableSubtitlesCheckbox.disabled = false;
             }
         } catch (e) {
             // 如果无法与内容脚本通信（例如，在 about:blank 或受限制的页面上），
@@ -161,55 +167,53 @@ document.addEventListener('DOMContentLoaded', () => {
         manageSelectLabels();
     };
 
+    /**
+     * Helper function to enable or disable all controls related to page translation.
+     * @param {boolean} enabled - Whether to enable or disable the controls.
+     */
+    const setPageControlsEnabled = (enabled) => {
+        elements.translatePageBtn.disabled = !enabled;
+        elements.displayModeSelect.disabled = !enabled;
+        elements.sourceLanguageSelect.disabled = !enabled;
+        elements.targetLanguageSelect.disabled = !enabled;
+        elements.engineSelect.disabled = !enabled;
+        // The auto-translate checkbox also depends on having a valid hostname.
+        elements.autoTranslateCheckbox.disabled = !enabled || !currentHostname;
+    };
+
     const updateButtonStateFromContentScript = async () => {
         if (!activeTabId) return;
 
         const errorDisplay = document.getElementById('error-display');
-        errorDisplay.style.display = 'none'; // Hide error by default
-
+        
+        // Start by assuming failure: disable controls, reset button, and hide error.
+        setPageControlsEnabled(false);
+        updateTranslateButtonState('original');
+        errorDisplay.style.display = 'none';
+        
         try {
             const response = await browser.tabs.sendMessage(activeTabId, { type: 'REQUEST_TRANSLATION_STATUS' });
 
-            // This check handles cases where the content script is present but sends a malformed response.
             if (!response || !response.state) {
                 throw new Error("Invalid response from content script.");
             }
            
-            // Success: update button and ensure controls are enabled.
+            // Success: Enable controls and update the button with the real state.
+            setPageControlsEnabled(true);
             updateTranslateButtonState(response.state);
-            elements.translatePageBtn.disabled = false;
-            elements.displayModeSelect.disabled = false;
-            elements.sourceLanguageSelect.disabled = false;
-            elements.targetLanguageSelect.disabled = false;
-            elements.engineSelect.disabled = false;
-           // Re-enable the switch if a hostname is present (which it should be if content script exists)
-            elements.autoTranslateCheckbox.disabled = !currentHostname;
 
         } catch (e) {
-            // This catch block now handles all failures to communicate or get a valid response.
-
-            // Default to original state visually.
-            updateTranslateButtonState('original');
-            // Disable controls that depend on the content script.
-            elements.translatePageBtn.disabled = true;
-            elements.displayModeSelect.disabled = true;
-            elements.sourceLanguageSelect.disabled = true;
-            elements.targetLanguageSelect.disabled = true;
-            elements.engineSelect.disabled = true;
-           elements.autoTranslateCheckbox.disabled = true;
-
-            // Check for the specific, expected error on restricted pages.
+            // On failure, the controls are already disabled. We just need to show the error.
             if (e.message.includes("Receiving end does not exist")) {
                 console.log(`[Popup] Content script not available on this page. Disabling translation controls.`);
                 errorDisplay.textContent = browser.i18n.getMessage('popupTranslationNotAvailable') || "Translation is not available on this page.";
             } else {
-                // Handle other, unexpected errors.
                 console.error(`[Popup] Failed to get translation status from content script for tab ${activeTabId}:`, e);
                 errorDisplay.textContent = `Error: ${e.message}`;
             }
             errorDisplay.style.display = 'block';
         }
-    }
+    };
 
     const saveChangeToRule = async (key, value) => {
         if (!currentHostname) {
