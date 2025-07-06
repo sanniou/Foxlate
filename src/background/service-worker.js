@@ -11,7 +11,10 @@ const CORE_SCRIPT_FILES = ["common/precheck.js", "lib/browser-polyfill.js", "con
 const STRATEGY_FILE_MAP = new Map([
     ['youtube', 'content/subtitle/youtube-subtitle-strategy.js'],
     ['bilibili', 'content/subtitle/bilibili-subtitle-strategy.js'],
-]);
+  ]);
+  
+  const SUBTITLE_MANAGER_MAP = 
+    ['content/subtitle/subtitle-manager.js'];
 
 const DEFAULT_STRATEGY_MAP = new Map([
     ['www.youtube.com', 'youtube'],
@@ -129,76 +132,52 @@ async function ensureScriptsInjected(tabId, frameId, scriptsToInject) {
  * @param {object} changeInfo - Information about the tab update.
  * @param {object} tab - The tab object itself.
  */
-const injectedTabs = new Set();
-
-async function handleSubtitleInjection(tabId, changeInfo, tab) {
-    // We only need a URL change to trigger the logic.
-    if (!changeInfo.url || !tab.url || !tab.url.startsWith('http')) {
+async function handleSubtitleInjection(tabId, frameId, url) {
+    // 只在主框架且有有效 URL 时执行
+    if (frameId !== 0 || !url || !url.startsWith('http')) {
         return;
     }
 
-    // If we have already injected for this tab, clear it upon navigation.
-    if (injectedTabs.has(tabId)) {
-        injectedTabs.delete(tabId);
-    }
-
     try {
-        const url = new URL(tab.url);
-        const hostname = url.hostname;
+        const currentUrl = new URL(url);
+        const hostname = currentUrl.hostname;
 
         const settings = await getValidatedSettings();
         const userRules = settings.domainRules || {};
 
         let strategyToInject = null;
 
-        // 1. Check user-defined rules first.
+        // 1. 检查用户规则
         if (userRules[hostname] && userRules[hostname].subtitleStrategy) {
             const userChoice = userRules[hostname].subtitleStrategy;
             if (userChoice !== 'none') {
                 strategyToInject = userChoice;
-                console.log(`[Subtitle Injector] User rule found for ${hostname}. Using strategy: ${strategyToInject}`);
             } else {
                 console.log(`[Subtitle Injector] User has disabled subtitle translation for ${hostname}.`);
-                return; // User explicitly disabled it.
+                return; // 用户明确禁用了
             }
         } else {
-            // 2. If no user rule, check default rules.
+            // 2. 检查默认规则
             if (DEFAULT_STRATEGY_MAP.has(hostname)) {
                 strategyToInject = DEFAULT_STRATEGY_MAP.get(hostname);
-                console.log(`[Subtitle Injector] Default rule found for ${hostname}. Using strategy: ${strategyToInject}`);
             }
         }
 
-        // 3. Perform injection if a strategy was chosen.
+        // 3. 如果找到策略，则注入
         if (strategyToInject) {
             const scriptFile = STRATEGY_FILE_MAP.get(strategyToInject);
             if (scriptFile) {
-                if (injectedTabs.has(tabId)) {
-                    return;
-                }
-                await browser.scripting.executeScript({
-                    target: { tabId: tabId },
-                    files: [scriptFile]
-                });
-                injectedTabs.add(tabId);
-                console.log(`[Subtitle Injector] Injected ${scriptFile} into tab ${tabId} for ${hostname}.`);
+                console.log(`[Subtitle Injector] Rule matched. Attempting to inject strategy '${strategyToInject}' for ${hostname}.`);
+                // 使用统一的注入函数
+                await ensureScriptsInjected(tabId, frameId, [...SUBTITLE_MANAGER_MAP,scriptFile]);
             } else {
-                logError('handleSubtitleInjection', new Error(`Strategy '${strategyToInject}' is defined but no corresponding script file was found.`));
+                logError('handleSubtitleInjection', new Error(`Strategy '${strategyToInject}' is defined but no script file was found.`));
             }
         }
-
     } catch (error) {
-        // Ignore errors on pages where scripts can't be injected (e.g., chrome web store)
-        if (error.message.includes('Cannot access a chrome:// URL') || error.message.includes('No tab with id')) {
-            // This is expected, do nothing.
-        } else {
-            logError('handleSubtitleInjection', error);
-        }
+        logError('handleSubtitleInjection', error);
     }
 }
-
-// Register the listener for tab updates.
-chrome.tabs.onUpdated.addListener(handleSubtitleInjection);
 
 // --- Context Menu Setup ---
 browser.runtime.onInstalled.addListener(() => {
@@ -272,31 +251,26 @@ async function handleSelectionTranslation(tab, source) {
 
   const { text: selectionText, coords } = selectionDetails;
 
+  let resultPayload = { isLoading: true, coords, source };
+
   try {
-    // Send a "loading" message immediately. No need to check for script readiness again.
-    browser.tabs
-      .sendMessage(tab.id, {
-        type: 'DISPLAY_SELECTION_TRANSLATION',
-        payload: { isLoading: true, coords, source },
-      })
-      .catch((e) => logError('handleSelectionTranslation (Send Loading)', e));
+      // 立即发送“加载中”状态
+      browser.tabs.sendMessage(tab.id, { type: 'DISPLAY_SELECTION_TRANSLATION', payload: resultPayload })
+          .catch((e) => logError('handleSelectionTranslation (Send Loading)', e));
+      
+      const hostname = new URL(tab.url).hostname;
+      const effectiveRule = await getEffectiveSettings(hostname);
+      const result = await TranslatorManager.translateText(selectionDetails.text, effectiveRule.targetLanguage, 'auto', effectiveRule.translatorEngine);
 
-    const hostname = new URL(tab.url).hostname;
-    const effectiveRule = await getEffectiveSettings(hostname);
-
-    const result = await TranslatorManager.translateText(selectionText, effectiveRule.targetLanguage, 'auto', effectiveRule.translatorEngine);
-
-    browser.tabs.sendMessage(tab.id, {
-      type: 'DISPLAY_SELECTION_TRANSLATION',
-      payload: { success: !result.error, translatedText: result.text, error: result.error, coords, source }
-    });
+      resultPayload = { success: !result.error, translatedText: result.text, error: result.error, coords, source };
   } catch (error) {
-    logError('handleSelectionTranslation', error);
-    browser.tabs.sendMessage(tab.id, {
-      type: 'DISPLAY_SELECTION_TRANSLATION',
-      payload: { success: false, error: error.message, coords, source },
-    }).catch(e => logError('handleSelectionTranslation (Send Error)', e));
+      logError('handleSelectionTranslation', error);
+      resultPayload = { success: false, error: error.message, coords, source };
   }
+
+  // 无论成功还是失败，最终都发送结果消息
+  browser.tabs.sendMessage(tab.id, { type: 'DISPLAY_SELECTION_TRANSLATION', payload: resultPayload })
+      .catch(e => logError('handleSelectionTranslation (Send Result)', e));
 }
 
 // --- Message Handlers ---
@@ -469,18 +443,10 @@ const messageHandlers = {
         const { tabId } = request.payload;
         await TranslatorManager.interruptAll();
 
-        // **(修复 #5)  不再在此处设置状态 **
-        // 状态应该由 content-script 在中断操作完成后设置。
-        // 我们只需要确保中断请求已处理。
-
         // 可选：发送一个通用的“中断已完成”消息，如果 content-script 需要知道的话。
         // await browser.tabs.sendMessage(tabId, { type: 'TRANSLATION_INTERRUPTED' });
         return { success: true };
     },
-
-    // ** 移除无用的广播消息 **
-    //  TRANSLATION_STATUS_BROADCAST 消息不再需要
-    //  所有的状态更新都通过 content-script 发起，并由 popup 监听
 
   async TRANSLATION_STATUS_UPDATE(request, sender) {
     const { status, tabId } = request.payload;
@@ -621,46 +587,40 @@ browser.runtime.onMessage.addListener((request, sender) => {
  */
 async function handleNavigation(details) {
     const { tabId, url, frameId } = details;
-    const isMainFrame = frameId === 0;
 
-    // 当主框架发生导航时（例如页面刷新或新页面加载），
-    // 我们必须清除该标签页的旧注入状态记录。
-    // 这可以确保在新的页面上下文中重新注入所有必需的脚本。
-    if (isMainFrame) {
+    // 1. 在主框架导航时，清除旧的注入状态记录
+    if (frameId === 0) {
         await browser.storage.session.remove(`injected_scripts_${tabId}`);
     }
 
-    // 1. 注入核心内容脚本（仅限主框架）
-    if (isMainFrame) {
-      let scriptsReady = await ensureScriptsInjected(tabId, frameId, CORE_SCRIPT_FILES);
-      if (!scriptsReady) {
-        logError(`handleNavigation (main frame) for ${url}`, new Error("Failed to inject core scripts."));
-        return;
-      }
+    // 2. 注入核心内容脚本（仅限主框架）
+    if (frameId === 0) {
+        const coreScriptsReady = await ensureScriptsInjected(tabId, frameId, CORE_SCRIPT_FILES);
+        if (!coreScriptsReady) {
+            logError(`handleNavigation for ${url}`, new Error("Failed to inject core scripts. Aborting further actions."));
+            return;
+        }
     }
 
-    // 2. 检查是否需要注入字幕策略脚本
+    // 3. 按需注入字幕策略脚本（委托给专门的函数）
+    await handleSubtitleInjection(tabId, frameId, url);
 
-    // 3. 处理自动翻译（仅限主框架，且在核心脚本注入成功后）
-    if (!isMainFrame) return;
+    // 4. 处理自动翻译（仅限主框架）
+    if (frameId === 0) {
+        try {
+            const hostname = new URL(url).hostname;
+            const effectiveRule = await getEffectiveSettings(hostname);
+            const { sessionTabTranslations = {} } = await browser.storage.session.get('sessionTabTranslations');
+            const isSessionTranslate = sessionTabTranslations[tabId] === hostname;
 
-    // 检查是否需要自动翻译，与之前逻辑相同
-    try {
-        const { tabId, url } = details;
-        const hostname = new URL(url).hostname;
-
-        // Check both permanent rule and session-based rule
-        const effectiveRule = await getEffectiveSettings(hostname);
-        const { sessionTabTranslations = {} } = await browser.storage.session.get('sessionTabTranslations');
-        const isSessionTranslate = sessionTabTranslations[tabId] === hostname;
-
-        // 2. 然后，根据规则判断是否触发自动翻译
-        if (effectiveRule.autoTranslate === 'always' || isSessionTranslate) {
-            console.log(`[Auto-Translate] Rule for '${hostname}' matched on navigation (Reason: ${isSessionTranslate ? 'session' : 'permanent'}). Initiating translation for tab ${tabId}.`);
-            await browser.tabs.sendMessage(tabId, { type: 'TRANSLATE_PAGE_REQUEST', payload: { tabId } });
+            if (effectiveRule.autoTranslate === 'always' || isSessionTranslate) {
+                console.log(`[Auto-Translate] Rule matched for '${hostname}'. Initiating translation for tab ${tabId}.`);
+                await browser.tabs.sendMessage(tabId, { type: 'TRANSLATE_PAGE_REQUEST', payload: { tabId } });
+            }
+        } catch (error) {
+            // 只记录错误，不中断流程，因为自动翻译失败不应影响其他功能
+            logError(`handleNavigation (auto-translate) for ${url}`, error);
         }
-    } catch (error) {
-        logError(`handleNavigation for ${details.url}`, error);
     }
 }
 
@@ -699,8 +659,9 @@ browser.tabs.onRemoved.addListener(async (tabId) => {
   }
 });
 
-async function setBadgeAndState(tabId, state) {
-    const { tabTranslationStates = {} } = await browser.storage.session.get('tabTranslationStates');
+async function setBadgeAndState(tabId, state, currentStates) {
+    // 不再自己获取，而是使用传入的 currentStates
+    const tabTranslationStates = currentStates || (await browser.storage.session.get('tabTranslationStates')).tabTranslationStates || {};
     if (state === 'original' || !state) {
         delete tabTranslationStates[tabId];
         await browser.action.setBadgeText({ tabId, text: '' });
@@ -726,5 +687,4 @@ async function setBadgeAndState(tabId, state) {
         }
     }
     await browser.storage.session.set({ tabTranslationStates });
-    // **(修复 #5)  移除广播消息 **
 }
