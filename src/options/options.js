@@ -1,6 +1,6 @@
-import '/lib/browser-polyfill.js'; 
+import '../lib/browser-polyfill.js'; 
 import { getValidatedSettings, generateDefaultPrecheckRules } from '../common/settings-manager.js';
-import * as Constants from '/common/constants.js';
+import * as Constants from '../common/constants.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Element Cache ---

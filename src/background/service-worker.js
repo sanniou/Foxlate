@@ -1,27 +1,37 @@
-import '/lib/browser-polyfill.js'; 
-import { getEffectiveSettings, getValidatedSettings } from '/common/settings-manager.js';
-import { TranslatorManager } from '/background/translator-manager.js';
-import { AITranslator } from '/background/translators/ai-translator.js';
+
+import '../lib/browser-polyfill.js';
+import { getEffectiveSettings, getValidatedSettings } from '../common/settings-manager.js';
+import { TranslatorManager } from '../background/translator-manager.js';
+import { AITranslator } from '../background/translators/ai-translator.js';
 const CSS_FILES = ["content/style.css"];
 
 const CORE_SCRIPT_FILES = ["common/precheck.js", "lib/browser-polyfill.js", "content/strategies/replace-strategy.js", "content/strategies/append-strategy.js", "content/strategies/hover-strategy.js", "content/strategies/context-menu-strategy.js", "content/display-manager.js", "content/content-script.js"];
 
+// --- Constants ---
+const STRATEGY_FILE_MAP = new Map([
+    ['youtube', 'content/subtitle/youtube-subtitle-strategy.js'],
+    ['bilibili', 'content/subtitle/bilibili-subtitle-strategy.js'],
+]);
+
+const DEFAULT_STRATEGY_MAP = new Map([
+    ['www.youtube.com', 'youtube'],
+    ['m.youtube.com', 'youtube'],
+    ['www.bilibili.com', 'bilibili'],
+]);
+
 /**
  * Centralized error logger.
- * @param {string} context - The context in which the error occurred (e.g., "Context Menu").
+ * @param {string} context - The context in which the error occurred.
  * @param {Error} error - The error object.
  */
 function logError(context, error) {
-    // This function is now robust and can handle non-Error objects.
     if (error instanceof Error) {
-        // Filter out user-interrupted "errors" as they are not true exceptions.
         if (error.message.includes("interrupted")) {
             console.log(`[Foxlate] Task interrupted in ${context}.`);
             return;
         }
         console.error(`[Foxlate Error] in ${context}:`, error.message, error.stack);
     } else {
-        // Handle cases where 'error' is not an Error object (e.g., a string, or undefined).
         console.error(`[Foxlate Error] in ${context}:`, error || 'An unknown error occurred.');
     }
 }
@@ -110,6 +120,85 @@ async function ensureScriptsInjected(tabId, frameId, scriptsToInject) {
         return false;
     }
 }
+
+// --- Subtitle Strategy Injection Logic ---
+
+/**
+ * Handles the logic for injecting subtitle strategies based on user and default rules.
+ * @param {number} tabId - The ID of the tab.
+ * @param {object} changeInfo - Information about the tab update.
+ * @param {object} tab - The tab object itself.
+ */
+const injectedTabs = new Set();
+
+async function handleSubtitleInjection(tabId, changeInfo, tab) {
+    // We only need a URL change to trigger the logic.
+    if (!changeInfo.url || !tab.url || !tab.url.startsWith('http')) {
+        return;
+    }
+
+    // If we have already injected for this tab, clear it upon navigation.
+    if (injectedTabs.has(tabId)) {
+        injectedTabs.delete(tabId);
+    }
+
+    try {
+        const url = new URL(tab.url);
+        const hostname = url.hostname;
+
+        const settings = await getValidatedSettings();
+        const userRules = settings.domainRules || {};
+
+        let strategyToInject = null;
+
+        // 1. Check user-defined rules first.
+        if (userRules[hostname] && userRules[hostname].subtitleStrategy) {
+            const userChoice = userRules[hostname].subtitleStrategy;
+            if (userChoice !== 'none') {
+                strategyToInject = userChoice;
+                console.log(`[Subtitle Injector] User rule found for ${hostname}. Using strategy: ${strategyToInject}`);
+            } else {
+                console.log(`[Subtitle Injector] User has disabled subtitle translation for ${hostname}.`);
+                return; // User explicitly disabled it.
+            }
+        } else {
+            // 2. If no user rule, check default rules.
+            if (DEFAULT_STRATEGY_MAP.has(hostname)) {
+                strategyToInject = DEFAULT_STRATEGY_MAP.get(hostname);
+                console.log(`[Subtitle Injector] Default rule found for ${hostname}. Using strategy: ${strategyToInject}`);
+            }
+        }
+
+        // 3. Perform injection if a strategy was chosen.
+        if (strategyToInject) {
+            const scriptFile = STRATEGY_FILE_MAP.get(strategyToInject);
+            if (scriptFile) {
+                if (injectedTabs.has(tabId)) {
+                    return;
+                }
+                await browser.scripting.executeScript({
+                    target: { tabId: tabId },
+                    files: [scriptFile]
+                });
+                injectedTabs.add(tabId);
+                console.log(`[Subtitle Injector] Injected ${scriptFile} into tab ${tabId} for ${hostname}.`);
+            } else {
+                logError('handleSubtitleInjection', new Error(`Strategy '${strategyToInject}' is defined but no corresponding script file was found.`));
+            }
+        }
+
+    } catch (error) {
+        // Ignore errors on pages where scripts can't be injected (e.g., chrome web store)
+        if (error.message.includes('Cannot access a chrome:// URL') || error.message.includes('No tab with id')) {
+            // This is expected, do nothing.
+        } else {
+            logError('handleSubtitleInjection', error);
+        }
+    }
+}
+
+// Register the listener for tab updates.
+chrome.tabs.onUpdated.addListener(handleSubtitleInjection);
 
 // --- Context Menu Setup ---
 browser.runtime.onInstalled.addListener(() => {
@@ -551,27 +640,6 @@ async function handleNavigation(details) {
     }
 
     // 2. 检查是否需要注入字幕策略脚本
-    const subtitleStrategyFiles = await getMatchingSubtitleStrategyFiles(url, isMainFrame);
-
-    if (subtitleStrategyFiles.length > 0) {
-      // 模块脚本（使用 import/export）不能通过 `files` 属性注入，
-      // 因为那样会将它们作为常规脚本处理，从而导致语法错误。
-      // 正确的方法是使用动态 import() 在页面上下文中将它们作为模块加载。
-      // 我们只需要加载入口点 `subtitle-manager.js`，浏览器会自动处理其依赖关系。
-      try {
-        await browser.scripting.executeScript({
-          target: { tabId, frameIds: [frameId] },
-          func: () => {
-            // 动态 import() 中的路径是相对于页面 URL 解析的。
-            // 我们必须使用 browser.runtime.getURL() 来构建指向扩展资源的绝对 URL。
-            const modulePath = browser.runtime.getURL('content/subtitle/subtitle-manager.js');
-            import(modulePath);
-          }
-        });
-      } catch (e) {
-        logError(`handleNavigation (subtitle module injection) for ${url}`, e);
-      }
-    }
 
     // 3. 处理自动翻译（仅限主框架，且在核心脚本注入成功后）
     if (!isMainFrame) return;
@@ -593,80 +661,6 @@ async function handleNavigation(details) {
         }
     } catch (error) {
         logError(`handleNavigation for ${details.url}`, error);
-    }
-}
-
-/**
- * 检查 URL 是否匹配任何字幕策略的 iframe 模式，并返回相应的脚本文件列表。
- * @param {string} url - 要检查的 URL。
- * @param {boolean} isMainFrame - 是否为主框架。
- * @returns {Promise<string[]>} - 匹配的脚本文件列表。
- */
-async function getMatchingSubtitleStrategyFiles(url, isMainFrame) {
-    const subtitleStrategyFiles = [];
-
-    // 动态导入策略模块
-    const youtubeModule = await import('/content/subtitle/youtube-subtitle-strategy.js');
-    const bilibiliModule = await import('/content/subtitle/bilibili-subtitle-strategy.js');
-
-    const strategies = [youtubeModule.YouTubeSubtitleStrategy, bilibiliModule.BilibiliSubtitleStrategy];
-
-    // 遍历策略并检查匹配
-    for (const Strategy of strategies) {
-        // 根据框架类型选择要检查的模式
-        const patterns = isMainFrame ? Strategy.mainFramePatterns : Strategy.iframePatterns;
-        if (doesUrlMatchPatterns(url, patterns)) {
-            subtitleStrategyFiles.push(...getSubtitleStrategyScriptFiles(Strategy.name));
-            // 假设一个 URL 只会匹配一个策略，找到后即可中断循环
-            break;
-        }
-    }
-
-    return subtitleStrategyFiles;
-}
-
-/**
- * 检查 URL 是否匹配一组通配符模式。
- * @param {string} url - 要检查的 URL。
- * @param {string[]} patterns - 通配符模式数组。
- * @returns {boolean} - 如果 URL 匹配任何模式，则返回 true。
- */
-function doesUrlMatchPatterns(url, patterns) {
-    if (!patterns || patterns.length === 0) return false;
-
-    const matches = (pattern, url) => {
-        const regex = new RegExp('^' + pattern.replace(/\./g, '\\.').replace(/\*/g, '.*') + '$');
-        return regex.test(url);
-    };
-
-    return patterns.some(pattern => matches(pattern, url));
-}
-
-/**
- * 根据策略名称返回字幕策略相关的脚本文件。
- * @param {string} strategyName - 策略名称（目前支持 "YouTubeSubtitleStrategy" 或 "BilibiliSubtitleStrategy"）。
- * @returns {string[]} - 包含策略脚本及其依赖项的脚本文件列表。
- */
-function getSubtitleStrategyScriptFiles(strategyName) {
-    const baseFiles = [
-        "content/subtitle/video-subtitle-observer.js", // 策略的依赖项
-        "content/subtitle/subtitle-manager.js", // 管理器也需要，即使在 iframe 中
-    ];
-
-    switch (strategyName) {
-        case "YouTubeSubtitleStrategy":
-            return [
-                ...baseFiles,
-                "content/subtitle/youtube-subtitle-strategy.js", // YouTube 策略
-            ];
-        case "BilibiliSubtitleStrategy":
-            return [
-                ...baseFiles,
-                "content/subtitle/bilibili-subtitle-strategy.js", // Bilibili 策略
-            ];
-        default:
-            console.warn(`[getSubtitleStrategyScriptFiles] Unknown strategy: ${strategyName}`);
-            return [];
     }
 }
 

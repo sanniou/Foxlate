@@ -9,8 +9,8 @@
     "128": "icons/icon-128.png"
   },
   "permissions": [
-    "storage",  
-    "scripting", 
+    "storage",
+    "scripting",
     "contextMenus",
     "webNavigation"
   ],
@@ -19,7 +19,6 @@
   ],
   "background": {
     "scripts": ["background/service-worker.js"],
-    // "service_worker": "background/service-worker.js",
     "type": "module"
   },
   "default_locale": "en",
@@ -57,13 +56,11 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "content/style.css",
-        "content/subtitle/subtitle-manager.js",
-        "content/subtitle/youtube-subtitle-strategy.js",
-        "content/subtitle/bilibili-subtitle-strategy.js",
-        "content/subtitle/video-subtitle-observer.js"
+        "content/style.css"
       ],
-      "matches": [ "<all_urls>" ]
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ],
   "browser_specific_settings": {

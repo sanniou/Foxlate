@@ -541,6 +541,7 @@ function updateTranslationProgress() {
 // --- Message Handling & UI ---
 
 async function handleMessage(request, sender) {
+    console.trace(`[Content Script] Received message from sender :`, request)
     try {
         switch (request.type) {
             case 'PING':

@@ -1,0 +1,36 @@
+{
+  "name": "sanreader",
+  "version": "1.0.0",
+  "description": "一个功能强大的浏览器扩展，旨在提供无缝的网页内容翻译体验。支持多种翻译服务，并提供灵活的配置选项，让您轻松翻译选定的文本或管理翻译设置。",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "npm run build:chrome",
+    "build:chrome": "node build.js --target=chrome",
+    "build:firefox": "node build.js --target=firefox",
+    "watch": "npm run watch:chrome",
+    "watch:chrome": "node build.js --watch --target=chrome",
+    "watch:firefox": "node build.js --watch --target=firefox"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sanniou/foxlate.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/sanniou/foxlate/issues"
+  },
+  "homepage": "https://github.com/sanniou/foxlate#readme",
+  "devDependencies": {
+    "esbuild": "^0.25.5",
+    "esbuild-plugin-copy": "^2.1.1",
+    "fs-extra": "^11.3.0",
+    "glob": "^11.0.3"
+  }
+}

@@ -11,8 +11,8 @@
  * It combines general rules from constants with dynamically generated language-specific rules.
  * @returns {object} The complete default pre-check rules object.
  */
-import '/lib/browser-polyfill.js'; 
-import * as Constants from '/common/constants.js';
+import '../lib/browser-polyfill.js'; 
+import * as Constants from '../common/constants.js';
 export function generateDefaultPrecheckRules() { 
     // Start with a deep copy of the general rules from constants.
     const defaultRules = JSON.parse(JSON.stringify(Constants.DEFAULT_PRECHECK_RULES));

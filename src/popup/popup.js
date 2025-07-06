@@ -1,5 +1,5 @@
-import '/lib/browser-polyfill.js'; 
-import * as Constants from '/common/constants.js';
+import '../lib/browser-polyfill.js'; 
+import * as Constants from '../common/constants.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     const elements = {

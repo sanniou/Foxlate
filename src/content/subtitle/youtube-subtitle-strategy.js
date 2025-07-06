@@ -9,24 +9,8 @@ class YouTubeSubtitleStrategy {
     this.spaNavigationHandler = this.spaNavigationHandler.bind(this);
   }
 
-  static isSupportedPage() {
-    return window.location.hostname.includes('youtube.com') && window.location.pathname.startsWith('/watch');
-  }
-
-  /**
-   * YouTube 策略在主框架的 /watch 页面上激活。
-   */
-  static mainFramePatterns = ["*://*.youtube.com/watch*"];
-
-  /**
-   * YouTube 字幕在主文档中，不需要注入到任何 iframe。
-   */
-  static iframePatterns = [];
-
   initialize() {
     // 此方法由管理器调用一次，负责设置所有内容，包括持久的 SPA 监听器
-    if (!YouTubeSubtitleStrategy.isSupportedPage()) return;
-
     console.log("[YouTubeStrategy] Initializing for the first time.");
     this.startObserver(); // 在当前页面上启动观察
 
@@ -78,6 +62,16 @@ class YouTubeSubtitleStrategy {
     // 在 SPA 内部导航时，我们只需要重启观察器，而不是整个策略
     setTimeout(() => this.startObserver(), 500);
   }
+
+  static isSupportedPage() {
+    // YouTube 视频观看页面的 URL 路径中通常包含 /watch
+    return window.location.pathname.includes('/watch');
+  }
 }
 
 export { YouTubeSubtitleStrategy };
+
+// Self-register with the global manager
+if (window.subtitleManager) {
+    window.subtitleManager.registerStrategy(YouTubeSubtitleStrategy);
+}

@@ -1,30 +1,23 @@
-import { YouTubeSubtitleStrategy } from './youtube-subtitle-strategy.js';
-// 未来可在此处导入其他网站的策略
-import { BilibiliSubtitleStrategy } from './bilibili-subtitle-strategy.js';
-
 class SubtitleManager {
     constructor() {
-        this.strategy = null; // 持有策略实例，无论是否激活
-        this.isEnabled = false; // 跟踪用户启用/禁用状态
-        this.availableStrategies = [
-            YouTubeSubtitleStrategy,
-            BilibiliSubtitleStrategy,
-        ];
-        // 构造时即确定策略，但不激活
-        this.determineStrategy();
+        this.strategy = null; // Holds the single, registered strategy instance
+        this.isEnabled = false; // Tracks the user's enabled/disabled state
+        console.log("[SubtitleManager] Initialized and waiting for strategy registration.");
     }
 
     /**
-     * 查找当前页面匹配的字幕策略，并实例化它，但不激活。
+     * Called by a strategy script (like youtube-subtitle-strategy.js) to register itself.
+     * @param {class} StrategyClass The strategy class to be instantiated.
      */
-    determineStrategy() {
-        for (const Strategy of this.availableStrategies) {
-            if (Strategy.isSupportedPage()) {
-                console.log(`[SubtitleManager] Found matching strategy: ${Strategy.name}`);
-                this.strategy = new Strategy(this.onSubtitleChange.bind(this));
-                // 注意：此处不再自动调用 initialize()
-                break;
-            }
+    registerStrategy(StrategyClass) {
+        // Since the service worker only injects the script on the correct page,
+        // we can be confident this is the right strategy. No need for isSupportedPage().
+        if (!this.strategy) {
+            console.log(`[SubtitleManager] Registering strategy: ${StrategyClass.name}`);
+            this.strategy = new StrategyClass(this.onSubtitleChange.bind(this));
+            // Do not auto-enable. Wait for user action from the popup.
+        } else {
+            console.warn(`[SubtitleManager] A strategy is already registered. Ignoring new registration for ${StrategyClass.name}.`);
         }
     }
 
