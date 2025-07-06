@@ -17,6 +17,9 @@ const STRATEGY_FILE_MAP = new Map([
     ['content/subtitle/subtitle-manager.js'];
 
 const DEFAULT_STRATEGY_MAP = new Map([
+    ['www.youtube.com', 'youtube'],
+    ['m.youtube.com', 'youtube'],
+    ['www.bilibili.com', 'bilibili'],
 ]);
 
 /**
