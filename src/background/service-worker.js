@@ -17,9 +17,6 @@ const STRATEGY_FILE_MAP = new Map([
     ['content/subtitle/subtitle-manager.js'];
 
 const DEFAULT_STRATEGY_MAP = new Map([
-    ['www.youtube.com', 'youtube'],
-    ['m.youtube.com', 'youtube'],
-    ['www.bilibili.com', 'bilibili'],
 ]);
 
 /**
@@ -388,7 +385,7 @@ const messageHandlers = {
       }
       // Forward the request to the content script, which holds the state.
       // The content script will decide whether to translate or revert.
-      return browser.tabs.sendMessage(tabId, { type: 'TOGGLE_TRANSLATION_REQUEST', payload: { tabId } });
+      return browser.tabs.sendMessage(tabId, { type: 'TOGGLE_TRANSLATION_REQUEST_AT_CONTENT', payload: { tabId } });
   },
 
   async TOGGLE_DISPLAY_MODE(request) {

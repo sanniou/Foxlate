@@ -563,9 +563,7 @@ async function handleMessage(request, sender) {
                 await togglePageTranslation(request.payload.tabId, 'revert');
                 return { success: true };
 
-            case 'TOGGLE_TRANSLATION_REQUEST':
-                // 明确地确定切换意图，而不是依赖 togglePageTranslation 内部的回退逻辑。
-                // 这使得代码意图更清晰。
+            case 'TOGGLE_TRANSLATION_REQUEST_AT_CONTENT':
                 const isSessionActiveForToggle = document.body.dataset.translationSession === 'active';
                 await togglePageTranslation(request.payload.tabId, isSessionActiveForToggle ? 'revert' : 'translate');
                 return { success: true };
