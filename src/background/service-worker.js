@@ -104,6 +104,7 @@ async function ensureScriptsInjected(tabId, frameId, scriptsToInject) {
 
             // If content-script.js is being injected in the main frame (frameId 0),
             // inject the tabId into the window object before content-script.js runs.
+            // todo new way to put tabId !!!! 
             if (frameId === 0 && newScripts.includes("content/content-script.js")) {
                 await browser.scripting.executeScript({
                     target: { tabId, frameIds: [frameId] },
