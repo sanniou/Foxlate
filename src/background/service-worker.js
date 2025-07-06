@@ -3,24 +3,21 @@ import '../lib/browser-polyfill.js';
 import { getEffectiveSettings, getValidatedSettings } from '../common/settings-manager.js';
 import { TranslatorManager } from '../background/translator-manager.js';
 import { AITranslator } from '../background/translators/ai-translator.js';
+import { SUBTITLE_STRATEGIES, SUBTITLE_MANAGER_SCRIPT } from '../content/subtitle/strategy-manifest.js';
 const CSS_FILES = ["content/style.css"];
 
 const CORE_SCRIPT_FILES = ["common/precheck.js", "lib/browser-polyfill.js", "content/strategies/replace-strategy.js", "content/strategies/append-strategy.js", "content/strategies/hover-strategy.js", "content/strategies/context-menu-strategy.js", "content/display-manager.js", "content/content-script.js"];
 
-// --- Constants ---
-const STRATEGY_FILE_MAP = new Map([
-    ['youtube', 'content/subtitle/youtube-subtitle-strategy.js'],
-    ['bilibili', 'content/subtitle/bilibili-subtitle-strategy.js'],
-  ]);
-  
-  const SUBTITLE_MANAGER_MAP = 
-    ['content/subtitle/subtitle-manager.js'];
+// --- Dynamically build strategy maps from the manifest ---
+// We create these Maps at startup for performance. Map lookups (O(1)) are much faster
+// than searching an array (O(n)) on every navigation event.
+const STRATEGY_FILE_MAP = new Map(
+  SUBTITLE_STRATEGIES.map(strategy => [strategy.name, strategy.file])
+);
 
-const DEFAULT_STRATEGY_MAP = new Map([
-    ['www.youtube.com', 'youtube'],
-    ['m.youtube.com', 'youtube'],
-    ['www.bilibili.com', 'bilibili'],
-]);
+const DEFAULT_STRATEGY_MAP = new Map(
+    SUBTITLE_STRATEGIES.flatMap(strategy => strategy.hosts.map(host => [host, strategy.name]))
+);
 
 /**
  * Centralized error logger.
@@ -169,7 +166,7 @@ async function handleSubtitleInjection(tabId, frameId, url) {
             if (scriptFile) {
                 console.log(`[Subtitle Injector] Rule matched. Attempting to inject strategy '${strategyToInject}' for ${hostname}.`);
                 // 使用统一的注入函数
-                await ensureScriptsInjected(tabId, frameId, [...SUBTITLE_MANAGER_MAP,scriptFile]);
+                await ensureScriptsInjected(tabId, frameId, [SUBTITLE_MANAGER_SCRIPT, scriptFile]);
             } else {
                 logError('handleSubtitleInjection', new Error(`Strategy '${strategyToInject}' is defined but no script file was found.`));
             }
