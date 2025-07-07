@@ -239,14 +239,9 @@ function translateElements(elements) {
 
         // 更新任务状态
         translationJob.totalChunks += Math.ceil(texts.length / CHUNK_SIZE);
-        if (!translationJob.isTranslating) {
-            translationJob.isTranslating = true;
-            console.log(`[Foxlate] TRANSLATION_STATUS_UPDATE:Translation started.${translationJob.totalChunks} chunks in total.tableId=${translationJob.tabId}`);
-            browser.runtime.sendMessage({
-                type: 'TRANSLATION_STATUS_UPDATE',
-                payload: { status: 'loading', tabId: translationJob.tabId }
-            }).catch(e => logError('reportTranslationStatus (loading)', e));
-        }
+        // 'loading' 状态现在由 service-worker 在收到 'TOGGLE_TRANSLATION_REQUEST_AT_CONTENT' 消息的响应后立即设置。
+        // 这避免了冗余的消息传递，并使状态更改更具原子性。
+        translationJob.isTranslating = true;
 
         // 分块发送
         for (let i = 0; i < texts.length; i += CHUNK_SIZE) {
@@ -483,17 +478,10 @@ async function revertPageTranslation(tabId) {
     const wrappers = document.querySelectorAll('font[data-translation-id]');
     wrappers.forEach(revertElement);
 
-    console.log(`[Foxlate] TRANSLATION_STATUS_UPDATE,Reverted ${wrappers.length} translated elements.${tabId}`);
+    console.log(`[Foxlate] Reverted ${wrappers.length} translated elements.`);
 
-    // Notify the background script that the page is back to its original state.
-    try {
-        await browser.runtime.sendMessage({
-            type: 'TRANSLATION_STATUS_UPDATE',
-            payload: { status: 'original', tabId: tabId }
-        });
-    } catch (e) {
-        logError('revertPageTranslation', e);
-    }
+    // 'original' 状态现在由 service-worker 在恢复时收到 'TOGGLE_TRANSLATION_REQUEST_AT_CONTENT' 消息的响应后立即设置。
+    // 这避免了冗余的消息传递。
 }
 
 /**
@@ -566,9 +554,18 @@ async function handleMessage(request, sender) {
                 return { success: true };
 
             case 'TOGGLE_TRANSLATION_REQUEST_AT_CONTENT':
-                const isSessionActiveForToggle = document.body.dataset.translationSession === 'active';
-                await togglePageTranslation(request.payload.tabId, isSessionActiveForToggle ? 'revert' : 'translate');
-                return { success: true };
+                {
+                    const isSessionActiveForToggle = document.body.dataset.translationSession === 'active';
+                    const action = isSessionActiveForToggle ? 'revert' : 'translate';
+                    await togglePageTranslation(request.payload.tabId, action);
+
+                    // Determine the new state and return it in the response.
+                    // This makes the content script the single source of truth for the state change,
+                    // and the service worker can react immediately without waiting for another message.
+                    const newState = (action === 'translate') ? 'loading' : 'original';
+
+                    return { success: true, newState: newState };
+                }
 
             case 'TRANSLATION_CHUNK_RESULT':
                 handleChunkResult(request.payload);

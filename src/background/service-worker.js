@@ -378,9 +378,15 @@ const messageHandlers = {
           await setBadgeAndState(tabId, 'original');
           throw new Error(`Failed to inject scripts into tab ${tabId}.`);
       }
-      // Forward the request to the content script, which holds the state.
-      // The content script will decide whether to translate or revert.
-      return browser.tabs.sendMessage(tabId, { type: 'TOGGLE_TRANSLATION_REQUEST_AT_CONTENT', payload: { tabId } });
+      // The content script now returns the new state directly in its response.
+      const response = await browser.tabs.sendMessage(tabId, { type: 'TOGGLE_TRANSLATION_REQUEST_AT_CONTENT', payload: { tabId } });
+
+      // Use the returned state to update the badge immediately,
+      // eliminating the need for a separate TRANSLATION_STATUS_UPDATE message from the content script.
+      if (response && response.newState) {
+          await setBadgeAndState(tabId, response.newState);
+      }
+      return { success: true };
   },
 
   async TOGGLE_DISPLAY_MODE(request) {
