@@ -52,7 +52,7 @@ async function registerSessionTranslation(tabId, hostname) {
 }
 
 /**
- * Unregisters a tab from session-based automatic translation.
+ * UnRegisters a tab from session-based automatic translation.
  * @param {number} tabId The ID of the tab to unregister.
  */
 async function unregisterSessionTranslation(tabId) {
@@ -240,28 +240,54 @@ async function handleSelectionTranslation(tab, source) {
     return;
   }
 
+  // 1. 为此特定翻译请求创建一个唯一ID。
+  // 这有助于内容脚本区分连续的翻译请求，避免旧的翻译结果覆盖新的结果。
+  const translationId = `sel-${Date.now()}`;
   const { text: selectionText, coords } = selectionDetails;
 
-  let resultPayload = { isLoading: true, coords, source };
+  // 2. 立即发送“加载中”状态，让用户立即看到反馈。
+  // 这是为了优化用户体验，即使翻译需要一些时间。
+  browser.tabs.sendMessage(tab.id, {
+      type: 'DISPLAY_SELECTION_TRANSLATION',
+      payload: {
+          isLoading: true,
+          coords,
+          source,
+          translationId
+      }
+  }).catch((e) => logError('handleSelectionTranslation (Send Loading)', e));
 
+  // 3. 执行翻译并准备最终结果。
+  let finalPayload;
   try {
-      // 立即发送“加载中”状态
-      browser.tabs.sendMessage(tab.id, { type: 'DISPLAY_SELECTION_TRANSLATION', payload: resultPayload })
-          .catch((e) => logError('handleSelectionTranslation (Send Loading)', e));
-      
       const hostname = new URL(tab.url).hostname;
       const effectiveRule = await getEffectiveSettings(hostname);
-      const result = await TranslatorManager.translateText(selectionDetails.text, effectiveRule.targetLanguage, 'auto', effectiveRule.translatorEngine);
+      const result = await TranslatorManager.translateText(selectionText, effectiveRule.targetLanguage, 'auto', effectiveRule.translatorEngine);
 
-      resultPayload = { success: !result.error, translatedText: result.text, error: result.error, coords, source };
+      finalPayload = {
+          success: !result.error,
+          translatedText: result.text,
+          error: result.error,
+          coords,
+          source,
+          translationId // 包含ID
+      };
   } catch (error) {
       logError('handleSelectionTranslation', error);
-      resultPayload = { success: false, error: error.message, coords, source };
+      finalPayload = {
+          success: false,
+          error: error.message,
+          coords,
+          source,
+          translationId // 包含ID
+      };
   }
 
-  // 无论成功还是失败，最终都发送结果消息
-  browser.tabs.sendMessage(tab.id, { type: 'DISPLAY_SELECTION_TRANSLATION', payload: resultPayload })
-      .catch(e => logError('handleSelectionTranslation (Send Result)', e));
+  // 4. 发送最终结果。内容脚本应检查 translationId 以确保这是最新的结果。
+  browser.tabs.sendMessage(tab.id, {
+      type: 'DISPLAY_SELECTION_TRANSLATION',
+      payload: finalPayload
+  }).catch(e => logError('handleSelectionTranslation (Send Result)', e));
 }
 
 // --- Message Handlers ---
@@ -285,46 +311,53 @@ const messageHandlers = {
         return;
     }
 
-    const translationPromises = texts.map(text =>
-        TranslatorManager.translateText(text, targetLang, sourceLang, translatorEngine)
-    );
+    // 为每个文本创建一个独立的、并行的翻译任务。
+    // 这样，每个翻译结果一准备好就可以立即发送，而无需等待整个批次完成。
+    // 这可以显著提高用户感知的响应速度。
+    const tasks = texts.map((text, index) => {
+        const currentId = ids[index];
 
-    const results = await Promise.allSettled(translationPromises);
-
-    results.forEach((result, index) => {
-        const wasFulfilled = result.status === 'fulfilled';
-        const translationResult = wasFulfilled ? result.value : null;
-        
-        let finalError = null;
-        if (!wasFulfilled) {
-            // 如果任务被拒绝，检查是否是中断错误
-            if (result.reason?.name === 'AbortError') {
-                finalError = "Translation was interrupted by the user.";
-            } else {
-                finalError = result.reason?.message || 'Unknown error';
+        // 使用一个立即调用的异步函数 (IIAFE) 来封装每个翻译的生命周期。
+        return (async () => {
+            let payload;
+            try {
+                const result = await TranslatorManager.translateText(text, targetLang, sourceLang, translatorEngine);
+                payload = {
+                    id: currentId,
+                    success: !result.error,
+                    translatedText: result.text,
+                    wasTranslated: result.translated,
+                    error: result.error || null,
+                };
+            } catch (error) {
+                // 捕获 promise 拒绝（例如，网络错误或中断）
+                const finalError = (error?.name === 'AbortError')
+                    ? "Translation was interrupted by the user."
+                    : (error?.message || 'Unknown error');
+                
+                payload = {
+                    id: currentId,
+                    success: false,
+                    translatedText: null,
+                    wasTranslated: false,
+                    error: finalError,
+                };
             }
-        } else if (translationResult?.error) {
-            // 如果任务成功，但翻译流程内部返回了一个错误
-            finalError = translationResult.error;
-        }
 
-        const payload = {
-            id: ids[index],
-            success: wasFulfilled && !translationResult?.error,
-            translatedText: wasFulfilled ? translationResult.text : null,
-            wasTranslated: wasFulfilled ? translationResult.translated : false,
-            error: finalError,
-        };
-
-        browser.tabs.sendMessage(tabId, {
-            type: 'TRANSLATION_CHUNK_RESULT',
-            payload: payload
-        }).catch(e => {
-            if (!e.message.includes("Receiving end does not exist")) {
-                 logError('TRANSLATE_TEXT_CHUNK (sending result)', e);
+            // 只要此特定文本的翻译完成或失败，就立即发送消息。
+            try {
+                await browser.tabs.sendMessage(tabId, { type: 'TRANSLATION_CHUNK_RESULT', payload });
+            } catch (e) {
+                // 忽略“接收端不存在”的错误，因为标签页可能已关闭。
+                if (!e.message.includes("Receiving end does not exist")) {
+                    logError('TRANSLATE_TEXT_CHUNK (sending result)', e);
+                }
             }
-        });
+        })();
     });
+
+    // 等待所有独立的发送任务都完成，以确保 service worker 不会过早终止。
+    await Promise.allSettled(tasks);
   },
 
   async TEST_CONNECTION(request) {
@@ -369,7 +402,7 @@ const messageHandlers = {
   },
 
   async TOGGLE_TRANSLATION_REQUEST(request) {
-      console.log("[Foxlate] TOGGLE_TRANSLATION_REQUES: Received from background script.",request.payload.tabId);
+      console.log("[Foxlate] TOGGLE_TRANSLATION_REQUEST: Received from background script.",request.payload.tabId);
       const { tabId } = request.payload;
       const scriptsReady = await ensureScriptsInjected(tabId, 0, CORE_SCRIPT_FILES);
       if (!scriptsReady) {
@@ -581,30 +614,28 @@ browser.runtime.onMessage.addListener((request, sender) => {
 
 /**
  * A unified handler for navigation events to check for auto-translation.
- * Handles both full page loads and SPA navigations.
+ * Handles both full page loads and SPA navigation.
  */
 async function handleNavigation(details) {
     const { tabId, url, frameId } = details;
 
-    // 1. 在主框架导航时，清除旧的注入状态记录
-    if (frameId === 0) {
-        await browser.storage.session.remove(`injected_scripts_${tabId}`);
+    // 防御性检查：确保我们只在有效的、可注入脚本的页面上操作。
+    // 虽然监听器已经过滤了协议，但这是一个额外的安全层。
+    if (!url || !url.startsWith('http')) {
+        return;
     }
 
-    // 2. 注入核心内容脚本（仅限主框架）
+    // --- 主框架专属逻辑 ---
+    // 所有只应在页面顶层文档执行一次的操作都应放在这里。
     if (frameId === 0) {
+        // 1. 注入核心内容脚本
         const coreScriptsReady = await ensureScriptsInjected(tabId, frameId, CORE_SCRIPT_FILES);
         if (!coreScriptsReady) {
             logError(`handleNavigation for ${url}`, new Error("Failed to inject core scripts. Aborting further actions."));
-            return;
+            return; // 如果核心脚本注入失败，后续操作无法进行，直接返回。
         }
-    }
 
-    // 3. 按需注入字幕策略脚本（委托给专门的函数）
-    await handleSubtitleInjection(tabId, frameId, url);
-
-    // 4. 处理自动翻译（仅限主框架）
-    if (frameId === 0) {
+        // 2. 处理自动翻译
         try {
             const hostname = new URL(url).hostname;
             const effectiveRule = await getEffectiveSettings(hostname);
@@ -616,10 +647,16 @@ async function handleNavigation(details) {
                 await browser.tabs.sendMessage(tabId, { type: 'TRANSLATE_PAGE_REQUEST', payload: { tabId } });
             }
         } catch (error) {
-            // 只记录错误，不中断流程，因为自动翻译失败不应影响其他功能
+            // 只记录错误，不中断流程，因为自动翻译失败不应影响其他功能。
             logError(`handleNavigation (auto-translate) for ${url}`, error);
         }
     }
+
+    // --- 所有框架通用逻辑 ---
+    // 这个逻辑需要在每个框架（包括 iframe）中运行。
+    // 3. 按需注入字幕策略脚本
+    // handleSubtitleInjection 内部有自己的 frameId 检查，所以在这里调用是安全的。
+    await handleSubtitleInjection(tabId, frameId, url);
 }
 
 // Listen for both full page loads and history state updates (for SPAs).

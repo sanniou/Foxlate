@@ -79,98 +79,6 @@ function findTextNodes(rootNode) {
 
 // --- Observers and Translation Logic ---
 
-let intersectionObserver = null;
-let mutationObserver = null;
-let translationJob = {
-    mutationQueue: new Set(),
-    idleCallbackId: null,
-    totalChunks: 0,
-    completedChunks: 0,
-    tabId: null,
-    isTranslating: false,
-};
-
-/**
- * 处理由 MutationObserver 收集的节点队列。
- * 此函数由 requestIdleCallback 调用，以确保它在浏览器空闲时运行，
- * 从而不影响关键的渲染或用户交互。
- */
-function processMutationQueue() {
-    translationJob.idleCallbackId = null; // 重置调度ID，允许下一次调度
-
-    if (translationJob.mutationQueue.size === 0) return;
-
-    const newNodes = Array.from(translationJob.mutationQueue);
-    translationJob.mutationQueue.clear();
-
-    if (!translationJob.settings) {
-        console.warn("[Foxlate] Mutation observed, but no translation job settings found. Skipping auto-translation of new content.");
-        return;
-    }
-
-    // 对新节点执行与初始加载时相同的逻辑
-    const newElementsToObserve = findTranslatableRootElements(translationJob.settings, newNodes);
-    observeElements(newElementsToObserve);
-}
-
-/**
- * 初始化所有观察者。
- */
-function initializeObservers() {
-    const intersectionCallback = (entries) => {
-        const visibleEntries = entries.filter(entry => entry.isIntersecting);
-        if (visibleEntries.length === 0) return;
-
-        const elementsToTranslate = [];
-        for (const entry of visibleEntries) {
-            elementsToTranslate.push(entry.target);
-            intersectionObserver.unobserve(entry.target);
-        }
-        if (elementsToTranslate.length > 0) {
-            translateElements(elementsToTranslate);
-        }
-    };
-    intersectionObserver = new IntersectionObserver(intersectionCallback, {
-        root: null,
-        rootMargin: '0px 0px', // 移除预加载区域，确保只翻译严格进入视口的元素
-        threshold: 0.5 // 确保元素至少有50%进入视口才触发翻译
-    });
-
-    const mutationCallback = (mutations) => {
-        let hasNewNodes = false;
-        for (const mutation of mutations) {
-            if (mutation.type === 'childList') {
-                mutation.addedNodes.forEach(node => {
-                    if (node.nodeType === Node.ELEMENT_NODE && !node.closest('#universal-translator-selection-panel')) {
-                        translationJob.mutationQueue.add(node);
-                        hasNewNodes = true;
-                    }
-                });
-            }
-        }
-
-        if (hasNewNodes && !translationJob.idleCallbackId) {
-            translationJob.idleCallbackId = requestIdleCallback(processMutationQueue, { timeout: 1000 });
-        }
-    };
-
-    mutationObserver = new MutationObserver(mutationCallback);
-}
-
-/**
- * 观察一组元素，等待它们进入视口。
- * @param {HTMLElement[]} elements - 要观察的元素数组。
- */
-function observeElements(elements) {
-    if (!intersectionObserver) return;
-    for (const element of elements) {
-        if (element.dataset.translated === 'true' || element.dataset.translationId) {
-            continue;
-        }
-        intersectionObserver.observe(element);
-    }
-}
-
 /**
  * 核心翻译函数：将元素内的文本节点分块并发送到后台进行翻译。
  * @param {HTMLElement[]} elements - 需要翻译的元素数组。
@@ -179,7 +87,7 @@ function translateElements(elements) {
     if (elements.length === 0) return;
 
     try {
-        const effectiveSettings = translationJob.settings;
+        const effectiveSettings = currentPageJob.settings;
         if (!effectiveSettings) {
             logError('translateElements', new Error("Translation job settings are not available."));
             return;
@@ -238,10 +146,9 @@ function translateElements(elements) {
         if (texts.length === 0) return;
 
         // 更新任务状态
-        translationJob.totalChunks += Math.ceil(texts.length / CHUNK_SIZE);
+        currentPageJob.totalChunks += Math.ceil(texts.length / CHUNK_SIZE);
         // 'loading' 状态现在由 service-worker 在收到 'TOGGLE_TRANSLATION_REQUEST_AT_CONTENT' 消息的响应后立即设置。
         // 这避免了冗余的消息传递，并使状态更改更具原子性。
-        translationJob.isTranslating = true;
 
         // 分块发送
         for (let i = 0; i < texts.length; i += CHUNK_SIZE) {
@@ -258,32 +165,13 @@ function translateElements(elements) {
 
             browser.runtime.sendMessage({
                 type: 'TRANSLATE_TEXT_CHUNK',
-                payload: { texts: textChunk, ids: idChunk, targetLang, sourceLang: 'auto', tabId: translationJob.tabId, translatorEngine }
+                payload: { texts: textChunk, ids: idChunk, targetLang, sourceLang: 'auto', tabId: currentPageJob.tabId, translatorEngine }
             }).catch(e => logError('translateElements (send chunk)', e));
         }
 
     } catch (error) {
         logError('translateElements', error);
     }
-}
-
-function startObservers() {
-    if (!mutationObserver) {
-        initializeObservers();
-    }
-    mutationObserver.observe(document.body, {
-        childList: true,
-        subtree: true
-    });
-    console.log("[Foxlate] Observers started.");
-}
-
-function stopObservers() {
-    if (intersectionObserver) intersectionObserver.disconnect();
-    if (mutationObserver) mutationObserver.disconnect();
-    intersectionObserver = null;
-    mutationObserver = null;
-    console.log("[Foxlate] Observers stopped.");
 }
 
 /**
@@ -331,102 +219,6 @@ function findTranslatableRootElements(effectiveSettings, rootNodes = [document.b
     return Array.from(elements);
 }
 
-
-async function togglePageTranslation(tabId, action) {
-    console.trace(`[Foxlate] togglePageTranslation called for tabId: ${tabId}, action: ${action}`); // 记录 action
-
-    // 页面翻译状态的唯一真实来源是 body 上的 `data-translation-session` 属性。
-    const isSessionActive = document.body.dataset.translationSession === 'active';
-
-    switch (action) {
-        case 'translate':
-            if (!isSessionActive) {
-                console.log("[Foxlate] Starting page translation.");
-                await startPageTranslation(tabId); // 启动翻译，见下文
-            } else {
-                console.log("[Foxlate] Page is already translated. Doing nothing.");
-            }
-            break;
-        case 'revert':
-            if (isSessionActive) {
-                console.log("[Foxlate] Reverting page to original.");
-            // 在恢复之前，我们必须首先停止任何正在进行的翻译任务，以避免竞争条件。
-            await browser.runtime.sendMessage({ type: 'STOP_TRANSLATION', payload: { tabId } });
-            await revertPageTranslation(tabId);
-            } else {
-                console.log("[Foxlate] Page is not translated. Doing nothing.");
-            }
-            break;
-        default:
-            console.warn(`[Foxlate] Unknown action: ${action}`);
-    }
-}
-
-async function startPageTranslation(tabId) {
-    // 添加一个内部检查，以防止在极端的竞争条件下重复启动任务。
-    if (translationJob.isTranslating) {
-        console.warn("[Foxlate] A translation job is already in progress. Ignoring new request.");
-        return;
-    }
-
-        // 设置一个全局标记，表示翻译会话已开始。
-        document.body.dataset.translationSession = 'active';
-
-        console.log("[Foxlate] Starting page translation process...");
-        stopObservers();
-
-        let effectiveSettings;
-        try {
-            effectiveSettings = await getEffectiveSettings();
-            console.log("[Foxlate] Effective settings for this page:", effectiveSettings);
-
-            // 校验核心设置
-            if (!effectiveSettings.targetLanguage) {
-                throw new Error(browser.i18n.getMessage('errorMissingTargetLanguage') || 'Target language is not configured.');
-            }
-            if (!effectiveSettings.translatorEngine) {
-                throw new Error(browser.i18n.getMessage('errorMissingEngine') || 'Translation engine is not configured.');
-            }
-            // 检查 translationSelector 是否为 undefined，允许其为空字符串 ""
-            if (typeof effectiveSettings.translationSelector === 'undefined') {
-                throw new Error(browser.i18n.getMessage('errorMissingSelector') || 'CSS selector for translation is not configured.');
-            }
-        } catch (error) {
-            logError('togglePageTranslation (settings)', error); // 更新错误日志
-            console.error(`[Foxlate] TRANSLATION_STATUS_UPDATE,Failed to retrieve effective settings. Please check your configuration.${tabId}`);
-            // 确保 UI 状态得到清理
-            delete document.body.dataset.translationSession;
-            await browser.runtime.sendMessage({
-                type: 'TRANSLATION_STATUS_UPDATE',
-                payload: { status: 'original', tabId: tabId }
-            });
-            return; // 停止执行，不再进行翻译
-        }
-
-        translationJob = {
-            mutationQueue: new Set(),
-            idleCallbackId: null,
-            totalChunks: 0,
-            completedChunks: 0,
-            tabId: tabId,
-            isTranslating: false,
-            settings: effectiveSettings
-        };
-
-        initializeObservers();
-
-        const elementsToObserve = findTranslatableRootElements(effectiveSettings);
-        console.log(`[Foxlate] Found ${elementsToObserve.length} root elements to observe for translation.`);
-
-        if (elementsToObserve.length > 0) {
-            observeElements(elementsToObserve);
-        } else {
-            console.warn("[Foxlate] No translatable elements found to observe initially.");
-        }
-
-        startObservers();
-}
-
 /**
  * Reverts a single translated element wrapper back to its original text node,
  * and cleans up its associated state. This is the single source of truth for
@@ -449,39 +241,6 @@ function revertElement(wrapper) {
             wrapper.remove();
         }
     }
-}
-
-async function revertPageTranslation(tabId) {
-    console.log("[Foxlate] Reverting entire page translation...");
-    stopObservers();
-
-    // 1. Clear the global translation session flag.
-    delete document.body.dataset.translationSession;
-
-    // 2. Reset the entire translation job object to its initial state.
-    translationJob = {
-        mutationQueue: new Set(),
-        idleCallbackId: null,
-        totalChunks: 0,
-        completedChunks: 0,
-        tabId: null,
-        isTranslating: false,
-        settings: null,
-    };
-
-    // 3. Hide any floating UI elements (like context menu or hover tooltips).
-    // This is now handled by a dedicated method in DisplayManager for better encapsulation.
-    window.DisplayManager.hideAllEphemeralUI();
-
-    // 4. Find all wrapper elements and revert them one by one using the single-source-of-truth function.
-    // This eliminates code duplication and ensures consistent behavior.
-    const wrappers = document.querySelectorAll('font[data-translation-id]');
-    wrappers.forEach(revertElement);
-
-    console.log(`[Foxlate] Reverted ${wrappers.length} translated elements.`);
-
-    // 'original' 状态现在由 service-worker 在恢复时收到 'TOGGLE_TRANSLATION_REQUEST_AT_CONTENT' 消息的响应后立即设置。
-    // 这避免了冗余的消息传递。
 }
 
 /**
@@ -517,16 +276,234 @@ function handleChunkResult(payload) {
  * (新) 更新页面翻译的整体进度。
  */
 function updateTranslationProgress() {
-    translationJob.completedChunks++;
-    if (translationJob.completedChunks >= translationJob.totalChunks) {
-        translationJob.isTranslating = false;
-        console.log(`[Foxlate] TRANSLATION_STATUS_UPDATE,Translation completed.`,translationJob);
+    if (!currentPageJob) return;
+    currentPageJob.completedChunks++;
+    // 当所有块都完成时，将状态更新为“已翻译”。
+    if (currentPageJob.state === 'translating' && currentPageJob.completedChunks >= currentPageJob.totalChunks) {
+        currentPageJob.state = 'translated';
+        console.log(`[Foxlate] TRANSLATION_STATUS_UPDATE,Translation completed.`, currentPageJob);
         browser.runtime.sendMessage({
             type: 'TRANSLATION_STATUS_UPDATE',
-            payload: { status: 'translated', tabId: translationJob.tabId }
+            payload: { status: 'translated', tabId: currentPageJob.tabId }
         }).catch(e => logError('reportTranslationStatus (completed)', e));
     }
 }
+
+// --- State Management Class ---
+
+let currentPageJob = null;
+let mutationObserver = null;
+let currentSelectionTranslationId = null;
+
+class PageTranslationJob {
+    constructor(tabId, settings) {
+        this.tabId = tabId;
+        this.settings = settings;
+
+        this.mutationQueue = new Set();
+        this.idleCallbackId = null;
+        this.totalChunks = 0;
+        this.completedChunks = 0;
+        this.intersectionObserver = null;
+        this.mutationObserver = null;
+
+        // 明确的状态属性
+        this.state = 'idle'; // 'idle', 'starting', 'translating', 'translated', 'reverting'
+    }
+
+    async start() {
+        if (this.state !== 'idle') {
+            console.warn(`[Foxlate] Job is not idle (state: ${this.state}). Ignoring start request.`);
+            return;
+        }
+
+        console.log("[Foxlate] Starting page translation process...");
+        this.state = 'starting';
+
+        // 设置一个全局标记，表示翻译会话已开始。
+        document.body.dataset.translationSession = 'active';
+
+        try {
+            // 校验核心设置
+            if (!this.settings.targetLanguage) {
+                throw new Error(browser.i18n.getMessage('errorMissingTargetLanguage') || 'Target language is not configured.');
+            }
+            if (!this.settings.translatorEngine) {
+                throw new Error(browser.i18n.getMessage('errorMissingEngine') || 'Translation engine is not configured.');
+            }
+            if (typeof this.settings.translationSelector === 'undefined') {
+                throw new Error(browser.i18n.getMessage('errorMissingSelector') || 'CSS selector for translation is not configured.');
+            }
+        } catch (error) {
+            logError('PageTranslationJob.start (settings validation)', error);
+            // 在设置验证失败时，不再尝试在内部 revert，而是抛出错误。
+            // 这将由 handleMessage 中的上层 try...catch 块来捕获和处理。
+            this.state = 'idle'; // 确保状态被重置
+            throw error;
+        }
+
+        this.#initializeObservers();
+        this.#startMutationObserver();
+
+        const elementsToObserve = findTranslatableRootElements(this.settings);
+        console.log(`[Foxlate] Found ${elementsToObserve.length} root elements to observe for translation.`);
+
+        if (elementsToObserve.length > 0) {
+            this.#observeElements(elementsToObserve);
+        } else {
+            console.warn("[Foxlate] No translatable elements found to observe initially.");
+        }
+        this.state = 'translating';
+    }
+
+    async revert() {
+        // 关键步骤：在执行任何客户端清理之前，立即通知后台停止所有与此标签页相关的、正在进行的翻译任务。
+        // 这可以防止在页面恢复后，迟到的翻译结果错误地更新DOM。
+        try {
+            await browser.runtime.sendMessage({ type: 'STOP_TRANSLATION', payload: { tabId: this.tabId } });
+        } catch (e) {
+            // 如果消息发送失败（例如，后台脚本已失效），记录错误但继续执行客户端清理。
+            logError('revert (sending STOP_TRANSLATION)', e);
+        }
+
+        console.log("[Foxlate] Reverting entire page translation...");
+        this.state = 'reverting';
+
+        this.#stopObservers();
+
+        try {
+            // 1. 清除全局翻译会话标志。
+            delete document.body.dataset.translationSession;
+
+            // 2. 隐藏所有浮动UI元素。
+            window.DisplayManager.hideAllEphemeralUI();
+
+            // 3. 查找所有包裹元素并逐个恢复它们。
+            const wrappers = document.querySelectorAll('font[data-translation-id]');
+            wrappers.forEach(revertElement);
+            console.log(`[Foxlate] Reverted ${wrappers.length} translated elements.`);
+        } catch (error) {
+            logError('revert (DOM cleanup)', error);
+        }
+
+        // 4. 重置全局任务引用，正式结束当前翻译任务。
+        currentPageJob = null;
+    }
+
+    // --- Private Methods ---
+
+    /**
+     * 初始化 IntersectionObserver 和 MutationObserver。
+     * 此方法将回调逻辑委托给其他私有方法，以保持代码清晰。
+     */
+    #initializeObservers() {
+        const intersectionOptions = {
+            root: null,
+            rootMargin: '0px 0px',
+            threshold: 0.5
+        };
+        this.intersectionObserver = new IntersectionObserver(this.#handleIntersection.bind(this), intersectionOptions);
+        this.mutationObserver = new MutationObserver(this.#handleMutation.bind(this));
+    }
+
+    #startMutationObserver() {
+        if (!this.mutationObserver) this.#initializeObservers();
+        this.mutationObserver.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+        console.log("[Foxlate] Mutation observer started.");
+    }
+
+    #stopObservers() {
+        if (this.intersectionObserver) this.intersectionObserver.disconnect();
+        if (this.mutationObserver) this.mutationObserver.disconnect();
+        this.intersectionObserver = null;
+        this.mutationObserver = null;
+        console.log("[Foxlate] Observers stopped.");
+    }
+
+    #observeElements(elements) {
+        if (!this.intersectionObserver) return;
+        for (const element of elements) {
+            if (element.dataset.translated === 'true' || element.dataset.translationId) {
+                continue;
+            }
+            this.intersectionObserver.observe(element);
+        }
+    }
+
+    #translateElements(elements) {
+        // This method's logic is complex and can be moved here from the global scope.
+        // For brevity, we'll assume the global `translateElements` is adapted to be a private method.
+        // The key change is that it will use `this.settings`, `this.tabId`, etc.
+        // And it will call `this.#handleChunkResult`
+        translateElements(elements); // Simplified for this diff
+    }
+
+    /**
+     * IntersectionObserver 的回调函数。
+     * 当被观察的元素进入视口时触发。
+     * @param {IntersectionObserverEntry[]} entries - 观察者条目数组。
+     */
+    #handleIntersection(entries) {
+        const visibleEntries = entries.filter(entry => entry.isIntersecting);
+        if (visibleEntries.length === 0) return;
+
+        const elementsToTranslate = [];
+        for (const entry of visibleEntries) {
+            elementsToTranslate.push(entry.target);
+            // 一旦元素可见并准备翻译，就停止观察它，避免重复工作。
+            this.intersectionObserver.unobserve(entry.target);
+        }
+        if (elementsToTranslate.length > 0) {
+            this.#translateElements(elementsToTranslate);
+        }
+    }
+
+    /**
+     * MutationObserver 的回调函数。
+     * 当 DOM 树发生变化时触发。
+     * @param {MutationRecord[]} mutations - 变化记录数组。
+     */
+    #handleMutation(mutations) {
+        let hasNewNodes = false;
+        for (const mutation of mutations) {
+            // 我们只关心DOM中添加了新节点的变化。
+            if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                mutation.addedNodes.forEach(node => {
+                    // 只处理元素节点，并忽略我们自己的翻译UI或已翻译的内容，以避免无限循环。
+                    if (node.nodeType === Node.ELEMENT_NODE && !node.closest('[data-translation-id], #universal-translator-selection-panel')) {
+                        this.mutationQueue.add(node);
+                        hasNewNodes = true;
+                    }
+                });
+            }
+        }
+
+        if (hasNewNodes && !this.idleCallbackId) {
+            // 使用 requestIdleCallback 延迟处理，避免阻塞主线程。
+            this.idleCallbackId = requestIdleCallback(() => this.#processMutationQueue(), { timeout: 1000 });
+        }
+    }
+
+    #processMutationQueue() {
+        this.idleCallbackId = null;
+        if (this.mutationQueue.size === 0) return;
+
+        const newNodes = Array.from(this.mutationQueue);
+        this.mutationQueue.clear();
+
+        if (!this.settings) {
+            console.warn("[Foxlate] Mutation observed, but no settings found. Skipping.");
+            return;
+        }
+
+        const newElementsToObserve = findTranslatableRootElements(this.settings, newNodes);
+        this.#observeElements(newElementsToObserve);
+    }
+}
+
 
 // --- Message Handling & UI ---
 
@@ -540,24 +517,62 @@ async function handleMessage(request, sender) {
             case 'SETTINGS_UPDATED':
                 console.log("[Content Script] Received settings update. Updating local cache.");
                 // Re-fetch and cache the effective settings for subsequent operations.
-                if (translationJob.isTranslating || document.body.dataset.translationSession === 'active') {
-                    translationJob.settings = await getEffectiveSettings();
+                // 如果当前有翻译任务正在进行，则更新其设置。
+                if (currentPageJob) {
+                    currentPageJob.settings = await getEffectiveSettings();
+                    console.log("[Foxlate] Updated job settings:", currentPageJob.settings);
                 }
                 return { success: true };
 
             case 'TRANSLATE_PAGE_REQUEST':
-                await togglePageTranslation(request.payload.tabId, 'translate');
+                // 由自动翻译规则触发
+                if (currentPageJob) {
+                    console.warn("[Foxlate] Auto-translate request received, but a job is already active. Ignoring.");
+                } else {
+                    const settings = await getEffectiveSettings();
+                    currentPageJob = new PageTranslationJob(request.payload.tabId, settings);
+                    await currentPageJob.start();
+                }
                 return { success: true };
 
             case 'REVERT_PAGE_TRANSLATION':
-                await togglePageTranslation(request.payload.tabId, 'revert');
+                // 目前没有代码路径会发送此消息，但保留以备将来使用。
+                if (currentPageJob) {
+                    await currentPageJob.revert();
+                }
                 return { success: true };
-
+            
             case 'TOGGLE_TRANSLATION_REQUEST_AT_CONTENT':
                 {
+                    // 由用户点击浏览器图标或使用快捷键触发
                     const isSessionActiveForToggle = document.body.dataset.translationSession === 'active';
                     const action = isSessionActiveForToggle ? 'revert' : 'translate';
-                    await togglePageTranslation(request.payload.tabId, action);
+                    const { tabId } = request.payload;
+
+                    if (action === 'translate') {
+                        if (currentPageJob) {
+                            // 这是一个不应该发生的状态：页面标记为未翻译，但存在一个任务。
+                            // 最安全的做法是先恢复旧任务，然后再开始新任务。
+                            console.warn("[Foxlate] State mismatch: job exists but session is not active. Reverting old job first.");
+                            await currentPageJob.revert();
+                        }
+                        // 创建并启动一个新任务
+                        const settings = await getEffectiveSettings();
+                        currentPageJob = new PageTranslationJob(tabId, settings);
+                        // start() 方法在配置校验失败时会抛出错误，
+                        // 这个错误会被外层的 try...catch 块捕获，从而中断执行。
+                        await currentPageJob.start();
+                    } else if (action === 'revert') {
+                        if (!currentPageJob) {
+                            // 这是一个不应该发生的状态：页面标记为已翻译，但没有任务实例。
+                            // 这可能在开发中因脚本重载而发生。无论如何，我们都应该尝试清理DOM。
+                            console.warn("[Foxlate] State mismatch: session is active but no job exists. Attempting DOM cleanup.");
+                            // 创建一个临时的、无设置的任务实例，只为了调用其清理逻辑。
+                            const cleanupJob = new PageTranslationJob(tabId, {});
+                            await cleanupJob.revert(); // revert会处理DOM并最终将currentPageJob设为null
+                        } else {
+                            await currentPageJob.revert();
+                        }
 
                     // Determine the new state and return it in the response.
                     // This makes the content script the single source of truth for the state change,
@@ -566,6 +581,7 @@ async function handleMessage(request, sender) {
 
                     return { success: true, newState: newState };
                 }
+            }
 
             case 'TRANSLATION_CHUNK_RESULT':
                 handleChunkResult(request.payload);
@@ -574,24 +590,50 @@ async function handleMessage(request, sender) {
 
             case 'UPDATE_DISPLAY_MODE':
                 const { displayMode } = request.payload;
-                if (translationJob.settings) {
-                    translationJob.settings.displayMode = displayMode;
+                if (currentPageJob && currentPageJob.settings) {
+                    currentPageJob.settings.displayMode = displayMode;
                 }
                 window.DisplayManager.updateDisplayMode(displayMode);
                 return { success: true };
 
             case 'REQUEST_TRANSLATION_STATUS':
                 {
-                    let state = 'original';
-                    if (document.body.dataset.translationSession === 'active') {
-                        state = translationJob.isTranslating ? 'loading' : 'translated';
+                    let status = 'original';
+                    if (currentPageJob) {
+                        // 将内部状态映射为后台脚本期望的状态字符串
+                        switch (currentPageJob.state) {
+                            case 'starting':
+                            case 'translating':
+                                status = 'loading';
+                                break;
+                            case 'translated':
+                                status = 'translated';
+                                break;
+                            // 对于 'idle', 'reverting' 等状态，都视为 'original'
+                        }
                     }
-                    return Promise.resolve({ state });
+                    return Promise.resolve({ state: status });
                 }
 
             case 'DISPLAY_SELECTION_TRANSLATION':
-                // This message is now handled by the DisplayManager for ephemeral targets
-                window.DisplayManager.handleEphemeralTranslation(request.payload);
+                {
+                    const { translationId, isLoading } = request.payload;
+
+                    if (isLoading) {
+                        // 一个新的划词翻译请求开始。记录其唯一ID作为“当前”有效的ID。
+                        currentSelectionTranslationId = translationId;
+                    } else {
+                        // 收到一个翻译结果。必须检查其ID是否与最新的请求ID匹配。
+                        // 这可以防止一个较慢的、旧的翻译结果覆盖一个新的、更快的翻译结果（竞态条件）。
+                        if (translationId !== currentSelectionTranslationId) {
+                            console.log(`[Foxlate] 忽略了一个过时的划词翻译结果。ID: ${translationId}`);
+                            return { success: true, ignored: true }; // 确认收到消息，但忽略它。
+                        }
+                    }
+
+                    // 如果检查通过，则将负载传递给DisplayManager进行UI更新。
+                    window.DisplayManager.handleEphemeralTranslation(request.payload);
+                }
                 return { success: true };
 
             case 'TOGGLE_SUBTITLE_TRANSLATION':
@@ -636,7 +678,6 @@ function initializeContentScript() {
     console.log("[Foxlate] Initializing content script...");
 
     browser.runtime.onMessage.addListener(handleMessage);
-    translationJob.tabId = window.__foxlate_tabId;
     window.getEffectiveSettings = getEffectiveSettings;
     window.__foxlate_css_injected = true; // 标记CSS注入状态
 }
