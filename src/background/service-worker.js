@@ -361,6 +361,23 @@ const messageHandlers = {
     await Promise.allSettled(tasks);
   },
 
+async TRANSLATE_BATCH(request) {
+    const { texts } = request.payload;
+    if (!Array.isArray(texts)) {
+        throw new Error("Invalid payload: 'texts' must be an array.");
+    }
+    // 从全局配置中获取翻译设置
+    const settings = await getValidatedSettings();
+    const promises = texts.map(text =>
+        TranslatorManager.translateText(text, settings.targetLanguage, settings.sourceLanguage, settings.translatorEngine)
+    );
+    // TranslatorManager 内部的队列机制会自动处理并发
+    const results = await Promise.all(promises);
+    const translatedTexts = results.map(r => r.text);
+    return { success: true, translatedTexts };
+  },
+
+
   async TEST_CONNECTION(request) {
     const { engine, settings } = request.payload;
     if (engine !== 'ai') {

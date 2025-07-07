@@ -10,13 +10,20 @@ class VideoSubtitleObserver {
      * @param {string} options.targetSelector - 要观察的字幕容器的 CSS 选择器。
      * @param {string} options.segmentSelector - 包含单个字幕片段的元素的 CSS 选择器。
      * @param {function(NodeListOf<Element>): string} [options.textJoiner] - (可选) 一个用于从字幕片段中提取并组合文本的函数。
+     * @param {MutationObserverInit} [options.mutationObserverConfig] - (可选) MutationObserver 的配置。
      */
-    constructor(onSubtitleChange, { targetSelector, segmentSelector, textJoiner }) {
+    constructor(onSubtitleChange, { targetSelector, segmentSelector, textJoiner, mutationObserverConfig }) {
         this.onSubtitleChange = onSubtitleChange;
         this.targetSelector = targetSelector;
         this.segmentSelector = segmentSelector;
         // 如果未提供自定义的文本组合函数，则使用默认实现。
         this.textJoiner = textJoiner || ((segments) => Array.from(segments).map(el => el.textContent).join(' ').trim());
+        // 如果未提供 MutationObserver 配置，则使用默认值。
+        this.mutationObserverConfig = mutationObserverConfig || {
+            childList: true,
+            subtree: true,
+            characterData: true
+        };
 
         this.observer = null;
         this.observedTarget = null;
@@ -65,8 +72,7 @@ class VideoSubtitleObserver {
             }
         });
 
-        const config = { childList: true, subtree: true, characterData: true };
-        this.observer.observe(targetNode, config);
+        this.observer.observe(targetNode, this.mutationObserverConfig);
     }
 
     /**
