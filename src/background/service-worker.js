@@ -77,44 +77,37 @@ async function ensureScriptsInjected(tabId, frameId, scriptsToInject) {
         return true; // Nothing to inject.
     }
 
-    // Use a per-tab session key to store injection status for all its frames.
-    const sessionKey = `injected_scripts_${tabId}`;
     try {
-        const { [sessionKey]: sessionData = {} } = await browser.storage.session.get(sessionKey);
-        
-        const frameScripts = sessionData[frameId] || [];
-        const cssInjected = sessionData.css || false;
+        // 1. 检查 CSS 是否已注入 (假设 content_script 注入后会设置一个全局变量)
+        let cssInjected = false;
+        try {
+            const result = await browser.scripting.executeScript({
+                target: { tabId, frameIds: [frameId] },
+                // 确保这个变量名与 content_script 中实际设置的全局变量名一致
+                func: () => window.__foxlate_css_injected === true 
+            });
+            cssInjected = result[0]?.result === true;
+        } catch (e) { /* 忽略错误，说明 content script 可能未注入，或全局变量不存在 */ }
 
-        // Determine which scripts are new and need to be injected.
-        const newScripts = scriptsToInject.filter(script => !frameScripts.includes(script));
-
-        // Inject CSS if it hasn't been injected in this tab yet.
         if (!cssInjected) {
-            await browser.scripting.insertCSS({ target: { tabId }, files: CSS_FILES });
-            sessionData.css = true;
-        }
-
-        if (newScripts.length > 0) {
+            await browser.scripting.insertCSS({ target: { tabId, frameIds: [frameId] }, files: CSS_FILES });
+            // 如果你希望能够检查 CSS 注入状态，可以在 content_script 中设置一个全局变量
             await browser.scripting.executeScript({
                 target: { tabId, frameIds: [frameId] },
-                files: newScripts
+                func: () => { window.__foxlate_css_injected = true; }
             });
-            // Update the list of injected scripts for the frame.
-            sessionData[frameId] = [...frameScripts, ...newScripts];
-
-            // If content-script.js is being injected in the main frame (frameId 0),
-            // inject the tabId into the window object before content-script.js runs.
-            // todo new way to put tabId !!!! 
-            if (frameId === 0 && newScripts.includes("content/content-script.js")) {
-                await browser.scripting.executeScript({
-                    target: { tabId, frameIds: [frameId] },
-                    func: (tabId) => { window.__sanreader_tabId = tabId; },
-                    args: [tabId]
-                });
-            }
         }
 
-        await browser.storage.session.set({ [sessionKey]: sessionData });
+        // 2. 注入脚本 (无需检查是否已注入，直接注入，利用浏览器机制避免重复注入)
+        await browser.scripting.executeScript({
+            target: { tabId, frameIds: [frameId] },
+            files: scriptsToInject
+        });
+
+         // 如果 content-script.js 是此次注入的一部分，确保 tabId 已注入
+         if (frameId === 0 && scriptsToInject.includes("content/content-script.js")) {
+            await browser.scripting.executeScript({ target: { tabId, frameIds: [frameId] }, func: (tabId) => { window.__foxlate_tabId = tabId; }, args: [tabId] });
+        }
         return true;
     } catch (error) {
         logError(`ensureScriptsInjected for tab ${tabId}, frame ${frameId}`, new Error(`Failed to inject scripts. This can happen on special pages (e.g., chrome://). Error: ${error.message}`));
@@ -376,6 +369,7 @@ const messageHandlers = {
   },
 
   async TOGGLE_TRANSLATION_REQUEST(request) {
+      console.log("[Foxlate] TOGGLE_TRANSLATION_REQUES: Received from background script.",request.payload.tabId);
       const { tabId } = request.payload;
       const scriptsReady = await ensureScriptsInjected(tabId, 0, CORE_SCRIPT_FILES);
       if (!scriptsReady) {

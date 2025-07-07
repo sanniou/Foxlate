@@ -6,10 +6,10 @@
 function logError(context, error) {
     // 过滤掉用户中断的“错误”，因为它不是一个真正的异常
     if (error && error.message.includes("interrupted")) {
-        console.log(`[SanReader] Task interrupted in ${context}.`);
+        console.log(`[Foxlate] Task interrupted in ${context}.`);
         return;
     }
-    console.error(`[SanReader Content Script Error] in ${context}:`, error.message, error.stack);
+    console.error(`[Foxlate Content Script Error] in ${context}:`, error.message, error.stack);
 }
 
 /**
@@ -104,7 +104,7 @@ function processMutationQueue() {
     translationJob.mutationQueue.clear();
 
     if (!translationJob.settings) {
-        console.warn("[SanReader] Mutation observed, but no translation job settings found. Skipping auto-translation of new content.");
+        console.warn("[Foxlate] Mutation observed, but no translation job settings found. Skipping auto-translation of new content.");
         return;
     }
 
@@ -241,6 +241,7 @@ function translateElements(elements) {
         translationJob.totalChunks += Math.ceil(texts.length / CHUNK_SIZE);
         if (!translationJob.isTranslating) {
             translationJob.isTranslating = true;
+            console.log(`[Foxlate] TRANSLATION_STATUS_UPDATE:Translation started.${translationJob.totalChunks} chunks in total.tableId=${translationJob.tabId}`);
             browser.runtime.sendMessage({
                 type: 'TRANSLATION_STATUS_UPDATE',
                 payload: { status: 'loading', tabId: translationJob.tabId }
@@ -279,7 +280,7 @@ function startObservers() {
         childList: true,
         subtree: true
     });
-    console.log("[SanReader] Observers started.");
+    console.log("[Foxlate] Observers started.");
 }
 
 function stopObservers() {
@@ -287,7 +288,7 @@ function stopObservers() {
     if (mutationObserver) mutationObserver.disconnect();
     intersectionObserver = null;
     mutationObserver = null;
-    console.log("[SanReader] Observers stopped.");
+    console.log("[Foxlate] Observers stopped.");
 }
 
 /**
@@ -316,7 +317,7 @@ function findTranslatableRootElements(effectiveSettings, rootNodes = [document.b
     // It must be handled to prevent `querySelectorAll` from throwing an error.
     const selector = effectiveSettings?.translationSelector ?? '';
     if (selector.trim() === '') {
-        console.log("[SanReader] An empty CSS selector is configured, so no elements will be selected for page translation.");
+        console.log("[Foxlate] An empty CSS selector is configured, so no elements will be selected for page translation.");
         return [];
     }
 
@@ -337,7 +338,7 @@ function findTranslatableRootElements(effectiveSettings, rootNodes = [document.b
 
 
 async function togglePageTranslation(tabId, action) {
-    console.trace(`[SanReader] togglePageTranslation called for tabId: ${tabId}, action: ${action}`); // 记录 action
+    console.trace(`[Foxlate] togglePageTranslation called for tabId: ${tabId}, action: ${action}`); // 记录 action
 
     // 页面翻译状态的唯一真实来源是 body 上的 `data-translation-session` 属性。
     const isSessionActive = document.body.dataset.translationSession === 'active';
@@ -345,44 +346,44 @@ async function togglePageTranslation(tabId, action) {
     switch (action) {
         case 'translate':
             if (!isSessionActive) {
-                console.log("[SanReader] Starting page translation.");
+                console.log("[Foxlate] Starting page translation.");
                 await startPageTranslation(tabId); // 启动翻译，见下文
             } else {
-                console.log("[SanReader] Page is already translated. Doing nothing.");
+                console.log("[Foxlate] Page is already translated. Doing nothing.");
             }
             break;
         case 'revert':
             if (isSessionActive) {
-                console.log("[SanReader] Reverting page to original.");
+                console.log("[Foxlate] Reverting page to original.");
             // 在恢复之前，我们必须首先停止任何正在进行的翻译任务，以避免竞争条件。
             await browser.runtime.sendMessage({ type: 'STOP_TRANSLATION', payload: { tabId } });
             await revertPageTranslation(tabId);
             } else {
-                console.log("[SanReader] Page is not translated. Doing nothing.");
+                console.log("[Foxlate] Page is not translated. Doing nothing.");
             }
             break;
         default:
-            console.warn(`[SanReader] Unknown action: ${action}`);
+            console.warn(`[Foxlate] Unknown action: ${action}`);
     }
 }
 
 async function startPageTranslation(tabId) {
     // 添加一个内部检查，以防止在极端的竞争条件下重复启动任务。
     if (translationJob.isTranslating) {
-        console.warn("[SanReader] A translation job is already in progress. Ignoring new request.");
+        console.warn("[Foxlate] A translation job is already in progress. Ignoring new request.");
         return;
     }
 
         // 设置一个全局标记，表示翻译会话已开始。
         document.body.dataset.translationSession = 'active';
 
-        console.log("[SanReader] Starting page translation process...");
+        console.log("[Foxlate] Starting page translation process...");
         stopObservers();
 
         let effectiveSettings;
         try {
             effectiveSettings = await getEffectiveSettings();
-            console.log("[SanReader] Effective settings for this page:", effectiveSettings);
+            console.log("[Foxlate] Effective settings for this page:", effectiveSettings);
 
             // 校验核心设置
             if (!effectiveSettings.targetLanguage) {
@@ -397,7 +398,7 @@ async function startPageTranslation(tabId) {
             }
         } catch (error) {
             logError('togglePageTranslation (settings)', error); // 更新错误日志
-            console.error("[SanReader] Failed to retrieve effective settings. Please check your configuration.");
+            console.error(`[Foxlate] TRANSLATION_STATUS_UPDATE,Failed to retrieve effective settings. Please check your configuration.${tabId}`);
             // 确保 UI 状态得到清理
             delete document.body.dataset.translationSession;
             await browser.runtime.sendMessage({
@@ -420,12 +421,12 @@ async function startPageTranslation(tabId) {
         initializeObservers();
 
         const elementsToObserve = findTranslatableRootElements(effectiveSettings);
-        console.log(`[SanReader] Found ${elementsToObserve.length} root elements to observe for translation.`);
+        console.log(`[Foxlate] Found ${elementsToObserve.length} root elements to observe for translation.`);
 
         if (elementsToObserve.length > 0) {
             observeElements(elementsToObserve);
         } else {
-            console.warn("[SanReader] No translatable elements found to observe initially.");
+            console.warn("[Foxlate] No translatable elements found to observe initially.");
         }
 
         startObservers();
@@ -456,7 +457,7 @@ function revertElement(wrapper) {
 }
 
 async function revertPageTranslation(tabId) {
-    console.log("[SanReader] Reverting entire page translation...");
+    console.log("[Foxlate] Reverting entire page translation...");
     stopObservers();
 
     // 1. Clear the global translation session flag.
@@ -482,7 +483,7 @@ async function revertPageTranslation(tabId) {
     const wrappers = document.querySelectorAll('font[data-translation-id]');
     wrappers.forEach(revertElement);
 
-    console.log(`[SanReader] Reverted ${wrappers.length} translated elements.`);
+    console.log(`[Foxlate] TRANSLATION_STATUS_UPDATE,Reverted ${wrappers.length} translated elements.${tabId}`);
 
     // Notify the background script that the page is back to its original state.
     try {
@@ -531,6 +532,7 @@ function updateTranslationProgress() {
     translationJob.completedChunks++;
     if (translationJob.completedChunks >= translationJob.totalChunks) {
         translationJob.isTranslating = false;
+        console.log(`[Foxlate] TRANSLATION_STATUS_UPDATE,Translation completed.`,translationJob);
         browser.runtime.sendMessage({
             type: 'TRANSLATION_STATUS_UPDATE',
             payload: { status: 'translated', tabId: translationJob.tabId }
@@ -623,16 +625,23 @@ async function handleMessage(request, sender) {
 
 // --- Initialization ---
 
-function main() {
-    // 添加消息监听器
+/**
+ * 初始化内容脚本。
+ * 通过检查一个全局标志来确保所有初始化逻辑只运行一次，
+ * 从而使脚本的注入变得幂等（即使被多次注入也不会产生副作用）。
+ */
+function initializeContentScript() {
+    if (window.foxlateContentScriptInitialized) {
+        console.log("[Foxlate] Content script already initialized. Skipping re-initialization.");
+        return;
+    }
+    window.foxlateContentScriptInitialized = true;
+    console.log("[Foxlate] Initializing content script...");
+
     browser.runtime.onMessage.addListener(handleMessage);
-
-    // 假设在 content script 加载时，document 已经存在，可以直接访问 window 对象
-    translationJob.tabId = window.__sanreader_tabId; 
-
-    // 将 getEffectiveSettings 暴露给其他模块（如 SubtitleManager）
+    translationJob.tabId = window.__foxlate_tabId;
     window.getEffectiveSettings = getEffectiveSettings;
-
+    window.__foxlate_css_injected = true; // 标记CSS注入状态
 }
 
-main();
+initializeContentScript();
