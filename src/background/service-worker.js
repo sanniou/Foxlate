@@ -319,6 +319,8 @@ const messageHandlers = {
 
         // 使用一个立即调用的异步函数 (IIAFE) 来封装每个翻译的生命周期。
         return (async () => {
+            //  在任务进入队列后设置徽章为 loading 状态，这能更精确地反映任务的激活状态。
+            await setBadgeAndState(tabId, 'loading');
             let payload;
             try {
                 const result = await TranslatorManager.translateText(text, targetLang, sourceLang, translatorEngine);
@@ -344,7 +346,6 @@ const messageHandlers = {
                 };
             }
 
-            // 只要此特定文本的翻译完成或失败，就立即发送消息。
             try {
                 await browser.tabs.sendMessage(tabId, { type: 'TRANSLATION_CHUNK_RESULT', payload });
             } catch (e) {
@@ -411,14 +412,10 @@ const messageHandlers = {
           await setBadgeAndState(tabId, 'original');
           throw new Error(`Failed to inject scripts into tab ${tabId}.`);
       }
-      // The content script now returns the new state directly in its response.
-      const response = await browser.tabs.sendMessage(tabId, { type: 'TOGGLE_TRANSLATION_REQUEST_AT_CONTENT', payload: { tabId } });
-
-      // Use the returned state to update the badge immediately,
-      // eliminating the need for a separate TRANSLATION_STATUS_UPDATE message from the content script.
-      if (response && response.newState) {
-          await setBadgeAndState(tabId, response.newState);
-      }
+      // 委托内容脚本处理切换。
+      // 内容脚本现在将通过 TRANSLATION_STATUS_UPDATE 消息异步报告状态变化（例如，'loading', 'original'），
+      // 这提供了一个更准确的状态更新时间点。
+      await browser.tabs.sendMessage(tabId, { type: 'TOGGLE_TRANSLATION_REQUEST_AT_CONTENT', payload: { tabId } });
       return { success: true };
   },
 
@@ -644,6 +641,8 @@ async function handleNavigation(details) {
 
             if (effectiveRule.autoTranslate === 'always' || isSessionTranslate) {
                 console.log(`[Auto-Translate] Rule matched for '${hostname}'. Initiating translation for tab ${tabId}.`);
+                // 委托内容脚本处理翻译请求。
+                // 内容脚本将在翻译实际开始时发送一个 'loading' 状态更新。
                 await browser.tabs.sendMessage(tabId, { type: 'TRANSLATE_PAGE_REQUEST', payload: { tabId } });
             }
         } catch (error) {
@@ -695,6 +694,7 @@ browser.tabs.onRemoved.addListener(async (tabId) => {
 });
 
 async function setBadgeAndState(tabId, state, currentStates) {
+    console.trace(`[Badge] Setting badge for tab ${tabId} to ${state}.`);
     // 不再自己获取，而是使用传入的 currentStates
     const tabTranslationStates = currentStates || (await browser.storage.session.get('tabTranslationStates')).tabTranslationStates || {};
     if (state === 'original' || !state) {

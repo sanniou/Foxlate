@@ -145,10 +145,17 @@ function translateElements(elements) {
 
         if (texts.length === 0) return;
 
+        const job = currentPageJob;
+
+        // 核心改动：内容脚本现在只负责管理其内部状态机。
+        // 它不再向后台发送 'loading' 状态，因为这个职责已经转移到后台脚本，以确保时机更准确。
+        if (job.state !== 'translating') {
+            job.state = 'translating';
+        }
+
         // 更新任务状态
-        currentPageJob.totalChunks += Math.ceil(texts.length / CHUNK_SIZE);
-        // 'loading' 状态现在由 service-worker 在收到 'TOGGLE_TRANSLATION_REQUEST_AT_CONTENT' 消息的响应后立即设置。
-        // 这避免了冗余的消息传递，并使状态更改更具原子性。
+        // 修复：totalChunks 应该计算文本的总数，而不是块的总数，以与 completedChunks 的计数单位保持一致。
+        currentPageJob.totalChunks += texts.length;
 
         // 分块发送
         for (let i = 0; i < texts.length; i += CHUNK_SIZE) {
@@ -166,7 +173,19 @@ function translateElements(elements) {
             browser.runtime.sendMessage({
                 type: 'TRANSLATE_TEXT_CHUNK',
                 payload: { texts: textChunk, ids: idChunk, targetLang, sourceLang: 'auto', tabId: currentPageJob.tabId, translatorEngine }
-            }).catch(e => logError('translateElements (send chunk)', e));
+            }).catch(e => {
+                logError('translateElements (send chunk)', e);
+                // 关键修复：如果块发送失败，我们必须恢复其UI并手动更新进度，
+                // 以防止 totalChunks 和 completedChunks 永久不同步。
+                idChunk.forEach(id => {
+                    const wrapper = idToWrapperMap.get(id);
+                    if (wrapper) {
+                        revertElement(wrapper);
+                    }
+                    // 修复：为块中的每个失败项都增加完成计数，以确保进度正确。
+                    updateTranslationProgress();
+                });
+            });
         }
 
     } catch (error) {
@@ -279,6 +298,7 @@ function updateTranslationProgress() {
     if (!currentPageJob) return;
     currentPageJob.completedChunks++;
     // 当所有块都完成时，将状态更新为“已翻译”。
+    console.log(`[Foxlate] TRANSLATION_STATUS_UPDATE,Translation progress: ${currentPageJob.completedChunks}/${currentPageJob.totalChunks}.`);
     if (currentPageJob.state === 'translating' && currentPageJob.completedChunks >= currentPageJob.totalChunks) {
         currentPageJob.state = 'translated';
         console.log(`[Foxlate] TRANSLATION_STATUS_UPDATE,Translation completed.`, currentPageJob);
@@ -353,7 +373,6 @@ class PageTranslationJob {
         } else {
             console.warn("[Foxlate] No translatable elements found to observe initially.");
         }
-        this.state = 'translating';
     }
 
     async revert() {
@@ -364,6 +383,16 @@ class PageTranslationJob {
         } catch (e) {
             // 如果消息发送失败（例如，后台脚本已失效），记录错误但继续执行客户端清理。
             logError('revert (sending STOP_TRANSLATION)', e);
+        }
+
+        // 在清理完成并重置任务之前，通知后台脚本页面已恢复到原始状态。
+        try {
+            await browser.runtime.sendMessage({
+                type: 'TRANSLATION_STATUS_UPDATE',
+                payload: { status: 'original', tabId: this.tabId }
+            });
+        } catch (e) {
+            logError('revert (sending original status)', e);
         }
 
         console.log("[Foxlate] Reverting entire page translation...");
@@ -573,15 +602,11 @@ async function handleMessage(request, sender) {
                         } else {
                             await currentPageJob.revert();
                         }
-
-                    // Determine the new state and return it in the response.
-                    // This makes the content script the single source of truth for the state change,
-                    // and the service worker can react immediately without waiting for another message.
-                    const newState = (action === 'translate') ? 'loading' : 'original';
-
-                    return { success: true, newState: newState };
+                    }
+                    // 不再立即返回新状态。状态将通过 TRANSLATION_STATUS_UPDATE 消息异步报告，
+                    // 以更准确地反映翻译生命周期中的实际事件。
+                    return { success: true };
                 }
-            }
 
             case 'TRANSLATION_CHUNK_RESULT':
                 handleChunkResult(request.payload);
