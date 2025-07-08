@@ -76,6 +76,19 @@ export async function getValidatedSettings() {
         }
     }
 
+    // Ensure each AI engine has the new properties
+    if (validatedSettings.aiEngines && Array.isArray(validatedSettings.aiEngines)) {
+        validatedSettings.aiEngines.forEach(engine => {
+            if (engine.wordCountThreshold === undefined) {
+                engine.wordCountThreshold = 1;
+            }
+            if (engine.fallbackEngine === undefined) {
+                // 'default' 是一个更好的默认值，因为它代表“使用全局设置”。
+                engine.fallbackEngine = 'default';
+            }
+        });
+    }
+
     return validatedSettings;
 }
 

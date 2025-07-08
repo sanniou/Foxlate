@@ -35,7 +35,7 @@
     "message": "AI 引擎配置",
     "description": "AI 引擎配置部分的标题。"
   },
-   "aiEngineName": {
+  "aiEngineName": {
     "message": "引擎名称：",
     "description": "AI 引擎名称输入框的标签。"
   },
@@ -131,11 +131,11 @@
     "message": "总是翻译",
     "description": "总是翻译规则的选项。"
   },
- "addPrecheckRule": {
+  "addPrecheckRule": {
     "message": "添加预检查规则",
     "description": "添加新预检查规则的按钮文本。"
   },
- "edit": {
+  "edit": {
     "message": "编辑",
     "description": "通用编辑按钮文本。"
   },
@@ -265,9 +265,17 @@
     "message": "例如：https://api.openai.com/v1/chat/completions"
   },
   "aiCustomPrompt": {
-    "message": "自定义提示词：",
-    "description": "AI 翻译器自定义提示词文本区域的标签。"
-  },
+        "message": "自定义提示词:",
+        "description": "AI 引擎的自定义提示词文本区域的标签。"
+    },
+    "aiShortTextThreshold": {
+        "message": "短文本切换阈值",
+        "description": "为短文本切换到不同引擎的单词数量阈值标签。"
+    },
+    "aiShortTextEngine": {
+        "message": "短文本翻译引擎",
+        "description": "用于翻译短文本的备用翻译引擎标签。"
+    },
   "aiCustomPromptPlaceholder": {
     "message": "你是一个翻译助手。请将用户的文本从 {sourceLang} 翻译成 {targetLang}。只输出翻译后的文本。变量 {sourceLang} 和 {targetLang} 会被替换为语言代码（如 EN, ZH）。",
     "description": "自定义提示词文本区域的占位符。"
@@ -543,9 +551,9 @@
     "message": "是必填项。",
     "description": "Suffix for required field error messages."
   },
- "fillAllRequiredFields": {
+  "fillAllRequiredFields": {
     "message": "请填写所有必填项。",
-   "description": "General message for missing required fields."
+    "description": "General message for missing required fields."
   },
   "enterTestText": {
     "message": "请输入测试文本。",
@@ -614,13 +622,13 @@
   "precheckRuleUrl": {
     "message": "URL",
     "description": "匹配 URL 的默认规则。"
-  },  
+  },
   "popupEnableSubtitles": {
-      "message": "启用字幕翻译",
-      "description": "在弹窗中启用/禁用字幕翻译的开关标签"
-  }
-,  "popupSubtitlesHint": {
-      "message": "仅在支持的视频页面生效",
-      "description": "字幕翻译开关的提示文字。"
+    "message": "启用字幕翻译",
+    "description": "在弹窗中启用/禁用字幕翻译的开关标签"
+  },
+  "popupSubtitlesHint": {
+    "message": "仅在支持的视频页面生效",
+    "description": "字幕翻译开关的提示文字。"
   }
 }

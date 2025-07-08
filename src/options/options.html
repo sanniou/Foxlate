@@ -213,6 +213,18 @@
                     <label for="aiCustomPrompt" i18n-text="aiCustomPrompt">Custom Prompt:<span class="required-indicator">*</span></label>
                     <div class="error-message" id="aiCustomPromptError"></div>
                 </div>
+
+                <div class="m3-form-field filled">
+                    <input type="number" id="aiShortTextThreshold" min="0" value="1" placeholder=" ">
+                    <label for="aiShortTextThreshold" i18n-text="aiShortTextThreshold">Short Text Word Threshold</label>
+                </div>
+
+                <div class="m3-form-field filled">
+                    <select id="aiShortTextEngine">
+                        <!-- Options will be populated by options.js -->
+                    </select>
+                    <label for="aiShortTextEngine" i18n-text="aiShortTextEngine">Short Text Engine</label>
+                </div>
                 <div class="button-group ai-engine-form-buttons">
                     <button id="testAiEngineBtn" class="m3-button filled" i18n-text="test">Test Connection</button>
                     <div class="action-buttons">

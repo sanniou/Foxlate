@@ -257,9 +257,17 @@
     "message": "e.g., https://api.openai.com/v1/chat/completions"
   },
   "aiCustomPrompt": {
-    "message": "Custom Prompt:",
-    "description": "Label for the custom prompt textarea for AI translator."
-  },
+        "message": "Custom Prompt:",
+        "description": "Label for the custom prompt textarea for AI engines."
+    },
+    "aiShortTextThreshold": {
+        "message": "Short Text Word Threshold",
+        "description": "Label for the word count threshold to switch to a different engine for short texts."
+    },
+    "aiShortTextEngine": {
+        "message": "Short Text Engine",
+        "description": "Label for the fallback engine to be used for short texts."
+    },
   "aiCustomPromptPlaceholder": {
     "message": "You are a translation assistant. Translate the user's text from {sourceLang} to {targetLang}. Output only the translated text. Variables {sourceLang} and {targetLang} will be replaced with language codes (e.g., EN, ZH).",
     "description": "Placeholder for the custom prompt textarea."
@@ -558,8 +566,8 @@
     "description": "Description for the command that translates the selected text."
   },
   "commandToggleDisplayMode": {
-      "message": "Toggle Page Display Mode",
-      "description": "Command to toggle the display mode for page translation."
+    "message": "Toggle Page Display Mode",
+    "description": "Command to toggle the display mode for page translation."
   },
   "enterRegex": {
     "message": "Please enter a regex",
@@ -592,21 +600,21 @@
   "runTestButton": {
     "message": "Run Test",
     "description": "The button text for running the global pre-check test."
-    },
-    "addPrecheckRule": {
-        "message": "Add Pre-check Rule",
-        "description": "Button text to add a new pre-check rule."
-    },
-    "precheckRuleUrl": {
-        "message": "URL",
-        "description": "Default rule to match URLs."
-    }
-,    "popupEnableSubtitles": {
-        "message": "Enable Subtitle Translation",
-        "description": "Toggle label to enable/disable subtitle translation in the popup."
-    }
-,    "popupSubtitlesHint": {
-        "message": "Works only on supported video pages",
-        "description": "Hint text for the subtitle translation toggle."
-    }
+  },
+  "addPrecheckRule": {
+    "message": "Add Pre-check Rule",
+    "description": "Button text to add a new pre-check rule."
+  },
+  "precheckRuleUrl": {
+    "message": "URL",
+    "description": "Default rule to match URLs."
+  },
+  "popupEnableSubtitles": {
+    "message": "Enable Subtitle Translation",
+    "description": "Toggle label to enable/disable subtitle translation in the popup."
+  },
+  "popupSubtitlesHint": {
+    "message": "Works only on supported video pages",
+    "description": "Hint text for the subtitle translation toggle."
+  }
 }

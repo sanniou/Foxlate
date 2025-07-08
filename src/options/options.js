@@ -33,6 +33,8 @@ document.addEventListener('DOMContentLoaded', () => {
         aiApiUrlInput: document.getElementById('aiApiUrl'),
         aiModelNameInput: document.getElementById('aiModelName'),
         aiCustomPromptInput: document.getElementById('aiCustomPrompt'),
+        aiShortTextThresholdInput: document.getElementById('aiShortTextThreshold'),
+        aiShortTextEngineSelect: document.getElementById('aiShortTextEngine'),
         // AI Engine Form Error Elements
         aiEngineNameError: document.getElementById('aiEngineNameError'),
         aiApiKeyError: document.getElementById('aiApiKeyError'),
@@ -477,7 +479,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 showStatusMessage(browser.i18n.getMessage('resetSettingsError'), true);
             }
         }
-    };""
+    };
 
 
     // --- Pre-check Rules UI Logic ---
@@ -883,6 +885,7 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.aiEngineModal.offsetWidth;
         elements.aiEngineModal.classList.add('is-visible'); // Trigger content transition
         renderAiEngineList();
+        populateFallbackEngineOptions();
         elements.aiEngineForm.style.display = 'none'; // Hide form initially
         elements.aiTestResult.style.display = 'none'; // Hide test result
         // Apply ripple to dynamically added buttons in the list
@@ -1036,6 +1039,10 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.aiApiUrlInput.value = engine.apiUrl || '';
         elements.aiModelNameInput.value = engine.model || '';
         elements.aiCustomPromptInput.value = engine.customPrompt || '';
+        // 修复：加载已保存的短文本设置
+        elements.aiShortTextThresholdInput.value = engine.wordCountThreshold ?? 1;
+        elements.aiShortTextEngineSelect.value = engine.fallbackEngine ?? 'default';
+        initializeSelectLabel(elements.aiShortTextEngineSelect); // 修复：更新标签UI，防止重叠
         currentEditingAiEngineId = engine.id || null;
     };
 
@@ -1079,18 +1086,27 @@ document.addEventListener('DOMContentLoaded', () => {
     const editAiEngine = (id) => {
         const engine = aiEngines.find(e => e.id === id);
         if (engine) {
+            populateFallbackEngineOptions(id);
             showAiEngineForm(engine);
         }
+    };
+
+    const getAiEngineFormData = () => {
+        return {
+            name: elements.aiEngineNameInput.value.trim(),
+            apiKey: elements.aiApiKeyInput.value.trim(),
+            apiUrl: elements.aiApiUrlInput.value.trim(),
+            model: elements.aiModelNameInput.value.trim(),
+            customPrompt: elements.aiCustomPromptInput.value.trim(),
+            wordCountThreshold: parseInt(elements.aiShortTextThresholdInput.value, 10) || 0,
+            fallbackEngine: elements.aiShortTextEngineSelect.value
+        };
     };
 
     const saveAiEngine = async () => {
         clearAiFormErrors(); // Clear previous errors before validating
 
-        const name = elements.aiEngineNameInput.value.trim();
-        const apiKey = elements.aiApiKeyInput.value.trim();
-        const apiUrl = elements.aiApiUrlInput.value.trim();
-        const model = elements.aiModelNameInput.value.trim();
-        const customPrompt = elements.aiCustomPromptInput.value.trim();
+        const engineData = getAiEngineFormData();
 
         let isValid = true;
         isValid = validateAiFormField(elements.aiEngineNameInput, elements.aiEngineNameError, 'aiEngineName') && isValid;
@@ -1113,12 +1129,12 @@ document.addEventListener('DOMContentLoaded', () => {
             // Edit existing
             const index = aiEngines.findIndex(e => e.id === currentEditingAiEngineId);
             if (index !== -1) {
-                aiEngines[index] = { id: currentEditingAiEngineId, name, apiKey, apiUrl, model, customPrompt };
+                aiEngines[index] = { id: currentEditingAiEngineId, ...engineData };
             }
         } else {
             // Add new
             const newId = `ai-${Date.now()}`; // Simple unique ID
-            aiEngines.push({ id: newId, name, apiKey, apiUrl, model, customPrompt });
+            aiEngines.push({ id: newId, ...engineData });
         }
         markSettingAsChanged('aiEngines'); // Mark settings as changed
         renderAiEngineList();
@@ -1154,6 +1170,37 @@ document.addEventListener('DOMContentLoaded', () => {
             option.textContent = engine.name; // Use the user-defined name directly.
             elements.translatorEngine.appendChild(option);
         });
+    };
+
+    const populateFallbackEngineOptions = (currentEngineId = null) => {
+        const select = elements.aiShortTextEngineSelect;
+        select.innerHTML = ''; // Clear existing options
+
+        // Add "Use Default" option
+        const defaultOption = document.createElement('option');
+        defaultOption.value = 'default';
+        defaultOption.textContent = browser.i18n.getMessage('useDefaultSetting');
+        select.appendChild(defaultOption);
+
+        // Add default translators
+        for (const key in Constants.SUPPORTED_ENGINES) {
+            const option = document.createElement('option');
+            option.value = key;
+            option.textContent = browser.i18n.getMessage(Constants.SUPPORTED_ENGINES[key]);
+            select.appendChild(option);
+        }
+
+        // Add other AI engines
+        aiEngines.forEach(engine => {
+            if (engine.id !== currentEngineId) {
+                const option = document.createElement('option');
+                option.value = `ai:${engine.id}`;
+                option.textContent = engine.name;
+                select.appendChild(option);
+            }
+        });
+        // 修复：在填充完选项后，强制更新标签UI以防止重叠
+        initializeSelectLabel(select);
     };
 
     /**
@@ -1341,11 +1388,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const testAiEngineConnection = async () => {
         clearAiFormErrors(); // Clear previous errors before validating
 
-        const name = elements.aiEngineNameInput.value.trim();
-        const apiKey = elements.aiApiKeyInput.value.trim();
-        const apiUrl = elements.aiApiUrlInput.value.trim();
-        const model = elements.aiModelNameInput.value.trim();
-        const customPrompt = elements.aiCustomPromptInput.value.trim();
+        const engineData = getAiEngineFormData();
 
         let isValid = true;
         isValid = validateAiFormField(elements.aiEngineNameInput, elements.aiEngineNameError, 'aiEngineName') && isValid;
@@ -1369,7 +1412,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 type: 'TEST_CONNECTION',
                 payload: {
                     engine: 'ai',
-                    settings: { apiKey, apiUrl, model, customPrompt } // Pass the specific AI config to test
+                    settings: { ...engineData } // Pass the specific AI config to test
                 }
             });
 

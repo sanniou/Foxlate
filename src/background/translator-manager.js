@@ -118,7 +118,6 @@ async function executeTranslation(text, targetLang, sourceLang = 'auto', engine,
             if (!engine || !engine.startsWith('ai:')) {
                 throw new Error(`Invalid AI engine identifier provided: ${engine}`);
             }
-            // AI engines need the full settings object to find their specific configuration.
             const settings = await getValidatedSettings();
             const selectedEngineId = engine.split(':')[1];
             const aiConfig = settings.aiEngines.find(e => e.id === selectedEngineId);
@@ -126,7 +125,43 @@ async function executeTranslation(text, targetLang, sourceLang = 'auto', engine,
             if (!aiConfig) {
                 throw new Error(`Selected AI engine configuration not found for ID: ${selectedEngineId}`);
             }
-            ({ text: translatedResult, log: translatorLog } = await translator.translate(processedText, targetLang, sourceLang, aiConfig, signal));
+
+            const wordCount = processedText.split(/\s+/).length;
+            if (aiConfig.wordCountThreshold && wordCount <= aiConfig.wordCountThreshold && aiConfig.fallbackEngine) {
+                let fallbackEngineName = aiConfig.fallbackEngine;
+
+                // 1. 解析“使用默认设置”
+                if (fallbackEngineName === 'default') {
+                    fallbackEngineName = settings.translatorEngine;
+                    log.push(`短文本引擎为“默认”，解析为全局引擎: ${fallbackEngineName}`);
+                }
+
+                // 2. 检查循环依赖
+                const isCircular = fallbackEngineName === `ai:${aiConfig.id}`;
+
+                if (isCircular) {
+                    log.push(`[警告] 检测到循环依赖：备用引擎 (${fallbackEngineName}) 与当前引擎相同。为防止死循环，将使用原始AI引擎。`);
+                    // 回退到使用原始翻译器
+                    ({ text: translatedResult, log: translatorLog } = await translator.translate(processedText, targetLang, sourceLang, aiConfig, signal));
+                } else {
+                    const fallbackTranslator = await TranslatorManager.getTranslator(fallbackEngineName);
+                    if (fallbackTranslator) {
+                        log.push(`短文本切换：单词数 ${wordCount} <= ${aiConfig.wordCountThreshold}，切换到 ${fallbackEngineName}`);
+                        let fallbackAiConfig = null;
+                        if (fallbackEngineName.startsWith('ai:')) {
+                            const fallbackEngineId = fallbackEngineName.split(':')[1];
+                            fallbackAiConfig = settings.aiEngines.find(e => e.id === fallbackEngineId);
+                        }
+                        ({ text: translatedResult, log: translatorLog } = await fallbackTranslator.translate(processedText, targetLang, sourceLang, fallbackAiConfig, signal));
+                    } else {
+                        log.push(`[警告] 找不到备用翻译器 '${fallbackEngineName}'。将使用原始AI引擎。`);
+                        ({ text: translatedResult, log: translatorLog } = await translator.translate(processedText, targetLang, sourceLang, aiConfig, signal));
+                    }
+                }
+            } else {
+                // 标准翻译，不使用备用引擎
+                ({ text: translatedResult, log: translatorLog } = await translator.translate(processedText, targetLang, sourceLang, aiConfig, signal));
+            }
         } else {
             ({ text: translatedResult, log: translatorLog } = await translator.translate(processedText, targetLang, sourceLang, null, signal));
         }
