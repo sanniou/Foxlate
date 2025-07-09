@@ -82,8 +82,9 @@ function findTextNodes(rootNode) {
 /**
  * 核心翻译函数：将元素内的文本节点分块并发送到后台进行翻译。
  * @param {HTMLElement[]} elements - 需要翻译的元素数组。
+ * @param {string} type - 翻译类型 ('inline' 或 'block')，用于标记。
  */
-function translateElements(elements) {
+function translateElements(elements, type) {
     if (elements.length === 0) return;
 
     try {
@@ -128,6 +129,7 @@ function translateElements(elements) {
                 const wrapper = document.createElement('font');
                 const nodeId = `ut-${generateUUID()}`;
                 wrapper.dataset.translationId = nodeId;
+                wrapper.dataset.translationType = type; // 标记翻译类型
                 wrapper.dataset.originalText = node.nodeValue; // 保存原始文本节点内容
 
                 // 将原始文本节点的内容移动到包裹元素中，保留原始的空白字符。
@@ -211,31 +213,50 @@ async function getEffectiveSettings() {
  * (重构) 根据指定的CSS选择器查找页面上所有可翻译的根元素。
  * @param {object} effectiveSettings - 包含 translationSelector 的配置对象。
  * @param {Node[]} [rootNodes=[document.body]] - 在这些节点内进行搜索。
- * @returns {HTMLElement[]} - 找到的顶层元素数组。
+ * @returns {{inlineElements: HTMLElement[], blockElements: HTMLElement[]}} - 包含两类元素的数组的对象。
  */
 function findTranslatableRootElements(effectiveSettings, rootNodes = [document.body]) {
-    // performPageTranslation ensures the selector is not undefined.
-    // An empty string is a valid configuration meaning "translate nothing".
-    // It must be handled to prevent `querySelectorAll` from throwing an error.
-    const selector = effectiveSettings?.translationSelector ?? '';
-    if (selector.trim() === '') {
-        console.log("[Foxlate] An empty CSS selector is configured, so no elements will be selected for page translation.");
-        return [];
+    const inlineSelector = effectiveSettings?.translationSelector?.inline ?? '';
+    const blockSelector = effectiveSettings?.translationSelector?.block ?? '';
+
+    if (inlineSelector.trim() === '' && blockSelector.trim() === '') {
+        console.log("[Foxlate] Both inline and block CSS selectors are empty. No elements will be translated.");
+        return { inlineElements: [], blockElements: [] };
     }
 
-    const elements = new Set();
-    for (const root of rootNodes) {
-        // 确保 root 是 Element 节点，可以执行查询
-        if (root.nodeType !== Node.ELEMENT_NODE) continue;
+    const inlineElements = new Set();
+    const blockElements = new Set();
 
-        // 检查 root 节点本身是否匹配
-        if (root.matches(selector)) {
-            elements.add(root);
+    // 1. 查找所有行内元素
+    if (inlineSelector.trim() !== '') {
+        for (const root of rootNodes) {
+            if (root.nodeType !== Node.ELEMENT_NODE) continue;
+            if (root.matches(inlineSelector)) {
+                inlineElements.add(root);
+            }
+            root.querySelectorAll(inlineSelector).forEach(el => inlineElements.add(el));
         }
-        // 查找 root 节点下的所有匹配项
-        root.querySelectorAll(selector).forEach(el => elements.add(el));
     }
-    return Array.from(elements);
+
+    // 2. 查找所有块级元素
+    if (blockSelector.trim() !== '') {
+        for (const root of rootNodes) {
+            if (root.nodeType !== Node.ELEMENT_NODE) continue;
+            if (root.matches(blockSelector)) {
+                blockElements.add(root);
+            }
+            root.querySelectorAll(blockSelector).forEach(el => blockElements.add(el));
+        }
+    }
+
+    // 3. 处理重叠：如果一个元素同时匹配了行内和块级选择器，优先视为行内元素。
+    // 从块级元素集合中移除所有也存在于行内元素集合中的元素。
+    const finalBlockElements = new Set([...blockElements].filter(el => !inlineElements.has(el)));
+
+    return {
+        inlineElements: Array.from(inlineElements),
+        blockElements: Array.from(finalBlockElements)
+    };
 }
 
 /**
@@ -365,12 +386,16 @@ class PageTranslationJob {
         this.#initializeObservers();
         this.#startMutationObserver();
 
-        const elementsToObserve = findTranslatableRootElements(this.settings);
-        console.log(`[Foxlate] Found ${elementsToObserve.length} root elements to observe for translation.`);
+        const { inlineElements, blockElements } = findTranslatableRootElements(this.settings);
+        console.log(`[Foxlate] Found ${inlineElements.length} inline and ${blockElements.length} block elements to observe.`);
 
-        if (elementsToObserve.length > 0) {
-            this.#observeElements(elementsToObserve);
-        } else {
+        if (inlineElements.length > 0) {
+            this.#observeElements(inlineElements, 'inline');
+        }
+        if (blockElements.length > 0) {
+            this.#observeElements(blockElements, 'block');
+        }
+        if (inlineElements.length === 0 && blockElements.length === 0) {
             console.warn("[Foxlate] No translatable elements found to observe initially.");
         }
     }
@@ -452,22 +477,23 @@ class PageTranslationJob {
         console.log("[Foxlate] Observers stopped.");
     }
 
-    #observeElements(elements) {
+    #observeElements(elements, type) {
         if (!this.intersectionObserver) return;
         for (const element of elements) {
             if (element.dataset.translated === 'true' || element.dataset.translationId) {
                 continue;
             }
+            element.dataset.translationType = type; // 标记元素类型
             this.intersectionObserver.observe(element);
         }
     }
 
-    #translateElements(elements) {
+    #translateElements(elements, type) {
         // This method's logic is complex and can be moved here from the global scope.
         // For brevity, we'll assume the global `translateElements` is adapted to be a private method.
         // The key change is that it will use `this.settings`, `this.tabId`, etc.
         // And it will call `this.#handleChunkResult`
-        translateElements(elements); // Simplified for this diff
+        translateElements(elements, type); // Simplified for this diff
     }
 
     /**
@@ -479,14 +505,25 @@ class PageTranslationJob {
         const visibleEntries = entries.filter(entry => entry.isIntersecting);
         if (visibleEntries.length === 0) return;
 
-        const elementsToTranslate = [];
+        // 按翻译类型对元素进行分组
+        const elementsToTranslate = {
+            inline: [],
+            block: []
+        };
+
         for (const entry of visibleEntries) {
-            elementsToTranslate.push(entry.target);
+            const type = entry.target.dataset.translationType;
+            if (type === 'inline' || type === 'block') {
+                elementsToTranslate[type].push(entry.target);
+            }
             // 一旦元素可见并准备翻译，就停止观察它，避免重复工作。
             this.intersectionObserver.unobserve(entry.target);
         }
-        if (elementsToTranslate.length > 0) {
-            this.#translateElements(elementsToTranslate);
+        if (elementsToTranslate.inline.length > 0) {
+            this.#translateElements(elementsToTranslate.inline, 'inline');
+        }
+        if (elementsToTranslate.block.length > 0) {
+            this.#translateElements(elementsToTranslate.block, 'block');
         }
     }
 
@@ -528,8 +565,13 @@ class PageTranslationJob {
             return;
         }
 
-        const newElementsToObserve = findTranslatableRootElements(this.settings, newNodes);
-        this.#observeElements(newElementsToObserve);
+        const { inlineElements, blockElements } = findTranslatableRootElements(this.settings, newNodes);
+        if (inlineElements.length > 0) {
+            this.#observeElements(inlineElements, 'inline');
+        }
+        if (blockElements.length > 0) {
+            this.#observeElements(blockElements, 'block');
+        }
     }
 }
 

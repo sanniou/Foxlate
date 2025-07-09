@@ -79,13 +79,21 @@
     "message": "目标语言：",
     "description": "目标语言输入框的标签。"
   },
-  "translationSelector": {
-    "message": "要翻译的元素（CSS 选择器）：",
-    "description": "翻译选择器输入框的标签。"
+  "inlineSelectorLabel": {
+    "message": "行内选择器 (单行显示)",
+    "description": "行内 CSS 选择器文本区域的标签。"
   },
-  "selectorDescription": {
-    "message": "用于要翻译元素的逗号分隔的 CSS 选择器。",
-    "description": "翻译选择器输入框的描述。"
+  "inlineSelectorDescription": {
+    "message": "用于标题、按钮、标签等短文本。译文将合并为单行显示。",
+    "description": "行内 CSS 选择器的辅助文本。"
+  },
+  "blockSelectorLabel": {
+    "message": "块级选择器 (保留换行)",
+    "description": "块级 CSS 选择器文本区域的标签。"
+  },
+  "blockSelectorDescription": {
+    "message": "用于段落、文章等主要内容。译文将保留原有换行。",
+    "description": "块级 CSS 选择器的辅助文本。"
   },
   "ruleManagement": {
     "message": "规则管理",
@@ -175,13 +183,13 @@
     "message": "例如：.content, #main-article",
     "description": "域名特定CSS选择器文本区域的占位符。"
   },
-  "selectorDescriptionDomain": {
-    "message": "使用 , 分隔多个选择器。留空则使用默认选择器。",
-    "description": "域名特定CSS选择器的辅助文本。"
-  },
   "overrideDefaultSelectors": {
     "message": "覆盖默认选择器",
     "description": "CSS覆盖开关的标签。"
+  },
+  "selectorOverrideDescription": {
+    "message": "启用后，将完全使用上方定义的域名选择器，忽略全局规则。留空则继承全局规则。",
+    "description": "域名规则中选择器覆盖开关的辅助文本。"
   },
   "domainCannotBeEmpty": {
     "message": "域名不能为空。",

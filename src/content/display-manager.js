@@ -112,7 +112,30 @@ window.DisplayManager = class DisplayManager {
     }
 
     static displayTranslation(element, translatedText) {
-        element.dataset.translatedText = translatedText;
+        const type = element.dataset.translationType; // 'inline', 'block', 或 undefined
+        let processedText = '';
+
+        // 辅助函数：对 HTML 字符串进行转义，防止 XSS 攻击。
+        const escapeHtml = (unsafe) => {
+            if (typeof unsafe !== 'string') return '';
+            return unsafe
+                 .replace(/&/g, "&amp;")
+                 .replace(/</g, "&lt;")
+                 .replace(/>/g, "&gt;")
+                 .replace(/"/g, "&quot;")
+                 .replace(/'/g, "&#039;");
+        };
+
+        if (type === 'inline') {
+            // 对于行内元素，将所有换行符替换为空格，以确保译文显示为单行。
+            processedText = translatedText.replace(/\n/g, ' ');
+        } else { // 默认为 'block' 行为，也适用于划词翻译。
+            // 对于块级元素，先对文本进行 HTML 转义，然后将换行符转换成 <br> 标签。
+            // 这使得文本可以安全地通过 innerHTML 插入，同时保留换行。
+            processedText = escapeHtml(translatedText).replace(/\n/g, '<br>');
+        }
+
+        element.dataset.translatedText = processedText;
         this.setElementState(element, this.STATES.TRANSLATED);
     }
 

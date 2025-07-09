@@ -42,15 +42,18 @@ export const DEFAULT_PRECHECK_RULES = {
     ],
 };
 
-export const DEFAULT_TRANSLATION_SELECTOR = 'p, h1, h2, h3, h4, li, a, span, div, td, th, blockquote, pre, code, strong, em, b, i, small, sub, sup, dd, dt, caption, figcaption, legend, label';
-
 export const DEFAULT_SETTINGS = {
     translatorEngine: 'google',
     targetLanguage: 'ZH',
-    displayMode: 'replace',
+    displayMode: 'append',
     deeplxApiUrl: '',
     translationSelector: {
-        default: 'p, h1, h2, h3, h4, li, a, span, div, td, th, blockquote, pre, code, strong, em, b, i, small, sub, sup, dd, dt, caption, figcaption, legend, label',
+        default: {
+            // 用于标题、按钮、标签等短文本。译文将合并为单行显示。
+            inline: 'h1, h2, h3, h4, h5, h6, a, span, strong, em, b, i, small, sub, sup, label, button, [role="button"], [role="link"], [role="tab"]',
+            // 用于段落、文章等主要内容。译文将保留原有换行。
+            block: 'p, div, li, td, th, blockquote, pre, dd, dt, caption, figcaption, article, section'
+        }
     },
     aiEngines: [],
     domainRules: {},

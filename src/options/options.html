@@ -102,11 +102,21 @@
             <h2 i18n-text="ruleManagement">Rule Management</h2>
             <div class="form-group">
                 <div class="m3-form-field filled">
-                    <textarea id="defaultTranslationSelector" rows="3" placeholder=" "></textarea>
-                    <label for="defaultTranslationSelector" i18n-text="translationSelector">Elements to Translate (CSS Selector):</label>
+                    <textarea id="defaultInlineSelector" rows="3" placeholder=" "></textarea>
+                    <label for="defaultInlineSelector" i18n-text="inlineSelectorLabel">Inline Selector (Single Line)</label>
                 </div>
                 <div class="m3-helper-text">
-                    <small i18n-text="selectorDescription">Comma-separated CSS selectors for elements to be translated.</small>
+                    <small i18n-text="inlineSelectorDescription">For short texts like titles, buttons, and labels. Translations will be merged into a single line.</small>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <div class="m3-form-field filled">
+                    <textarea id="defaultBlockSelector" rows="3" placeholder=" "></textarea>
+                    <label for="defaultBlockSelector" i18n-text="blockSelectorLabel">Block Selector (Preserve Newlines)</label>
+                </div>
+                <div class="m3-helper-text">
+                    <small i18n-text="blockSelectorDescription">For main content like paragraphs and articles. Translations will preserve original newlines.</small>
                 </div>
             </div>
 
@@ -297,8 +307,12 @@
                     <label for="ruleDisplayMode" i18n-text="displayMode">Display Mode:</label>
                 </div>
                 <div class="m3-form-field filled">
-                    <textarea id="ruleCssSelector" rows="3" i18n-placeholder="selectorPlaceholderDomain" placeholder=" "></textarea>
-                    <label for="ruleCssSelector" i18n-text="translationSelector">Elements to Translate (CSS Selector):</label>
+                    <textarea id="ruleInlineSelector" rows="2" placeholder=" "></textarea>
+                    <label for="ruleInlineSelector" i18n-text="inlineSelectorLabel">Inline Selector (Single Line)</label>
+                </div>
+                <div class="m3-form-field filled">
+                    <textarea id="ruleBlockSelector" rows="2" placeholder=" "></textarea>
+                    <label for="ruleBlockSelector" i18n-text="blockSelectorLabel">Block Selector (Preserve Newlines)</label>
                 </div>
                 <div class="m3-switch">
                     <input type="checkbox" id="ruleCssSelectorOverride">
@@ -308,7 +322,7 @@
                     <label for="ruleCssSelectorOverride" class="switch-label" i18n-text="overrideDefaultSelectors">Override default selectors</label>
                 </div>
                 <div class="m3-helper-text">
-                    <small i18n-text="selectorDescriptionDomain">Use , to separate multiple selectors. Leave empty to use default selectors.</small>
+                    <small i18n-text="selectorOverrideDescription">When enabled, only the domain-specific selectors defined above will be used, ignoring global rules. Leave empty to inherit global rules.</small>
                 </div>
 
                 <div class="button-group modal-actions">

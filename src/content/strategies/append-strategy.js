@@ -1,45 +1,5 @@
 window.appendTranslationStrategy = {
     /**
-     * @private
-     * Determines the correct CSS class for the appended node based on the parent's display style.
-     * @param {HTMLElement} element - The wrapper element (`<font>`) to check against.
-     * @returns {string} The base class name ('foxlate-appended-text' or 'foxlate-appended-text foxlate-appended-block').
-     */
-    _getAppendClassName: function(element) {
-      const parent = element.parentElement;
-      if (!parent) {
-          return 'foxlate-appended-text'; // Default to inline if no parent
-      }
-
-      // --- Rule 1: Parent is a clear paragraph-like tag ---
-      // If the parent is a semantic block-level tag, its content is a block.
-      const paragraphLikeTags = new Set(['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'BLOCKQUOTE', 'DD', 'DT', 'FIGCAPTION']);
-      if (paragraphLikeTags.has(parent.tagName)) {
-          return 'foxlate-appended-text foxlate-appended-block';
-      }
-
-      // --- Rule 2: Parent is a generic container (like DIV), check the *next* sibling ---
-      // This handles cases where a text node is not wrapped in a <p> but is followed by a block element.
-      let nextSibling = element.nextSibling;
-      // Skip over any whitespace-only text nodes to find the next meaningful element.
-      while (nextSibling && nextSibling.nodeType === Node.TEXT_NODE && nextSibling.nodeValue.trim() === '') {
-          nextSibling = nextSibling.nextSibling;
-      }
-
-      // If the next significant sibling is a block-level element, our text is likely the end of a line/paragraph.
-      if (nextSibling && nextSibling.nodeType === Node.ELEMENT_NODE) {
-          const nextSiblingStyle = window.getComputedStyle(nextSibling);
-          if (nextSiblingStyle.display === 'block') {
-              return 'foxlate-appended-text foxlate-appended-block';
-          }
-      }
-
-      // --- Default ---
-      // In all other cases (e.g., text followed by inline elements or nothing), default to a simple inline append.
-      return 'foxlate-appended-text';
-    },
-
-    /**
      * 在元素后面追加一个包含译文的节点。
      * @param {HTMLElement} element - 目标元素。
      * @param {string} translatedText - 翻译后的文本。
@@ -50,20 +10,29 @@ window.appendTranslationStrategy = {
 
         if (translationNode) {
             // Node exists, just update it.
-            translationNode.textContent = translatedText;
+            // 使用 innerHTML 来正确渲染包含 <br> 标签的换行文本。
+            translationNode.innerHTML = translatedText;
         } else {
             // This path is a fallback for cases where the node wasn't created during the LOADING state.
-            const className = this._getAppendClassName(element);
-            this.createTranslationNode(element, translatedText, className);
+            this.createTranslationNode(element, translatedText);
         }
     },
-    createTranslationNode: function(element, textContent, className = 'foxlate-appended-text') {
+    createTranslationNode: function(element, htmlContent, initialClass = '') {
+        const type = element.dataset.translationType;
+        let finalClassName = 'foxlate-appended-text';
+
+        if (type === 'block') {
+            finalClassName += ' foxlate-appended-block';
+        }
+        if (initialClass) {
+            finalClassName += ` ${initialClass}`;
+        }
+
         let translationNode = document.createElement('span');
-        translationNode.className = className; // 类名用于标识和还原
-        translationNode.textContent = textContent;
+        translationNode.className = finalClassName; // 类名用于标识和还原
+        translationNode.innerHTML = htmlContent;
         element.appendChild(translationNode);
     },
-
     updateUI: function(element, state) {
         let translationNode = element.querySelector('.foxlate-appended-text');
 
@@ -73,11 +42,10 @@ window.appendTranslationStrategy = {
                 break;
             case window.DisplayManager.STATES.LOADING:
                 if (translationNode) {
-                    translationNode.textContent = '';
+                    translationNode.innerHTML = '';
                     translationNode.classList.add('loading');
                 } else {
-                    const className = this._getAppendClassName(element) + ' loading';
-                    this.createTranslationNode(element,  '', className);
+                    this.createTranslationNode(element,  '', 'loading');
                 }
                 break;
             case window.DisplayManager.STATES.TRANSLATED:
@@ -93,7 +61,7 @@ window.appendTranslationStrategy = {
                 // 不再直接移除，而是在追加的节点中显示错误信息
                 if (!translationNode) {
                     // 如果节点不存在（例如，加载状态之前就出错了），则创建一个
-                    this.createTranslationNode(element, '', 'foxlate-appended-text');
+                    this.createTranslationNode(element, '');
                     translationNode = element.querySelector('.foxlate-appended-text');
                 }
 
@@ -103,7 +71,7 @@ window.appendTranslationStrategy = {
 
                     translationNode.classList.remove('loading');
                     translationNode.classList.add('error'); // 添加 error 类以便 CSS 设置样式
-                    translationNode.textContent = `${errorPrefix}: ${errorMessage}`;
+                    translationNode.innerHTML = `${errorPrefix}: ${errorMessage}`;
                 }
                 break;
             default:

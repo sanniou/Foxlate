@@ -11,7 +11,7 @@ window.hoverStrategy = {
      * 如果工具提示元素不存在，则创建并附加到 body。
      * 这是一个惰性创建，只在第一次需要时执行。
      */
-    _createTooltip: function() {
+    _createTooltip: function () {
         if (this._tooltipEl) return;
         this._tooltipEl = document.createElement('div');
         this._tooltipEl.className = 'foxlate-panel hover-tooltip';
@@ -25,11 +25,13 @@ window.hoverStrategy = {
      * @param {string} text - 要在工具提示中显示的文本。
      * @param {boolean} isError - 是否为错误提示。
      */
-    _showTooltip: function(targetElement, text, isError = false) {
+    _showTooltip: function (targetElement, text, isError = false) {
         this._createTooltip();
         if (!this._tooltipEl) return;
 
-        this._tooltipEl.textContent = text;
+        // 使用 innerHTML 来正确渲染包含 <br> 标签的换行文本。
+        // display-manager 已经对文本进行了 HTML 转义，因此这里是安全的。
+        this._tooltipEl.innerHTML = text;
         // 根据 isError 标志切换错误样式
         this._tooltipEl.classList.toggle('error', isError);
         this._tooltipEl.classList.add('visible');
@@ -62,7 +64,7 @@ window.hoverStrategy = {
      * @private
      * 隐藏工具提示。
      */
-    _hideTooltip: function() {
+    _hideTooltip: function () {
         if (this._tooltipEl) {
             this._tooltipEl.classList.remove('visible');
         }
@@ -73,7 +75,7 @@ window.hoverStrategy = {
      * @param {HTMLElement} element - 目标元素。
      * @param {string} translatedText - 翻译后的文本。
      */
-    displayTranslation: function(element, translatedText) {
+    displayTranslation: function (element, translatedText) {
         // 译文已由 DisplayManager 存储在 element.dataset.translatedText 中。
         // 为元素添加高亮样式，以在视觉上表明它已被处理并可悬停。
         element.classList.add('foxlate-hover-highlight');
@@ -103,7 +105,7 @@ window.hoverStrategy = {
      * 移除元素的悬停事件监听器并清理状态。
      * @param {HTMLElement} element - 目标元素。
      */
-    revertTranslation: function(element) {
+    revertTranslation: function (element) {
         // 移除高亮样式。
         element.classList.remove('foxlate-hover-highlight');
 
@@ -120,11 +122,11 @@ window.hoverStrategy = {
      * Implements the global cleanup interface for DisplayManager.
      * This ensures any visible hover tooltip is hidden during a full page revert.
      */
-    globalCleanup: function() {
+    globalCleanup: function () {
         this._hideTooltip();
     },
 
-    updateUI: function(element, state) {
+    updateUI: function (element, state) {
         switch (state) {
             case window.DisplayManager.STATES.ORIGINAL:
                 this.revertTranslation(element);

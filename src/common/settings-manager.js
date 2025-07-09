@@ -60,11 +60,21 @@ export async function getValidatedSettings() {
     // A more robust solution could validate each field's type.
     const validatedSettings = { ...defaultSettings, ...storedSettings };
 
-    // Deep merge for nested objects to prevent overwriting entire objects
-    validatedSettings.translationSelector = {
-        ...defaultSettings.translationSelector,
-        ...(storedSettings.translationSelector || {})
-    };
+    // --- 为 translationSelector 进行深度合并 ---
+    // 这确保了新的 {inline, block} 结构得到遵守。
+    const storedDefaultSelector = storedSettings.translationSelector?.default;
+    const defaultDefaultSelector = defaultSettings.translationSelector.default;
+
+    // 从存储的设置中保留所有域名规则
+    validatedSettings.translationSelector = storedSettings.translationSelector || {};
+    
+    // 合并 'default' 属性，确保它是一个对象。
+    // 如果存储的默认选择器是对象，则用它来覆盖默认值，否则使用全新的默认值。
+    if (typeof storedDefaultSelector === 'object' && storedDefaultSelector !== null) {
+        validatedSettings.translationSelector.default = { ...defaultDefaultSelector, ...storedDefaultSelector };
+    } else {
+        validatedSettings.translationSelector.default = defaultDefaultSelector;
+    }
     validatedSettings.precheckRules = storedSettings.precheckRules && Object.keys(storedSettings.precheckRules).length > 0 
         ? storedSettings.precheckRules 
         : defaultSettings.precheckRules;
@@ -127,23 +137,37 @@ export async function getEffectiveSettings(hostname) {
     };
 
     // --- CSS Selector Logic ---
-    const defaultSelector = settings.translationSelector?.default || '';
-    const ruleSelector = effectiveRule.cssSelector; // Can be undefined or an empty string
+    // 默认选择器现在是一个对象 { inline, block }
+    const defaultSelector = settings.translationSelector?.default || { inline: '', block: '' };
+    // 规则选择器也是一个对象
+    const ruleSelector = effectiveRule.cssSelector; // 可以是 undefined 或一个对象 { inline, block }
     const override = effectiveRule.cssSelectorOverride || false; // Default to false
 
-    // Case 1: Rule selector is defined and set to override.
-    if (ruleSelector && override) {
-        finalSettings.translationSelector = ruleSelector;
+    let finalInlineSelector = defaultSelector.inline || '';
+    let finalBlockSelector = defaultSelector.block || '';
+
+    // 如果存在域名特定选择器规则
+    if (ruleSelector) {
+        const ruleInline = ruleSelector.inline || '';
+        const ruleBlock = ruleSelector.block || '';
+
+        if (override) {
+            // 覆盖模式：完全使用域名规则的选择器
+            finalInlineSelector = ruleInline;
+            finalBlockSelector = ruleBlock;
+        } else {
+            // 追加模式：将域名规则的选择器追加到全局选择器
+            if (ruleInline) finalInlineSelector = `${finalInlineSelector}, ${ruleInline}`.replace(/^, /, '');
+            if (ruleBlock) finalBlockSelector = `${finalBlockSelector}, ${ruleBlock}`.replace(/^, /, '');
+        }
     }
-    // Case 2: Rule selector is defined but not set to override.
-    else if (ruleSelector && !override) {
-        // Combine default and rule selectors, ensuring no leading comma.
-        finalSettings.translationSelector = `${defaultSelector}, ${ruleSelector}`.replace(/^, /, '');
-    }
-    // Case 3: No rule selector is defined (or it's empty).
-    else {
-        finalSettings.translationSelector = defaultSelector;
-    }
+
+    // 将最终计算出的选择器对象赋值给 finalSettings
+    // 这会替换掉包含 .default 和域名规则的完整 translationSelector 对象
+    finalSettings.translationSelector = {
+        inline: finalInlineSelector,
+        block: finalBlockSelector,
+    };
 
     // Add the source property to the final object
     finalSettings.source = ruleSource;

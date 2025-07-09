@@ -27,7 +27,7 @@ window.contextMenuStrategy = {
      * @private
      * 如果工具提示元素不存在，则创建它。
      */
-    _createTooltip: function() {
+    _createTooltip: function () {
         if (this._tooltipEl) return;
         this._tooltipEl = document.createElement('div');
         this._tooltipEl.className = 'foxlate-panel context-menu-panel';
@@ -39,7 +39,7 @@ window.contextMenuStrategy = {
      * 根据坐标计算并设置工具提示的位置。
      * @param {object} coords - 包含 clientX 和 clientY 的对象。
      */
-    _updateTooltipPosition: function(coords) {
+    _updateTooltipPosition: function (coords) {
         if (!this._tooltipEl) return;
 
         const tooltipRect = this._tooltipEl.getBoundingClientRect();
@@ -64,14 +64,13 @@ window.contextMenuStrategy = {
      * @private
      * 显示带有提供文本的工具提示并设置监听器。
      */
-    _showTooltip: function(coords, text, isLoading = false, source, isError = false) {
+    _showTooltip: function (coords, text, isLoading = false, source, isError = false) {
         this._createTooltip();
         if (!this._tooltipEl) return;
 
-        // Don't hide here, as it clears listeners that might be needed.
-        // The logic in updateUI will handle showing/hiding.
-
-        this._tooltipEl.textContent = text;
+        // 使用 innerHTML 来正确渲染包含 <br> 标签的换行文本。
+        // display-manager 已经对文本进行了 HTML 转义，因此这里是安全的。
+        this._tooltipEl.innerHTML = text;
         this._tooltipEl.classList.toggle('loading', isLoading);
         this._tooltipEl.classList.toggle('error', isError);
         this._tooltipEl.classList.toggle('from-shortcut', source === 'shortcut');
@@ -100,7 +99,7 @@ window.contextMenuStrategy = {
      * @private
      * 隐藏工具提示并清理所有相关的事件监听器。
      */
-    _hideTooltip: function() {
+    _hideTooltip: function () {
         if (this._tooltipEl) {
             this._tooltipEl.classList.remove('visible');
         }
@@ -120,7 +119,7 @@ window.contextMenuStrategy = {
      * 隐藏右键翻译的工具提示并清理其监听器。
      * @param {object} target - The state object for this translation.
      */
-    revertTranslation: function(target) {
+    revertTranslation: function (target) {
         this._hideTooltip();
         // The cleanup of activeEphemeralTargets is now handled inside DisplayManager.revert
         this._currentTarget = null;
@@ -130,13 +129,13 @@ window.contextMenuStrategy = {
      * Implements the global cleanup interface for DisplayManager.
      * This ensures the context menu panel is hidden during a full page revert.
      */
-    globalCleanup: function() {
+    globalCleanup: function () {
         if (this._currentTarget) {
             window.DisplayManager.revert(this._currentTarget);
         }
     },
 
-    updateUI: function(element, state) {
+    updateUI: function (element, state) {
         // For this strategy, 'element' is a plain state object, not a DOM element.
         const target = element;
         this._currentTarget = target; // Keep track of the current target for event handlers.

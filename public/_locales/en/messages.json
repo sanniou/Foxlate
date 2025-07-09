@@ -79,13 +79,21 @@
     "message": "Target Language:",
     "description": "Label for the target language input."
   },
-  "translationSelector": {
-    "message": "Elements to Translate (CSS Selector):",
-    "description": "Label for the translation selector input."
+  "inlineSelectorLabel": {
+    "message": "Inline Selector (Single Line)",
+    "description": "Label for the inline CSS selector textarea."
   },
-  "selectorDescription": {
-    "message": "Comma-separated CSS selectors for elements to be translated.",
-    "description": "Description for the translation selector input."
+  "inlineSelectorDescription": {
+    "message": "For short texts like titles, buttons, and labels. Translations will be merged into a single line.",
+    "description": "Helper text for the inline CSS selector."
+  },
+  "blockSelectorLabel": {
+    "message": "Block Selector (Preserve Newlines)",
+    "description": "Label for the block CSS selector textarea."
+  },
+  "blockSelectorDescription": {
+    "message": "For main content like paragraphs and articles. Translations will preserve original newlines.",
+    "description": "Helper text for the block CSS selector."
   },
   "ruleManagement": {
     "message": "Rule Management",
@@ -195,9 +203,9 @@
     "message": "Domain-Specific Rules",
     "description": "Heading for domain specific rules"
   },
-  "domainSelectorDescription": {
-    "message": "Use , to separate multiple selectors. Leave empty to use default selectors.",
-    "description": "Helper text for the domain-specific CSS selector."
+  "selectorOverrideDescription": {
+    "message": "When enabled, only the domain-specific selectors defined above will be used, ignoring global rules. Leave empty to inherit global rules.",
+    "description": "Helper text for the selector override switch in domain rules."
   },
   "rulesDescription": {
     "message": "Rules apply to the exact hostname. Default is \"Manual Translate\".",
@@ -257,17 +265,17 @@
     "message": "e.g., https://api.openai.com/v1/chat/completions"
   },
   "aiCustomPrompt": {
-        "message": "Custom Prompt:",
-        "description": "Label for the custom prompt textarea for AI engines."
-    },
-    "aiShortTextThreshold": {
-        "message": "Short Text Word Threshold",
-        "description": "Label for the word count threshold to switch to a different engine for short texts."
-    },
-    "aiShortTextEngine": {
-        "message": "Short Text Engine",
-        "description": "Label for the fallback engine to be used for short texts."
-    },
+    "message": "Custom Prompt:",
+    "description": "Label for the custom prompt textarea for AI engines."
+  },
+  "aiShortTextThreshold": {
+    "message": "Short Text Word Threshold",
+    "description": "Label for the word count threshold to switch to a different engine for short texts."
+  },
+  "aiShortTextEngine": {
+    "message": "Short Text Engine",
+    "description": "Label for the fallback engine to be used for short texts."
+  },
   "aiCustomPromptPlaceholder": {
     "message": "You are a translation assistant. Translate the user's text from {sourceLang} to {targetLang}. Output only the translated text. Variables {sourceLang} and {targetLang} will be replaced with language codes (e.g., EN, ZH).",
     "description": "Placeholder for the custom prompt textarea."

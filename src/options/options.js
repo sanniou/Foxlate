@@ -1,4 +1,4 @@
-import '../lib/browser-polyfill.js'; 
+import '../lib/browser-polyfill.js';
 import { getValidatedSettings, generateDefaultPrecheckRules } from '../common/settings-manager.js';
 import * as Constants from '../common/constants.js';
 
@@ -18,7 +18,8 @@ document.addEventListener('DOMContentLoaded', () => {
         resetSettingsBtn: document.getElementById('reset-settings-btn'),
         statusMessage: document.getElementById('statusMessage'),
         targetLanguage: document.getElementById('targetLanguage'),
-        defaultTranslationSelector: document.getElementById('defaultTranslationSelector'),
+        defaultInlineSelector: document.getElementById('defaultInlineSelector'),
+        defaultBlockSelector: document.getElementById('defaultBlockSelector'),
         deeplxApiUrl: document.getElementById('deeplxApiUrl'),
         // AI Engine Modal Elements
         aiEngineModal: document.getElementById('aiEngineModal'),
@@ -64,7 +65,8 @@ document.addEventListener('DOMContentLoaded', () => {
         ruleTargetLanguageSelect: document.getElementById('ruleTargetLanguage'),
         ruleSourceLanguageSelect: document.getElementById('ruleSourceLanguage'),
         ruleDisplayModeSelect: document.getElementById('ruleDisplayMode'),
-        ruleCssSelectorTextarea: document.getElementById('ruleCssSelector'),
+        ruleInlineSelectorTextarea: document.getElementById('ruleInlineSelector'),
+        ruleBlockSelectorTextarea: document.getElementById('ruleBlockSelector'),
         ruleCssSelectorOverrideCheckbox: document.getElementById('ruleCssSelectorOverride'),
         cancelDomainRuleBtn: document.getElementById('cancelDomainRuleBtn'),
         saveDomainRuleBtn: document.getElementById('saveDomainRuleBtn'),
@@ -179,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
             '"': '&quot;',
             "'": '&#039;'
         };
-        return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        return text.replace(/[&<>"']/g, function (m) { return map[m]; });
     }
 
     /**
@@ -197,24 +199,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const regexErrorEl = regexField ? regexField.querySelector('.error-message') : null;
         const flagsErrorEl = flagsField ? flagsField.querySelector('.error-message') : null;
         let isValid = true;
-    
+
         // Clear previous errors first
         if (regexField) regexField.classList.remove('is-invalid');
         if (regexErrorEl) regexErrorEl.textContent = '';
         if (flagsField) flagsField.classList.remove('is-invalid');
         if (flagsErrorEl) flagsErrorEl.textContent = '';
-    
+
         // An empty regex is technically valid (matches everything), so we don't need to show an error.
         if (regexValue === '') {
             return true;
         }
-    
+
         try {
             new RegExp(regexValue, flagsValue); // Attempt to create a RegExp object
         } catch (e) {
             isValid = false;
             const errorMessage = e.message;
-            
+
             // Try to pinpoint the error to either the regex or the flags
             if (errorMessage.toLowerCase().includes('flag')) {
                 // Error is likely in the flags
@@ -266,9 +268,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         elements.statusMessage.textContent = message;
         // Set base class and then add modifiers
-        elements.statusMessage.className = 'status-message'; 
+        elements.statusMessage.className = 'status-message';
         elements.statusMessage.classList.add(isError ? 'error' : 'success');
-        
+
         // Make it visible, which triggers the CSS transition
         elements.statusMessage.classList.add('visible');
 
@@ -278,10 +280,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 3000);
     };
 
-        /**
-     * Adds a Material Design ripple effect to a given button element.
-     * @param {HTMLElement} button The button element to apply the ripple effect to.
-     */
+    /**
+ * Adds a Material Design ripple effect to a given button element.
+ * @param {HTMLElement} button The button element to apply the ripple effect to.
+ */
     const addRippleEffect = (button) => {
         button.addEventListener('click', (e) => {
             const ripple = document.createElement('span');
@@ -338,7 +340,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- Core Logic Functions ---
-    
+
 
     const loadSettings = async () => {
         try {
@@ -346,7 +348,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             elements.translatorEngine.value = currentSettings.translatorEngine;
             elements.targetLanguage.value = currentSettings.targetLanguage;
-            elements.defaultTranslationSelector.value = currentSettings.translationSelector.default;
+            const defaultSelector = currentSettings.translationSelector.default || {};
+            elements.defaultInlineSelector.value = defaultSelector.inline || '';
+            elements.defaultBlockSelector.value = defaultSelector.block || '';
             elements.deeplxApiUrl.value = currentSettings.deeplxApiUrl;
             elements.displayModeSelect.value = currentSettings.displayMode;
 
@@ -355,7 +359,7 @@ document.addEventListener('DOMContentLoaded', () => {
             populateAiEngineOptions(); // Populate the main dropdown
 
             domainRules = JSON.parse(JSON.stringify(currentSettings.domainRules)); // Deep copy
-            
+
             precheckRules = JSON.parse(JSON.stringify(currentSettings.precheckRules));
 
             toggleApiFields();
@@ -404,7 +408,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (unsavedChanges.translationSelector) {
                 settingsToSave.translationSelector = {
                     ...(settingsToSave.translationSelector || {}),
-                    default: elements.defaultTranslationSelector.value
+                    default: {
+                        inline: elements.defaultInlineSelector.value,
+                        block: elements.defaultBlockSelector.value
+                    }
                 };
             }
             if (unsavedChanges.aiEngines) {
@@ -437,7 +444,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         elements.saveSettingsBtn.classList.remove('success');
                         elements.fabIconSuccess.classList.remove('active');
                         elements.fabIconSave.classList.add('active');
-                        
+
                         // Clean up the listener to prevent it from firing again.
                         elements.saveSettingsBtn.removeEventListener('transitionend', resetFabOnFadeOut);
                     }
@@ -470,9 +477,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 defaultSettings.precheckRules = generateDefaultPrecheckRules();
 
                 await browser.storage.sync.set({ settings: defaultSettings });
-                
+
                 // After resetting, reload the settings, which will apply defaults and reset UI.
-                await loadSettings(); 
+                await loadSettings();
                 showStatusMessage(browser.i18n.getMessage('resetSettingsSuccess'));
             } catch (error) {
                 console.error('Error resetting settings:', error);
@@ -490,7 +497,7 @@ document.addEventListener('DOMContentLoaded', () => {
      * It combines general rules from constants with dynamically generated language-specific rules.
      * @returns {object} The complete default pre-check rules object.
      */
-    
+
 
     function renderPrecheckRulesUI() {
         const container = document.getElementById('precheck-rules-container');
@@ -526,7 +533,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Create Rule List
             const ruleList = document.createElement('div');
             ruleList.className = 'rule-list';
-            if(precheckRules[category]) {
+            if (precheckRules[category]) {
                 precheckRules[category].forEach(rule => {
                     ruleList.appendChild(createRuleItemElement(rule));
                 });
@@ -563,8 +570,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const whitelistText = browser.i18n.getMessage('whitelist') || 'Whitelist';
         const enabledText = browser.i18n.getMessage('enabled') || 'Enabled';
 
-    // Unique ID for connecting labels and inputs, crucial for accessibility
-    const randomId = `rule-${Math.random().toString(36).substr(2, 9)}`;
+        // Unique ID for connecting labels and inputs, crucial for accessibility
+        const randomId = `rule-${Math.random().toString(36).substr(2, 9)}`;
 
         item.innerHTML = `
         <div class="m3-form-field filled rule-name-field">
@@ -617,12 +624,12 @@ document.addEventListener('DOMContentLoaded', () => {
             validateRegexInput(regexInput, flagsInput); // Perform validation
             markSettingAsChanged('precheckRules'); // Any change in rule content marks as unsaved
         };
-    item.querySelector('.rule-name').addEventListener('input', () => markSettingAsChanged('precheckRules'));
+        item.querySelector('.rule-name').addEventListener('input', () => markSettingAsChanged('precheckRules'));
         // Apply ripple effect to the test button
         regexInput.addEventListener('input', validateAndMarkChanged);
         flagsInput.addEventListener('input', validateAndMarkChanged);
         item.querySelector('.rule-mode').addEventListener('change', () => markSettingAsChanged('precheckRules'));
-    item.querySelector('.rule-enabled-checkbox').addEventListener('change', () => markSettingAsChanged('precheckRules'));
+        item.querySelector('.rule-enabled-checkbox').addEventListener('change', () => markSettingAsChanged('precheckRules'));
 
         item.querySelector('.remove-rule-btn').addEventListener('click', (e) => {
             e.currentTarget.closest('.rule-item').remove();
@@ -729,7 +736,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const renderDomainRules = () => {
         elements.domainRulesList.innerHTML = ""; // Clear the <ul>
         const rulesArray = Object.entries(domainRules).map(([domain, rule]) => ({ domain, ...rule }));
-    
+
         if (rulesArray.length === 0) {
             const li = document.createElement('li');
             li.className = 'no-rules-message'; // For specific styling
@@ -737,12 +744,12 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.domainRulesList.appendChild(li);
             return;
         }
-    
+
         rulesArray.forEach(rule => {
             const li = document.createElement('li');
             li.className = 'domain-rule-item';
             li.dataset.domain = rule.domain;
-    
+
             li.innerHTML = `
             <span>${escapeHtml(rule.domain)}</span>
             <div class="rule-actions">
@@ -751,7 +758,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>`;
             elements.domainRulesList.appendChild(li);
         });
-    
+
         elements.domainRulesList.querySelectorAll('.edit-rule-btn').forEach(button => {
             button.addEventListener('click', (e) => editDomainRule(e.target.dataset.domain));
         });
@@ -820,18 +827,23 @@ document.addEventListener('DOMContentLoaded', () => {
         if (elements.ruleDisplayModeSelect.value !== 'default') {
             rule.displayMode = elements.ruleDisplayModeSelect.value;
         }
-        const cssSelector = elements.ruleCssSelectorTextarea.value.trim();
-        // Always save the override checkbox state, but only save the selector if it's not empty.
+        const inlineSelector = elements.ruleInlineSelectorTextarea.value.trim();
+        const blockSelector = elements.ruleBlockSelectorTextarea.value.trim();
+
         rule.cssSelectorOverride = elements.ruleCssSelectorOverrideCheckbox.checked;
-        if (cssSelector) {
-            rule.cssSelector = cssSelector;
+        // 仅当至少一个选择器有值时，才保存 cssSelector 对象。
+        if (inlineSelector || blockSelector) {
+            rule.cssSelector = {
+                inline: inlineSelector,
+                block: blockSelector
+            };
         } else {
-            // If the selector is empty, ensure the cssSelector property is not saved, 
-            // so it correctly falls back to the global default.
-            delete rule.cssSelector; 
+            // 如果两者都为空，则不保存 cssSelector 属性。
+            // 这样，除非勾选了覆盖，否则它将继承全局规则。
+            delete rule.cssSelector;
         }
         // --- 3. Save to local state and mark as changed ---
-       if (originalDomain && originalDomain !== newDomain) {
+        if (originalDomain && originalDomain !== newDomain) {
             delete domainRules[originalDomain];
         }
         domainRules[newDomain] = rule;
@@ -875,7 +887,7 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.readAsText(file);
     };
 
-        // --- AI Engine Management Logic ---
+    // --- AI Engine Management Logic ---
     let currentEditingAiEngineId = null; // To track which engine is being edited
 
     const openAiEngineModal = () => {
@@ -964,7 +976,18 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.ruleTargetLanguageSelect.value = ruleData.targetLanguage || 'default';
         elements.ruleSourceLanguageSelect.value = ruleData.sourceLanguage || 'default';
         elements.ruleDisplayModeSelect.value = ruleData.displayMode || 'default';
-        elements.ruleCssSelectorTextarea.value = ruleData.cssSelector || '';
+        // 兼容处理旧的字符串格式和新的对象格式
+        const selector = ruleData.cssSelector;
+        if (typeof selector === 'string') {
+            // 旧格式：假定它是块级选择器
+            elements.ruleInlineSelectorTextarea.value = '';
+            elements.ruleBlockSelectorTextarea.value = selector;
+        } else {
+            // 新格式（或未定义）
+            const selectorObj = selector || {};
+            elements.ruleInlineSelectorTextarea.value = selectorObj.inline || '';
+            elements.ruleBlockSelectorTextarea.value = selectorObj.block || '';
+        }
         // Default to false if not specified
         elements.ruleCssSelectorOverrideCheckbox.checked = ruleData.cssSelectorOverride || false;
 
@@ -1150,13 +1173,13 @@ document.addEventListener('DOMContentLoaded', () => {
             populateAiEngineOptions(); // Update main dropdown
             // If the removed engine was selected, reset the main dropdown
             if (elements.translatorEngine.value === `ai:${id}`) {
-                                // 这部分逻辑需要调整，确保在没有 AI 引擎时，下拉菜单显示正确的默认选项
+                // 这部分逻辑需要调整，确保在没有 AI 引擎时，下拉菜单显示正确的默认选项
                 if (aiEngines.length > 0) {
                     // 如果还有其他 AI 引擎，则选择第一个
                     elements.translatorEngine.value = `ai:${aiEngines[0].id}`;
                 } else {
-                elements.translatorEngine.value = 'deeplx';
-                toggleApiFields();
+                    elements.translatorEngine.value = 'deeplx';
+                    toggleApiFields();
                 }
             }
         }
@@ -1296,7 +1319,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const performTestTranslation = async () => {
         const sourceText = document.getElementById('test-source-text').value.trim();
         const resultArea = document.getElementById('test-result-area');
-        
+
         elements.aiTestResult.style.display = 'none';
         if (!sourceText) {
             resultArea.textContent = browser.i18n.getMessage('testSourceEmpty') || 'Please enter text to translate.';
@@ -1436,7 +1459,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const runGlobalPrecheckTest = () => {
         const testText = elements.testTextInput.value;
         const fieldContainer = elements.testTextInput.closest('.m3-form-field');
-    
+
         // If the test text is empty, we can't run any tests.
         // Show an inline validation error instead of a global status message.
         if (!testText) {
@@ -1447,7 +1470,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => fieldContainer?.classList.remove('error-shake'), 500);
             return;
         }
-    
+
         // Clear any previous error state if the input is valid.
         fieldContainer.classList.remove('is-invalid');
         elements.testTextInputError.textContent = '';
@@ -1456,7 +1479,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const regexInput = item.querySelector('.rule-regex');
             const flagsInput = item.querySelector('.rule-flags');
             const resultElement = item.querySelector('.rule-test-result');
-            
+
             // Directly call the test logic for each rule.
             if (regexInput && flagsInput && resultElement) {
                 testRegex(regexInput, flagsInput, resultElement);
@@ -1476,13 +1499,14 @@ document.addEventListener('DOMContentLoaded', () => {
         addRippleEffect(elements.addDomainRuleBtn); // Ensure this one gets it too (for opening the modal)
 
 
-         // Main settings listeners
+        // Main settings listeners
         elements.translatorEngine.addEventListener('change', () => {
             markSettingAsChanged('translatorEngine');
             toggleApiFields(); // 合并监听器，使逻辑更清晰
         });
         elements.targetLanguage.addEventListener('change', () => markSettingAsChanged('targetLanguage'));
-        elements.defaultTranslationSelector.addEventListener('input', () => markSettingAsChanged('translationSelector'));
+        elements.defaultInlineSelector.addEventListener('input', () => markSettingAsChanged('translationSelector'));
+        elements.defaultBlockSelector.addEventListener('input', () => markSettingAsChanged('translationSelector'));
         elements.deeplxApiUrl.addEventListener('input', () => markSettingAsChanged('deeplxApiUrl'));
         elements.displayModeSelect.addEventListener('change', () => markSettingAsChanged('displayMode'));
         elements.saveSettingsBtn.addEventListener('click', saveSettings);
@@ -1526,7 +1550,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Other listeners
         elements.importInput.addEventListener('change', importSettings);
-        
+
         elements.runGlobalTestBtn.addEventListener('click', runGlobalPrecheckTest);
         if (elements.testTextInput) {
             elements.testTextInput.addEventListener('focus', () => {
@@ -1544,17 +1568,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         }
-        
+
         // 旧的、通用的“未保存更改”监听器已被移除。
         // 新的系统使用附加到特定元素或操作的精确监听器。
-        
+
         const testTranslationBtn = document.getElementById('testTranslationBtn');
-        if(testTranslationBtn) testTranslationBtn.addEventListener('click', toggleTestArea);
+        if (testTranslationBtn) testTranslationBtn.addEventListener('click', toggleTestArea);
         elements.toggleLogBtn.addEventListener('click', toggleLogArea);
 
         const sourceTextArea = document.getElementById('test-source-text');
         const manualTranslateBtn = document.getElementById('manual-test-translate-btn');
-        if(manualTranslateBtn) manualTranslateBtn.addEventListener('click', performTestTranslation);
+        if (manualTranslateBtn) manualTranslateBtn.addEventListener('click', performTestTranslation);
 
         elements.mainTabButtons.forEach(button => {
             button.addEventListener('click', () => switchMainTab(button.dataset.tab));
