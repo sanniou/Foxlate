@@ -24,7 +24,7 @@ let MAX_CONCURRENT_REQUESTS = 5;
 
 function preProcess(text) {
     if (typeof text !== 'string') return '';
-    return text.trim().replace(/\s+/g, ' '); // 修复：确保 preProcess 总是返回一个字符串
+    return text.trim(); // 只移除首尾空白，保留内部换行符
 }
 
 function postProcess(text) {
@@ -66,8 +66,7 @@ function processQueue() {
  * 实际的翻译执行逻辑，从旧的 translateText 中提取。
  */
 async function executeTranslation(text, targetLang, sourceLang = 'auto', engine, signal) {
-    // ... (这里的代码与您之前版本中的 `translateText` 内部逻辑几乎完全相同)
-    // 为了简洁，我们假设这里的逻辑是完整的，包括预处理、规则检查、缓存、调用翻译器等
+
     const log = [];
     log.push(browser.i18n.getMessage('logEntryStart', [text, sourceLang, targetLang]));
 
