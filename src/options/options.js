@@ -1245,7 +1245,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const populateModalDropdowns = () => {
         // Populate Translator Engine dropdown
         const engineSelect = elements.ruleTranslatorEngineSelect;
-        engineSelect.innerHTML = `<option value="default">${browser.i18n.getMessage('useDefaultSetting')}</option>`;
+        engineSelect.innerHTML = ''; // 清空现有选项
+        const defaultEngineOption = document.createElement('option');
+        defaultEngineOption.value = 'default';
+        defaultEngineOption.textContent = browser.i18n.getMessage('useDefaultSetting');
+        engineSelect.appendChild(defaultEngineOption);
         for (const key in Constants.SUPPORTED_ENGINES) {
             const option = document.createElement('option');
             option.value = key;
@@ -1261,7 +1265,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Populate Target Language dropdown
         const langSelect = elements.ruleTargetLanguageSelect;
-        langSelect.innerHTML = `<option value="default">${browser.i18n.getMessage('useDefaultSetting')}</option>`;
+        langSelect.innerHTML = ''; // 清空现有选项
+        const defaultLangOption = document.createElement('option');
+        defaultLangOption.value = 'default';
+        defaultLangOption.textContent = browser.i18n.getMessage('useDefaultSetting');
+        langSelect.appendChild(defaultLangOption);
         for (const code in Constants.SUPPORTED_LANGUAGES) {
             if (code === 'auto') continue; // 'auto' is not a target language
             const option = document.createElement('option');
@@ -1272,26 +1280,62 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Populate Source Language dropdown
         const sourceLangSelect = elements.ruleSourceLanguageSelect;
-        sourceLangSelect.innerHTML = `<option value="default">${browser.i18n.getMessage('useDefaultSetting')}</option>`;
+        sourceLangSelect.innerHTML = ''; // 清空现有选项
+        const defaultSourceLangOption = document.createElement('option');
+        defaultSourceLangOption.value = 'default';
+        defaultSourceLangOption.textContent = browser.i18n.getMessage('useDefaultSetting');
+        sourceLangSelect.appendChild(defaultSourceLangOption);
         for (const code in Constants.SUPPORTED_LANGUAGES) {
             const option = document.createElement('option');
             option.value = code;
             option.textContent = browser.i18n.getMessage(Constants.SUPPORTED_LANGUAGES[code]);
             sourceLangSelect.appendChild(option);
         }
+
+        // Populate Auto Translate dropdown
+        populateAutoTranslateOptions(elements.ruleAutoTranslateSelect, true);
+
         // Populate Display Mode dropdown
         populateDisplayModeOptions(elements.ruleDisplayModeSelect, true);
     };
     const populateLanguageOptions = () => {
         const select = elements.targetLanguage;
         if (!select) return;
+        select.innerHTML = ''; // 清空现有选项
 
         for (const code in Constants.SUPPORTED_LANGUAGES) {
+            // 'auto' is not a valid target language, only a source language option.
+            if (code === 'auto') continue;
             const option = document.createElement('option');
             option.value = code;
             const langKey = Constants.SUPPORTED_LANGUAGES[code];
             option.textContent = browser.i18n.getMessage(langKey) || code;
             select.appendChild(option);
+        }
+    };
+
+    /**
+ * Populates a select element with auto-translate mode options.
+ * @param {HTMLSelectElement} selectElement The <select> element to populate.
+ * @param {boolean} includeDefault If true, adds a "Use Default" option at the beginning.
+ */
+    const populateAutoTranslateOptions = (selectElement, includeDefault = false) => {
+        if (!selectElement) return;
+        selectElement.innerHTML = ''; // Clear existing options
+
+        if (includeDefault) {
+            const defaultOption = document.createElement('option');
+            defaultOption.value = 'default';
+            defaultOption.textContent = browser.i18n.getMessage('useDefaultSetting');
+            selectElement.appendChild(defaultOption);
+        }
+
+        for (const code in Constants.AUTO_TRANSLATE_MODES) {
+            const option = document.createElement('option');
+            option.value = code;
+            const i18nKey = Constants.AUTO_TRANSLATE_MODES[code];
+            option.textContent = browser.i18n.getMessage(i18nKey) || code;
+            selectElement.appendChild(option);
         }
     };
 

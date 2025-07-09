@@ -65,3 +65,8 @@ export const DISPLAY_MODES = {
     'append': 'appendTranslated',
     'hover': 'hoverToDisplay'
 };
+
+export const AUTO_TRANSLATE_MODES = {
+    'always': 'alwaysTranslate',
+    'manual': 'manualTranslate'
+};
