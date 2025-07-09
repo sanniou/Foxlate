@@ -366,6 +366,12 @@ class PageTranslationJob {
             const wrappers = document.querySelectorAll('font[data-translation-id]');
             wrappers.forEach(revertElement);
             console.log(`[Foxlate] Reverted ${wrappers.length} translated elements.`);
+
+            // 新增：清理所有残留的 data-translation-type 属性，确保DOM干净。
+            const typedElements = document.querySelectorAll('[data-translation-type]');
+            typedElements.forEach(el => delete el.dataset.translationType);
+            console.log(`[Foxlate] Cleaned up ${typedElements.length} translation type attributes.`);
+
         } catch (error) {
             logError('revert (DOM cleanup)', error);
         }
