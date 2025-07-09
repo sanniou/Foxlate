@@ -59,3 +59,9 @@ export const DEFAULT_SETTINGS = {
     domainRules: {},
     precheckRules: {} // Populated dynamically in options.js to handle i18n
 };
+
+export const DISPLAY_MODES = {
+    'replace': 'replaceOriginal',
+    'append': 'appendTranslated',
+    'hover': 'hoverToDisplay'
+};

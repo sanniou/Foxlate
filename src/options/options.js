@@ -346,6 +346,11 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const currentSettings = await getValidatedSettings();
 
+            // Load AI Engines and populate the dropdown BEFORE setting the value
+            aiEngines = JSON.parse(JSON.stringify(currentSettings.aiEngines)); // Deep copy
+            populateTranslatorEngineOptions(); // Populate the main dropdown
+
+            // Now that all <option> elements exist, set the selected value.
             elements.translatorEngine.value = currentSettings.translatorEngine;
             elements.targetLanguage.value = currentSettings.targetLanguage;
             const defaultSelector = currentSettings.translationSelector.default || {};
@@ -353,10 +358,6 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.defaultBlockSelector.value = defaultSelector.block || '';
             elements.deeplxApiUrl.value = currentSettings.deeplxApiUrl;
             elements.displayModeSelect.value = currentSettings.displayMode;
-
-            // Load AI Engines
-            aiEngines = JSON.parse(JSON.stringify(currentSettings.aiEngines)); // Deep copy
-            populateAiEngineOptions(); // Populate the main dropdown
 
             domainRules = JSON.parse(JSON.stringify(currentSettings.domainRules)); // Deep copy
 
@@ -1161,7 +1162,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         markSettingAsChanged('aiEngines'); // Mark settings as changed
         renderAiEngineList();
-        populateAiEngineOptions(); // Update main dropdown
+        populateTranslatorEngineOptions(); // Update main dropdown
         hideAiEngineForm(); // Hide form and test results, and clear state
     };
 
@@ -1170,7 +1171,7 @@ document.addEventListener('DOMContentLoaded', () => {
             aiEngines = aiEngines.filter(e => e.id !== id);
             markSettingAsChanged('aiEngines'); // Mark settings as changed
             renderAiEngineList();
-            populateAiEngineOptions(); // Update main dropdown
+            populateTranslatorEngineOptions(); // Update main dropdown
             // If the removed engine was selected, reset the main dropdown
             if (elements.translatorEngine.value === `ai:${id}`) {
                 // 这部分逻辑需要调整，确保在没有 AI 引擎时，下拉菜单显示正确的默认选项
@@ -1185,8 +1186,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const populateAiEngineOptions = () => {
-        // Add new AI options
+    const populateTranslatorEngineOptions = () => {
+        // 1. 彻底清空，以防止任何重复
+        elements.translatorEngine.innerHTML = '';
+
+        // 2. 从常量添加内置翻译引擎
+        for (const key in Constants.SUPPORTED_ENGINES) {
+            const option = document.createElement('option');
+            option.value = key;
+            option.textContent = browser.i18n.getMessage(Constants.SUPPORTED_ENGINES[key]);
+            elements.translatorEngine.appendChild(option);
+        }
+
+        // 3. 添加用户配置的 AI 引擎
         aiEngines.forEach(engine => {
             const option = document.createElement('option');
             option.value = `ai:${engine.id}`;
@@ -1267,7 +1279,8 @@ document.addEventListener('DOMContentLoaded', () => {
             option.textContent = browser.i18n.getMessage(Constants.SUPPORTED_LANGUAGES[code]);
             sourceLangSelect.appendChild(option);
         }
-        // Display Mode dropdown is already static in HTML with 'default' option
+        // Populate Display Mode dropdown
+        populateDisplayModeOptions(elements.ruleDisplayModeSelect, true);
     };
     const populateLanguageOptions = () => {
         const select = elements.targetLanguage;
@@ -1279,6 +1292,31 @@ document.addEventListener('DOMContentLoaded', () => {
             const langKey = Constants.SUPPORTED_LANGUAGES[code];
             option.textContent = browser.i18n.getMessage(langKey) || code;
             select.appendChild(option);
+        }
+    };
+
+    /**
+     * Populates a select element with display mode options.
+     * @param {HTMLSelectElement} selectElement The <select> element to populate.
+     * @param {boolean} includeDefault If true, adds a "Use Default" option at the beginning.
+     */
+    const populateDisplayModeOptions = (selectElement, includeDefault = false) => {
+        if (!selectElement) return;
+        selectElement.innerHTML = ''; // Clear existing options
+
+        if (includeDefault) {
+            const defaultOption = document.createElement('option');
+            defaultOption.value = 'default';
+            defaultOption.textContent = browser.i18n.getMessage('useDefaultSetting');
+            selectElement.appendChild(defaultOption);
+        }
+
+        for (const code in Constants.DISPLAY_MODES) {
+            const option = document.createElement('option');
+            option.value = code;
+            const i18nKey = Constants.DISPLAY_MODES[code];
+            option.textContent = browser.i18n.getMessage(i18nKey) || code;
+            selectElement.appendChild(option);
         }
     };
 
@@ -1491,6 +1529,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const initialize = async () => {
         applyTranslations();
         populateLanguageOptions();
+        populateDisplayModeOptions(elements.displayModeSelect);
         await loadSettings();
         manageSelectLabels(); // Ensure select labels are correctly positioned on load and on change
         populateModalDropdowns(); // Populate modal dropdowns on initialization

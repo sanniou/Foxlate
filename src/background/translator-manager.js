@@ -101,7 +101,9 @@ async function executeTranslation(text, targetLang, sourceLang = 'auto', engine,
             log.push(browser.i18n.getMessage('logEntryCacheMiss'));
         }
 
-        const translator = await TranslatorManager.getTranslator(engine);
+        // 解析翻译器和引擎ID
+        const { translator, engine: resolvedEngine } = await TranslatorManager.getTranslator(engine);
+        engine = resolvedEngine; // 更新局部变量以供后续使用
         if (!translator) {
             const errorMessage = "未选择或初始化有效的翻译器。";
             log.push(browser.i18n.getMessage('logEntryNoTranslator'));
@@ -143,12 +145,12 @@ async function executeTranslation(text, targetLang, sourceLang = 'auto', engine,
                     // 回退到使用原始翻译器
                     ({ text: translatedResult, log: translatorLog } = await translator.translate(processedText, targetLang, sourceLang, aiConfig, signal));
                 } else {
-                    const fallbackTranslator = await TranslatorManager.getTranslator(fallbackEngineName);
+                    const { translator: fallbackTranslator, engine: resolvedFallbackEngine } = await TranslatorManager.getTranslator(fallbackEngineName);
                     if (fallbackTranslator) {
-                        log.push(`短文本切换：单词数 ${wordCount} <= ${aiConfig.wordCountThreshold}，切换到 ${fallbackEngineName}`);
+                        log.push(`短文本切换：单词数 ${wordCount} <= ${aiConfig.wordCountThreshold}，切换到 ${resolvedFallbackEngine}`);
                         let fallbackAiConfig = null;
-                        if (fallbackEngineName.startsWith('ai:')) {
-                            const fallbackEngineId = fallbackEngineName.split(':')[1];
+                        if (resolvedFallbackEngine.startsWith('ai:')) {
+                            const fallbackEngineId = resolvedFallbackEngine.split(':')[1];
                             fallbackAiConfig = settings.aiEngines.find(e => e.id === fallbackEngineId);
                         }
                         ({ text: translatedResult, log: translatorLog } = await fallbackTranslator.translate(processedText, targetLang, sourceLang, fallbackAiConfig, signal));
@@ -185,15 +187,18 @@ async function executeTranslation(text, targetLang, sourceLang = 'auto', engine,
 
 
 export class TranslatorManager {
-  static async getTranslator(engine) {
-    if (!engine) {
+  static async getTranslator(engine) { // engine can be undefined
+    let resolvedEngine = engine;
+    if (!resolvedEngine) {
         const settings = await getValidatedSettings();
-        engine = settings.translatorEngine;
+        resolvedEngine = settings.translatorEngine;
     }
-    if (engine.startsWith('ai:')) {
-      engine = 'ai';
+    let translatorKey = resolvedEngine;
+    if (translatorKey.startsWith('ai:')) {
+      translatorKey = 'ai';
     }
-    return translators[engine];
+    // 返回解析后的引擎ID和翻译器实例
+    return { translator: translators[translatorKey], engine: resolvedEngine };
   }
 
   /**
