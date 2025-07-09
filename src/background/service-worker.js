@@ -711,7 +711,6 @@ browser.tabs.onRemoved.addListener(async (tabId) => {
 });
 
 async function setBadgeAndState(tabId, state, currentStates) {
-    console.trace(`[Badge] Setting badge for tab ${tabId} to ${state}.`);
     // 不再自己获取，而是使用传入的 currentStates
     const tabTranslationStates = currentStates || (await browser.storage.session.get('tabTranslationStates')).tabTranslationStates || {};
     if (state === 'original' || !state) {
