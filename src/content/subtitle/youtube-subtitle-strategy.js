@@ -149,13 +149,11 @@ class YouTubeSubtitleStrategy {
   constructor(onSubtitleChange) {
     this.onSubtitleChange = onSubtitleChange;
     this.observer = null;
+    this.videoElement = null;
     this.renderer = null; // 初始化渲染器为空
-    this.translatedSubtitles = new Map();
-    this.originalSentences = [];
-    this.translatedSentences = [];
-    this.currentSentenceIndex = -1; // 跟踪当前正在显示的句子索引
-    this.script = '';
-    this.sentenceStartIndexes = [];
+    // 这是新的核心数据结构，存储带有时间戳的完整字幕信息
+    this.subtitleScript = [];
+
     // 绑定所有需要正确 `this` 上下文的处理器
     this.spaNavigationHandler = this.spaNavigationHandler.bind(this);
     this.handleInterceptedData = this.handleInterceptedData.bind(this);
@@ -168,8 +166,8 @@ class YouTubeSubtitleStrategy {
     document.addEventListener(YouTubeSubtitleStrategy.EVENT_NAME, this.handleInterceptedData);
     document.body.addEventListener('yt-navigate-finish', this.spaNavigationHandler);
 
-    // 初始化时，我们不启动任何观察者，而是完全依赖网络拦截。
-    // 观察者只作为解析或翻译失败后的最终备用方案。
+    // 尝试在初始化时就找到视频元素并启动观察者
+    this.startVideoObserver();
     console.log("[ModernYouTubeStrategy] Ready and waiting for subtitle network requests.");
   }
 
@@ -254,80 +252,66 @@ class YouTubeSubtitleStrategy {
    */
 
   async processAndTranslateSubtitles(subtitleContent) {
-    console.log("[ModernYouTubeStrategy] Processing with REFINED SENTENCE SPLITTING.");
+    console.log("[YouTubeStrategy] Processing subtitles with new time-based strategy.");
     try {
       if (!subtitleContent || subtitleContent.trim() === '') throw new Error("Content empty.");
       const jsonData = JSON.parse(subtitleContent);
       if (!jsonData || !Array.isArray(jsonData.events)) throw new Error("Invalid JSON.");
 
-      // --- 精细句子分割逻辑开始 ---
-      const sentences = [];
-      let sentenceBuffer = ''; // 使用一个缓冲区来累积文本
+      // --- 1. 将事件分组为带时间戳的句子 ---
+      const timedSentences = [];
+      let sentenceBuffer = '';
+      let sentenceStartTime = -1;
 
-      // 1. 将所有事件的文本片段拼接成一个巨大的字符串
       for (const event of jsonData.events) {
         if (!event.segs) continue;
         const segmentText = event.segs.map(s => s.utf8.replace(/\n/g, ' ')).join('');
+
+        if (sentenceStartTime === -1) {
+          sentenceStartTime = event.tStartMs;
+        }
         sentenceBuffer += segmentText;
-      }
 
-      // 2. 使用正则表达式来分割这个巨大的字符串为句子
-      // 这个正则表达式会匹配一个或多个非句末标点的字符，后跟一个句末标点。
-      // 它能正确处理 "Hello world. How are you?" -> ["Hello world.", " How are you?"]
-      const sentenceRegex = /[^.!?。？！]+[.!?。？！]/g;
-      let match;
-      while ((match = sentenceRegex.exec(sentenceBuffer)) !== null) {
-        const cleanedSentence = match[0].trim();
-        if (cleanedSentence && !cleanedSentence.startsWith('[') && !cleanedSentence.endsWith(']')) {
-          sentences.push(cleanedSentence);
+        // 当句子以标点符号结尾时，将其视为一个完整的句子
+        if (/[.!?。？！]$/.test(sentenceBuffer.trim())) {
+          const text = sentenceBuffer.trim();
+          // 过滤掉YouTube的自动生成提示，如 "[音乐]"
+          if (text && !text.startsWith('[') && !text.endsWith(']')) {
+            timedSentences.push({
+              text: text,
+              startTime: sentenceStartTime,
+              // 句子的结束时间是最后一个事件的结束时间
+              endTime: event.tStartMs + (event.dDurationMs || 2000)
+            });
+          }
+          // 为下一句重置
+          sentenceBuffer = '';
+          sentenceStartTime = -1;
         }
       }
-
-      // 检查是否有剩余的、不以标点结尾的文本（通常是最后一句）
-      // 通过上一次匹配结束的位置来获取剩余部分
-      const lastMatchEnd = sentenceRegex.lastIndex;
-      if (lastMatchEnd < sentenceBuffer.length) {
-        const remainingText = sentenceBuffer.substring(lastMatchEnd).trim();
-        if (remainingText && !remainingText.startsWith('[') && !remainingText.endsWith(']')) {
-          sentences.push(remainingText);
-        }
-      }
-      // --- 精细句子分割逻辑结束 ---
-
-      if (sentences.length === 0) {
-        // 如果正则分割失败（例如字幕完全没有标点），回退到旧的简单逻辑
-        const plainText = sentenceBuffer.trim();
-        if (plainText) sentences.push(plainText);
+      // 将缓冲区中剩余的任何文本作为最后一句
+      if (sentenceBuffer.trim() && sentenceStartTime !== -1) {
+        const lastEvent = jsonData.events[jsonData.events.length - 1];
+        timedSentences.push({
+          text: sentenceBuffer.trim(),
+          startTime: sentenceStartTime,
+          endTime: lastEvent.tStartMs + (lastEvent.dDurationMs || 5000)
+        });
       }
 
-      if (sentences.length === 0) throw new Error("No sentences formed after splitting.");
+      if (timedSentences.length === 0) throw new Error("No timed sentences could be formed.");
 
-      console.log(`[ModernYouTubeStrategy] Split into ${sentences.length} sentences for high-quality translation.`);
-      // 打印第一句和最后一句作为样本
-      console.log(`Sample First: "${sentences[0]}"`);
-      console.log(`Sample Last: "${sentences[sentences.length - 1]}"`);
-
-      // 后续的翻译和存储逻辑保持不变
-      const translatedSentences = await this.requestBatchTranslation(sentences);
-      if (!translatedSentences || sentences.length !== translatedSentences.length) {
+      // --- 2. 批量翻译并创建最终的字幕脚本 ---
+      const originalTexts = timedSentences.map(s => s.text);
+      const translatedTexts = await this.requestBatchTranslation(originalTexts);
+      if (!translatedTexts || originalTexts.length !== translatedTexts.length) {
         throw new Error("Translation failed or returned mismatched results.");
       }
 
-      this.originalSentences = sentences;
-      this.translatedSentences = translatedSentences;
+      this.subtitleScript = timedSentences.map((s, i) => ({ ...s, translated: translatedTexts[i] }));
 
-      // --- 核心修改：创建“剧本”和索引 ---
-      this.script = this.originalSentences.join(' '); // 用空格连接所有句子
-      this.sentenceStartIndexes = [];
-      let currentIndex = 0;
-      for (const sentence of this.originalSentences) {
-        this.sentenceStartIndexes.push(currentIndex);
-        currentIndex += sentence.length + 1; // +1 是因为 join 时加的空格
-      }
-      // --- 修改结束 ---
-
-      console.log(`[ModernYouTubeStrategy] Cached ${sentences.length} translated sentences. Activating display.`);
-      this.startObserverForInstantDisplay();
+      console.log(`[YouTubeStrategy] Cached ${this.subtitleScript.length} timed sentences. Activating display.`);
+      this.startVideoObserver();
 
     } catch (error) {
       console.error(`[ModernYouTubeStrategy] Critical failure in subtitle processing: ${error.message}.`);
@@ -350,133 +334,88 @@ class YouTubeSubtitleStrategy {
     }
   }
 
-  updateDisplay() {
-    // 1. 查找必要的元素
+  /**
+   * 根据视频当前播放时间更新字幕显示。
+   * @param {number} currentTimeInSeconds - 视频的 `currentTime` 属性。
+   */
+  updateSubtitleDisplay(currentTimeInSeconds) {
+    const currentTimeMs = currentTimeInSeconds * 1000;
+
+    // 1. 找到当前时间点应该显示的句子
+    const currentSentence = this.subtitleScript.find(
+      s => currentTimeMs >= s.startTime && currentTimeMs <= s.endTime
+    );
+
+    // 2. 确保渲染器已准备就绪
     const playerContainer = document.querySelector('#movie_player');
     if (!playerContainer) return;
 
     const realCaptionWindow = playerContainer.querySelector('.caption-window');
     if (!realCaptionWindow) {
+      // 如果字幕窗口消失，销毁渲染器以清理资源
       if (this.renderer) {
         this.renderer.destroy();
         this.renderer = null;
-        this.currentSentenceIndex = -1;
       }
       return;
     }
 
-    // 2. 按需初始化渲染器
     if (!this.renderer) {
       this.renderer = new SubtitleRenderer(realCaptionWindow);
     }
 
-    // 3. 获取原文
-    const segmentElements = Array.from(realCaptionWindow.querySelectorAll(YouTubeSubtitleStrategy.SEGMENT_SELECTOR));
-    const currentScreenText = segmentElements.map(el => el.textContent).join(' ').trim();
-
-    // 4. 匹配翻译
-    if (currentScreenText === '' || this.originalSentences.length === 0) {
-      if (this.renderer) this.renderer.render([]);
-      return;
+    // 3. 渲染找到的句子或清空显示
+    console.log(`[YouTubeStrategy] Current time:`,this.subtitleScript);
+    console.log(`[YouTubeStrategy] Current time: ${currentTimeMs}ms. Current sentence: ${currentSentence?.text}`);
+    if (currentSentence) {
+      this.renderer.render([currentSentence.translated]);
+    } else {
+      this.renderer.render([]); // 如果当前时间没有对应句子，则清空
     }
-
-    // --- 最终的“剧本匹配”算法 ---
-    const screenText = currentScreenText;
-
-    // 1. 在整个“剧本”中查找当前屏幕文本的位置
-    const matchPos = this.script.indexOf(screenText);
-
-    let bestMatchIndex = -1;
-
-    if (matchPos !== -1) {
-      // 2. 如果找到了，就反向查找这个位置属于哪一句
-      // 我们从后往前遍历句子起始索引，第一个小于等于 matchPos 的就是我们的句子
-      for (let i = this.sentenceStartIndexes.length - 1; i >= 0; i--) {
-        if (this.sentenceStartIndexes[i] <= matchPos) {
-          bestMatchIndex = i;
-          break;
-        }
-      }
-    }
-
-    // 如果直接匹配失败（可能因为 YouTube 文本有微小差异），使用模糊搜索作为备用
-    if (bestMatchIndex === -1) {
-      // (这里的备用逻辑可以是你之前的评分算法，但我们先专注于主逻辑)
-      console.warn(`[ModernYouTubeStrategy] Direct match failed for "${screenText}". Fuzzy search can be added here.`);
-    }
-
-    const translatedLinesToShow = [];
-    if (bestMatchIndex !== -1) {
-      // 我们找到了当前屏幕文本对应的句子
-      translatedLinesToShow.push(this.translatedSentences[bestMatchIndex]);
-
-      // 如果屏幕文本跨越了两句话，我们可以把下一句也显示出来
-      const matchEndPos = matchPos + screenText.length;
-      if (bestMatchIndex + 1 < this.sentenceStartIndexes.length && matchEndPos > this.sentenceStartIndexes[bestMatchIndex + 1]) {
-        translatedLinesToShow.push(this.translatedSentences[bestMatchIndex + 1]);
-      }
-
-      // 日志
-      const bestOriginal = this.originalSentences[bestMatchIndex];
-      console.log(`[Screen] "${screenText}" -> [Match in Script at pos ${matchPos}] -> [Sentence ${bestMatchIndex}] "${bestOriginal}"`);
-    }
-
-    this.renderer.render(translatedLinesToShow);
   }
 
-  // 将评分逻辑提取为一个独立的辅助函数
-  calculateMatchScore(screenText, sentenceText) {
-    let score = 0;
-    const index = sentenceText.indexOf(screenText);
-
-    if (index === 0) { // 开头完全匹配 (最高优先级)
-      score = 1000 + screenText.length * 2 - (sentenceText.length - screenText.length);
-    } else if (index > 0) { // 包含，但不在开头
-      // 分数基于匹配长度和它在句子中的位置 (越靠前越好)
-      score = 500 + screenText.length - index;
-    }
-    return score;
-  }
-
-  startObserverForInstantDisplay() {
+  startVideoObserver() {
     this.stopObserver();
-
+    // 1. 获取视频播放器容器
     const playerContainer = document.querySelector('#movie_player');
     if (!playerContainer) {
-      console.error("[ModernYouTubeStrategy] Player container (#movie_player) not found.");
+      console.error("[YouTubeStrategy] Cannot start observer: #movie_player not found.");
+      return;
+    }
+    // 2. 获取视频元素
+    this.videoElement = playerContainer.querySelector('video');
+    if (!this.videoElement) {
+      console.error("[YouTubeStrategy] Cannot start observer: video element not found.");
       return;
     }
 
-    // 定义观察者回调
-    const mutationCallback = (mutations, observer) => {
-      let shouldUpdate = false;
-      for (const mutation of mutations) {
-        // 检查这个变化是否是我们自己引起的
-        if (mutation.target.id === this.renderer?.overlayId || mutation.target.closest(`#${this.renderer?.overlayId}`)) {
-          // 如果变化发生在我们的 overlay 内部，则忽略它
-          continue;
-        }
-        // 只要有一个变化不是我们自己引起的，就说明需要更新
-        shouldUpdate = true;
-        break;
+    // 3. 定义并启动新的时间监听器
+    const timeUpdateHandler = () => {
+      if (this.videoElement) {
+        this.updateSubtitleDisplay(this.videoElement.currentTime);
       }
+    };
+    this.videoElement.addEventListener('timeupdate', timeUpdateHandler);
+    console.log("[YouTubeStrategy] Time-based subtitle update listener added.");
 
-      if (shouldUpdate) {
-        // console.log("[ModernYouTubeStrategy] Legitimate change detected, triggering update.");
-        this.updateDisplay();
+    // 4. (可选) 立即触发一次更新，以处理初始字幕
+    timeUpdateHandler();
+
+    // 5. (重要) 重写 stopObserver 以移除事件监听器
+    const originalStopObserver = this.stopObserver.bind(this);
+    this.stopObserver = () => {
+      originalStopObserver(); // 调用原来的清理逻辑
+      if (this.videoElement) {
+        this.videoElement.removeEventListener('timeupdate', timeUpdateHandler);
+        this.videoElement = null; // 清除引用
+        console.log("[YouTubeStrategy] Time-based subtitle update listener removed.");
       }
     };
 
-    this.observer = new MutationObserver(mutationCallback);
-    this.observer.observe(playerContainer, {
-      childList: true,
-      subtree: true,
-      characterData: true, // 监听文本变化也很重要
-    });
-    console.log('[ModernYouTubeStrategy] Smart observer is now active on #movie_player.');
+    console.log('[YouTubeStrategy] Time-based subtitle synchronization is now active.');
 
-    // 首次启动时，手动调用一次更新，以处理已存在的字幕
-    this.updateDisplay();
+    // 首次启动时，手动调用一次更新，以确保初始状态正确
+    this.updateSubtitleDisplay(this.videoElement.currentTime);
   }
 
   // stopObserver, spaNavigationHandler, cleanup 等方法保持不变
@@ -484,11 +423,6 @@ class YouTubeSubtitleStrategy {
   stopObserver() {
     if (this.observer) {
       this.observer.disconnect();
-      this.observer = null;
-    }
-    if (this.renderer) {
-      this.renderer.destroy();
-      this.renderer = null;
     }
   }
 
