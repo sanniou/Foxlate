@@ -2,7 +2,6 @@ const esbuild = require('esbuild');
 const fs = require('fs-extra');
 const path = require('path');
 const { exit } = require('process');
-const { copy } = require('esbuild-plugin-copy');
 const glob = require('glob');
 
 // --- 配置常量 ---
@@ -22,6 +21,8 @@ if (!['chrome', 'firefox'].includes(targetBrowser)) {
     exit(1);
 }
 
+console.log(`🚀 Building for target: ${targetBrowser}${isWatchMode ? ' (watch mode enabled)' : ''}`);
+
 // --- 清理输出目录 ---
 try {
     fs.emptyDirSync(outDir);
@@ -30,6 +31,121 @@ try {
     console.error('❌ Failed to clean output directory:', err);
     exit(1);
 }
+
+// 在 manifestPlugin 后面添加这个新插件
+const staticAssetsManager = {
+    name: 'staticAssetsManager',
+    setup(build) {
+        // --- 定义需要复制的资源 ---
+        // 使用 path.join 确保跨平台兼容性
+        const assetsToCopy = {
+            // key 是源目录, value 是 glob 模式数组
+            [publicDir]: ['**/*', '!manifest.base.json'],
+            [srcDir]: ['**/*.{html,css}', 'lib/**/*.js'],
+        };
+
+        // --- 封装复制函数 ---
+        // 参数 inPath 是被修改的文件的绝对路径
+        async function copyAsset(inPath) {
+            try {
+                // 确定文件相对于其源目录 (public/ or src/) 的路径
+                let relativePath;
+                let sourceBaseDir;
+
+                if (inPath.startsWith(srcDir)) {
+                    sourceBaseDir = srcDir;
+                } else if (inPath.startsWith(publicDir)) {
+                    sourceBaseDir = publicDir;
+                } else {
+                    return; // 不是我们需要处理的文件
+                }
+                
+                relativePath = path.relative(sourceBaseDir, inPath);
+
+                // 特别处理 src/lib/ 下的 JS，确保目标路径正确
+                // 例如: src/lib/some.js -> dist/lib/some.js
+                // 而不是 src/lib/some.js -> dist/src/lib/some.js
+                // 我们通过 outbase 实现了这一点，所以这里需要特殊处理一下 toPath
+                let toPath;
+                if (sourceBaseDir === srcDir && relativePath.startsWith('lib' + path.sep)) {
+                    // 如果是 src/lib 内的文件，直接映射到 dist/lib
+                    toPath = path.join(outDir, relativePath);
+                } else if (sourceBaseDir === srcDir) {
+                    // src/ 下的其他文件（如html, css）也直接映射到 dist/
+                     toPath = path.join(outDir, relativePath);
+                } else {
+                    // public/ 下的文件直接映射到 dist/
+                    toPath = path.join(outDir, relativePath);
+                }
+                
+
+                // 确保目标目录存在
+                await fs.ensureDir(path.dirname(toPath));
+                await fs.copy(inPath, toPath);
+                console.log(`[Static] Copied: ${path.basename(inPath)}`);
+            } catch (err) {
+                console.error(`[Static] Failed to copy ${path.basename(inPath)}:`, err);
+            }
+        }
+        
+        async function initialCopy() {
+            console.log('📦 Performing initial copy of static assets...');
+            // 使用 glob.sync 来查找所有匹配的文件
+            const publicFiles = glob.sync(path.join(publicDir, '**', '*').replace(/\\/g, '/'), { 
+                nodir: true,
+                ignore: path.join(publicDir, 'manifest.base.json').replace(/\\/g, '/')
+            });
+            const srcFilesHtmlCss = glob.sync(path.join(srcDir, '**', '*.{html,css}').replace(/\\/g, '/'), { nodir: true });
+            const srcFilesLibJs = glob.sync(path.join(srcDir, 'lib', '**', '*.js').replace(/\\/g, '/'), { nodir: true });
+            
+            const allFiles = [...publicFiles, ...srcFilesHtmlCss, ...srcFilesLibJs];
+
+            // 并行复制所有文件
+            await Promise.all(allFiles.map(file => copyAsset(file)));
+            console.log('✅ Initial copy complete.');
+        }
+
+        // 1. 在构建开始时，立即执行一次全量复制
+        build.onStart(() => {
+            // 使用 onStart 钩子，它在每次 esbuild 重建时都会触发
+            // 但我们只想在首次构建时执行全量复制，后续由 watch 处理
+            // 所以加个标志位
+            if (!build.initialBuildDone) {
+                initialCopy();
+                build.initialBuildDone = true;
+            }
+        });
+
+        // 2. 如果是 watch 模式，则启动自己的监视器
+        if (isWatchMode) {
+            // 监视 src 和 public 两个目录
+            const watchDirs = [srcDir, publicDir];
+            watchDirs.forEach(dir => {
+                fs.watch(dir, { recursive: true }, (eventType, filename) => {
+                    if (!filename || eventType !== 'change') {
+                        return;
+                    }
+                    const fullPath = path.join(dir, filename);
+                    
+                    // 检查文件是否是我们关心的类型
+                    const isHtmlOrCss = /\.(html|css)$/.test(fullPath);
+                    const isLibJs = fullPath.includes(path.join(srcDir, 'lib')) && fullPath.endsWith('.js');
+                    const isPublicAsset = fullPath.startsWith(publicDir) && !fullPath.endsWith('manifest.base.json');
+                    
+                    if (isHtmlOrCss || isLibJs || isPublicAsset) {
+                         // 使用防抖来避免编辑器保存时触发多次事件
+                        clearTimeout(build.copyTimeout);
+                        build.copyTimeout = setTimeout(() => {
+                           console.log(`\n📄 Static file changed: ${filename}. Copying...`);
+                           copyAsset(fullPath);
+                        }, 100);
+                    }
+                });
+            });
+             console.log(`👀 Watching for static file changes in [${watchDirs.join(', ')}]...`);
+        }
+    },
+};
 
 const manifestPlugin = {
     name: 'manifestGenerator',
@@ -41,7 +157,7 @@ const manifestPlugin = {
                 console.error('❌ manifest.base.json not found in public directory.');
                 return;
             }
-            
+
             const manifest = fs.readJsonSync(manifestBasePath);
 
             if (!manifest.background) {
@@ -93,31 +209,7 @@ const normalizePath = (p) => p.replace(/\\/g, '/');
 const entryPoints = glob.sync(normalizePath(path.join(srcDir, '**', '*.js')), {
     ignore: [
         normalizePath(path.join(srcDir, 'lib', '**', '*')),
-        // 你的 subtitle 目录下有一个 .ts 文件，如果它不是入口，也忽略掉
-        normalizePath(path.join(srcDir, '**', '*.ts')),
     ],
-});
-
-// 修正 copy 插件的 from 路径
-const copyPlugin = copy({
-    watch: isWatchMode,
-    assets: [
-        {
-            from: 'public/**/*',
-            to: '.',
-        },
-        {
-            // 任务1：复制 src 下的 HTML 和 CSS
-            from: 'src/**/*.{html,css}',
-            to: '.',
-        },
-        {
-            // 任务2：复制 src/lib 下的 JS
-            from: 'src/lib/**/*.js',
-            to: 'lib/.',
-        }
-    ],
-    verbose: true,
 });
 
 // --- esbuild 构建选项 ---
@@ -127,7 +219,7 @@ const buildOptions = {
     outdir: outDir,
     outbase: srcDir,
     platform: 'browser',
-    format: 'iife', 
+    format: 'iife',
     charset: 'utf8',
     logLevel: 'info',
     sourcemap: isWatchMode ? true : false,
@@ -135,12 +227,11 @@ const buildOptions = {
     treeShaking: true,
     plugins: [
         manifestPlugin,
-        copyPlugin,
+        staticAssetsManager,
     ],
 };
 
-// --- 执行构建 (逻辑不变) ---
-async function run() { /* ... 内容和之前一样，这里省略 ... */ 
+async function run() {
     if (entryPoints.length === 0) {
         console.error('❌ No entry points found. Check your `src` directory and glob pattern in `build.js`.');
         exit(1);
@@ -152,7 +243,7 @@ async function run() { /* ... 内容和之前一样，这里省略 ... */
         const context = await esbuild.context(buildOptions);
         await context.watch();
         console.log("👀 Watching for file changes... (Press Ctrl+C to stop)");
-        await new Promise(() => {});
+        await new Promise(() => { });
     } else {
         await esbuild.build(buildOptions);
         console.log("✅ Build complete.");
