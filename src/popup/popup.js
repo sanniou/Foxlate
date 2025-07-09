@@ -64,10 +64,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         switch (state) {
             case 'loading':
-                btnText.textContent = browser.i18n.getMessage('popupStopTranslation');
-                elements.translatePageBtn.classList.add('loading');
-               break;
             case 'translated':
+                // 对于“加载中”和“已翻译”两种状态，按钮都应显示“显示原文”。
+                // 这是因为“显示原文”是这两种状态下用户的预期操作（中止或还原）。
                 btnText.textContent = browser.i18n.getMessage('popupShowOriginal');
                 elements.translatePageBtn.classList.add('revert');
                break;
