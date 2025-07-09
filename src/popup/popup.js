@@ -271,7 +271,19 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.translatePageBtn.addEventListener('click', handleTranslateButtonClick);
 
         elements.sourceLanguageSelect.addEventListener('change', (e) => saveChangeToRule('sourceLanguage', e.target.value));
-        elements.autoTranslateCheckbox.addEventListener('change', (e) => saveChangeToRule('autoTranslate', e.target.checked ? 'always' : 'manual'));
+        elements.autoTranslateCheckbox.addEventListener('change', async (e) => {
+            const isEnabled = e.target.checked;
+            const newValue = isEnabled ? 'always' : 'manual';
+
+            // 1. 立即保存规则更改
+            await saveChangeToRule('autoTranslate', newValue);
+
+            // 2. 如果启用了自动翻译且页面尚未翻译，则自动开始翻译。
+            //    此操作被视为用户手动触发，因此之后关闭此开关不会停止翻译。
+            if (isEnabled && elements.translatePageBtn.dataset.state === 'original') {
+                await handleTranslateButtonClick();
+            }
+        });
         elements.engineSelect.addEventListener('change', (e) => saveChangeToRule('translatorEngine', e.target.value));
         elements.targetLanguageSelect.addEventListener('change', (e) => saveChangeToRule('targetLanguage', e.target.value));
         elements.displayModeSelect.addEventListener('change', async (e) => {
