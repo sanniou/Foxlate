@@ -4,23 +4,20 @@ import { VideoSubtitleObserver } from './video-subtitle-observer.js';
 // 或者直接放在 youtube-subtitle-strategy.js 文件的顶部。
 
 class SubtitleRenderer {
-  constructor(containerElement) {
-    if (!containerElement) {
-      throw new Error("Renderer requires a valid container element.");
-    }
-    this.container = containerElement;
+  constructor(options = {}) {
     this.overlayId = 'san-reader-translation-overlay';
     this.styleId = 'san-reader-renderer-styles';
     this.overlay = null;
-    console.log('[LOG][SubtitleRenderer] Constructor called.')
+
+    // 默认选项，并与传入的选项合并
+    this.options = {
+      align: 'left', // 默认左对齐，可设置为 'center'
+      ...options
+    };
+
     this.injectStyles();
-    this.createOverlay();
+    console.log('[LOG][SubtitleRenderer] Initialized with Dynamic Positioning and Options.');
   }
-
-  /**
-   * 向页面注入用于翻译层的CSS样式。
-   */
-
 
   injectStyles() {
     if (document.getElementById(this.styleId)) return;
@@ -28,46 +25,29 @@ class SubtitleRenderer {
     const style = document.createElement('style');
     style.id = this.styleId;
     style.textContent = `
-        /*
-         * 终极策略:
-         * 1. 挂载点是真正的 .caption-window。
-         * 2. 我们让 .caption-window 的高度自动适应内容。
-         * 3. 原始字幕和翻译字幕在其中自然地垂直排列。
-         */
-        .caption-window {
-            /* 强制覆盖YouTube的内联样式，让高度由内容决定！ */
-            height: auto !important;
-            /* 让内容垂直排列 */
+        #${this.overlayId} {
+            position: absolute;
             display: flex;
             flex-direction: column;
+            width: 100%;
+            pointer-events: none;
+            z-index: 10;
+            transition: top 0.1s ease-out, opacity 0.1s ease-out;
+        }
+
+        /* [核心改动] 使用 data-align 属性来控制对齐 */
+        #${this.overlayId}[data-align="left"] {
+            align-items: flex-start; /* 左对齐 */
+        }
+        #${this.overlayId}[data-align="center"] {
             align-items: center; /* 居中对齐 */
         }
 
-        #${this.overlayId} {
-            /* 作为一个 flex item，它会自然地排在原始字幕下方 */
-            order: 2; /* 确保翻译在原始字幕之后 */
-            padding-top: 4px; /* 在原文和译文之间留出一点空隙 */
-            
-            /* 其他样式保持，但不再需要 position: absolute */
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            pointer-events: none;
-        }
-
-        /* 原始字幕的容器也需要设置 order */
-        .caption-window .captions-text {
-            order: 1;
-        }
-
         #${this.overlayId} .translation-line {
-            /* 样式保持不变 */
             padding: 2px 8px;
             color: #fff;
             background-color: rgba(8, 8, 8, 0.75);
-            font-size: 35.6889px; /* 尝试与原始字幕的字体大小匹配 */
+            font-size: 1.8rem;
             line-height: 1.4;
             font-family: "YouTube Noto", Roboto, "Arial Unicode Ms", Arial, sans-serif;
             white-space: pre-wrap;
@@ -81,55 +61,94 @@ class SubtitleRenderer {
     document.head.appendChild(style);
   }
 
-  createOverlay() {
-    // this.container 就是在构造函数中传入的 .caption-window
-    if (!this.container) {
-      console.error("Renderer's container (.caption-window) is null.");
+  // 新增一个方法，用于从外部更新选项（例如，用户在设置页面更改了对齐方式）
+  updateOptions(newOptions) {
+    this.options = { ...this.options, ...newOptions };
+    if (this.overlay) {
+      this.overlay.dataset.align = this.options.align;
+    }
+  }
+  
+  // render 方法基本不变，但增加了对 data-align 属性的设置
+  render(translatedLines, captionWindow) {
+    const playerContainer = document.querySelector('#movie_player');
+
+    if (!playerContainer || !captionWindow) {
+      this.hide();
       return;
     }
-
-    // 关键：确保父容器（.caption-window）是相对定位，虽然新CSS下可能不是必须，但这是好习惯
-    this.container.style.position = 'relative';
-
-    let overlay = document.getElementById(this.overlayId);
-    if (!overlay) {
-      overlay = document.createElement('div');
-      overlay.id = this.overlayId;
-      // 直接添加到真正的“舞台”内部
-      this.container.appendChild(overlay);
-      console.log('[LOG][SubtitleRenderer] Overlay appended to the REAL caption window:', this.container);
+    
+    // **重要修复**: 确保在原生字幕出现时，我们的字幕也能恢复显示
+    const isNativeSubsVisible = captionWindow.style.display !== 'none' && captionWindow.offsetHeight > 0;
+    if (!isNativeSubsVisible) {
+      this.hide();
+      return;
     }
-    this.overlay = overlay;
-  }
+    
+    const playerRect = playerContainer.getBoundingClientRect();
+    const nativeCaptionRect = captionWindow.getBoundingClientRect();
 
-  /**
-   * 渲染翻译文本。
-   * @param {string[]} translatedLines - 一个包含要显示的翻译行文本的数组。
-   */
-  render(translatedLines) {
-    console.log(`[LOG][SubtitleRenderer.render] A. Render called with`, translatedLines);
-    if (!this.overlay) this.createOverlay();
+    if (nativeCaptionRect.height === 0 || nativeCaptionRect.width === 0) {
+        this.hide();
+        return;
+    }
 
-    // 清空旧的翻译
-    this.overlay.innerHTML = '';
-    console.log('[LOG][SubtitleRenderer.render] C. Cleared old translation content.');
+    if (!this.overlay || !playerContainer.contains(this.overlay)) {
+      this.overlay = document.getElementById(this.overlayId);
+      if (!this.overlay) {
+        this.overlay = document.createElement('div');
+        this.overlay.id = this.overlayId;
+        playerContainer.appendChild(this.overlay);
+      } else if (this.overlay.parentElement !== playerContainer) {
+        playerContainer.appendChild(this.overlay);
+      }
+      // [核心改动] 初始化时设置对齐方式
+      this.overlay.dataset.align = this.options.align;
+    }
+    
+    const top = (nativeCaptionRect.bottom - playerRect.top) + 6;
+    const left = nativeCaptionRect.left - playerRect.left;
+    const width = nativeCaptionRect.width;
 
-    if (translatedLines && translatedLines.length > 0) {
-      translatedLines.forEach((line, index) => {
-        if (line.trim()) {
-          const lineElement = document.createElement('div');
-          lineElement.className = 'translation-line';
-          lineElement.textContent = line;
-          this.overlay.appendChild(lineElement);
-          console.log(`[LOG][SubtitleRenderer.render] D. Appended translated line ${index + 1}: "${line}"`);
+    this.overlay.style.top = `${top}px`;
+    this.overlay.style.left = `${left}px`;
+    this.overlay.style.width = `${width}px`;
+    // **重要修复**: 主动恢复可见性
+    this.overlay.style.opacity = '1';
+    this.overlay.style.visibility = 'visible';
+
+    const lines = translatedLines.filter(line => line && line.trim());
+
+    while (this.overlay.children.length > lines.length) {
+      this.overlay.lastChild.remove();
+    }
+    
+    lines.forEach((lineText, index) => {
+      let lineElement = this.overlay.children[index];
+      if (lineElement) {
+        if (lineElement.textContent !== lineText) {
+          lineElement.textContent = lineText;
         }
-      });
+      } else {
+        lineElement = document.createElement('div');
+        lineElement.className = 'translation-line';
+        lineElement.textContent = lineText;
+        this.overlay.appendChild(lineElement);
+      }
+    });
+
+    if (lines.length === 0) {
+      this.hide();
     }
   }
 
-  /**
-   * 清理资源，移除添加的元素和样式。
-   */
+  hide() {
+    if (this.overlay) {
+      this.overlay.style.opacity = '0';
+      this.overlay.style.visibility = 'hidden';
+    }
+  }
+
   destroy() {
     console.log('[LOG][SubtitleRenderer.destroy] Destroying renderer resources.');
     document.getElementById(this.overlayId)?.remove();
@@ -150,8 +169,7 @@ class YouTubeSubtitleStrategy {
     this.onSubtitleChange = onSubtitleChange;
     this.observer = null;
     this.videoElement = null;
-    this.renderer = null; // 初始化渲染器为空
-    // 这是新的核心数据结构，存储带有时间戳的完整字幕信息
+    this.renderer = new SubtitleRenderer(); // 在构造函数中直接实例化
     this.subtitleScript = [];
 
     // 绑定所有需要正确 `this` 上下文的处理器
@@ -252,69 +270,106 @@ class YouTubeSubtitleStrategy {
    */
 
   async processAndTranslateSubtitles(subtitleContent) {
-    console.log("[YouTubeStrategy] Processing subtitles with new time-based strategy.");
+    console.log("[YouTubeStrategy] Final Refactor: Processing subtitles with precise sentence splitting.");
     try {
-      if (!subtitleContent || subtitleContent.trim() === '') throw new Error("Content empty.");
+      if (!subtitleContent || subtitleContent.trim() === '') throw new Error("Content is empty.");
       const jsonData = JSON.parse(subtitleContent);
-      if (!jsonData || !Array.isArray(jsonData.events)) throw new Error("Invalid JSON.");
+      if (!jsonData || !Array.isArray(jsonData.events)) throw new Error("Invalid JSON format.");
 
-      // --- 1. 将事件分组为带时间戳的句子 ---
-      const timedSentences = [];
-      let sentenceBuffer = '';
-      let sentenceStartTime = -1;
-
+      // 步骤 1: 数据规整（与上一版相同）
+      const rawBlocks = [];
       for (const event of jsonData.events) {
         if (!event.segs) continue;
-        const segmentText = event.segs.map(s => s.utf8.replace(/\n/g, ' ')).join('');
-
-        if (sentenceStartTime === -1) {
-          sentenceStartTime = event.tStartMs;
+        const text = event.segs.map(s => s.utf8).join('');
+        const trimmedText = text.trim();
+        if (trimmedText === '' || (trimmedText.startsWith('[') && trimmedText.endsWith(']'))) {
+          continue;
         }
-        sentenceBuffer += segmentText;
-
-        // 当句子以标点符号结尾时，将其视为一个完整的句子
-        if (/[.!?。？！]$/.test(sentenceBuffer.trim())) {
-          const text = sentenceBuffer.trim();
-          // 过滤掉YouTube的自动生成提示，如 "[音乐]"
-          if (text && !text.startsWith('[') && !text.endsWith(']')) {
-            timedSentences.push({
-              text: text,
-              startTime: sentenceStartTime,
-              // 句子的结束时间是最后一个事件的结束时间
-              endTime: event.tStartMs + (event.dDurationMs || 2000)
-            });
-          }
-          // 为下一句重置
-          sentenceBuffer = '';
-          sentenceStartTime = -1;
-        }
-      }
-      // 将缓冲区中剩余的任何文本作为最后一句
-      if (sentenceBuffer.trim() && sentenceStartTime !== -1) {
-        const lastEvent = jsonData.events[jsonData.events.length - 1];
-        timedSentences.push({
-          text: sentenceBuffer.trim(),
-          startTime: sentenceStartTime,
-          endTime: lastEvent.tStartMs + (lastEvent.dDurationMs || 5000)
+        rawBlocks.push({
+          text: text.replace(/\n/g, ' ').trim(),
+          startTime: event.tStartMs,
+          endTime: event.tStartMs + (event.dDurationMs || 3000),
         });
       }
 
-      if (timedSentences.length === 0) throw new Error("No timed sentences could be formed.");
+      if (rawBlocks.length === 0) {
+        console.warn("[YouTubeStrategy] No valid text blocks found.");
+        return;
+      }
 
-      // --- 2. 批量翻译并创建最终的字幕脚本 ---
+      // --- 步骤 2 & 3 (核心重构): 使用缓冲区和循环来精确分割句子 ---
+      const timedSentences = [];
+      let sentenceBuffer = '';
+      let sentenceStartTime = -1;
+      
+      const sentenceBoundaryRegex = /(.*?[.!?。？！])/; // 匹配到第一个句子结束符（非贪婪）
+
+      for (const block of rawBlocks) {
+        // 如果缓冲区为空，新句子的起点就是当前 block 的起点
+        if (sentenceBuffer.trim() === '') {
+          sentenceStartTime = block.startTime;
+        }
+
+        sentenceBuffer += block.text + ' ';
+
+        // **核心逻辑**: 循环从缓冲区中提取所有已完成的句子
+        while (sentenceBoundaryRegex.test(sentenceBuffer)) {
+          const match = sentenceBuffer.match(sentenceBoundaryRegex);
+          const sentenceText = match[1].trim();
+          
+          if (sentenceText) {
+            timedSentences.push({
+              text: sentenceText,
+              startTime: sentenceStartTime,
+              // 句子的结束时间是完成该句子的这个 block 的结束时间
+              endTime: block.endTime, 
+            });
+          }
+
+          // 从缓冲区移除已提取的句子
+          sentenceBuffer = sentenceBuffer.substring(match[0].length);
+
+          // 为缓冲区中剩余部分（下一句的开头）设定新的开始时间
+          // 如果还有剩余文字，新句子的起点就是当前这个 block 的时间点
+          if (sentenceBuffer.trim() !== '') {
+            sentenceStartTime = block.startTime;
+          }
+        }
+      }
+
+      // 处理循环结束后缓冲区里剩余的最后一句（可能没有标点）
+      const remainingText = sentenceBuffer.trim();
+      if (remainingText && sentenceStartTime !== -1) {
+        timedSentences.push({
+          text: remainingText,
+          startTime: sentenceStartTime,
+          // 结束时间是最后一个 block 的结束时间
+          endTime: rawBlocks[rawBlocks.length - 1].endTime,
+        });
+      }
+      
+      if (timedSentences.length === 0) {
+        console.warn("[YouTubeStrategy] No sentences could be formed.");
+        return;
+      }
+
+      // --- 步骤 4: 批量翻译并创建最终的字幕脚本 (无变化) ---
       const originalTexts = timedSentences.map(s => s.text);
       const translatedTexts = await this.requestBatchTranslation(originalTexts);
       if (!translatedTexts || originalTexts.length !== translatedTexts.length) {
         throw new Error("Translation failed or returned mismatched results.");
       }
 
-      this.subtitleScript = timedSentences.map((s, i) => ({ ...s, translated: translatedTexts[i] }));
+      this.subtitleScript = timedSentences.map((s, i) => ({
+        ...s,
+        translated: translatedTexts[i],
+      }));
 
-      console.log(`[YouTubeStrategy] Cached ${this.subtitleScript.length} timed sentences. Activating display.`);
+      console.log(`[YouTubeStrategy] Final Refactor: Cached ${this.subtitleScript.length} timed sentences.`, this.subtitleScript);
       this.startVideoObserver();
 
     } catch (error) {
-      console.error(`[ModernYouTubeStrategy] Critical failure in subtitle processing: ${error.message}.`);
+      console.error(`[YouTubeStrategy] Critical failure in final refactor: ${error.message}.`);
       this.stopObserver();
     }
   }
@@ -341,39 +396,27 @@ class YouTubeSubtitleStrategy {
   updateSubtitleDisplay(currentTimeInSeconds) {
     const currentTimeMs = currentTimeInSeconds * 1000;
 
-    // 1. 找到当前时间点应该显示的句子
-    const currentSentence = this.subtitleScript.find(
+    const currentSentences = this.subtitleScript.filter(
       s => currentTimeMs >= s.startTime && currentTimeMs <= s.endTime
     );
 
-    // 2. 确保渲染器已准备就绪
     const playerContainer = document.querySelector('#movie_player');
+    // 如果播放器不存在，什么也做不了
     if (!playerContainer) return;
 
-    const realCaptionWindow = playerContainer.querySelector('.caption-window');
-    if (!realCaptionWindow) {
-      // 如果字幕窗口消失，销毁渲染器以清理资源
-      if (this.renderer) {
-        this.renderer.destroy();
-        this.renderer = null;
-      }
-      return;
-    }
-
-    if (!this.renderer) {
-      this.renderer = new SubtitleRenderer(realCaptionWindow);
-    }
-
-    // 3. 渲染找到的句子或清空显示
-    console.log(`[YouTubeStrategy] Current time:`,this.subtitleScript);
-    console.log(`[YouTubeStrategy] Current time: ${currentTimeMs}ms. Current sentence: ${currentSentence?.text}`);
-    if (currentSentence) {
-      this.renderer.render([currentSentence.translated]);
-    } else {
-      this.renderer.render([]); // 如果当前时间没有对应句子，则清空
-    }
+    // [核心修复] 移除旧的、错误的显示判断逻辑。
+    // 我们总是获取 captionWindow，然后把它传递给 renderer。
+    // 让 renderer 自己去判断是否应该显示。
+    const captionWindow = playerContainer.querySelector('.caption-window');
+    
+    const translatedLines = currentSentences.map(s => s.translated);
+    
+    // 无论 captionWindow 是否可见，都调用 render 方法。
+    // render 方法内部有足够的逻辑来处理所有情况（显示、隐藏、定位）。
+    // console.log(`[YouTubeStrategy] Current time: ${currentTimeMs}ms. Current sentence: `,currentSentences);
+    this.renderer.render(translatedLines, captionWindow);
   }
-
+  
   startVideoObserver() {
     this.stopObserver();
     // 1. 获取视频播放器容器
