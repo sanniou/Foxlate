@@ -16,6 +16,40 @@
             overflow-y: auto; /* 为表单内容区域启用垂直滚动 */
             padding-right: 12px; /* 为滚动条留出一些空间，避免内容紧贴滚动条 */
         }
+
+        /* 域名规则弹窗内表单的布局和间距优化 */
+        #domainRuleForm > .m3-form-field,
+        #domainRuleForm > .m3-switch,
+        #domainRuleForm > .form-grid-2col,
+        #domainRuleForm > .form-section-box,
+        #domainRuleForm > #ruleSubtitleSettingsGroup {
+            margin-top: 24px;
+        }
+        #domainRuleForm > .m3-form-field:first-child {
+            margin-top: 0;
+        }
+        .form-grid-2col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        .form-section-box {
+            border: 1px solid var(--md-sys-color-outline-variant);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        hr.divider {
+            border: none;
+            height: 1px;
+            background-color: var(--md-sys-color-outline-variant);
+            margin: 24px 0;
+        }
+        .form-section-box .m3-helper-text {
+            padding: 0; /* 移除内边距，因为它已经在 box 内部 */
+        }
     </style>
 </head>
 <body>
@@ -275,11 +309,19 @@
                     </label>
                     <label for="ruleApplyToSubdomains" class="switch-label" i18n-text="applyToSubdomains">Apply to all subdomains</label>
                 </div>
-                <div class="m3-form-field filled">
-                    <select id="ruleAutoTranslate">
-                         <!-- 选项将由 JS 动态加载 -->
-                    </select>
-                    <label for="ruleAutoTranslate" i18n-text="autoTranslate">Auto Translate:</label>
+                <div class="form-grid-2col">
+                    <div class="m3-form-field filled">
+                        <select id="ruleAutoTranslate">
+                             <!-- 选项将由 JS 动态加载 -->
+                        </select>
+                        <label for="ruleAutoTranslate" i18n-text="autoTranslate">Auto Translate:</label>
+                    </div>
+                    <div class="m3-form-field filled">
+                        <select id="ruleDisplayMode">
+                            <!-- 选项将由 JS 动态加载 -->
+                        </select>
+                        <label for="ruleDisplayMode" i18n-text="displayMode">Display Mode:</label>
+                    </div>
                 </div>
                 <div class="m3-form-field filled">
                     <select id="ruleTranslatorEngine">
@@ -287,48 +329,46 @@
                     </select>
                     <label for="ruleTranslatorEngine" i18n-text="translationEngine">Translation Engine:</label>
                 </div>
-                <div class="m3-form-field filled">
-                    <select id="ruleTargetLanguage">
-                        <!-- 选项将由 JS 动态加载 -->
-                    </select>
-                    <label for="ruleTargetLanguage" i18n-text="targetLanguage">Target Language:</label>
+                <div class="form-grid-2col">
+                    <div class="m3-form-field filled">
+                        <select id="ruleSourceLanguage">
+                            <!-- 选项将由 JS 动态加载 -->
+                        </select>
+                        <label for="ruleSourceLanguage" i18n-text="popupSourceLanguage">Source Language:</label>
+                    </div>
+                    <div class="m3-form-field filled">
+                        <select id="ruleTargetLanguage">
+                            <!-- 选项将由 JS 动态加载 -->
+                        </select>
+                        <label for="ruleTargetLanguage" i18n-text="targetLanguage">Target Language:</label>
+                    </div>
                 </div>
-                <div class="m3-form-field filled">
-                    <select id="ruleSourceLanguage">
-                        <!-- 选项将由 JS 动态加载 -->
-                    </select>
-                    <label for="ruleSourceLanguage" i18n-text="popupSourceLanguage">Source Language:</label>
-                </div>
-                <div class="m3-form-field filled">
-                    <select id="ruleDisplayMode">
-                        <!-- 选项将由 JS 动态加载 -->
-                    </select>
-                    <label for="ruleDisplayMode" i18n-text="displayMode">Display Mode:</label>
-                </div>
-                <div class="m3-form-field filled">
-                    <textarea id="ruleInlineSelector" rows="2" placeholder=" "></textarea>
-                    <label for="ruleInlineSelector" i18n-text="inlineSelectorLabel">Inline Selector (Single Line)</label>
-                </div>
-                <div class="m3-form-field filled">
-                    <textarea id="ruleBlockSelector" rows="2" placeholder=" "></textarea>
-                    <label for="ruleBlockSelector" i18n-text="blockSelectorLabel">Block Selector (Preserve Newlines)</label>
-                </div>
-                <div class="m3-switch">
-                    <input type="checkbox" id="ruleCssSelectorOverride">
-                    <label for="ruleCssSelectorOverride" class="switch-track">
-                        <span class="switch-thumb"></span>
-                    </label>
-                    <label for="ruleCssSelectorOverride" class="switch-label" i18n-text="overrideDefaultSelectors">Override default selectors</label>
-                </div>
-                <div class="m3-helper-text">
-                    <small i18n-text="selectorOverrideDescription">When enabled, only the domain-specific selectors defined above will be used, ignoring global rules. Leave empty to inherit global rules.</small>
+                <div class="form-section-box">
+                    <div class="m3-form-field filled">
+                        <textarea id="ruleInlineSelector" rows="2" placeholder=" "></textarea>
+                        <label for="ruleInlineSelector" i18n-text="inlineSelectorLabel">Inline Selector (Single Line)</label>
+                    </div>
+                    <div class="m3-form-field filled">
+                        <textarea id="ruleBlockSelector" rows="2" placeholder=" "></textarea>
+                        <label for="ruleBlockSelector" i18n-text="blockSelectorLabel">Block Selector (Preserve Newlines)</label>
+                    </div>
+                    <div class="m3-switch">
+                        <input type="checkbox" id="ruleCssSelectorOverride">
+                        <label for="ruleCssSelectorOverride" class="switch-track">
+                            <span class="switch-thumb"></span>
+                        </label>
+                        <label for="ruleCssSelectorOverride" class="switch-label" i18n-text="overrideDefaultSelectors">Override default selectors</label>
+                    </div>
+                    <div class="m3-helper-text">
+                        <small i18n-text="selectorOverrideDescription">When enabled, only the domain-specific selectors defined above will be used, ignoring global rules. Leave empty to inherit global rules.</small>
+                    </div>
                 </div>
 
                 <!-- Subtitle Settings Section -->
                 <hr class="divider">
                 <h4 i18n-text="subtitleSettingsTitle">Subtitle Settings</h4>
                 <div class="m3-switch">
-                    <input type="checkbox" id="ruleEnableSubtitle">
+                    <input type="checkbox" id="ruleEnableSubtitle" name="ruleEnableSubtitle">
                     <label for="ruleEnableSubtitle" class="switch-track">
                         <span class="switch-thumb"></span>
                     </label>
@@ -336,17 +376,19 @@
                 </div>
 
                 <div id="ruleSubtitleSettingsGroup" style="display: none;">
-                    <div class="m3-form-field filled">
-                        <select id="ruleSubtitleStrategy">
-                            <!-- Options will be populated by options.js -->
-                        </select>
-                        <label for="ruleSubtitleStrategy" i18n-text="subtitleStrategy">Subtitle Strategy:</label>
-                    </div>
-                    <div class="m3-form-field filled">
-                        <select id="ruleSubtitleDisplayMode">
-                            <!-- Options will be populated by options.js -->
-                        </select>
-                        <label for="ruleSubtitleDisplayMode" i18n-text="subtitleDisplayMode">Subtitle Display Mode:</label>
+                    <div class="form-grid-2col">
+                        <div class="m3-form-field filled">
+                            <select id="ruleSubtitleStrategy">
+                                <!-- Options will be populated by options.js -->
+                            </select>
+                            <label for="ruleSubtitleStrategy" i18n-text="subtitleStrategy">Subtitle Strategy:</label>
+                        </div>
+                        <div class="m3-form-field filled">
+                            <select id="ruleSubtitleDisplayMode">
+                                <!-- Options will be populated by options.js -->
+                            </select>
+                            <label for="ruleSubtitleDisplayMode" i18n-text="subtitleDisplayMode">Subtitle Display Mode:</label>
+                        </div>
                     </div>
                 </div>
             </div>
