@@ -8,10 +8,13 @@ class SubtitleRenderer {
     this.overlayId = 'san-reader-translation-overlay';
     this.styleId = 'san-reader-renderer-styles';
     this.overlay = null;
+    this.lastRenderedState = { lines: null, top: null, left: null }; // <--- 新增缓存属性
 
     // 默认选项，并与传入的选项合并
     this.options = {
       align: 'left', // 默认左对齐，可设置为 'center'
+      fontSize: 1.8, // 单位是 rem
+      backgroundColor: 'rgba(8, 8, 8, 0.75)',
       ...options
     };
 
@@ -68,29 +71,36 @@ class SubtitleRenderer {
       this.overlay.dataset.align = this.options.align;
     }
   }
-  
+
   // render 方法基本不变，但增加了对 data-align 属性的设置
   render(translatedLines, captionWindow) {
-    const playerContainer = document.querySelector('#movie_player');
+    const playerContainer = document.querySelector(YouTubeSubtitleStrategy.SELECTORS.PLAYER_CONTAINER);
 
     if (!playerContainer || !captionWindow) {
       this.hide();
       return;
     }
-    
+
+    // --- 缓存检查 ---
+    const lines = translatedLines.filter(line => line && line.trim());
+    const linesJoined = lines.join('\n'); // 将数组转换为简单字符串以便比较
+
     // **重要修复**: 确保在原生字幕出现时，我们的字幕也能恢复显示
     const isNativeSubsVisible = captionWindow.style.display !== 'none' && captionWindow.offsetHeight > 0;
     if (!isNativeSubsVisible) {
-      this.hide();
+      if (this.lastRenderedState.lines !== null) { // 如果之前在显示，现在需要隐藏
+        this.hide();
+        this.lastRenderedState = { lines: null, top: null, left: null };
+      }
       return;
     }
-    
+
     const playerRect = playerContainer.getBoundingClientRect();
     const nativeCaptionRect = captionWindow.getBoundingClientRect();
 
     if (nativeCaptionRect.height === 0 || nativeCaptionRect.width === 0) {
-        this.hide();
-        return;
+      this.hide();
+      return;
     }
 
     if (!this.overlay || !playerContainer.contains(this.overlay)) {
@@ -105,10 +115,18 @@ class SubtitleRenderer {
       // [核心改动] 初始化时设置对齐方式
       this.overlay.dataset.align = this.options.align;
     }
-    
+
     const top = (nativeCaptionRect.bottom - playerRect.top) + 6;
     const left = nativeCaptionRect.left - playerRect.left;
     const width = nativeCaptionRect.width;
+
+    // 如果内容和位置都和上次一样，直接返回，不做任何操作
+    if (this.lastRenderedState.lines === linesJoined && this.lastRenderedState.top === top) {
+      return;
+    }
+
+    // 更新缓存
+    this.lastRenderedState = { lines: linesJoined, top, left };
 
     this.overlay.style.top = `${top}px`;
     this.overlay.style.left = `${left}px`;
@@ -117,12 +135,10 @@ class SubtitleRenderer {
     this.overlay.style.opacity = '1';
     this.overlay.style.visibility = 'visible';
 
-    const lines = translatedLines.filter(line => line && line.trim());
-
     while (this.overlay.children.length > lines.length) {
       this.overlay.lastChild.remove();
     }
-    
+
     lines.forEach((lineText, index) => {
       let lineElement = this.overlay.children[index];
       if (lineElement) {
@@ -133,6 +149,8 @@ class SubtitleRenderer {
         lineElement = document.createElement('div');
         lineElement.className = 'translation-line';
         lineElement.textContent = lineText;
+        lineElement.style.fontSize = `${this.options.fontSize}rem`;
+        lineElement.style.backgroundColor = this.options.backgroundColor;
         this.overlay.appendChild(lineElement);
       }
     });
@@ -164,6 +182,12 @@ class YouTubeSubtitleStrategy {
   static SEGMENT_SELECTOR = '.ytp-caption-segment';
   static SCRIPT_ID = 'san-reader-network-interceptor';
   static EVENT_NAME = 'san-reader-subtitle-data';
+
+  static SELECTORS = {
+    PLAYER_CONTAINER: '#movie_player',
+    VIDEO_ELEMENT: 'video',
+    CAPTION_WINDOW: '.caption-window',
+  };
 
   constructor(onSubtitleChange) {
     this.onSubtitleChange = onSubtitleChange;
@@ -301,7 +325,7 @@ class YouTubeSubtitleStrategy {
       const timedSentences = [];
       let sentenceBuffer = '';
       let sentenceStartTime = -1;
-      
+
       const sentenceBoundaryRegex = /(.*?[.!?。？！])/; // 匹配到第一个句子结束符（非贪婪）
 
       for (const block of rawBlocks) {
@@ -316,13 +340,13 @@ class YouTubeSubtitleStrategy {
         while (sentenceBoundaryRegex.test(sentenceBuffer)) {
           const match = sentenceBuffer.match(sentenceBoundaryRegex);
           const sentenceText = match[1].trim();
-          
+
           if (sentenceText) {
             timedSentences.push({
               text: sentenceText,
               startTime: sentenceStartTime,
               // 句子的结束时间是完成该句子的这个 block 的结束时间
-              endTime: block.endTime, 
+              endTime: block.endTime,
             });
           }
 
@@ -347,7 +371,7 @@ class YouTubeSubtitleStrategy {
           endTime: rawBlocks[rawBlocks.length - 1].endTime,
         });
       }
-      
+
       if (timedSentences.length === 0) {
         console.warn("[YouTubeStrategy] No sentences could be formed.");
         return;
@@ -400,65 +424,67 @@ class YouTubeSubtitleStrategy {
       s => currentTimeMs >= s.startTime && currentTimeMs <= s.endTime
     );
 
-    const playerContainer = document.querySelector('#movie_player');
+    const playerContainer = document.querySelector(YouTubeSubtitleStrategy.SELECTORS.PLAYER_CONTAINER);
     // 如果播放器不存在，什么也做不了
     if (!playerContainer) return;
 
     // [核心修复] 移除旧的、错误的显示判断逻辑。
     // 我们总是获取 captionWindow，然后把它传递给 renderer。
     // 让 renderer 自己去判断是否应该显示。
-    const captionWindow = playerContainer.querySelector('.caption-window');
-    
+    const captionWindow = playerContainer.querySelector(YouTubeSubtitleStrategy.SELECTORS.CAPTION_WINDOW);
+
     const translatedLines = currentSentences.map(s => s.translated);
-    
+
     // 无论 captionWindow 是否可见，都调用 render 方法。
     // render 方法内部有足够的逻辑来处理所有情况（显示、隐藏、定位）。
     // console.log(`[YouTubeStrategy] Current time: ${currentTimeMs}ms. Current sentence: `,currentSentences);
     this.renderer.render(translatedLines, captionWindow);
   }
-  
+
   startVideoObserver() {
     this.stopObserver();
     // 1. 获取视频播放器容器
-    const playerContainer = document.querySelector('#movie_player');
+    const playerContainer = document.querySelector(YouTubeSubtitleStrategy.SELECTORS.PLAYER_CONTAINER);
     if (!playerContainer) {
       console.error("[YouTubeStrategy] Cannot start observer: #movie_player not found.");
       return;
     }
     // 2. 获取视频元素
-    this.videoElement = playerContainer.querySelector('video');
+    this.videoElement = playerContainer.querySelector(YouTubeSubtitleStrategy.SELECTORS.VIDEO_ELEMENT);
     if (!this.videoElement) {
       console.error("[YouTubeStrategy] Cannot start observer: video element not found.");
       return;
     }
 
+
     // 3. 定义并启动新的时间监听器
+    let isUpdateScheduled = false;
     const timeUpdateHandler = () => {
-      if (this.videoElement) {
+      // 如果已经安排了一次更新，就不要再安排了
+      if (isUpdateScheduled) return;
+
+      isUpdateScheduled = true;
+      // 使用 requestAnimationFrame 来执行真正的更新
+      window.requestAnimationFrame(() => {
         this.updateSubtitleDisplay(this.videoElement.currentTime);
-      }
+        isUpdateScheduled = false; // 更新完成后，重置标志
+      });
     };
     this.videoElement.addEventListener('timeupdate', timeUpdateHandler);
-    console.log("[YouTubeStrategy] Time-based subtitle update listener added.");
+    console.log("[YouTubeStrategy] Throttled subtitle update listener added using requestAnimationFrame.");
 
-    // 4. (可选) 立即触发一次更新，以处理初始字幕
-    timeUpdateHandler();
-
-    // 5. (重要) 重写 stopObserver 以移除事件监听器
+    // 重写 stopObserver 以正确移除监听器
     const originalStopObserver = this.stopObserver.bind(this);
     this.stopObserver = () => {
-      originalStopObserver(); // 调用原来的清理逻辑
+      originalStopObserver();
       if (this.videoElement) {
         this.videoElement.removeEventListener('timeupdate', timeUpdateHandler);
-        this.videoElement = null; // 清除引用
-        console.log("[YouTubeStrategy] Time-based subtitle update listener removed.");
+        this.videoElement = null;
       }
     };
 
-    console.log('[YouTubeStrategy] Time-based subtitle synchronization is now active.');
-
-    // 首次启动时，手动调用一次更新，以确保初始状态正确
-    this.updateSubtitleDisplay(this.videoElement.currentTime);
+    // 立即触发一次更新
+    timeUpdateHandler();
   }
 
   // stopObserver, spaNavigationHandler, cleanup 等方法保持不变
