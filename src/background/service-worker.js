@@ -4,7 +4,7 @@ import { getEffectiveSettings, getValidatedSettings } from '../common/settings-m
 import { TranslatorManager } from '../background/translator-manager.js';
 import * as Constants from '../common/constants.js';
 import { AITranslator } from '../background/translators/ai-translator.js';
-import { SUBTITLE_STRATEGIES, SUBTITLE_MANAGER_SCRIPT } from '../content/subtitle/strategy-manifest.js';
+import { SUBTITLE_STRATEGIES, SUBTITLE_MANAGER_SCRIPT, DEFAULT_STRATEGY_MAP } from '../content/subtitle/strategy-manifest.js';
 const CSS_FILES = ["content/style.css"];
 
 const CORE_SCRIPT_FILES = ["common/precheck.js", "lib/browser-polyfill.js", "content/strategies/replace-strategy.js", "content/strategies/append-strategy.js", "content/strategies/hover-strategy.js", "content/strategies/context-menu-strategy.js", "content/display-manager.js", "content/content-script.js"];
@@ -14,10 +14,6 @@ const CORE_SCRIPT_FILES = ["common/precheck.js", "lib/browser-polyfill.js", "con
 // than searching an array (O(n)) on every navigation event.
 const STRATEGY_FILE_MAP = new Map(
   SUBTITLE_STRATEGIES.map(strategy => [strategy.name, strategy.file])
-);
-
-const DEFAULT_STRATEGY_MAP = new Map(
-    SUBTITLE_STRATEGIES.flatMap(strategy => strategy.hosts.map(host => [host, strategy.name]))
 );
 
 /**
@@ -403,15 +399,30 @@ async TRANSLATE_BATCH(request) {
     const settings = await getValidatedSettings();
 
     const domainToUpdate = (ruleSource === 'default') ? hostname : ruleSource;
-    const rule = settings.domainRules[domainToUpdate] || {
-        // 如果是新规则，确保它有一个 subtitleSettings 对象
-        subtitleSettings: { enabled: false } 
-    };
+    let rule = settings.domainRules[domainToUpdate];
+
+    // 如果我们正在为一个没有规则的域名创建一个新规则...
+    if (!rule) {
+        rule = {};
+        // ...并且该域名有一个默认的字幕策略...
+        if (DEFAULT_STRATEGY_MAP.has(hostname)) {
+            // ...那么在创建新规则时，预先填充字幕设置。
+            // 这可以确保当用户首次更改字幕设置（如显示模式）时，
+            // `enabled` 和 `strategy` 字段被正确地预设为 true 和对应的策略。
+            rule.subtitleSettings = {
+                enabled: true,
+                strategy: DEFAULT_STRATEGY_MAP.get(hostname),
+                displayMode: 'off' // 从默认的“关闭”状态开始
+            };
+        }
+    }
 
     // 为嵌套的字幕设置提供特殊处理
     if (key === 'subtitleDisplayMode') {
         // 确保 subtitleSettings 对象存在
         if (!rule.subtitleSettings) rule.subtitleSettings = {};
+        // 如果用户正在与字幕控件交互，我们可以安全地假设他们希望启用该功能。
+        rule.subtitleSettings.enabled = true;
         rule.subtitleSettings.displayMode = value;
     } else {
         rule[key] = value;

@@ -208,7 +208,7 @@ class YouTubeSubtitleStrategy {
 
   constructor(onSubtitleChange) {
     this.onSubtitleChange = onSubtitleChange;
-    this.observer = null;
+    this.timeUpdateHandler = null;
     this.videoElement = null;
     this.renderer = new SubtitleRenderer(); // 在构造函数中直接实例化
     this.subtitleScript = [];
@@ -485,11 +485,11 @@ class YouTubeSubtitleStrategy {
       this.startVideoObserver();
 
     } catch (error) {
-      console.error(`[YouTubeStrategy] Critical failure in final refactor: ${error.message}.`);
-      this.stopObserver();
+      console.error(`[YouTubeStrategy] Critical failure in subtitle processing: ${error.message}.`);
+      this.stopVideoObserver();
     }
   }
-
+  
   async requestBatchTranslation(texts) {
     try {
       // 直接使用 await，因为 browser.runtime.sendMessage 返回一个 Promise
@@ -537,58 +537,51 @@ class YouTubeSubtitleStrategy {
     this.renderer.render(linesData, captionWindow);
   }
 
+  /**
+   * 启动对视频播放时间的监听，以实时更新字幕。
+   * 此方法是幂等的，会先停止任何已存在的监听器。
+   */
   startVideoObserver() {
-    this.stopObserver();
-    // 1. 获取视频播放器容器
+    this.stopVideoObserver(); // 确保先停止任何旧的观察者
+
     const playerContainer = document.querySelector(YouTubeSubtitleStrategy.SELECTORS.PLAYER_CONTAINER);
     if (!playerContainer) {
       console.error("[YouTubeStrategy] Cannot start observer: #movie_player not found.");
       return;
     }
-    // 2. 获取视频元素
     this.videoElement = playerContainer.querySelector(YouTubeSubtitleStrategy.SELECTORS.VIDEO_ELEMENT);
     if (!this.videoElement) {
       console.error("[YouTubeStrategy] Cannot start observer: video element not found.");
       return;
     }
 
-
-    // 3. 定义并启动新的时间监听器
     let isUpdateScheduled = false;
-    const timeUpdateHandler = () => {
-      // 如果已经安排了一次更新，就不要再安排了
+    // 将处理器赋给 this.timeUpdateHandler，以便可以正确地移除它
+    this.timeUpdateHandler = () => {
       if (isUpdateScheduled) return;
-
       isUpdateScheduled = true;
-      // 使用 requestAnimationFrame 来执行真正的更新
       window.requestAnimationFrame(() => {
-        this.updateSubtitleDisplay(this.videoElement.currentTime);
-        isUpdateScheduled = false; // 更新完成后，重置标志
+        if (this.videoElement) { // 再次检查，以防元素在异步回调执行前被移除
+          this.updateSubtitleDisplay(this.videoElement.currentTime);
+        }
+        isUpdateScheduled = false;
       });
     };
-    this.videoElement.addEventListener('timeupdate', timeUpdateHandler);
+
+    this.videoElement.addEventListener('timeupdate', this.timeUpdateHandler);
     console.log("[YouTubeStrategy] Throttled subtitle update listener added using requestAnimationFrame.");
 
-    // 重写 stopObserver 以正确移除监听器
-    const originalStopObserver = this.stopObserver.bind(this);
-    this.stopObserver = () => {
-      originalStopObserver();
-      if (this.videoElement) {
-        this.videoElement.removeEventListener('timeupdate', timeUpdateHandler);
-        this.videoElement = null;
-      }
-    };
-
     // 立即触发一次更新
-    timeUpdateHandler();
+    this.timeUpdateHandler();
   }
 
-  // stopObserver, spaNavigationHandler, cleanup 等方法保持不变
-  // 但要确保 stopObserver 能正确停止新的观察者
-  stopObserver() {
-    if (this.observer) {
-      this.observer.disconnect();
+  stopVideoObserver() {
+    if (this.videoElement && this.timeUpdateHandler) {
+      this.videoElement.removeEventListener('timeupdate', this.timeUpdateHandler);
+      console.log("[YouTubeStrategy] Subtitle update listener removed.");
     }
+    this.videoElement = null;
+    this.timeUpdateHandler = null;
   }
 
   /**
@@ -597,8 +590,7 @@ class YouTubeSubtitleStrategy {
   spaNavigationHandler() {
     console.log('[ModernYouTubeStrategy] SPA navigation detected. Resetting state.');
     // 停止旧的观察者
-    this.stopObserver();
-    // [修复] 隐藏当前字幕，防止在新页面上闪烁
+    this.stopVideoObserver();
     this.renderer?.hide();
     // [修复] 清理已缓存的字幕脚本
     this.subtitleScript = [];
@@ -607,7 +599,7 @@ class YouTubeSubtitleStrategy {
 
   cleanup() {
     console.log("[ModernYouTubeStrategy] Strategy cleaning up...");
-    this.stopObserver();
+    this.stopVideoObserver();
     this.subtitleScript = [];
     // [修复] 销毁 Renderer，移除其注入的 DOM 元素和样式
     this.renderer?.destroy();
@@ -620,8 +612,8 @@ class YouTubeSubtitleStrategy {
 
   getStatus() {
     const isSupported = window.location.pathname.includes('/watch');
-    // 状态现在由是否拥有翻译缓存来决定更为准确
-    const isEnabled = this.translatedSubtitles.size > 0 && !!this.observer;
+    // 状态由是否拥有翻译缓存以及视频观察器是否在运行来决定
+    const isEnabled = this.subtitleScript.length > 0 && !!this.videoElement;
     return { isSupported, isEnabled };
   }
 }

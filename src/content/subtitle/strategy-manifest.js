@@ -34,3 +34,8 @@ export const SUBTITLE_STRATEGIES = [
     //   hosts: ['www.netflix.com']
     // }
 ];
+
+/** A Map from a default hostname to its strategy's name for quick lookups. */
+export const DEFAULT_STRATEGY_MAP = new Map(
+    SUBTITLE_STRATEGIES.flatMap(strategy => strategy.hosts.map(host => [host, strategy.name]))
+);

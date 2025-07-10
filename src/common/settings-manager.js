@@ -2,8 +2,8 @@
  * @file Manages loading, validation, caching, and pre-compilation of extension settings.
  */
 import '../lib/browser-polyfill.js';
-import * as Constants from '../common/constants.js';
-import { SUBTITLE_STRATEGIES } from '../content/subtitle/strategy-manifest.js';
+import * as Constants from './constants.js';
+import { DEFAULT_STRATEGY_MAP } from '../content/subtitle/strategy-manifest.js';
 
 // --- Module-level Cache ---
 let validatedSettingsCache = null;
@@ -159,12 +159,11 @@ export async function getValidatedSettings() {
  */
 export async function getEffectiveSettings(hostname) {
     const settings = await getValidatedSettings();
-    let effectiveRule = {};
+    const domainRules = settings.domainRules || {};
+    let domainRule = {};
     let ruleSource = 'default';
-    let subtitleSettings = { enabled: false, displayMode: 'off' }; // 初始化字幕设置，默认关闭
 
     if (hostname) {
-        const domainRules = settings.domainRules || {};
         const matchingDomain = Object.keys(domainRules)
             .filter(d => hostname.endsWith(d))
             .sort((a, b) => b.length - a.length)[0];
@@ -172,26 +171,36 @@ export async function getEffectiveSettings(hostname) {
         if (matchingDomain) {
             const rule = domainRules[matchingDomain];
             if (rule.applyToSubdomains !== false || hostname === matchingDomain) {
-                effectiveRule = rule;
+                domainRule = rule;
                 ruleSource = matchingDomain;
             }
         }
-
-        // 应用默认策略（如果适用）
-        if (!matchingDomain && DEFAULT_SUBTITLE_SETTINGS.has(hostname)) {
-            subtitleSettings = { ...subtitleSettings, ...DEFAULT_SUBTITLE_SETTINGS.get(hostname) };
-        } else if (effectiveRule.subtitleSettings) {
-            // 合并字幕设置：自定义规则 > 默认设置
-            subtitleSettings = { ...subtitleSettings, ...effectiveRule.subtitleSettings };
-        }
     }
 
-    const finalSettings = { ...settings, ...effectiveRule };
+    // Start with global settings as the base and merge the domain rule
+    const effectiveSettings = { ...settings, ...domainRule, source: ruleSource };
+
+    // --- Subtitle Logic ---
+    if (domainRule.subtitleSettings) {
+        // Case 1: User has defined subtitle settings for this domain. Merge with defaults to ensure all properties exist.
+        effectiveSettings.subtitleSettings = {
+            enabled: false, strategy: 'none', displayMode: 'off', ...domainRule.subtitleSettings
+        };
+    } else if (DEFAULT_STRATEGY_MAP.has(hostname)) {
+        // Case 2: No user rule, but a default strategy exists. Enable by default for injection.
+        effectiveSettings.subtitleSettings = {
+            enabled: true,
+            strategy: DEFAULT_STRATEGY_MAP.get(hostname),
+            displayMode: 'off' // Hide by default, user can enable it in popup
+        };
+    } else {
+        // Case 3: No user rule and no default strategy.
+        effectiveSettings.subtitleSettings = { enabled: false, strategy: 'none', displayMode: 'off' };
+    }
 
     const defaultSelector = settings.translationSelector?.default || { inline: '', block: '' };
-    // 应用字幕设置
-    const ruleSelector = effectiveRule.cssSelector;
-    const override = effectiveRule.cssSelectorOverride || false;
+    const ruleSelector = domainRule.cssSelector;
+    const override = domainRule.cssSelectorOverride || false;
 
     let finalInlineSelector = defaultSelector.inline || '';
     let finalBlockSelector = defaultSelector.block || '';
@@ -208,18 +217,16 @@ export async function getEffectiveSettings(hostname) {
         }
     }
 
-    finalSettings.translationSelector = {
+    effectiveSettings.translationSelector = {
         inline: finalInlineSelector,
         block: finalBlockSelector,
     };
-    finalSettings.subtitleSettings = subtitleSettings;
-    finalSettings.source = ruleSource;
 
-    if (effectiveRule.precheckRules) {
-        finalSettings.precheckRules = precompileRules(effectiveRule.precheckRules);
+    if (domainRule.precheckRules) {
+        effectiveSettings.precheckRules = precompileRules(domainRule.precheckRules);
     }
 
-    return finalSettings;
+    return effectiveSettings;
 }
 
 /**
@@ -243,22 +250,3 @@ export async function saveSettings(settings) {
 
     await browser.storage.sync.set({ settings: settingsToSave });
 }
-
-/**
- * 从策略清单动态生成默认的字幕设置映射。
- * @returns {Map<string, {enabled: boolean, strategy: string}>}
- */
-function generateDefaultSubtitleSettings() {
-    const settingsMap = new Map();
-    for (const strategy of SUBTITLE_STRATEGIES) {
-        if (strategy.hosts && Array.isArray(strategy.hosts)) {
-            for (const host of strategy.hosts) {
-                // 默认情况下，所有网站的字幕翻译功能都是关闭的
-                settingsMap.set(host, { enabled: false, strategy: strategy.name, displayMode: 'off' });
-            }
-        }
-    }
-    return settingsMap;
-}
-
-const DEFAULT_SUBTITLE_SETTINGS = generateDefaultSubtitleSettings();
