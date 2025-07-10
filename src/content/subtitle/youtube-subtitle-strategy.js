@@ -245,6 +245,28 @@ class YouTubeSubtitleStrategy {
   }
 
   /**
+   * 动态更新字幕的显示模式。
+   * @param {string} newMode - 新的显示模式 ('off', 'translated', 'bilingual').
+   */
+  updateDisplayMode(newMode) {
+    if (!this.renderer) {
+      console.warn('[YouTubeSubtitleStrategy] Renderer not available, cannot update display mode.');
+      return;
+    }
+
+    console.log(`[YouTubeSubtitleStrategy] Updating display mode from "${this.renderer.options.displayMode}" to "${newMode}".`);
+    this.renderer.updateOptions({ displayMode: newMode });
+
+    // 模式更新后，需要立即重新渲染当前时间的字幕，以反映变化。
+    // 例如，从 'off' 切换到 'bilingual' 时，字幕需要立即出现。
+    // 从 'bilingual' 切换到 'off' 时，字幕需要立即消失。
+    if (this.videoElement) {
+      this.updateSubtitleDisplay(this.videoElement.currentTime);
+    }
+  }
+
+
+  /**
    * 注入一个能同时拦截 window.fetch 和 XMLHttpRequest 的强大脚本。
    * 这是目前在不使用侵入式 API 的情况下，最可靠的内容脚本拦截方案。
    */

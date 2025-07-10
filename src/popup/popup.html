@@ -30,11 +30,7 @@
 
             <div class="section">
                 <div class="m3-form-field outlined">
-                    <select id="displayModeSelect">
-                        <option value="replace" i18n-text="popupDisplayModeReplace">替换模式</option>
-                        <option value="append" i18n-text="popupDisplayModeAppend">追加模式</option>
-                        <option value="hover" i18n-text="popupDisplayModeHover">悬停模式</option>
-                    </select>
+                    <select id="displayModeSelect"></select>
                     <label for="displayModeSelect" i18n-text="popupDisplayMode">显示模式:</label>
                 </div>
             </div>
@@ -55,16 +51,12 @@
                 </div>
             </div>
 
-            <div class="section subtitle-controls">
-                <div class="action-row">
-                    <label for="enableSubtitles" class="control-label" i18n-text="popupEnableSubtitles">启用字幕翻译</label>
-                    <div class="m3-switch no-label">
-                        <input type="checkbox" id="enableSubtitles">
-                        <label for="enableSubtitles" class="switch-track">
-                            <span class="switch-thumb"></span>
-                        </label>
-                    </div>
+            <div class="section subtitle-controls" style="display: none;">
+                <div class="m3-form-field outlined">
+                    <select id="subtitleDisplayModeSelect"></select>
+                    <label for="subtitleDisplayModeSelect" i18n-text="subtitleDisplayMode">字幕显示模式</label>
                 </div>
+
                 <p class="control-hint" i18n-text="popupSubtitlesHint"></p>
             </div>
         </main>

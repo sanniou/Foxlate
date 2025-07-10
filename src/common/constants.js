@@ -61,9 +61,18 @@ export const DEFAULT_SETTINGS = {
 };
 
 export const DISPLAY_MODES = {
-    'replace': 'replaceOriginal',
-    'append': 'appendTranslated',
-    'hover': 'hoverToDisplay'
+    'replace': {
+        optionsKey: 'replaceOriginal',
+        popupKey: 'popupDisplayModeReplace'
+    },
+    'append': {
+        optionsKey: 'appendTranslated',
+        popupKey: 'popupDisplayModeAppend'
+    },
+    'hover': {
+        optionsKey: 'hoverToDisplay',
+        popupKey: 'popupDisplayModeHover'
+    }
 };
 
 export const AUTO_TRANSLATE_MODES = {

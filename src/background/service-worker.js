@@ -2,6 +2,7 @@
 import '../lib/browser-polyfill.js';
 import { getEffectiveSettings, getValidatedSettings } from '../common/settings-manager.js';
 import { TranslatorManager } from '../background/translator-manager.js';
+import * as Constants from '../common/constants.js';
 import { AITranslator } from '../background/translators/ai-translator.js';
 import { SUBTITLE_STRATEGIES, SUBTITLE_MANAGER_SCRIPT } from '../content/subtitle/strategy-manifest.js';
 const CSS_FILES = ["content/style.css"];
@@ -402,8 +403,19 @@ async TRANSLATE_BATCH(request) {
     const settings = await getValidatedSettings();
 
     const domainToUpdate = (ruleSource === 'default') ? hostname : ruleSource;
-    const rule = settings.domainRules[domainToUpdate] || {};
-    rule[key] = value;
+    const rule = settings.domainRules[domainToUpdate] || {
+        // 如果是新规则，确保它有一个 subtitleSettings 对象
+        subtitleSettings: { enabled: false } 
+    };
+
+    // 为嵌套的字幕设置提供特殊处理
+    if (key === 'subtitleDisplayMode') {
+        // 确保 subtitleSettings 对象存在
+        if (!rule.subtitleSettings) rule.subtitleSettings = {};
+        rule.subtitleSettings.displayMode = value;
+    } else {
+        rule[key] = value;
+    }
     settings.domainRules[domainToUpdate] = rule;
 
     await browser.storage.sync.set({ settings });
@@ -442,7 +454,7 @@ async TRANSLATE_BATCH(request) {
           throw new Error("Missing tabId or hostname for TOGGLE_DISPLAY_MODE");
       }
 
-      const displayModes = ['append', 'replace', 'hover'];
+      const displayModes = Object.keys(Constants.DISPLAY_MODES);
 
       const effectiveSettings = await getEffectiveSettings(hostname);
       const { displayMode: currentMode, source: currentRuleSource } = effectiveSettings;

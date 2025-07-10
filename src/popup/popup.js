@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
         autoTranslateCheckbox: document.getElementById('autoTranslate'),
         currentRuleIndicator: document.getElementById('currentRuleIndicator'),
         openOptionsBtn: document.getElementById('openOptionsBtn'),        
-        enableSubtitlesCheckbox: document.getElementById('enableSubtitles'), // 新增：字幕开关
+        subtitleDisplayModeSelect: document.getElementById('subtitleDisplayModeSelect'), // 字幕显示模式选择
         subtitleControlsSection: document.querySelector('.subtitle-controls'),
         versionDisplay: document.getElementById('versionDisplay'),
         aboutBtn: document.getElementById('aboutBtn')
@@ -120,7 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // 默认隐藏。只有当内容脚本在一个支持的页面（YouTube）上确认
         // 它处于一个视频观看页面时，才会显示它。
         elements.subtitleControlsSection.style.display = 'none';
-
+            
         // 无论域名如何，都尝试从内容脚本获取字幕状态。
         // 内容脚本中的 SubtitleManager 将知道当前页面是否支持字幕。
         try {
@@ -128,24 +128,12 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // 如果页面支持字幕翻译，则显示控件。
             // `isSupported` 决定了控件的可见性。
-            if (status && status.isSupported) {
+            if (status?.isSupported && finalRule.subtitleSettings?.enabled) {
                 elements.subtitleControlsSection.style.display = ''; // 显示控件
-                elements.enableSubtitlesCheckbox.disabled = false; // 启用开关
-
-                // `isEnabled` 是来自内容脚本的实时状态，是 UI 的唯一真实来源。
-                elements.enableSubtitlesCheckbox.checked = status.isEnabled;
-
-                // 如果设置要求启用，但当前未启用，则发送启用消息
-                if (finalRule.subtitleTranslationEnabled && !status.isEnabled) {
-                    console.log("[Popup] Subtitle translation is enabled in settings but not active. Activating now.");
-                    browser.tabs.sendMessage(activeTabId, {
-                        type: 'TOGGLE_SUBTITLE_TRANSLATION',
-                        payload: { enabled: true }
-                    }).then(() => {
-                        // 更新 UI 以反映新状态
-                        elements.enableSubtitlesCheckbox.checked = true;
-                    }).catch(e => console.error("[Popup] Failed to auto-enable subtitle translation:", e));
-                }
+                // 使用设置中的显示模式，而不是从内容脚本读取，因为 popup 的显示状态应该由规则控制。
+                const displayMode = finalRule.subtitleSettings.displayMode || 'off';
+                elements.subtitleDisplayModeSelect.value = displayMode;
+                browser.tabs.sendMessage(activeTabId, { type: 'UPDATE_SUBTITLE_DISPLAY_MODE', payload: { displayMode } });
             }
         } catch (e) {
             // 如果无法与内容脚本通信（例如，在 about:blank 或受限制的页面上），
@@ -215,6 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const saveChangeToRule = async (key, value) => {
+        console.log(`[Popup] Saving rule change: ${key} = ${value}`);
         if (!currentHostname) {
             console.warn("[Popup] Cannot save rule change, no active hostname.");
             return;
@@ -257,6 +246,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const initialize = async () => {
         applyTranslations();
         elements.versionDisplay.textContent = `v${browser.runtime.getManifest().version}`;
+
+        // 动态填充字幕显示模式下拉菜单
+        populateSelect(elements.subtitleDisplayModeSelect, Constants.SUBTITLE_DISPLAY_MODES);
+        
+        // 从全局常量构建弹窗专用的显示模式，并填充下拉菜单
+        const popupDisplayModes = Object.fromEntries(
+            Object.entries(Constants.DISPLAY_MODES).map(([key, value]) => [key, value.popupKey])
+        );
+        populateSelect(elements.displayModeSelect, popupDisplayModes);
+
         await loadAndApplySettings();
 
         browser.runtime.onMessage.addListener((request) => {
@@ -300,26 +299,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // 初始化字幕开关事件监听
-        elements.enableSubtitlesCheckbox.addEventListener('change', async (e) => {
-            const enabled = e.target.checked;
-            // 1.  通知 content script 更新状态
-            try {
-                await browser.tabs.sendMessage(activeTabId, {
-                    type: 'TOGGLE_SUBTITLE_TRANSLATION',
-                    payload: { enabled }
-                });
-            } catch (error) {
-                console.error("[Popup] Error toggling subtitle translation in content script:", error);
-                // 状态同步失败，可以考虑弹窗提示用户
-                // alert("Failed to update subtitle translation status in the page.");
-                // 或者回滚 UI 状态
-                e.target.checked = !enabled;
-            }
-            // 2.  （可选）同时更新全局设置，这样新打开的 YouTube 页面会使用相同的状态
-            await saveChangeToRule('subtitleTranslationEnabled', enabled);
+        elements.subtitleDisplayModeSelect.addEventListener('change', async (e) => {
+            const displayMode = e.target.value;
+            // 当用户更改显示模式时，我们只负责保存规则。
+            // 保存后，SETTINGS_UPDATED 事件会触发 loadAndApplySettings，
+            // 由该函数负责将最新的状态同步到内容脚本，从而避免重复发送消息。
+            await saveChangeToRule('subtitleDisplayMode', displayMode);
         });
-
-    };
+   };
     initialize();
 });

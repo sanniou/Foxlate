@@ -3,6 +3,7 @@ class SubtitleManager {
         this.strategy = null; // Holds the single, registered strategy instance
         this.isEnabled = false; // Tracks the user's enabled/disabled state
         console.log("[SubtitleManager] Initialized and waiting for strategy registration.");
+        this.#addMessageListener();
     }
 
     /**
@@ -144,6 +145,34 @@ class SubtitleManager {
         } catch (error) {
             console.error(`[SubtitleManager] Failed to check for auto-enable setting:`, error);
         }
+    }
+    /**
+ * @private
+ * 添加一个消息监听器来处理来自 popup 或其他部分的请求。
+ */
+    #addMessageListener() {
+        browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
+            switch (request.type) {
+                case 'REQUEST_SUBTITLE_TRANSLATION_STATUS':
+                    // Popup 请求当前字幕功能的状态
+                    sendResponse(this.getStatus());
+                    return true; // 异步响应
+
+                case 'UPDATE_SUBTITLE_DISPLAY_MODE':
+                    // Popup 请求更新字幕的显示模式
+                    if (this.strategy && typeof this.strategy.updateDisplayMode === 'function') {
+                        const { displayMode } = request.payload;
+                        this.strategy.updateDisplayMode(displayMode);
+                        console.log(`[SubtitleManager] Display mode updated to: ${displayMode}`);
+                        sendResponse({ success: true });
+                    } else {
+                        const errorMsg = 'Strategy not available or does not support display mode update.';
+                        console.error(`[SubtitleManager] ${errorMsg}`);
+                        sendResponse({ success: false, error: errorMsg });
+                    }
+                    return true; // 异步响应
+            }
+        });
     }
 }
 

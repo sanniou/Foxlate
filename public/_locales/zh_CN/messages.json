@@ -127,6 +127,10 @@
     "message": "域名：",
     "description": "域名输入框的标签。"
   },
+  "autoTranslate": {
+    "message": "自动翻译：",
+    "description": "自动翻译规则的标签。"
+  },
   "rule": {
     "message": "规则：",
     "description": "规则选择下拉菜单的标签。"

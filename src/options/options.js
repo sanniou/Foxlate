@@ -1417,7 +1417,7 @@ document.addEventListener('DOMContentLoaded', () => {
         for (const code in Constants.DISPLAY_MODES) {
             const option = document.createElement('option');
             option.value = code;
-            const i18nKey = Constants.DISPLAY_MODES[code];
+            const i18nKey = Constants.DISPLAY_MODES[code].optionsKey;
             option.textContent = browser.i18n.getMessage(i18nKey) || code;
             selectElement.appendChild(option);
         }
@@ -1684,8 +1684,13 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.saveDomainRuleBtn.addEventListener('click', saveDomainRule); // This function will be implemented next
 
         // 字幕启用复选框的监听器
-        elements.ruleEnableSubtitleCheckbox.addEventListener('change', () => {
-            elements.ruleSubtitleSettingsGroup.style.display = elements.ruleEnableSubtitleCheckbox.checked ? 'block' : 'none';
+        elements.ruleEnableSubtitleCheckbox.addEventListener('change', (e) => {
+            const isChecked = e.target.checked;
+            elements.ruleSubtitleSettingsGroup.style.display = isChecked ? 'block' : 'none';
+            // 如果是开启，则平滑滚动到新出现的菜单，提升用户体验
+            if (isChecked) {
+                elements.ruleSubtitleSettingsGroup.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
         });
 
         // Clear domain rule validation error on input

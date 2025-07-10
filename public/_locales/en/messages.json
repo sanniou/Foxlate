@@ -127,6 +127,10 @@
     "message": "Domain:",
     "description": "Label for the domain input."
   },
+  "autoTranslate": {
+    "message": "Auto Translate:",
+    "description": "Label for the auto-translate rule."
+  },
   "rule": {
     "message": "Rule:",
     "description": "Label for the rule selection dropdown."
