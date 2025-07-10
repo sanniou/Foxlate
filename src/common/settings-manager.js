@@ -54,7 +54,7 @@ browser.storage.onChanged.addListener((changes, area) => {
  * @param {object} rules - The precheck rules object.
  * @returns {object} The rules object with `compiledRegex` properties added to each rule.
  */
-function precompileRules(rules) {
+export function precompileRules(rules) {
     if (!rules) return {};
     const compiledRules = deepClone(rules); // Use the new deepClone
     for (const category in compiledRules) {

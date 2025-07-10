@@ -1,5 +1,5 @@
 import '../lib/browser-polyfill.js';
-import { getValidatedSettings, generateDefaultPrecheckRules } from '../common/settings-manager.js';
+import { getValidatedSettings, generateDefaultPrecheckRules, precompileRules } from '../common/settings-manager.js';
 import * as Constants from '../common/constants.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -1410,9 +1410,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // --- Pre-check Logic ---
+        const rawRules = getPrecheckRulesFromUI();
+        const compiledRules = precompileRules(rawRules);
+
         const currentUiSettings = {
             targetLanguage: elements.targetLanguage.value,
-            precheckRules: getPrecheckRulesFromUI()
+            precheckRules: compiledRules
         };
 
         const precheck = window.shouldTranslate(sourceText, currentUiSettings);
