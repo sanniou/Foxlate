@@ -9,13 +9,14 @@ class SubtitleManager {
      * Called by a strategy script (like youtube-subtitle-strategy.js) to register itself.
      * @param {class} StrategyClass The strategy class to be instantiated.
      */
-    registerStrategy(StrategyClass) {
+    async registerStrategy(StrategyClass) {
         // Since the service worker only injects the script on the correct page,
         // we can be confident this is the right strategy. No need for isSupportedPage().
         if (!this.strategy) {
             console.log(`[SubtitleManager] Registering strategy: ${StrategyClass.name}`);
             this.strategy = new StrategyClass(this.onSubtitleChange.bind(this));
-            // Do not auto-enable. Wait for user action from the popup.
+            // 注册后，检查设置，看是否需要自动启用。
+            await this.#checkAndAutoEnable();
         } else {
             console.warn(`[SubtitleManager] A strategy is already registered. Ignoring new registration for ${StrategyClass.name}.`);
         }
@@ -101,6 +102,47 @@ class SubtitleManager {
         if (this.strategy) {
             this.strategy.cleanup();
             this.isEnabled = false;
+        }
+    }
+
+    /**
+    * 检查用户设置，如果配置为自动开启，则自动启用策略。
+    * @private
+    */
+    async #checkAndAutoEnable() {
+        // 等待主内容脚本中的 getEffectiveSettings 函数可用。
+        // 这是为了处理脚本加载顺序可能导致的问题。
+        if (typeof window.getEffectiveSettings !== 'function') {
+            console.log('[SubtitleManager] Waiting for getEffectiveSettings to become available...');
+            await new Promise(resolve => {
+                const interval = setInterval(() => {
+                    if (typeof window.getEffectiveSettings === 'function') {
+                        clearInterval(interval);
+                        resolve();
+                    }
+                }, 100);
+                // 设置一个超时（例如5秒），以防万一函数始终没有出现
+                setTimeout(() => {
+                    clearInterval(interval);
+                    resolve();
+                }, 5000);
+            });
+        }
+
+        if (typeof window.getEffectiveSettings !== 'function') {
+            console.error('[SubtitleManager] getEffectiveSettings did not become available. Cannot auto-enable.');
+            return;
+        }
+
+        try {
+            const settings = await window.getEffectiveSettings();
+            // 检查域名规则或默认设置是否启用了字幕翻译
+            if (settings?.subtitleSettings?.enabled) {
+                console.log('[SubtitleManager] Subtitle translation is enabled by settings. Activating strategy.');
+                this.toggle(true);
+            }
+        } catch (error) {
+            console.error(`[SubtitleManager] Failed to check for auto-enable setting:`, error);
         }
     }
 }

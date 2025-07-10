@@ -312,6 +312,31 @@
                     <small i18n-text="selectorOverrideDescription">When enabled, only the domain-specific selectors defined above will be used, ignoring global rules. Leave empty to inherit global rules.</small>
                 </div>
 
+                <!-- Subtitle Settings Section -->
+                <hr class="divider">
+                <h4 i18n-text="subtitleSettingsTitle">Subtitle Settings</h4>
+                <div class="m3-switch">
+                    <input type="checkbox" id="ruleEnableSubtitle">
+                    <label for="ruleEnableSubtitle" class="switch-track">
+                        <span class="switch-thumb"></span>
+                    </label>
+                    <label for="ruleEnableSubtitle" class="switch-label" i18n-text="enableSubtitleTranslation">Enable Subtitle Translation</label>
+                </div>
+
+                <div id="ruleSubtitleSettingsGroup" style="display: none;">
+                    <div class="m3-form-field filled">
+                        <select id="ruleSubtitleStrategy">
+                            <!-- Options will be populated by options.js -->
+                        </select>
+                        <label for="ruleSubtitleStrategy" i18n-text="subtitleStrategy">Subtitle Strategy:</label>
+                    </div>
+                    <div class="m3-form-field filled">
+                        <select id="ruleSubtitleDisplayMode">
+                            <!-- Options will be populated by options.js -->
+                        </select>
+                        <label for="ruleSubtitleDisplayMode" i18n-text="subtitleDisplayMode">Subtitle Display Mode:</label>
+                    </div>
+                </div>
                 <div class="button-group modal-actions">
                     <button id="cancelDomainRuleBtn" class="m3-button text" i18n-text="cancel">Cancel</button>
                     <button id="saveDomainRuleBtn" class="m3-button filled" i18n-text="saveRule">Save Rule</button>

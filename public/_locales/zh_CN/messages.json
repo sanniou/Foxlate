@@ -631,6 +631,38 @@
     "message": "URL",
     "description": "匹配 URL 的默认规则。"
   },
+  "subtitleSettingsTitle": {
+    "message": "字幕设置",
+    "description": "域名规则弹窗中字幕设置部分的标题。"
+  },
+  "enableSubtitleTranslation": {
+    "message": "启用字幕翻译",
+    "description": "启用字幕翻译功能的开关标签。"
+  },
+  "subtitleStrategy": {
+    "message": "字幕策略：",
+    "description": "字幕策略选择下拉菜单的标签。"
+  },
+  "subtitleDisplayMode": {
+    "message": "字幕显示模式：",
+    "description": "字幕显示模式选择下拉菜单的标签。"
+  },
+  "subtitleStrategyNone": {
+    "message": "不使用",
+    "description": "字幕策略下拉菜单中“不使用”的选项。"
+  },
+  "subtitleDisplayModeOff": {
+    "message": "关闭（注入但不显示）",
+    "description": "字幕显示模式：关闭（注入但不显示）。"
+  },
+  "subtitleDisplayModeTranslated": {
+    "message": "仅译文",
+    "description": "字幕显示模式：仅显示译文。"
+  },
+  "subtitleDisplayModeBilingual": {
+    "message": "双语",
+    "description": "字幕显示模式：同时显示原文和译文。"
+  },
   "popupEnableSubtitles": {
     "message": "启用字幕翻译",
     "description": "在弹窗中启用/禁用字幕翻译的开关标签"

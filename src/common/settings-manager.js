@@ -3,6 +3,7 @@
  */
 import '../lib/browser-polyfill.js';
 import * as Constants from '../common/constants.js';
+import { SUBTITLE_STRATEGIES } from '../content/subtitle/strategy-manifest.js';
 
 // --- Module-level Cache ---
 let validatedSettingsCache = null;
@@ -160,6 +161,7 @@ export async function getEffectiveSettings(hostname) {
     const settings = await getValidatedSettings();
     let effectiveRule = {};
     let ruleSource = 'default';
+    let subtitleSettings = { enabled: false, displayMode: 'off' }; // 初始化字幕设置，默认关闭
 
     if (hostname) {
         const domainRules = settings.domainRules || {};
@@ -174,11 +176,20 @@ export async function getEffectiveSettings(hostname) {
                 ruleSource = matchingDomain;
             }
         }
+
+        // 应用默认策略（如果适用）
+        if (!matchingDomain && DEFAULT_SUBTITLE_SETTINGS.has(hostname)) {
+            subtitleSettings = { ...subtitleSettings, ...DEFAULT_SUBTITLE_SETTINGS.get(hostname) };
+        } else if (effectiveRule.subtitleSettings) {
+            // 合并字幕设置：自定义规则 > 默认设置
+            subtitleSettings = { ...subtitleSettings, ...effectiveRule.subtitleSettings };
+        }
     }
 
     const finalSettings = { ...settings, ...effectiveRule };
 
     const defaultSelector = settings.translationSelector?.default || { inline: '', block: '' };
+    // 应用字幕设置
     const ruleSelector = effectiveRule.cssSelector;
     const override = effectiveRule.cssSelectorOverride || false;
 
@@ -201,6 +212,7 @@ export async function getEffectiveSettings(hostname) {
         inline: finalInlineSelector,
         block: finalBlockSelector,
     };
+    finalSettings.subtitleSettings = subtitleSettings;
     finalSettings.source = ruleSource;
 
     if (effectiveRule.precheckRules) {
@@ -231,3 +243,22 @@ export async function saveSettings(settings) {
 
     await browser.storage.sync.set({ settings: settingsToSave });
 }
+
+/**
+ * 从策略清单动态生成默认的字幕设置映射。
+ * @returns {Map<string, {enabled: boolean, strategy: string}>}
+ */
+function generateDefaultSubtitleSettings() {
+    const settingsMap = new Map();
+    for (const strategy of SUBTITLE_STRATEGIES) {
+        if (strategy.hosts && Array.isArray(strategy.hosts)) {
+            for (const host of strategy.hosts) {
+                // 默认情况下，所有网站的字幕翻译功能都是关闭的
+                settingsMap.set(host, { enabled: false, strategy: strategy.name, displayMode: 'off' });
+            }
+        }
+    }
+    return settingsMap;
+}
+
+const DEFAULT_SUBTITLE_SETTINGS = generateDefaultSubtitleSettings();

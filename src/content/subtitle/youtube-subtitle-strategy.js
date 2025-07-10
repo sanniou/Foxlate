@@ -15,6 +15,7 @@ class SubtitleRenderer {
       align: 'left', // 默认左对齐，可设置为 'center'
       fontSize: 1.8, // 单位是 rem
       backgroundColor: 'rgba(8, 8, 8, 0.75)',
+      displayMode: 'off', // 新增：'off', 'translated', 'bilingual'
       ...options
     };
 
@@ -67,13 +68,13 @@ class SubtitleRenderer {
   // 新增一个方法，用于从外部更新选项（例如，用户在设置页面更改了对齐方式）
   updateOptions(newOptions) {
     this.options = { ...this.options, ...newOptions };
-    if (this.overlay) {
+    if (this.overlay && newOptions.align) {
       this.overlay.dataset.align = this.options.align;
     }
   }
 
   // render 方法基本不变，但增加了对 data-align 属性的设置
-  render(translatedLines, captionWindow) {
+  render(linesData, captionWindow) {
     const playerContainer = document.querySelector(YouTubeSubtitleStrategy.SELECTORS.PLAYER_CONTAINER);
 
     if (!playerContainer || !captionWindow) {
@@ -81,9 +82,17 @@ class SubtitleRenderer {
       return;
     }
 
+    // 根据 displayMode 决定是否渲染
+    if (this.options.displayMode === 'off') {
+      this.hide();
+      return;
+    }
+
     // --- 缓存检查 ---
-    const lines = translatedLines.filter(line => line && line.trim());
-    const linesJoined = lines.join('\n'); // 将数组转换为简单字符串以便比较
+    // linesData 现在是 [{original: '...', translated: '...'}] 格式
+    const lines = linesData.filter(line => line.translated && line.translated.trim());
+    // 使用更可靠的分隔符来比较缓存
+    const linesJoined = lines.map(l => `${l.translated}\n${l.original}`).join('|');
 
     // **重要修复**: 确保在原生字幕出现时，我们的字幕也能恢复显示
     const isNativeSubsVisible = captionWindow.style.display !== 'none' && captionWindow.offsetHeight > 0;
@@ -139,8 +148,16 @@ class SubtitleRenderer {
       this.overlay.lastChild.remove();
     }
 
-    lines.forEach((lineText, index) => {
+    lines.forEach((lineData, index) => {
       let lineElement = this.overlay.children[index];
+      let lineText;
+
+      if (this.options.displayMode === 'bilingual') {
+        lineText = `${lineData.translated}\n${lineData.original}`;
+      } else { // 'translated'
+        lineText = lineData.translated;
+      }
+
       if (lineElement) {
         if (lineElement.textContent !== lineText) {
           lineElement.textContent = lineText;
@@ -203,13 +220,27 @@ class YouTubeSubtitleStrategy {
 
   initialize() {
     console.log("[ModernYouTubeStrategy] Initializing...");
+    // 异步请求设置，但不阻塞初始化流程
+    window.getEffectiveSettings().then(settings => {
+        this.settings = settings;
+        // 将设置传递给渲染器
+        this.renderer.updateOptions({
+            displayMode: this.settings?.subtitleSettings?.displayMode || 'off'
+        });
+        console.log(`[ModernYouTubeStrategy] Settings loaded, display mode set to: ${this.renderer.options.displayMode}`);
+         // settings 加载完成后立即启动字幕更新
+         if (this.settings?.subtitleSettings?.enabled) {
+          this.startVideoObserver();
+        }
+    }).catch(err => {
+        console.error("[ModernYouTubeStrategy] Error loading settings:", err);
+    });
+
     this.injectNetworkInterceptor();
 
     document.addEventListener(YouTubeSubtitleStrategy.EVENT_NAME, this.handleInterceptedData);
     document.body.addEventListener('yt-navigate-finish', this.spaNavigationHandler);
 
-    // 尝试在初始化时就找到视频元素并启动观察者
-    this.startVideoObserver();
     console.log("[ModernYouTubeStrategy] Ready and waiting for subtitle network requests.");
   }
 
@@ -226,6 +257,22 @@ class YouTubeSubtitleStrategy {
     // 这个函数将被转换为字符串并注入页面。
     // 它不依赖外部作用域，所有参数都通过函数调用传入。
     const interceptorCode = (urlFragment, eventName) => {
+      // --- [修复] 保存原始方法，以便将来恢复 ---
+      if (!window.__foxlate_originals) {
+        console.log('[Interceptor] Storing original network functions.');
+        window.__foxlate_originals = {
+          fetch: window.fetch,
+          xhrOpen: XMLHttpRequest.prototype.open,
+          xhrSend: XMLHttpRequest.prototype.send,
+        };
+      } else {
+        // 如果已经存在，说明拦截器已被注入，可能是在SPA导航后。
+        // 为确保安全，我们先恢复再重新应用，防止多层包裹。
+        window.fetch = window.__foxlate_originals.fetch;
+        XMLHttpRequest.prototype.open = window.__foxlate_originals.xhrOpen;
+        XMLHttpRequest.prototype.send = window.__foxlate_originals.xhrSend;
+      }
+
       const dispatchData = (data) => {
         document.dispatchEvent(new CustomEvent(eventName, { detail: data }));
       };
@@ -278,6 +325,29 @@ class YouTubeSubtitleStrategy {
     console.log("[ModernYouTubeStrategy] Universal network interceptor injected.");
   }
 
+  /**
+   * [新增] 移除网络拦截器，恢复原始的 fetch 和 XHR。
+   */
+  removeNetworkInterceptor() {
+    const script = document.createElement('script');
+    // 这个ID仅用于调试，脚本执行后会立即移除。
+    script.id = `${YouTubeSubtitleStrategy.SCRIPT_ID}-cleanup`;
+
+    const cleanupCode = () => {
+      if (window.__foxlate_originals) {
+        console.log('[Interceptor] Restoring original network functions.');
+        window.fetch = window.__foxlate_originals.fetch;
+        XMLHttpRequest.prototype.open = window.__foxlate_originals.xhrOpen;
+        XMLHttpRequest.prototype.send = window.__foxlate_originals.xhrSend;
+        // 清理存储的对象，释放内存
+        delete window.__foxlate_originals;
+      }
+    };
+
+    script.textContent = `(${cleanupCode.toString()})();`;
+    (document.head || document.documentElement).appendChild(script);
+    script.remove(); // 立即移除脚本元素
+  }
   /**
    * 处理从拦截器收到的数据。
    * @param {CustomEvent} event 
@@ -433,12 +503,16 @@ class YouTubeSubtitleStrategy {
     // 让 renderer 自己去判断是否应该显示。
     const captionWindow = playerContainer.querySelector(YouTubeSubtitleStrategy.SELECTORS.CAPTION_WINDOW);
 
-    const translatedLines = currentSentences.map(s => s.translated);
+    // 创建渲染器期望的数据结构，以支持双语显示
+    const linesData = currentSentences.map(s => ({
+      original: s.text, // 'text' 字段包含原始文本
+      translated: s.translated
+    }));
 
     // 无论 captionWindow 是否可见，都调用 render 方法。
     // render 方法内部有足够的逻辑来处理所有情况（显示、隐藏、定位）。
     // console.log(`[YouTubeStrategy] Current time: ${currentTimeMs}ms. Current sentence: `,currentSentences);
-    this.renderer.render(translatedLines, captionWindow);
+    this.renderer.render(linesData, captionWindow);
   }
 
   startVideoObserver() {
@@ -500,22 +574,26 @@ class YouTubeSubtitleStrategy {
    */
   spaNavigationHandler() {
     console.log('[ModernYouTubeStrategy] SPA navigation detected. Resetting state.');
+    // 停止旧的观察者
     this.stopObserver();
-    this.translatedSubtitles.clear();
-    this.currentSentenceIndex = -1;
-    // 无需做其他事，等待新页面的网络请求即可。
+    // [修复] 隐藏当前字幕，防止在新页面上闪烁
+    this.renderer?.hide();
+    // [修复] 清理已缓存的字幕脚本
+    this.subtitleScript = [];
+    // 等待新页面的网络请求来重新初始化所有内容。
   }
 
   cleanup() {
+    console.log("[ModernYouTubeStrategy] Strategy cleaning up...");
     this.stopObserver();
-    this.originalSentences = [];
-    this.translatedSentences = [];
-    this.script = '';
-    this.sentenceStartIndexes = [];
+    this.subtitleScript = [];
+    // [修复] 销毁 Renderer，移除其注入的 DOM 元素和样式
+    this.renderer?.destroy();
+    this.renderer = null;
     document.body.removeEventListener('yt-navigate-finish', this.spaNavigationHandler);
     document.removeEventListener(YouTubeSubtitleStrategy.EVENT_NAME, this.handleInterceptedData);
-    document.getElementById(YouTubeSubtitleStrategy.SCRIPT_ID)?.remove();
-    console.log("[ModernYouTubeStrategy] Strategy cleaned up.");
+    // [修复] 移除网络拦截器并恢复原生函数
+    this.removeNetworkInterceptor();
   }
 
   getStatus() {

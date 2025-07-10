@@ -1,6 +1,7 @@
 import '../lib/browser-polyfill.js';
 import { getValidatedSettings, generateDefaultPrecheckRules, precompileRules } from '../common/settings-manager.js';
 import * as Constants from '../common/constants.js';
+import { SUBTITLE_STRATEGIES } from '../content/subtitle/strategy-manifest.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Element Cache ---
@@ -69,6 +70,11 @@ document.addEventListener('DOMContentLoaded', () => {
         ruleBlockSelectorTextarea: document.getElementById('ruleBlockSelector'),
         ruleCssSelectorOverrideCheckbox: document.getElementById('ruleCssSelectorOverride'),
         cancelDomainRuleBtn: document.getElementById('cancelDomainRuleBtn'),
+        ruleEnableSubtitleCheckbox: document.getElementById('ruleEnableSubtitle'),
+        ruleSubtitleSettingsGroup: document.getElementById('ruleSubtitleSettingsGroup'),
+        ruleSubtitleStrategySelect: document.getElementById('ruleSubtitleStrategy'),
+        ruleSubtitleDisplayMode: document.getElementById('ruleSubtitleDisplayMode'),
+
         saveDomainRuleBtn: document.getElementById('saveDomainRuleBtn'),
         // Global Pre-check Test Elements
         runGlobalTestBtn: document.getElementById('runGlobalTestBtn'),
@@ -843,6 +849,21 @@ document.addEventListener('DOMContentLoaded', () => {
             // 这样，除非勾选了覆盖，否则它将继承全局规则。
             delete rule.cssSelector;
         }
+
+        // 保存字幕设置
+        const enabled = elements.ruleEnableSubtitleCheckbox.checked;
+        if (enabled) {
+            rule.subtitleSettings = {
+                enabled: true,
+                strategy: elements.ruleSubtitleStrategySelect.value,
+                displayMode: elements.ruleSubtitleDisplayMode.value
+            };
+        } else {
+            // 如果用户显式地为某个域禁用了该功能，我们应该记录下来。
+            rule.subtitleSettings = {
+                enabled: false
+            };
+        }
         // --- 3. Save to local state and mark as changed ---
         if (originalDomain && originalDomain !== newDomain) {
             delete domainRules[originalDomain];
@@ -991,6 +1012,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         // Default to false if not specified
         elements.ruleCssSelectorOverrideCheckbox.checked = ruleData.cssSelectorOverride || false;
+
+        // 加载字幕设置
+        const subtitleSettings = ruleData.subtitleSettings || {};
+        elements.ruleEnableSubtitleCheckbox.checked = subtitleSettings.enabled || false;
+        elements.ruleSubtitleStrategySelect.value = subtitleSettings.strategy || 'none';
+        elements.ruleSubtitleDisplayMode.value = subtitleSettings.displayMode || 'off';
+
+        // 根据复选框状态控制字幕设置组的可见性
+        elements.ruleSubtitleSettingsGroup.style.display = elements.ruleEnableSubtitleCheckbox.checked ? 'block' : 'none';
+
 
         // Ensure all select labels are correctly positioned after populating values.
         elements.domainRuleModal.querySelectorAll('.m3-form-field.filled select').forEach(initializeSelectLabel);
@@ -1297,6 +1328,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Populate Display Mode dropdown
         populateDisplayModeOptions(elements.ruleDisplayModeSelect, true);
+
+        // 填充字幕策略下拉菜单
+        const strategySelect = elements.ruleSubtitleStrategySelect;
+        strategySelect.innerHTML = ''; // 清空现有选项
+        const noStrategyOption = document.createElement('option');
+        noStrategyOption.value = 'none';
+        noStrategyOption.textContent = browser.i18n.getMessage('subtitleStrategyNone') || '不使用';
+        strategySelect.appendChild(noStrategyOption);
+
+        SUBTITLE_STRATEGIES.forEach(strategy => {
+            const option = document.createElement('option');
+            option.value = strategy.name;
+            option.textContent = strategy.displayName || (strategy.name.charAt(0).toUpperCase() + strategy.name.slice(1));
+            strategySelect.appendChild(option);
+        });
+
+        // 填充字幕显示模式下拉菜单
+        const displayModeSelect = elements.ruleSubtitleDisplayMode;
+        if (displayModeSelect) {
+            displayModeSelect.innerHTML = ''; // 清空现有选项
+            for (const code in Constants.SUBTITLE_DISPLAY_MODES) {
+                const option = document.createElement('option');
+                option.value = code;
+                const i18nKey = Constants.SUBTITLE_DISPLAY_MODES[code];
+                option.textContent = browser.i18n.getMessage(i18nKey) || code;
+                displayModeSelect.appendChild(option);
+            }
+        }
     };
     const populateLanguageOptions = () => {
         const select = elements.targetLanguage;
@@ -1623,6 +1682,11 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.closeDomainRuleModalBtn.addEventListener('click', closeDomainRuleModal);
         elements.cancelDomainRuleBtn.addEventListener('click', closeDomainRuleModal);
         elements.saveDomainRuleBtn.addEventListener('click', saveDomainRule); // This function will be implemented next
+
+        // 字幕启用复选框的监听器
+        elements.ruleEnableSubtitleCheckbox.addEventListener('change', () => {
+            elements.ruleSubtitleSettingsGroup.style.display = elements.ruleEnableSubtitleCheckbox.checked ? 'block' : 'none';
+        });
 
         // Clear domain rule validation error on input
         elements.ruleDomainInput.addEventListener('input', () => {

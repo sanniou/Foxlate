@@ -70,3 +70,9 @@ export const AUTO_TRANSLATE_MODES = {
     'always': 'alwaysTranslate',
     'manual': 'manualTranslate'
 };
+
+export const SUBTITLE_DISPLAY_MODES = {
+    'off': 'subtitleDisplayModeOff', // 关闭 (注入但不显示)
+    'translated': 'subtitleDisplayModeTranslated', // 仅译文
+    'bilingual': 'subtitleDisplayModeBilingual' // 双语
+};

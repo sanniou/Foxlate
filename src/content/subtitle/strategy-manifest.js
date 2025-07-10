@@ -13,6 +13,8 @@ export const SUBTITLE_STRATEGIES = [
     {
         /** A unique identifier for the strategy. */
         name: 'youtube',
+        /** 用于在UI中显示的友好名称。 */
+        displayName: 'YouTube',
         /** The path to the strategy's content script file. */
         file: 'content/subtitle/youtube-subtitle-strategy.js',
         /** An array of hostnames where this strategy should be applied by default. */
@@ -20,6 +22,8 @@ export const SUBTITLE_STRATEGIES = [
     },
     {
         name: 'bilibili',
+        /** 用于在UI中显示的友好名称。 */
+        displayName: 'Bilibili',
         file: 'content/subtitle/bilibili-subtitle-strategy.js',
         hosts: ['www.bilibili.com']
     },

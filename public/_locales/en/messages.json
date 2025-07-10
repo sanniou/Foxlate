@@ -617,6 +617,38 @@
     "message": "URL",
     "description": "Default rule to match URLs."
   },
+  "subtitleSettingsTitle": {
+    "message": "Subtitle Settings",
+    "description": "Title for the Subtitle Settings section in the domain rule modal."
+  },
+  "enableSubtitleTranslation": {
+    "message": "Enable Subtitle Translation",
+    "description": "Label for the switch to enable subtitle translation."
+  },
+  "subtitleStrategy": {
+    "message": "Subtitle Strategy:",
+    "description": "Label for the subtitle strategy selection dropdown."
+  },
+  "subtitleDisplayMode": {
+    "message": "Subtitle Display Mode:",
+    "description": "Label for the subtitle display mode selection dropdown."
+  },
+  "subtitleStrategyNone": {
+    "message": "None",
+    "description": "Option for 'None' in the subtitle strategy dropdown."
+  },
+  "subtitleDisplayModeOff": {
+    "message": "Off (Inject but hide)",
+    "description": "Subtitle display mode: Off (Inject but hide)."
+  },
+  "subtitleDisplayModeTranslated": {
+    "message": "Translated only",
+    "description": "Subtitle display mode: Show only the translated text."
+  },
+  "subtitleDisplayModeBilingual": {
+    "message": "Bilingual",
+    "description": "Subtitle display mode: Show both original and translated text."
+  },
   "popupEnableSubtitles": {
     "message": "Enable Subtitle Translation",
     "description": "Toggle label to enable/disable subtitle translation in the popup."
