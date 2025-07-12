@@ -9,9 +9,11 @@ class ReplaceStrategy {
      * @param {HTMLElement} element - 目标元素。
      */
     revertTranslation(element) {
-        if (element.dataset.originalContent !== undefined) {
-           element.innerHTML = element.dataset.originalContent;
-            delete element.dataset.originalContent; // 清理属性
+        // 从 DisplayManager 获取状态，而不是从 DOM 的 dataset 读取。
+        // 这确保了状态的单一来源，并修复了切换模式时丢失原始内容的问题。
+        const data = DisplayManager.getElementData(element);
+        if (data && data.originalContent !== undefined) {
+           element.innerHTML = data.originalContent;
         }
         // 确保移除所有此策略可能添加的视觉效果
         element.classList.remove('foxlate-replacing', 'foxlate-error-underline');

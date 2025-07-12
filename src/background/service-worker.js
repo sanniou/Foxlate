@@ -283,41 +283,50 @@ const messageHandlers = {
     async TRANSLATE_TEXT(request, sender) {
         const { text, targetLang, sourceLang, elementId, translatorEngine } = request.payload;
         const originTabId = sender.tab?.id;
-
-        if (!originTabId) {
-            logError('TRANSLATE_TEXT', new Error('Received translation request without a valid tab ID.'));
-            return;
-        }
-
+ 
         try {
+            // 这一步是通用的：执行翻译。
             const result = await TranslatorManager.translateText(text, targetLang, sourceLang, translatorEngine);
-            await browser.tabs.sendMessage(originTabId, {
-                type: 'TRANSLATE_TEXT_RESULT',
-                payload: {
-                    elementId: elementId,
-                    success: !result.error,
-                    translatedText: result.text,
-                    wasTranslated: result.translated,
-                    error: result.error || null
-                }
-            });
-        } catch (error) {
-            logError('TRANSLATE_TEXT (execution)', error);
-            try {
+ 
+            // 根据调用者决定如何响应。
+            if (originTabId && elementId) {
+                // 场景1：来自内容脚本的调用。发送消息回标签页。
                 await browser.tabs.sendMessage(originTabId, {
                     type: 'TRANSLATE_TEXT_RESULT',
                     payload: {
                         elementId: elementId,
-                        success: false,
-                        translatedText: '',
-                        wasTranslated: false,
-                        error: error.message
+                        success: !result.error,
+                        translatedText: result.text,
+                        wasTranslated: result.translated,
+                        error: result.error || null
                     }
                 });
-            } catch (e) {
-                if (!e.message.includes("Receiving end does not exist")) {
-                    logError('TRANSLATE_TEXT (sending error)', e);
+            } else {
+                // 场景2：来自选项页或弹窗的调用。直接返回结果。
+                return {
+                    success: !result.error,
+                    translatedText: { text: result.text, translated: result.translated },
+                    error: result.error || null,
+                    log: result.log || []
+                };
+            }
+        } catch (error) {
+            logError('TRANSLATE_TEXT (execution)', error);
+            if (originTabId && elementId) {
+                // 错误场景1：通知内容脚本失败。
+                try {
+                    await browser.tabs.sendMessage(originTabId, {
+                        type: 'TRANSLATE_TEXT_RESULT',
+                        payload: { elementId, success: false, translatedText: '', wasTranslated: false, error: error.message }
+                    });
+                } catch (e) {
+                    if (!e.message.includes("Receiving end does not exist")) {
+                        logError('TRANSLATE_TEXT (sending error)', e);
+                    }
                 }
+            } else {
+                // 错误场景2：向选项页返回错误。
+                return { success: false, error: error.message, log: [] };
             }
         }
     },

@@ -1,39 +1,8 @@
 import * as Constants from '../common/constants.js';
-// 导入所有策略模块。打包工具会处理这些依赖。
-// 这些导入取代了之前依赖于全局变量（如 window.replaceStrategy）的做法。
 import replaceStrategy from './strategies/replace-strategy.js';
 import appendStrategy from './strategies/append-strategy.js';
 import contextMenuStrategy from './strategies/context-menu-strategy.js';
 import hoverStrategy from './strategies/hover-strategy.js';
-
-/**
- * (新) 通过启发式算法对元素进行分类，以确定最佳的追加样式。
- * @param {HTMLElement} element
- * @returns {'inline' | 'block'}
- */
-function classifyAppendType(element) {
-    const style = window.getComputedStyle(element);
-
-    // 规则 1: 明确的 display 样式是强烈的信号。
-    if (style.display === 'inline' || style.display === 'inline-block') {
-        return 'inline';
-    }
-    if (style.display === 'block' || style.display === 'list-item') {
-        return 'block';
-    }
-
-    // 规则 2: 基于内容的启发式规则，用于处理不明确的 display 类型 (如 'flex')。
-    const textLength = (element.textContent || '').trim().length;
-    const hasBlockChildren = element.querySelector('p, div, h1, h2, h3, li, tr, blockquote');
-
-    // 短文本且没有块级子元素，很可能是内联的UI元素。
-    if (textLength < 80 && !hasBlockChildren) {
-        return 'inline';
-    }
-
-    // 其他情况（长文本、包含块级子元素的容器）默认为块级。
-    return 'block';
-}
 
 
 export class DisplayManager {
@@ -154,7 +123,7 @@ export class DisplayManager {
         }
     }
 
-    static displayLoading(element, displayMode) {
+    static displayLoading(element, displayMode, originalContent = null) {
         if (!displayMode) {
             console.error("[DisplayManager] displayLoading requires a displayMode.", element);
             return;
@@ -162,12 +131,8 @@ export class DisplayManager {
         // 在状态机生命周期的开始，将策略存储在元素上。
         element.dataset.translationStrategy = displayMode;
 
-        // 新增：如果使用追加模式，对元素进行分类以确定追加样式。
-        if (displayMode === 'append') {
-            element.dataset.appendType = classifyAppendType(element);
-        }
-
-        this.setElementState(element, this.STATES.LOADING);
+        const data = originalContent ? { originalContent } : null;
+        this.setElementState(element, this.STATES.LOADING, data);
     }
 
     static displayTranslation(element, { translatedText, translationUnit = null }) {

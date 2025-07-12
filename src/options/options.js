@@ -1495,40 +1495,20 @@ document.addEventListener('DOMContentLoaded', () => {
         resultArea.className = 'test-result-area';
 
         try {
-            let aiConfigToTest = null;
-            const selectedEngineValue = elements.translatorEngine.value;
-            if (selectedEngineValue.startsWith('ai:')) {
-                const selectedEngineId = selectedEngineValue.split(':')[1];
-                aiConfigToTest = aiEngines.find(e => e.id === selectedEngineId);
-                if (!aiConfigToTest) {
-                    throw new Error(browser.i18n.getMessage('aiModelNameMissingError') || 'Selected AI engine configuration not found.');
-                }
-            }
-
-            const payload = {
-                text: sourceText,
-                targetLang: elements.targetLanguage.value,
-                sourceLang: 'auto',
-                // Pass the specific AI config if an AI engine is selected
-                aiConfig: aiConfigToTest
-            };
-
-            // If testing an AI engine, ensure the AI API Key, URL, Model, Prompt are available
-            if (selectedEngineValue.startsWith('ai:') && (!aiConfigToTest.apiKey || !aiConfigToTest.apiUrl || !aiConfigToTest.model || !aiConfigToTest.customPrompt)) {
-                throw new Error(browser.i18n.getMessage('aiApiUrlMissingError') || 'AI API Key, URL, Model, and Custom Prompt are required for the selected AI engine.');
-            }
-
             // Send message to background service worker for translation
             const response = await browser.runtime.sendMessage({
                 type: 'TRANSLATE_TEXT',
-                payload: { // The payload structure for TRANSLATE_TEXT is handled by TranslatorManager
-                    text: sourceText, // This is the text to translate
-                    targetLang: elements.targetLanguage.value, // Target language
-                    sourceLang: 'auto', // Source language
+                payload: {
+                    text: sourceText,
+                    targetLang: elements.targetLanguage.value,
+                    sourceLang: 'auto',
+                    // 关键修复：明确传递当前UI上选择的翻译引擎。
+                    // 后台将负责处理此引擎的所有逻辑。
+                    translatorEngine: elements.translatorEngine.value
                 }
             });
 
-            console.log('[Options Page Debug] Received response from service worker:', JSON.parse(JSON.stringify(response))); // Debug log
+            console.log('[Options Page Debug] Received response from service worker:', response); // Debug log
 
             // 将翻译日志追加到现有的预检查日志之后。
             if (response.log && response.log.length > 0) {

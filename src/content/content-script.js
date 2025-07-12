@@ -33,9 +33,6 @@ function generateUUID() {
  */
 const translationUnitMap = new Map();
 
-const IGNORED_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEXTAREA', 'CODE', 'INPUT', 'BUTTON']);
-const LAYOUT_REGEX = /container|wrapper|grid|row|col|sidebar|header|footer|nav|menu|toolbar/i;
-
 /**
  * (新) 获取当前页面生效的配置，合并默认和域名规则。
  * @returns {Promise<object>} - 合并后的有效配置对象。
@@ -48,113 +45,58 @@ async function getEffectiveSettings() {
 }
 
 /**
- * 检查一个元素是否可能是非内容的、纯粹的结构性容器。
- * @param {HTMLElement} element
- * @returns {boolean}
- */
-function isLikelyLayoutContainer(element) {
-    if (!element || !element.tagName) return true;
-
-    // 规则 1: 忽略的标签
-    if (IGNORED_TAGS.has(element.tagName)) {
-        return true;
-    }
-
-    // 规则 2: 常见的布局类名
-    if (element.className && typeof element.className === 'string' && LAYOUT_REGEX.test(element.className)) {
-        return true;
-    }
-
-    // 规则 3: 带有点击处理器但文本很少的元素通常是自定义按钮/控件。
-    if (element.hasAttribute('onclick') || element.hasAttribute('data-onclick')) {
-        if ((element.textContent || '').trim().length < 25) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-
-/**
- * 从一个包含文本的元素开始，向上遍历DOM树以找到最合适的内容块。
- * @param {HTMLElement} startElement - 直接包含文本节点的元素。
- * @returns {HTMLElement} 聚合后的内容块。
- */
-function findBestContainer(startElement) {
-    let currentBest = startElement;
-    let parent = startElement.parentElement;
-
-    while (parent && parent.tagName !== 'BODY' && !isLikelyLayoutContainer(parent)) {
-        const parentText = parent.textContent || '';
-        const childText = currentBest.textContent || '';
-
-        // 启发式规则：如果父元素的文本不比子元素的文本长很多，
-        // 并且父元素没有太多其他元素子节点，那么它可能只是一个包装器。
-        const otherChildren = Array.from(parent.children).filter(child => child !== currentBest);
-
-        // 如果父元素的文本与子元素的文本几乎相同，这是一个强烈的上升信号。
-        if (Math.abs(parentText.length - childText.length) < 10 && otherChildren.length <= 1) {
-             currentBest = parent;
-             parent = parent.parentElement;
-        } else {
-            // 父元素包含重要的其他内容，所以在这里停止。
-            break;
-        }
-    }
-    return currentBest;
-}
-
-
-/**
- * 使用“自底向上”的内容聚合模型查找页面上所有可翻译的元素。
+ * (新) 使用“自顶向下”的 CSS 选择器模型查找页面上所有可翻译的元素。
  * 此函数取代了旧的基于CSS选择器的方法。
  * @param {object} effectiveSettings - 设置对象（用于预检查）。
  * @param {Node[]} rootNodes - 要在其中搜索的根节点。
  * @returns {HTMLElement[]} 一个包含最适合翻译的容器元素的数组。
  */
 function findTranslatableElements(effectiveSettings, rootNodes = [document.body]) {
-    const finalCandidates = new Set();
-    const processedElements = new WeakSet();
+    const inlineSelector = effectiveSettings?.translationSelector?.inline?.trim();
+    const blockSelector = effectiveSettings?.translationSelector?.block?.trim();
 
+    // 如果没有配置选择器，则不进行任何操作。
+    const allSelectors = [inlineSelector, blockSelector].filter(Boolean).join(', ');
+    if (!allSelectors) {
+        return [];
+    }
+
+    const allCandidates = new Set();
     for (const root of rootNodes) {
+        // 确保根节点是元素节点，可以进行查询。
         if (root.nodeType !== Node.ELEMENT_NODE) continue;
 
-        const walker = document.createTreeWalker(
-            root,
-            NodeFilter.SHOW_TEXT,
-            {
-                acceptNode: (node) => {
-                    // 过滤掉空的、在忽略标签内的或已处理的文本节点。
-                    if (!node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
-                    const parent = node.parentElement;
-                    if (!parent || processedElements.has(parent) || isLikelyLayoutContainer(parent)) {
-                        return NodeFilter.FILTER_REJECT;
-                    }
-                    return NodeFilter.FILTER_ACCEPT;
-                }
-            }
-        );
+        // 如果根节点本身匹配，也将其加入候选列表。
+        if (root.matches(allSelectors)) {
+            allCandidates.add(root);
+        }
+        // 查询根节点下的所有匹配项。
+        root.querySelectorAll(allSelectors).forEach(el => allCandidates.add(el));
+    }
 
-        let node;
-        while (node = walker.nextNode()) {
-            const parentElement = node.parentElement;
-            if (parentElement && !processedElements.has(parentElement)) {
-                const bestContainer = findBestContainer(parentElement);
+    const finalCandidates = new Set();
 
-                // 在添加之前预检查最佳容器的内容。
-                const { result: shouldTranslateResult } = shouldTranslate(bestContainer.textContent, effectiveSettings);
-                if (shouldTranslateResult) {
-                    finalCandidates.add(bestContainer);
-                    // 将容器及其所有子元素标记为已处理，以避免重复工作。
-                    processedElements.add(bestContainer);
-                    bestContainer.querySelectorAll('*').forEach(child => processedElements.add(child));
-                }
-            }
+    // 关键过滤步骤：只选择“最深”的匹配元素（叶子节点）。
+    // 这种方法可以防止因宽泛的选择器（如 'div'）导致整个页面被作为一个单元进行翻译。
+    // 它确保我们翻译的是包含实际文本的最小单元，而不是它们的父容器。
+    for (const el of allCandidates) {
+        // 检查当前元素 'el' 是否包含任何其他也匹配选择器的子元素。
+        if (!el.querySelector(allSelectors)) {
+            // 如果 'el' 内部没有其他匹配项，那么它就是一个“叶子”节点，我们选择它进行翻译。
+            finalCandidates.add(el);
         }
     }
 
-    return Array.from(finalCandidates);
+    // 进一步过滤，移除不可见或不应翻译的元素。
+    return Array.from(finalCandidates).filter(el => {
+        // 已经被处理或正在处理的元素
+        if (el.dataset.translationId) {
+            return false;
+        }
+        // 预检查，确保元素内有实际内容需要翻译
+        const { result: shouldTranslateResult } = shouldTranslate(el.textContent, effectiveSettings);
+        return shouldTranslateResult;
+    });
 }
 
 // --- State Management Class ---
@@ -176,6 +118,8 @@ class PageTranslationJob {
         this.idleCallbackId = null;
         this.intersectionObserver = null;
         this.mutationObserver = null;
+        this.totalElements = 0;
+        this.completedElements = 0;
 
         this.state = 'idle'; // 'idle', 'starting', 'translating', 'translated', 'reverting'
     }
@@ -214,15 +158,20 @@ class PageTranslationJob {
         this.#startMutationObserver();
 
         const elementsToObserve = findTranslatableElements(this.settings);
-        console.log(`[Foxlate] Found ${elementsToObserve.length} total elements to observe.`);
+        this.totalElements = elementsToObserve.length;
+        console.log(`[Foxlate] Found ${this.totalElements} total elements to observe.`);
 
-        if (elementsToObserve.length > 0) {
+        if (this.totalElements > 0) {
             this.#observeElements(elementsToObserve);
+            this.state = 'translating'; // 正式进入翻译中状态
         } else {
             console.warn("[Foxlate] No translatable elements found to observe initially.");
+            this.state = 'translated'; // 没有需要翻译的元素，任务直接完成
+            browser.runtime.sendMessage({
+                type: 'TRANSLATION_STATUS_UPDATE',
+                payload: { status: 'translated', tabId: this.tabId }
+            }).catch(e => logError('start (sending translated status)', e));
         }
-
-        this.state = 'translating'; // 正式进入翻译中状态
     }
 
     async revert() {
@@ -318,6 +267,18 @@ class PageTranslationJob {
         });
     }
 
+    updateProgress() {
+        this.completedElements++;
+        // 只有在翻译中状态才检查是否完成
+        if (this.state === 'translating' && this.completedElements >= this.totalElements) {
+            this.state = 'translated';
+            console.log(`[Foxlate] Page translation completed. Processed ${this.completedElements}/${this.totalElements} elements.`);
+            browser.runtime.sendMessage({
+                type: 'TRANSLATION_STATUS_UPDATE',
+                payload: { status: 'translated', tabId: this.tabId }
+            }).catch(e => logError('updateProgress (sending completed status)', e));
+        }
+    }
     #handleMutation(mutations) {
         let hasNewNodes = false;
         for (const mutation of mutations) {
@@ -369,26 +330,24 @@ function translateElement(element, effectiveSettings) {
     }
     const { sourceText, translationUnit } = domWalkerResult;
 
-    // 2. 保存原始 innerHTML 以便还原
-    element.dataset.originalContent = element.innerHTML;
-
-    // 3. 提取文本内容
+    // 2. 提取文本内容
     const textToTranslate = sourceText.trim();
 
-    // 4. 前置检查
+    // 3. 前置检查
     const { result: shouldTranslateResult } = shouldTranslate(textToTranslate, effectiveSettings);
     if (!shouldTranslateResult) {
         return; // 不翻译，跳过
     }
 
-    // 5. 存储正确的翻译单元以备后用
+    // 4. 存储正确的翻译单元以备后用
     translationUnitMap.set(element.dataset.translationId, translationUnit);
     console.log(`[Foxlate] Storing translation unit for ${element.dataset.translationId}`, { translationUnit });
 
-    // 6. 发送到后台翻译
+    // 5. 发送到后台翻译
     const targetLang = effectiveSettings.targetLanguage;
     const translatorEngine = effectiveSettings.translatorEngine;
-    DisplayManager.displayLoading(element, effectiveSettings.displayMode); // 设置加载状态
+    // 将原始 innerHTML 传递给 DisplayManager，由其统一管理状态，而不是存储在 DOM 的 dataset 中。
+    DisplayManager.displayLoading(element, effectiveSettings.displayMode, element.innerHTML); // 设置加载状态
 
     console.log(`[Foxlate] Sending text to translate for ${element.dataset.translationId}`, { textToTranslate });
     browser.runtime.sendMessage({
@@ -440,6 +399,8 @@ function handleTranslationResult(payload) {
 
     if (!wrapper) {
         translationUnitMap.delete(elementId);
+        // 即使元素已从DOM中消失，这个翻译任务也算“完成”了。
+        currentPageJob?.updateProgress();
         return;
     }
 
@@ -454,6 +415,8 @@ function handleTranslationResult(payload) {
         }
         revertElement(wrapper);
     }
+    // 无论成功与否，都更新进度。
+    currentPageJob?.updateProgress();
 }
 // --- Message Handling & UI ---
 
@@ -534,6 +497,9 @@ async function handleMessage(request, sender) {
                             case 'starting':
                             case 'translating':
                                 status = 'loading';
+                                break;
+                            case 'translated':
+                                status = 'translated';
                                 break;
                         }
                     }
