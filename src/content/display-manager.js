@@ -6,6 +6,36 @@ import appendStrategy from './strategies/append-strategy.js';
 import contextMenuStrategy from './strategies/context-menu-strategy.js';
 import hoverStrategy from './strategies/hover-strategy.js';
 
+/**
+ * (新) 通过启发式算法对元素进行分类，以确定最佳的追加样式。
+ * @param {HTMLElement} element
+ * @returns {'inline' | 'block'}
+ */
+function classifyAppendType(element) {
+    const style = window.getComputedStyle(element);
+
+    // 规则 1: 明确的 display 样式是强烈的信号。
+    if (style.display === 'inline' || style.display === 'inline-block') {
+        return 'inline';
+    }
+    if (style.display === 'block' || style.display === 'list-item') {
+        return 'block';
+    }
+
+    // 规则 2: 基于内容的启发式规则，用于处理不明确的 display 类型 (如 'flex')。
+    const textLength = (element.textContent || '').trim().length;
+    const hasBlockChildren = element.querySelector('p, div, h1, h2, h3, li, tr, blockquote');
+
+    // 短文本且没有块级子元素，很可能是内联的UI元素。
+    if (textLength < 80 && !hasBlockChildren) {
+        return 'inline';
+    }
+
+    // 其他情况（长文本、包含块级子元素的容器）默认为块级。
+    return 'block';
+}
+
+
 export class DisplayManager {
 
     static STATES = Constants.DISPLAY_MANAGER_STATES;
@@ -40,9 +70,14 @@ export class DisplayManager {
         return this.elementStates.get(element) || this.STATES.ORIGINAL;
     }
 
-    static setElementState(element, newState) {
-        this.elementStates.set(element, newState);
+    static getElementData(element) {
+        return this.elementStates.get(element);
+    }
 
+    static setElementState(element, newState, data = null) {
+        const currentState = this.elementStates.get(element) || {};
+        const newData = data ? { ...currentState, ...data, state: newState } : { ...currentState, state: newState };
+        this.elementStates.set(element, newData);
         // Manage a common class for translated elements, only for real DOM nodes
         if (element instanceof HTMLElement) {
             if (newState === this.STATES.TRANSLATED) {
@@ -126,32 +161,42 @@ export class DisplayManager {
         }
         // 在状态机生命周期的开始，将策略存储在元素上。
         element.dataset.translationStrategy = displayMode;
+
+        // 新增：如果使用追加模式，对元素进行分类以确定追加样式。
+        if (displayMode === 'append') {
+            element.dataset.appendType = classifyAppendType(element);
+        }
+
         this.setElementState(element, this.STATES.LOADING);
     }
 
-    static displayTranslation(element, translatedText) {
-        // 验证输入。非字符串类型的 translatedText 表示上游流程中存在错误。
-        // 与其静默失败（例如显示空字符串），不如抛出错误并设置元素状态，使问题可见。
+    static displayTranslation(element, { translatedText, translationUnit = null }) {
+        // 验证输入。
         if (typeof translatedText !== 'string') {
             const errorMessage = `Invalid translatedText type: expected string, got ${typeof translatedText}. This indicates a bug in the translation pipeline.`;
-            // 使用类自身的错误记录和显示机制。
             console.error(`[DisplayManager] ${errorMessage}`, { element, receivedValue: translatedText });
             this.displayError(element, errorMessage);
             return;
         }
 
-        // 统一处理：为了保留换行和段落，始终将换行符转换成 <br> 标签。
-        // 首先对整个文本进行转义以确保安全，然后进行替换。
-        const processedText = this.#escapeHtml(translatedText).replace(/\n/g, '<br>');
+        // 如果提供了翻译单元，则进行验证。
+        if (translationUnit) {
+            // 基本的健全性检查。具体的策略（如 replace-strategy）负责验证其所需的数据结构（如 nodeMap）。
+            if (typeof translationUnit !== 'object' || translationUnit === null) {
+                const errorMessage = `Invalid translationUnit provided. It must be an object.`;
+                console.error(`[DisplayManager] ${errorMessage}`, { element, receivedValue: translationUnit });
+                this.displayError(element, errorMessage);
+                return;
+            }
+        }
 
-        // 将处理后的文本存储在 dataset 中，并更新元素状态。
-        element.dataset.translatedText = processedText;
-        this.setElementState(element, this.STATES.TRANSLATED);
+        // 将翻译单元和翻译结果存储在状态中，并更新元素状态。
+        // 策略将从状态管理器中获取这些数据以更新UI。
+        this.setElementState(element, this.STATES.TRANSLATED, { translationUnit, translatedText });
     }
 
     static displayError(element, errorMessage) {
-        element.dataset.errorMessage = errorMessage;
-        this.setElementState(element, this.STATES.ERROR);
+        this.setElementState(element, this.STATES.ERROR, { errorMessage });
     }
 
     /**
@@ -196,7 +241,7 @@ export class DisplayManager {
             if (!target) return;
 
             if (success) {
-                this.displayTranslation(target, translatedText);
+                this.displayTranslation(target, { translatedText });
             } else if (error) {
                 this.displayError(target, error);
             }

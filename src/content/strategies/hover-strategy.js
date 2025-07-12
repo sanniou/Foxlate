@@ -1,4 +1,5 @@
 import * as Constants from '../../common/constants.js';
+import { DisplayManager } from '../display-manager.js';
 
 class HoverStrategy {
     /**
@@ -6,6 +7,22 @@ class HoverStrategy {
      * 持有单一的工具提示元素实例。
      */
     #tooltipEl = null;
+
+    /**
+     * @private
+     * Escapes a string for safe insertion into HTML.
+     * @param {string} unsafe - The string to escape.
+     * @returns {string} The escaped string.
+     */
+    #escapeHtml(unsafe) {
+        if (typeof unsafe !== 'string') return '';
+        return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
 
     /**
      * @private
@@ -135,17 +152,19 @@ class HoverStrategy {
                 element.classList.add('foxlate-loading-highlight');
                 break;
             case Constants.DISPLAY_MANAGER_STATES.TRANSLATED:
-                const translatedText = element.dataset.translatedText;
-                if (translatedText) {
-                    this.displayTranslation(element, translatedText, false);
+                const data = DisplayManager.getElementData(element);
+                if (data && data.translatedText) {
+                    const processedText = this.#escapeHtml(data.translatedText).replace(/\n/g, '<br>');
+                    this.displayTranslation(element, processedText, false);
+                } else {
+                    this.revertTranslation(element);
                 }
                 break;
             case Constants.DISPLAY_MANAGER_STATES.ERROR:
+                const errorData = DisplayManager.getElementData(element);
                 const errorPrefix = browser.i18n.getMessage('contextMenuErrorPrefix') || 'Error';
-                const errorMessage = element.dataset.errorMessage || 'Translation Error';
-                const fullErrorMessage = `${errorPrefix}: ${errorMessage}`;
-                // 更新 dataset 以便其他地方可能需要，并直接将错误信息传递给 displayTranslation
-                element.dataset.translatedText = fullErrorMessage;
+                const errorMessage = errorData?.errorMessage || 'Translation Error';
+                const fullErrorMessage = `⚠️ ${this.#escapeHtml(errorPrefix)}: ${this.#escapeHtml(errorMessage)}`;
                 this.displayTranslation(element, fullErrorMessage, true);
                 break;
             default:

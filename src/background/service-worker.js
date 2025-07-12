@@ -237,125 +237,89 @@ async function handleSelectionTranslation(tab, source) {
         return;
     }
 
-    // 1. 为此特定翻译请求创建一个唯一ID。
-    // 这有助于内容脚本区分连续的翻译请求，避免旧的翻译结果覆盖新的结果。
-    const translationId = `sel-${Date.now()}`;
     const { text: selectionText, coords } = selectionDetails;
+    // Create a unique ID to prevent race conditions with multiple quick selections.
+    const translationId = `sel-${Date.now()}`;
 
-    // 2. 立即发送“加载中”状态，让用户立即看到反馈。
-    // 这是为了优化用户体验，即使翻译需要一些时间。
+    // Create a base payload to reduce repetition.
+    const basePayload = { coords, source, translationId };
+
+    // Immediately send "loading" state for better UX.
     browser.tabs.sendMessage(tab.id, {
         type: 'DISPLAY_SELECTION_TRANSLATION',
-        payload: {
-            isLoading: true,
-            coords,
-            source,
-            translationId
-        }
+        payload: { ...basePayload, isLoading: true }
     }).catch((e) => logError('handleSelectionTranslation (Send Loading)', e));
 
-    // 3. 执行翻译并准备最终结果。
-    let finalPayload;
+    // Perform translation and prepare the result part of the payload.
+    let resultPayload;
     try {
         const hostname = new URL(tab.url).hostname;
         const effectiveRule = await getEffectiveSettings(hostname);
         const result = await TranslatorManager.translateText(selectionText, effectiveRule.targetLanguage, 'auto', effectiveRule.translatorEngine);
 
-        finalPayload = {
+        resultPayload = {
             success: !result.error,
             translatedText: result.text,
             error: result.error,
-            coords,
-            source,
-            translationId // 包含ID
         };
     } catch (error) {
-        logError('handleSelectionTranslation', error);
-        finalPayload = {
+        logError('handleSelectionTranslation (Translation Process)', error);
+        resultPayload = {
             success: false,
             error: error.message,
-            coords,
-            source,
-            translationId // 包含ID
         };
     }
 
-    // 4. 发送最终结果。内容脚本应检查 translationId 以确保这是最新的结果。
+    // Send the final result, combining the base and result payloads.
     browser.tabs.sendMessage(tab.id, {
         type: 'DISPLAY_SELECTION_TRANSLATION',
-        payload: finalPayload
+        payload: { ...basePayload, ...resultPayload }
     }).catch(e => logError('handleSelectionTranslation (Send Result)', e));
 }
 
 // --- Message Handlers ---
 
 const messageHandlers = {
-    async TRANSLATE_TEXT(request) {
-        const { text, targetLang, sourceLang } = request.payload;
-        const result = await TranslatorManager.translateText(text, targetLang, sourceLang);
-        if (result.error) {
-            logError('TRANSLATE_TEXT handler', new Error(result.error));
-            return { success: false, error: result.error, translatedText: { text: result.text, translated: result.translated }, log: result.log };
-        } else {
-            return { success: true, translatedText: { text: result.text, translated: result.translated }, log: result.log };
-        }
-    },
+    async TRANSLATE_TEXT(request, sender) {
+        const { text, targetLang, sourceLang, elementId, translatorEngine } = request.payload;
+        const originTabId = sender.tab?.id;
 
-    async TRANSLATE_TEXT_CHUNK(request, sender) {
-        const { texts, ids, targetLang, sourceLang, tabId, translatorEngine } = request.payload;
-        if (!texts || !ids || !tabId || texts.length !== ids.length) {
-            logError('TRANSLATE_TEXT_CHUNK', new Error('Invalid payload for chunk translation.'));
+        if (!originTabId) {
+            logError('TRANSLATE_TEXT', new Error('Received translation request without a valid tab ID.'));
             return;
         }
 
-        // 为每个文本创建一个独立的、并行的翻译任务。
-        // 这样，每个翻译结果一准备好就可以立即发送，而无需等待整个批次完成。
-        // 这可以显著提高用户感知的响应速度。
-        const tasks = texts.map((text, index) => {
-            const currentId = ids[index];
-
-            // 使用一个立即调用的异步函数 (IIAFE) 来封装每个翻译的生命周期。
-            return (async () => {
-                //  在任务进入队列后设置徽章为 loading 状态，这能更精确地反映任务的激活状态。
-                await setBadgeAndState(tabId, 'loading');
-                let payload;
-                try {
-                    const result = await TranslatorManager.translateText(text, targetLang, sourceLang, translatorEngine);
-                    payload = {
-                        id: currentId,
-                        success: !result.error,
-                        translatedText: result.text,
-                        wasTranslated: result.translated,
-                        error: result.error || null,
-                    };
-                } catch (error) {
-                    // 捕获 promise 拒绝（例如，网络错误或中断）
-                    const finalError = (error?.name === 'AbortError')
-                        ? "Translation was interrupted by the user."
-                        : (error?.message || 'Unknown error');
-
-                    payload = {
-                        id: currentId,
+        try {
+            const result = await TranslatorManager.translateText(text, targetLang, sourceLang, translatorEngine);
+            await browser.tabs.sendMessage(originTabId, {
+                type: 'TRANSLATE_TEXT_RESULT',
+                payload: {
+                    elementId: elementId,
+                    success: !result.error,
+                    translatedText: result.text,
+                    wasTranslated: result.translated,
+                    error: result.error || null
+                }
+            });
+        } catch (error) {
+            logError('TRANSLATE_TEXT (execution)', error);
+            try {
+                await browser.tabs.sendMessage(originTabId, {
+                    type: 'TRANSLATE_TEXT_RESULT',
+                    payload: {
+                        elementId: elementId,
                         success: false,
-                        translatedText: null,
+                        translatedText: '',
                         wasTranslated: false,
-                        error: finalError,
-                    };
-                }
-
-                try {
-                    await browser.tabs.sendMessage(tabId, { type: 'TRANSLATION_CHUNK_RESULT', payload });
-                } catch (e) {
-                    // 忽略“接收端不存在”的错误，因为标签页可能已关闭。
-                    if (!e.message.includes("Receiving end does not exist")) {
-                        logError('TRANSLATE_TEXT_CHUNK (sending result)', e);
+                        error: error.message
                     }
+                });
+            } catch (e) {
+                if (!e.message.includes("Receiving end does not exist")) {
+                    logError('TRANSLATE_TEXT (sending error)', e);
                 }
-            })();
-        });
-
-        // 等待所有独立的发送任务都完成，以确保 service worker 不会过早终止。
-        await Promise.allSettled(tasks);
+            }
+        }
     },
 
     async TRANSLATE_BATCH(request) {

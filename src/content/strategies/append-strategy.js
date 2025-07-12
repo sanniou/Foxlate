@@ -1,103 +1,77 @@
 import * as Constants from '../../common/constants.js';
+import { DisplayManager } from '../display-manager.js';
+import { escapeHtml } from '../../common/utils.js';
+import { reconstructDOM } from '../dom-reconstructor.js';
 
 class AppendStrategy {
     /**
-     * 在元素后面追加一个包含译文的节点。
+     * 移除追加的翻译元素。
      * @param {HTMLElement} element - 目标元素。
-     * @param {string} translatedText - 翻译后的文本。
      */
-    displayTranslation(element, translatedText) {
-        // 查找已有的翻译 font 标签，有则更新，无则创建
-        let translationNode = element.querySelector(".foxlate-appended-text");
-
-        if (translationNode) {
-            // Node exists, just update it.
-            // 使用 innerHTML 来正确渲染包含 <br> 标签的换行文本。
-            translationNode.innerHTML = translatedText;
-        } else {
-            // This path is a fallback for cases where the node wasn't created during the LOADING state.
-            this.createTranslationNode(element, translatedText);
-        }
-    }
-
-    createTranslationNode(element, htmlContent, initialClass = '') {
-        const type = element.dataset.translationType;
-        let finalClassName = 'foxlate-appended-text';
-
-        if (type === 'block') {
-            finalClassName += ' foxlate-appended-block';
-        }
-        if (initialClass) {
-            finalClassName += ` ${initialClass}`;
-        }
-
-        const translationNode = document.createElement('span');
-        translationNode.className = finalClassName; // 类名用于标识和还原
-        translationNode.innerHTML = htmlContent;
-        element.appendChild(translationNode);
+    revertTranslation(element) {
+        element.querySelector('.foxlate-appended-text')?.remove();
     }
 
     updateUI(element, state) {
-        let translationNode = element.querySelector('.foxlate-appended-text');
+        // 在更新UI前，总是先清理掉旧的追加元素，以避免重复。
+        this.revertTranslation(element);
 
         switch (state) {
             case Constants.DISPLAY_MANAGER_STATES.ORIGINAL:
-                this.revertTranslation(element);
+                // revertTranslation 已在上面调用，无需额外操作。
                 break;
+
             case Constants.DISPLAY_MANAGER_STATES.LOADING:
-                if (translationNode) {
-                    translationNode.innerHTML = '';
-                    translationNode.classList.add('loading');
-                } else {
-                    this.createTranslationNode(element, '', 'loading');
-                }
+                const loadingIndicator = document.createElement('span');
+                loadingIndicator.className = `foxlate-appended-text foxlate-appended-${element.dataset.appendType} loading`;
+                loadingIndicator.textContent = '...';
+                element.appendChild(loadingIndicator);
                 break;
+
             case Constants.DISPLAY_MANAGER_STATES.TRANSLATED:
-                const translatedText = element.dataset.translatedText;
-                if (translatedText) {
-                    this.displayTranslation(element, translatedText);
-                    // 重新获取节点，因为它可能刚刚被 displayTranslation 创建
-                    translationNode = element.querySelector('.foxlate-appended-text');
-                    translationNode?.classList.remove('loading', 'error');
-                } else {
+                const data = DisplayManager.getElementData(element);
+                if (!data || !data.translatedText) {
                     this.revertTranslation(element);
+                    return;
                 }
+
+                const appendType = element.dataset.appendType === 'inline' ? 'span' : 'div';
+                const appendedElement = document.createElement(appendType);
+                appendedElement.className = `foxlate-appended-text foxlate-appended-${element.dataset.appendType}`;
+
+                // 检查是否存在格式保留翻译所需的数据
+                if (data.translationUnit?.nodeMap) {
+                    try {
+                        const fragment = reconstructDOM(data.translatedText, data.translationUnit.nodeMap);
+                        appendedElement.appendChild(fragment);
+                    } catch (e) {
+                        console.error("[Append Strategy] 重建DOM失败，回退到纯文本追加。", e);
+                        appendedElement.innerHTML = escapeHtml(data.translatedText).replace(/\n/g, '<br>');
+                    }
+                } else {
+                    // 如果没有nodeMap，说明是简单文本，执行纯文本追加
+                    appendedElement.innerHTML = escapeHtml(data.translatedText).replace(/\n/g, '<br>');
+                }
+                element.appendChild(appendedElement);
                 break;
+
             case Constants.DISPLAY_MANAGER_STATES.ERROR:
-                // 不再直接移除，而是在追加的节点中显示错误信息
-                if (!translationNode) {
-                    // 如果节点不存在（例如，加载状态之前就出错了），则创建一个
-                    this.createTranslationNode(element, '');
-                    translationNode = element.querySelector('.foxlate-appended-text');
-                }
+                const errorData = DisplayManager.getElementData(element);
+                const errorPrefix = browser.i18n.getMessage('contextMenuErrorPrefix') || 'Error';
+                const errorMessage = errorData?.errorMessage || 'Translation Error';
+                const fullErrorMessage = `⚠️ ${escapeHtml(errorPrefix)}: ${escapeHtml(errorMessage)}`;
 
-                if (translationNode) {
-                    const errorMessage = element.dataset.errorMessage || 'Unknown error';
-                    const errorPrefix = browser.i18n.getMessage('contextMenuErrorPrefix') || 'Error';
-
-                    translationNode.classList.remove('loading');
-                    translationNode.classList.add('error'); // 添加 error 类以便 CSS 设置样式
-                    translationNode.innerHTML = `${errorPrefix}: ${errorMessage}`;
-                }
+                const errorAppendType = element.dataset.appendType === 'inline' ? 'span' : 'div';
+                const errorElement = document.createElement(errorAppendType);
+                errorElement.className = `foxlate-appended-text foxlate-appended-${element.dataset.appendType} error`;
+                errorElement.innerHTML = fullErrorMessage; // fullErrorMessage is already escaped
+                element.appendChild(errorElement);
                 break;
+
             default:
                 console.warn(`[Append Strategy] Unknown state: ${state}`);
         }
     }
-
-    /**
-     * 移除追加的翻译节点。
-     * @param {HTMLElement} element - 目标元素。
-     */
-    revertTranslation(element) {
-        // 移除所有由这个策略添加的节点
-        element.querySelectorAll('.foxlate-appended-text').forEach(node => {
-            if (node) {
-                node.remove();
-            }
-        });
-    }
 }
 
-// 导出该类的一个实例，以保持单例模式
 export default new AppendStrategy();

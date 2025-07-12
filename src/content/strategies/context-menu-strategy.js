@@ -1,4 +1,5 @@
 import * as Constants from '../../common/constants.js';
+import { DisplayManager } from '../display-manager.js';
 
 class ContextMenuStrategy {
     /**
@@ -24,6 +25,22 @@ class ContextMenuStrategy {
      * 持有当前操作的状态目标对象。
      */
     #currentTarget = null;
+
+    /**
+     * @private
+     * Escapes a string for safe insertion into HTML.
+     * @param {string} unsafe - The string to escape.
+     * @returns {string} The escaped string.
+     */
+    #escapeHtml(unsafe) {
+        if (typeof unsafe !== 'string') return '';
+        return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
 
     /**
      * @private
@@ -72,8 +89,7 @@ class ContextMenuStrategy {
         if (!this.#tooltipEl) return;
 
         // 使用 innerHTML 来正确渲染包含 <br> 标签的换行文本。
-        // display-manager 已经对文本进行了 HTML 转义，因此这里是安全的。
-        this.#tooltipEl.innerHTML = text;
+        this.#tooltipEl.innerHTML = text; // 文本由调用者 (updateUI) 预先转义
         this.#tooltipEl.classList.toggle('loading', !!isLoading);
         this.#tooltipEl.classList.toggle('error', !!isError);
         this.#tooltipEl.classList.toggle('from-shortcut', source === 'shortcut');
@@ -146,6 +162,7 @@ class ContextMenuStrategy {
         const target = element;
         this.#currentTarget = target; // Keep track of the current target for event handlers.
 
+        const data = DisplayManager.getElementData(target);
         const coords = {
             clientX: parseFloat(target.dataset.clientX),
             clientY: parseFloat(target.dataset.clientY),
@@ -167,15 +184,18 @@ class ContextMenuStrategy {
                 break;
 
             case Constants.DISPLAY_MANAGER_STATES.TRANSLATED:
-                const translatedText = target.dataset.translatedText;
-                if (translatedText) {
-                    this.#showTooltip(coords, translatedText, false, source, false, displayManager);
+                if (data && data.translatedText) {
+                    const processedText = this.#escapeHtml(data.translatedText).replace(/\n/g, '<br>');
+                    this.#showTooltip(coords, processedText, false, source, false, displayManager);
+                } else {
+                    this.revertTranslation(target);
                 }
                 break;
 
             case Constants.DISPLAY_MANAGER_STATES.ERROR:
-                const errorMessage = target.dataset.errorMessage || 'Translation Error';
-                const fullErrorMessage = `${browser.i18n.getMessage('contextMenuErrorPrefix') || 'Error'}: ${errorMessage}`;
+                const errorMessage = data?.errorMessage || 'Translation Error';
+                const errorPrefix = browser.i18n.getMessage('contextMenuErrorPrefix') || 'Error';
+                const fullErrorMessage = `⚠️ ${this.#escapeHtml(errorPrefix)}: ${this.#escapeHtml(errorMessage)}`;
                 this.#showTooltip(coords, fullErrorMessage, false, source, true, displayManager);
                 break;
 
