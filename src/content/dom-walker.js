@@ -1,11 +1,31 @@
-const BLOCK_LEVEL_TAGS = new Set([
-    'P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'BLOCKQUOTE',
-    'PRE', 'TD', 'TH', 'TR', 'TABLE', 'SECTION', 'ARTICLE', 'HEADER',
-    'FOOTER', 'ASIDE', 'NAV', 'ADDRESS', 'FIGURE', 'FIGCAPTION', 'HR'
+// --- 标签定义 ---
+// 通过将标签按职责分类并组合，可以提高可读性和可维护性。
+
+// 纯粹的结构性块级标签，其内容将被处理，但标签本身不会被保留。
+const STRUCTURAL_BLOCK_TAGS = new Set([
+    'DIV', 'SECTION', 'ARTICLE', 'HEADER', 'FOOTER', 'ASIDE', 'NAV'
 ]);
 
-// (新) 定义需要保留格式的内联标签
-const PRESERVABLE_INLINE_TAGS = new Set(['A', 'B', 'I', 'EM', 'STRONG', 'CODE', 'U', 'S', 'SUB', 'SUP', 'SPAN']);
+// 需要保留格式的内联标签。
+const PRESERVABLE_INLINE_TAGS = new Set([
+    'A', 'B', 'I', 'EM', 'STRONG', 'CODE', 'U', 'S', 'SUB', 'SUP', 'SPAN'
+]);
+
+// 需要保留格式的块级标签。
+const PRESERVABLE_BLOCK_TAGS = new Set([
+    'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'BLOCKQUOTE', 'PRE',
+    'TABLE', 'TR', 'TH', 'TD', 'FIGURE', 'FIGCAPTION', 'ADDRESS', 'HR'
+]);
+
+// 定义在遍历时应完全跳过的标签。
+const SKIPPED_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEXTAREA', 'INPUT']);
+
+// 通过组合基本集合来构建最终的标签集。
+// 1. 所有需要保留格式的标签（内联 + 块级）。
+const PRESERVABLE_TAGS = new Set([...PRESERVABLE_INLINE_TAGS, ...PRESERVABLE_BLOCK_TAGS]);
+// 2. 所有属于块级布局的标签（结构性 + 可保留的块级）。
+const BLOCK_LEVEL_TAGS = new Set([...STRUCTURAL_BLOCK_TAGS, ...PRESERVABLE_BLOCK_TAGS]);
+
 
 /**
  * A utility class for traversing a container element's DOM.
@@ -22,57 +42,61 @@ export class DOMWalker {
         const nodeMap = {};
         let tagIndex = 0;
 
-        function walk(node, isPreformatted = false) {
-            // 遍历当前节点的所有子节点
-            for (const child of Array.from(node.childNodes)) {
-                if (child.nodeType === Node.TEXT_NODE) {
-                    if (isPreformatted) {
-                        // 在预格式化上下文中，保留所有空白字符
-                        sourceText += child.nodeValue;
-                    } else {
-                        // 在常规上下文中，将多个空白字符（包括换行符）合并为单个空格，以模拟浏览器的行为。
-                        sourceText += child.nodeValue.replace(/\s+/g, ' ');
-                    }
-                } else if (child.nodeType === Node.ELEMENT_NODE) {
+        const ensureSeparator = () => {
+            if (sourceText.length > 0 && !/\s$/.test(sourceText)) {
+                sourceText += '\n';
+            }
+        };
+
+        function walk(node) {
+            for (const child of node.childNodes) {
+                if (child.nodeType === Node.TEXT_NODE) { // 文本节点
+                    sourceText += child.nodeValue;
+                } else if (child.nodeType === Node.ELEMENT_NODE) { // 元素节点
                     const tagName = child.tagName.toUpperCase();
                     // 关键：跳过不需要翻译的脚本和样式块
-                    if (tagName === 'SCRIPT' || tagName === 'STYLE' || tagName === 'NOSCRIPT') {
+                    if (SKIPPED_TAGS.has(tagName)) {
                         continue;
                     }
 
-                    // 如果当前标签是 PRE 或 CODE，则其所有子节点都处于预格式化上下文中。
-                    const newPreformattedContext = isPreformatted || tagName === 'PRE' || tagName === 'CODE';
-
-                    if (PRESERVABLE_INLINE_TAGS.has(tagName)) {
-                        const tagId = `t${tagIndex++}`;
-                        // 仅存储节点的“外壳”（标签名和属性），不包含其子节点
-                        nodeMap[tagId] = child.cloneNode(false);
-                        
-                        sourceText += `<${tagId}>`;
-                        walk(child, newPreformattedContext); // 递归处理子节点
-                        sourceText += `</${tagId}>`;
-                    } else if (BLOCK_LEVEL_TAGS.has(tagName)) {
-                        if (sourceText.length > 0 && !sourceText.endsWith('\n')) sourceText += '\n';
-                        walk(child, newPreformattedContext);
-                        if (sourceText.length > 0 && !sourceText.endsWith('\n')) sourceText += '\n';
-                    } else {
-                        walk(child, newPreformattedContext);
+                    // (新) 将 <br> 标签显式地转换成一个换行符，以保留其格式。
+                    if (tagName === 'BR') {
+                        sourceText += '\n';
+                        continue;
                     }
+
+                    const isBlock = BLOCK_LEVEL_TAGS.has(tagName);
+                    const isPreservable = PRESERVABLE_TAGS.has(tagName);
+
+                    // 步骤 1: 为块级元素添加前导分隔符
+                    if (isBlock) ensureSeparator();
+
+                    // 步骤 2: 处理元素内容
+                    if (isPreservable) {
+                        const tagId = `t${tagIndex++}`;
+                        nodeMap[tagId] = child.cloneNode(false);
+                        sourceText += `<${tagId}>`;
+                        walk(child);
+                        sourceText += `</${tagId}>`;
+                    } else {
+                        walk(child);
+                    }
+
+                    // 步骤 3: 为块级元素添加尾随分隔符
+                    if (isBlock) ensureSeparator();
                 }
             }
         }
 
-        walk(rootElement, false);
+        walk(rootElement);
         const trimmedSourceText = sourceText.trim();
 
         if (!trimmedSourceText) return null;
 
         // 返回带标签的源文本和用于重建的节点映射表
-        // 临时兼容：添加一个空的 originalNodes 数组，以通过 DisplayManager 中过时的验证。
-        // 最终的解决方案应该是移除或更新 DisplayManager 中的验证逻辑。
         return {
             sourceText: trimmedSourceText,
-            translationUnit: { nodeMap, originalNodes: [] }
+            translationUnit: { nodeMap }
         };
     }
 }

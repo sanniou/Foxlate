@@ -153,8 +153,10 @@ class HoverStrategy {
                 break;
             case Constants.DISPLAY_MANAGER_STATES.TRANSLATED:
                 const data = DisplayManager.getElementData(element);
-                if (data && data.translatedText) {
-                    const processedText = this.#escapeHtml(data.translatedText).replace(/\n/g, '<br>');
+                // 使用由 DisplayManager 提供的、已清理的 plainText，
+                // 以避免显示内部的 <t_id> 格式标签。
+                if (data && data.plainText) {
+                    const processedText = this.#escapeHtml(data.plainText).replace(/\n/g, '<br>');
                     this.displayTranslation(element, processedText, false);
                 } else {
                     this.revertTranslation(element);

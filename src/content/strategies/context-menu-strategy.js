@@ -184,8 +184,10 @@ class ContextMenuStrategy {
                 break;
 
             case Constants.DISPLAY_MANAGER_STATES.TRANSLATED:
-                if (data && data.translatedText) {
-                    const processedText = this.#escapeHtml(data.translatedText).replace(/\n/g, '<br>');
+                // 使用由 DisplayManager 提供的、已清理的 plainText。
+                // 对于划词翻译，plainText 和 translatedText 的内容是相同的。
+                if (data && data.plainText) {
+                    const processedText = this.#escapeHtml(data.plainText).replace(/\n/g, '<br>');
                     this.#showTooltip(coords, processedText, false, source, false, displayManager);
                 } else {
                     this.revertTranslation(target);

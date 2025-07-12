@@ -31,12 +31,24 @@ export function reconstructDOM(taggedText, nodeMap) {
                 } else console.warn(`[DOM Reconstructor] 遇到未知的翻译器标签: ${part}`);
             }
         } else {
-            // 是纯文本部分，处理其中的换行符
-            const textParts = part.split('\n');
-            textParts.forEach((text, i) => {
-                if (text) parentStack[parentStack.length - 1].appendChild(document.createTextNode(text));
-                if (i < textParts.length - 1) parentStack[parentStack.length - 1].appendChild(document.createElement('br'));
-            });
+            // 是纯文本部分。
+            // 关键优化：检查当前上下文是否为预格式化（如在 <pre> 或 <code> 标签内）。
+            const currentParent = parentStack[parentStack.length - 1];
+            // 检查当前直接父节点是否为预格式化标签。
+            // 这是一个简单而有效的检查，因为 walk() 保证了 <pre> 和 <code> 自身会被保留为 <t_id> 标签。
+            const isPreformatted = currentParent.nodeName === 'PRE' || currentParent.nodeName === 'CODE';
+
+            if (isPreformatted) {
+                // 在预格式化上下文中，直接插入文本，保留所有空白和换行符。
+                currentParent.appendChild(document.createTextNode(part));
+            } else {
+                // 在常规上下文中，将翻译返回的换行符转换成 <br> 标签。
+                const textParts = part.split('\n');
+                textParts.forEach((text, i) => {
+                    if (text) currentParent.appendChild(document.createTextNode(text));
+                    if (i < textParts.length - 1) currentParent.appendChild(document.createElement('br'));
+                });
+            }
         }
     }
     if (parentStack.length !== 1) console.warn("[DOM Reconstructor] DOM重建结束时有未闭合的标签。");

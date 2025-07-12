@@ -27,13 +27,6 @@ function generateUUID() {
 }
 
 /**
- * A map to temporarily store TranslationUnit objects during the async translation process.
- * The key is the element's `data-translation-id`.
- * This avoids polluting the DOM element object itself.
- */
-const translationUnitMap = new Map();
-
-/**
  * (新) 获取当前页面生效的配置，合并默认和域名规则。
  * @returns {Promise<object>} - 合并后的有效配置对象。
  */
@@ -199,7 +192,7 @@ class PageTranslationJob {
             delete document.body.dataset.translationSession;
             DisplayManager.hideAllEphemeralUI();
             const wrappers = document.querySelectorAll('[data-translation-id]');
-            wrappers.forEach(revertElement);
+            wrappers.forEach(wrapper => DisplayManager.revert(wrapper));
             console.log(`[Foxlate] Reverted ${wrappers.length} translated elements.`);
 
         } catch (error) {
@@ -339,15 +332,13 @@ function translateElement(element, effectiveSettings) {
         return; // 不翻译，跳过
     }
 
-    // 4. 存储正确的翻译单元以备后用
-    translationUnitMap.set(element.dataset.translationId, translationUnit);
-    console.log(`[Foxlate] Storing translation unit for ${element.dataset.translationId}`, { translationUnit });
-
-    // 5. 发送到后台翻译
+    // 4. 发送到后台翻译
     const targetLang = effectiveSettings.targetLanguage;
     const translatorEngine = effectiveSettings.translatorEngine;
-    // 将原始 innerHTML 传递给 DisplayManager，由其统一管理状态，而不是存储在 DOM 的 dataset 中。
-    DisplayManager.displayLoading(element, effectiveSettings.displayMode, element.innerHTML); // 设置加载状态
+    // 将所有初始状态（原始HTML和翻译单元）一次性传递给 DisplayManager，
+    // 由其统一管理，而不是使用一个单独的 map。
+    const initialState = { originalContent: element.innerHTML, translationUnit };
+    DisplayManager.displayLoading(element, effectiveSettings.displayMode, initialState); // 设置加载状态
 
     console.log(`[Foxlate] Sending text to translate for ${element.dataset.translationId}`, { textToTranslate });
     browser.runtime.sendMessage({
@@ -355,39 +346,10 @@ function translateElement(element, effectiveSettings) {
         payload: { text: textToTranslate, targetLang, sourceLang: 'auto', elementId: element.dataset.translationId, translatorEngine }
     }).catch(e => {
         logError('translateElement (send message)', e);
-        revertElement(element);
+        DisplayManager.revert(element);
     });
 }
 
-
-/**
- * Reverts a single translated element wrapper back to its original text node,
- * and cleans up its associated state. This is the single source of truth for
- * reverting any element.
- * @param {HTMLElement} wrapper - The <font> element wrapping the original text.
- */
-function revertElement(wrapper) {
-    if (!wrapper || !(wrapper instanceof HTMLElement)) return;
-
-    // 新增：在还原前从映射中移除翻译单元
-    const elementId = wrapper.dataset.translationId;
-    if (elementId) {
-        translationUnitMap.delete(elementId);
-    }
-
-    // Let the DisplayManager handle strategy-specific UI cleanup and state removal.
-    DisplayManager.revert(wrapper);
-
-    // After the strategy has had a chance to use its data (e.g., to restore originalContent),
-    // and after DisplayManager has cleaned its internal state, we clean up all framework-related
-    // dataset attributes from the DOM element to leave it in a pristine state.
-    // The strategy itself is responsible for cleaning up attributes it exclusively owns,
-    // like 'originalContent' in the replace-strategy.
-    if (wrapper.dataset) {
-        delete wrapper.dataset.translationId;
-        delete wrapper.dataset.translationStrategy;
-    }
-}
 
 /**
  * (新) 处理单个元素翻译的结果。
@@ -398,17 +360,16 @@ function handleTranslationResult(payload) {
     const wrapper = document.querySelector(`[data-translation-id="${elementId}"]`);
 
     if (!wrapper) {
-        translationUnitMap.delete(elementId);
         // 即使元素已从DOM中消失，这个翻译任务也算“完成”了。
         currentPageJob?.updateProgress();
         return;
     }
 
     if (success && wasTranslated) {
-        const translationUnit = translationUnitMap.get(elementId);
-        console.log(`[Foxlate] Retrieved translation unit for ${elementId}`, { translationUnit, translatedText });
-        DisplayManager.displayTranslation(wrapper, { translatedText, translationUnit });
-        translationUnitMap.delete(elementId);
+        // 为不使用 DOM 重建的策略（如悬浮提示）准备一个纯文本版本。
+        // 这可以防止将内部的 <t_id> 标签泄露到 UI 中。
+        const plainText = translatedText.replace(/<(\/)?t\d+>/g, '');
+        DisplayManager.displayTranslation(wrapper, { translatedText, plainText });
     } else {
         // 如果翻译失败，显示错误状态而不是直接还原。
         // 这为用户提供了关于翻译失败的明确反馈。
@@ -420,139 +381,142 @@ function handleTranslationResult(payload) {
 }
 // --- Message Handling & UI ---
 
-async function handleMessage(request, sender) {
-    console.trace(`[Content Script] Received message from sender :`, request)
-    try {
-        switch (request.type) {
-            case 'PING':
-                return Promise.resolve({ status: 'PONG' });
+const messageHandlers = {
+    PING() {
+        return Promise.resolve({ status: 'PONG' });
+    },
 
-            case 'SETTINGS_UPDATED':
-                console.log("[Content Script] Received settings update. Updating local cache.");
-                if (currentPageJob) {
-                    currentPageJob.settings = await getEffectiveSettings();
-                    console.log("[Foxlate] Updated job settings:", currentPageJob.settings);
-                }
-                return { success: true };
-
-            case 'RELOAD_TRANSLATION_JOB':
-                if (currentPageJob) {
-                    console.log("[Foxlate] Critical settings changed. Reverting and restarting translation job.");
-                    const tabId = currentPageJob.tabId; // 在还原前保存 tabId
-                    await currentPageJob.revert(); // 这会将 currentPageJob 设置为 null
-
-                    // 使用新设置启动一个新作业
-                    const newSettings = await getEffectiveSettings();
-                    currentPageJob = new PageTranslationJob(tabId, newSettings);
-                    await currentPageJob.start();
-                }
-                return { success: true };
-
-            case 'TRANSLATE_PAGE_REQUEST':
-                if (currentPageJob) {
-                    console.warn("[Foxlate] Auto-translate request received, but a job is already active. Ignoring.");
-                } else {
-                    const settings = await getEffectiveSettings();
-                    currentPageJob = new PageTranslationJob(request.payload.tabId, settings);
-                    await currentPageJob.start();
-                }
-                return { success: true };
-
-            case 'REVERT_PAGE_TRANSLATION':
-                if (currentPageJob) {
-                    await currentPageJob.revert();
-                }
-                return { success: true };
-
-            case 'TOGGLE_TRANSLATION_REQUEST_AT_CONTENT':
-                {
-                    const isSessionActiveForToggle = document.body.dataset.translationSession === 'active';
-                    const action = isSessionActiveForToggle ? 'revert' : 'translate';
-                    const { tabId } = request.payload;
-
-                    if (action === 'translate') {
-                        if (currentPageJob) {
-                            console.warn("[Foxlate] State mismatch: job exists but session is not active. Reverting old job first.");
-                            await currentPageJob.revert();
-                        }
-                        const settings = await getEffectiveSettings();
-                        currentPageJob = new PageTranslationJob(tabId, settings);
-                        await currentPageJob.start();
-                    } else if (action === 'revert') {
-                        if (!currentPageJob) {
-                            console.warn("[Foxlate] State mismatch: session is active but no job exists. Attempting DOM cleanup.");
-                            const cleanupJob = new PageTranslationJob(tabId, {});
-                            await cleanupJob.revert();
-                        } else {
-                            await currentPageJob.revert();
-                        }
-                    }
-                    return { success: true };
-                }
-
-            case 'TRANSLATE_TEXT_RESULT':
-                handleTranslationResult(request.payload);
-                return { success: true };
-
-            case 'UPDATE_DISPLAY_MODE':
-                const { displayMode } = request.payload;
-                if (currentPageJob && currentPageJob.settings) {
-                    currentPageJob.settings.displayMode = displayMode;
-                }
-                DisplayManager.updateDisplayMode(displayMode);
-                return { success: true };
-
-            case 'REQUEST_TRANSLATION_STATUS':
-                {
-                    let status = 'original';
-                    if (currentPageJob) {
-                        switch (currentPageJob.state) {
-                            case 'starting':
-                            case 'translating':
-                                status = 'loading';
-                                break;
-                            case 'translated':
-                                status = 'translated';
-                                break;
-                        }
-                    }
-                    return Promise.resolve({ state: status });
-                }
-
-            case 'DISPLAY_SELECTION_TRANSLATION':
-                {
-                    const { translationId, isLoading } = request.payload;
-
-                    if (isLoading) {
-                        currentSelectionTranslationId = translationId;
-                    } else {
-                        if (translationId !== currentSelectionTranslationId) {
-                            console.log(`[Foxlate] 忽略了一个过时的划词翻译结果。ID: ${translationId}`);
-                            return { success: true, ignored: true };
-                        }
-                    }
-                    DisplayManager.handleEphemeralTranslation(request.payload);
-                }
-                return { success: true };
-
-            case 'TOGGLE_SUBTITLE_TRANSLATION':
-                if (window.subtitleManager && typeof window.subtitleManager.toggle === 'function') {
-                    window.subtitleManager.toggle(request.payload.enabled);
-                } else {
-                    console.warn("[Content Script] Subtitle manager not available to toggle. This is expected on non-supported pages.");
-                }
-                return { success: true };
-
-            case 'REQUEST_SUBTITLE_TRANSLATION_STATUS':
-                if (window.subtitleManager && typeof window.subtitleManager.getStatus === 'function') {
-                    return Promise.resolve(window.subtitleManager.getStatus());
-                }
-                return Promise.resolve({ isSupported: false, isEnabled: false });
-
-            default:
-                console.warn(`[Content Script] Unhandled message type: ${request.type}`);
-                break;
+    async SETTINGS_UPDATED() {
+        console.log("[Content Script] Received settings update. Updating local cache.");
+        if (currentPageJob) {
+            currentPageJob.settings = await getEffectiveSettings();
+            console.log("[Foxlate] Updated job settings:", currentPageJob.settings);
         }
+        return { success: true };
+    },
+
+    async RELOAD_TRANSLATION_JOB() {
+        if (currentPageJob) {
+            console.log("[Foxlate] Critical settings changed. Reverting and restarting translation job.");
+            const tabId = currentPageJob.tabId; // 在还原前保存 tabId
+            await currentPageJob.revert(); // 这会将 currentPageJob 设置为 null
+
+            // 使用新设置启动一个新作业
+            const newSettings = await getEffectiveSettings();
+            currentPageJob = new PageTranslationJob(tabId, newSettings);
+            await currentPageJob.start();
+        }
+        return { success: true };
+    },
+
+    async TRANSLATE_PAGE_REQUEST(request) {
+        if (currentPageJob) {
+            console.warn("[Foxlate] Auto-translate request received, but a job is already active. Ignoring.");
+        } else {
+            const settings = await getEffectiveSettings();
+            currentPageJob = new PageTranslationJob(request.payload.tabId, settings);
+            await currentPageJob.start();
+        }
+        return { success: true };
+    },
+
+    async REVERT_PAGE_TRANSLATION() {
+        if (currentPageJob) {
+            await currentPageJob.revert();
+        }
+        return { success: true };
+    },
+
+    async TOGGLE_TRANSLATION_REQUEST_AT_CONTENT(request) {
+        // 使用 currentPageJob 的存在作为判断翻译是否活动的唯一真实来源。
+        // 这比依赖 DOM 属性（如 dataset）更健壮，并简化了逻辑。
+        const isJobActive = !!currentPageJob;
+        const { tabId } = request.payload;
+
+        if (isJobActive) {
+            // 如果作业已激活，则执行“还原”操作。
+            await currentPageJob.revert();
+        } else {
+            // 如果没有激活的作业，则执行“翻译”操作。
+            // 这也优雅地处理了任何可能由先前崩溃的作业留下的不一致的 DOM 状态。
+            const settings = await getEffectiveSettings();
+            currentPageJob = new PageTranslationJob(tabId, settings);
+            await currentPageJob.start();
+        }
+        return { success: true };
+    },
+
+    TRANSLATE_TEXT_RESULT(request) {
+        handleTranslationResult(request.payload);
+        return { success: true };
+    },
+
+    UPDATE_DISPLAY_MODE(request) {
+        const { displayMode } = request.payload;
+        if (currentPageJob && currentPageJob.settings) {
+            currentPageJob.settings.displayMode = displayMode;
+        }
+        DisplayManager.updateDisplayMode(displayMode);
+        return { success: true };
+    },
+
+    REQUEST_TRANSLATION_STATUS() {
+        let status = 'original';
+        if (currentPageJob) {
+            switch (currentPageJob.state) {
+                case 'starting':
+                case 'translating':
+                    status = 'loading';
+                    break;
+                case 'translated':
+                    status = 'translated';
+                    break;
+            }
+        }
+        return Promise.resolve({ state: status });
+    },
+
+    DISPLAY_SELECTION_TRANSLATION(request) {
+        const { translationId, isLoading } = request.payload;
+        if (isLoading) {
+            currentSelectionTranslationId = translationId;
+        } else if (translationId !== currentSelectionTranslationId) {
+            console.log(`[Foxlate] 忽略了一个过时的划词翻译结果。ID: ${translationId}`);
+            return { success: true, ignored: true };
+        }
+        DisplayManager.handleEphemeralTranslation(request.payload);
+        return { success: true };
+    },
+
+    TOGGLE_SUBTITLE_TRANSLATION(request) {
+        if (window.subtitleManager?.toggle) {
+            window.subtitleManager.toggle(request.payload.enabled);
+        } else {
+            console.warn("[Content Script] Subtitle manager not available to toggle. This is expected on non-supported pages.");
+        }
+        return { success: true };
+    },
+
+    REQUEST_SUBTITLE_TRANSLATION_STATUS() {
+        if (window.subtitleManager?.getStatus) {
+            return Promise.resolve(window.subtitleManager.getStatus());
+        }
+        return Promise.resolve({ isSupported: false, isEnabled: false });
+    }
+};
+
+async function handleMessage(request, sender) {
+    console.trace(`[Content Script] Received message from sender:`, request);
+    const handler = messageHandlers[request.type];
+
+    if (!handler) {
+        console.warn(`[Content Script] Unhandled message type: ${request.type}`);
+        return Promise.resolve({ success: false, error: `Unhandled message type: ${request.type}` });
+    }
+
+    try {
+        // The handler itself can be sync or async, await handles both.
+        return await handler(request, sender);
     } catch (error) {
         logError(`handleMessage (type: ${request.type})`, error);
         return Promise.reject(error);
