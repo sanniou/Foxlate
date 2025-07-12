@@ -57,7 +57,8 @@ export const DEFAULT_SETTINGS = {
     },
     aiEngines: [],
     domainRules: {},
-    precheckRules: {} // Populated dynamically in options.js to handle i18n
+    precheckRules: {}, // Populated dynamically in options.js to handle i18n
+    parallelRequests: 5, // Number of parallel translation requests
 };
 
 export const DISPLAY_MODES = {
@@ -84,4 +85,11 @@ export const SUBTITLE_DISPLAY_MODES = {
     'off': 'subtitleDisplayModeOff', // 关闭 (注入但不显示)
     'translated': 'subtitleDisplayModeTranslated', // 仅译文
     'bilingual': 'subtitleDisplayModeBilingual' // 双语
+};
+
+export const DISPLAY_MANAGER_STATES = {
+    ORIGINAL: 'original',
+    LOADING: 'loading',
+    TRANSLATED: 'translated',
+    ERROR: 'error',
 };

@@ -1,3 +1,6 @@
+import { DisplayManager } from './display-manager.js';
+import { shouldTranslate } from '../common/precheck.js';
+
 /**
  * 集中式错误记录器，用于内容脚本。
  * @param {string} context - 错误发生的上下文（例如，函数名）。
@@ -101,7 +104,9 @@ function translateElements(elements, type, effectiveSettings) {
             return;
         }
 
-        const CHUNK_SIZE = effectiveSettings?.parallelRequests || 5;
+        // 从有效配置中获取并发请求数。
+        // getEffectiveSettings 保证了这个值的存在，因此不再需要后备值。
+        const CHUNK_SIZE = effectiveSettings.parallelRequests;
 
         const nodesToTranslate = new Set();
         elements.forEach(el => {
@@ -117,20 +122,26 @@ function translateElements(elements, type, effectiveSettings) {
 
         validNodes.forEach(node => {
             const textToTranslate = node.nodeValue.trim();
-            if (textToTranslate.length > 0 && window.shouldTranslate(textToTranslate, effectiveSettings).result) {
-                const wrapper = document.createElement('font');
-                const nodeId = `ut-${generateUUID()}`;
-                wrapper.dataset.translationId = nodeId;
-                wrapper.dataset.translationType = type;
-                wrapper.dataset.originalText = node.nodeValue;
+            if (textToTranslate.length > 0) {
+                const { result: shouldTranslateResult, reason } = shouldTranslate(textToTranslate, effectiveSettings);
+                if (shouldTranslateResult) {
+                    const wrapper = document.createElement('font');
+                    const nodeId = `ut-${generateUUID()}`;
+                    wrapper.dataset.translationId = nodeId;
+                    wrapper.dataset.translationType = type;
+                    wrapper.dataset.originalText = node.nodeValue;
 
-                wrapper.textContent = node.nodeValue;
+                    wrapper.textContent = node.nodeValue;
 
-                node.parentNode.replaceChild(wrapper, node);
-                idToWrapperMap.set(nodeId, wrapper);
+                    node.parentNode.replaceChild(wrapper, node);
+                    idToWrapperMap.set(nodeId, wrapper);
 
-                texts.push(textToTranslate);
-                ids.push(nodeId);
+                    texts.push(textToTranslate);
+                    ids.push(nodeId);
+                } else {
+                    // 可选：记录跳过翻译的原因，便于调试
+                    console.log(`[Foxlate] Skipping text based on pre-check rule: ${reason}`, textToTranslate);
+                }
             }
         });
 
@@ -149,7 +160,7 @@ function translateElements(elements, type, effectiveSettings) {
             idChunk.forEach(id => {
                 const wrapper = idToWrapperMap.get(id);
                 if (wrapper) {
-                    window.DisplayManager.displayLoading(wrapper, effectiveSettings.displayMode);
+                    DisplayManager.displayLoading(wrapper, effectiveSettings.displayMode);
                 }
             });
 
@@ -225,15 +236,18 @@ function revertElement(wrapper) {
     if (!wrapper) return;
 
     // Let the DisplayManager handle strategy-specific UI cleanup and state removal.
-    window.DisplayManager.revert(wrapper);
+    DisplayManager.revert(wrapper);
 
     // Restore the original DOM structure if the wrapper is still in the DOM.
     if (wrapper.parentNode) {
-        const originalText = wrapper.dataset.originalText; // This was saved before translation
+        const originalText = wrapper.dataset.originalText;
         if (typeof originalText === 'string') {
             wrapper.replaceWith(document.createTextNode(originalText));
         } else {
-            // Fallback if original text is missing.
+            // 这是一个不应发生的状态。originalText 应该始终存在。
+            // 记录一个错误以便调试，然后移除损坏的包装器以防止UI问题。
+            logError('revertElement', new Error("Cannot revert element: originalText dataset is missing. This indicates a state corruption."));
+            console.error("Problematic wrapper:", wrapper);
             wrapper.remove();
         }
     }
@@ -253,7 +267,7 @@ function handleChunkResult(payload) {
     }
 
     if (success && wasTranslated) {
-        window.DisplayManager.displayTranslation(wrapper, translatedText);
+        DisplayManager.displayTranslation(wrapper, translatedText);
     } else {
         if (error) {
             console.log(`[Content Script] Chunk ${id} translation failed or was interrupted:`, error);
@@ -362,7 +376,7 @@ class PageTranslationJob {
 
         try {
             delete document.body.dataset.translationSession;
-            window.DisplayManager.hideAllEphemeralUI();
+            DisplayManager.hideAllEphemeralUI();
             const wrappers = document.querySelectorAll('font[data-translation-id]');
             wrappers.forEach(revertElement);
             console.log(`[Foxlate] Reverted ${wrappers.length} translated elements.`);
@@ -566,7 +580,7 @@ async function handleMessage(request, sender) {
                 if (currentPageJob && currentPageJob.settings) {
                     currentPageJob.settings.displayMode = displayMode;
                 }
-                window.DisplayManager.updateDisplayMode(displayMode);
+                DisplayManager.updateDisplayMode(displayMode);
                 return { success: true };
 
             case 'REQUEST_TRANSLATION_STATUS':
@@ -598,7 +612,7 @@ async function handleMessage(request, sender) {
                             return { success: true, ignored: true };
                         }
                     }
-                    window.DisplayManager.handleEphemeralTranslation(request.payload);
+                    DisplayManager.handleEphemeralTranslation(request.payload);
                 }
                 return { success: true };
 

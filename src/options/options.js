@@ -1,5 +1,6 @@
 import '../lib/browser-polyfill.js';
 import { getValidatedSettings, generateDefaultPrecheckRules, precompileRules } from '../common/settings-manager.js';
+import { shouldTranslate } from '../common/precheck.js';
 import * as Constants from '../common/constants.js';
 import { SUBTITLE_STRATEGIES } from '../content/subtitle/strategy-manifest.js';
 
@@ -1477,7 +1478,7 @@ document.addEventListener('DOMContentLoaded', () => {
             precheckRules: compiledRules
         };
 
-        const precheck = window.shouldTranslate(sourceText, currentUiSettings);
+        const precheck = shouldTranslate(sourceText, currentUiSettings, true);
         // 始终首先显示预检查日志。
         elements.logContent.textContent = precheck.log.join('\n');
         document.getElementById('test-log-area').style.display = 'block';

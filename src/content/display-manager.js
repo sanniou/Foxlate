@@ -1,20 +1,38 @@
-window.DisplayManager = class DisplayManager {
-    static STATES = {
-        ORIGINAL: 'original',
-        LOADING: 'loading',
-        TRANSLATED: 'translated',
-        ERROR: 'error',
-    };
+import * as Constants from '../common/constants.js';
+// 导入所有策略模块。打包工具会处理这些依赖。
+// 这些导入取代了之前依赖于全局变量（如 window.replaceStrategy）的做法。
+import replaceStrategy from './strategies/replace-strategy.js';
+import appendStrategy from './strategies/append-strategy.js';
+import contextMenuStrategy from './strategies/context-menu-strategy.js';
+import hoverStrategy from './strategies/hover-strategy.js';
+
+export class DisplayManager {
+
+    static STATES = Constants.DISPLAY_MANAGER_STATES;
 
     static _strategies = {
-        replace: window.replaceStrategy,
-        append: window.appendTranslationStrategy,
-        contextMenu: window.contextMenuStrategy,
-        hover: window.hoverStrategy,
+        replace: replaceStrategy,
+        append: appendStrategy,
+        contextMenu: contextMenuStrategy,
+        hover: hoverStrategy,
     };
 
     static elementStates = new Map(); // 存储元素状态
 
+    /**
+     * @private
+     * Escapes a string for safe insertion into HTML.
+     * @param {string} unsafe - The string to escape.
+     * @returns {string} The escaped string.
+     */
+    static #escapeHtml(unsafe) {
+        return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
     // 跟踪临时的、非 DOM 绑定的翻译任务，例如右键菜单。
     static activeEphemeralTargets = new Map();
 
@@ -47,7 +65,7 @@ window.DisplayManager = class DisplayManager {
 
         const strategy = this.getStrategy(displayMode);
         if (strategy && strategy.updateUI) {
-            strategy.updateUI(element, state);
+            strategy.updateUI(element, state, this); // 将 DisplayManager 实例传递给策略
         } else {
             console.error(`[DisplayManager] Strategy "${displayMode}" not found or does not have an updateUI method.`);
         }
@@ -58,7 +76,7 @@ window.DisplayManager = class DisplayManager {
         const strategy = this.getStrategy(displayMode); // This will be undefined if displayMode is missing
 
         if (strategy && strategy.revertTranslation) {
-            strategy.revertTranslation(element);
+            strategy.revertTranslation(element, this); // 将 DisplayManager 实例传递给策略
         }
 
         // Always perform cleanup, regardless of strategy success
@@ -112,21 +130,21 @@ window.DisplayManager = class DisplayManager {
     }
 
     static displayTranslation(element, translatedText) {
-        // 辅助函数：对 HTML 字符串进行转义，防止 XSS 攻击。
-        const escapeHtml = (unsafe) => {
-            if (typeof unsafe !== 'string') return '';
-            return unsafe
-                 .replace(/&/g, "&amp;")
-                 .replace(/</g, "&lt;")
-                 .replace(/>/g, "&gt;")
-                 .replace(/"/g, "&quot;")
-                 .replace(/'/g, "&#039;");
-        };
+        // 验证输入。非字符串类型的 translatedText 表示上游流程中存在错误。
+        // 与其静默失败（例如显示空字符串），不如抛出错误并设置元素状态，使问题可见。
+        if (typeof translatedText !== 'string') {
+            const errorMessage = `Invalid translatedText type: expected string, got ${typeof translatedText}. This indicates a bug in the translation pipeline.`;
+            // 使用类自身的错误记录和显示机制。
+            console.error(`[DisplayManager] ${errorMessage}`, { element, receivedValue: translatedText });
+            this.displayError(element, errorMessage);
+            return;
+        }
 
         // 统一处理：为了保留换行和段落，始终将换行符转换成 <br> 标签。
         // 首先对整个文本进行转义以确保安全，然后进行替换。
-        const processedText = escapeHtml(translatedText);
+        const processedText = this.#escapeHtml(translatedText).replace(/\n/g, '<br>');
 
+        // 将处理后的文本存储在 dataset 中，并更新元素状态。
         element.dataset.translatedText = processedText;
         this.setElementState(element, this.STATES.TRANSLATED);
     }
@@ -143,9 +161,10 @@ window.DisplayManager = class DisplayManager {
      */
     static hideAllEphemeralUI() {
         // Iterate through all known strategies and call their global cleanup method if it exists.
-        // This is a clean, decoupled way to handle global state resets.
+        // This is a clean, decoupled way to handle global state resets. We pass the DisplayManager
+        // class itself to the cleanup method to avoid global dependencies in the strategy.
         for (const strategy of Object.values(this._strategies)) {
-            strategy?.globalCleanup?.();
+            strategy?.globalCleanup?.(this);
         }
     }
 
