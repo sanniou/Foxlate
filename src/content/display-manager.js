@@ -16,7 +16,10 @@ export class DisplayManager {
         hover: hoverStrategy,
     };
 
-    static elementStates = new Map(); // 存储元素状态
+    // 使用 WeakMap 来存储元素状态。
+    // WeakMap 对键（DOM 元素）使用弱引用，当元素从 DOM 中被移除且没有其他引用时，
+    // 垃圾回收器可以自动清理它，从而防止在动态页面上发生内存泄漏。
+    static elementStates = new WeakMap();
 
     /**
      * @private
