@@ -410,10 +410,10 @@ function handleTranslationResult(payload) {
         DisplayManager.displayTranslation(wrapper, { translatedText, translationUnit });
         translationUnitMap.delete(elementId);
     } else {
-        if (error) {
-            console.log(`[Content Script] Element ${elementId} translation failed or was interrupted:`, error);
-        }
-        revertElement(wrapper);
+        // 如果翻译失败，显示错误状态而不是直接还原。
+        // 这为用户提供了关于翻译失败的明确反馈。
+        const errorMessage = error || 'An unknown error occurred during translation.';
+        DisplayManager.displayError(wrapper, errorMessage);
     }
     // 无论成功与否，都更新进度。
     currentPageJob?.updateProgress();

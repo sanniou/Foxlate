@@ -61,12 +61,14 @@ class ReplaceStrategy {
                 }
                 break;
        case Constants.DISPLAY_MANAGER_STATES.ERROR:
-           const errorData = DisplayManager.getElementData(element);
-           const errorMessage = errorData?.errorMessage || 'Translation Error';
-           const errorPrefix = browser.i18n.getMessage('contextMenuErrorPrefix') || 'Error';
-           element.innerHTML = `⚠️ ${errorPrefix}: ${errorMessage}`;
-           element.classList.add('foxlate-error-underline');
-           break;
+            const errorData = DisplayManager.getElementData(element);
+            const errorMessage = errorData?.errorMessage || 'Translation Error';
+            const errorPrefix = browser.i18n.getMessage('contextMenuErrorPrefix') || 'Error';
+            // 非破坏性地显示错误：添加下划线，并将错误信息放入 title 属性，以便悬停查看。
+            // 这保留了原始内容，使用户能够看到是哪个文本翻译失败了。
+            element.classList.add('foxlate-error-underline');
+            element.title = `⚠️ ${errorPrefix}: ${errorMessage}`;
+            break;
        default:
            console.warn(`[Replace Strategy] Unknown state: ${state}`);
        }
