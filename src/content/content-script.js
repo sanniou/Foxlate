@@ -435,6 +435,19 @@ async function handleMessage(request, sender) {
                 }
                 return { success: true };
 
+            case 'RELOAD_TRANSLATION_JOB':
+                if (currentPageJob) {
+                    console.log("[Foxlate] Critical settings changed. Reverting and restarting translation job.");
+                    const tabId = currentPageJob.tabId; // 在还原前保存 tabId
+                    await currentPageJob.revert(); // 这会将 currentPageJob 设置为 null
+
+                    // 使用新设置启动一个新作业
+                    const newSettings = await getEffectiveSettings();
+                    currentPageJob = new PageTranslationJob(tabId, newSettings);
+                    await currentPageJob.start();
+                }
+                return { success: true };
+
             case 'TRANSLATE_PAGE_REQUEST':
                 if (currentPageJob) {
                     console.warn("[Foxlate] Auto-translate request received, but a job is already active. Ignoring.");

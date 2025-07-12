@@ -579,12 +579,40 @@ browser.contextMenus.onClicked.addListener((info, tab) => {
 
 browser.storage.onChanged.addListener((changes, area) => {
     if (area === 'sync' && changes.settings) {
-        console.log("[Service Worker] Settings changed. Notifying content scripts and popup.");
+        const oldValue = changes.settings.oldValue;
+        const newValue = changes.settings.newValue;
+
+        // 定义哪些设置的更改需要完全重新翻译页面
+        const criticalKeys = [
+            'targetLanguage',
+            'translatorEngine',
+            'precheckRules',
+            'translationSelector',
+            'deeplxApiUrl', // 影响 deeplx 引擎
+            'aiEngines'     // 影响 AI 引擎
+        ];
+
+        let needsReTranslation = false;
+        // 仅当新旧值都存在时才进行比较
+        if (oldValue && newValue) {
+            for (const key of criticalKeys) {
+                // 使用 JSON.stringify 进行深比较，适用于对象和数组
+                if (JSON.stringify(oldValue[key]) !== JSON.stringify(newValue[key])) {
+                    needsReTranslation = true;
+                    console.log(`[Foxlate] Critical setting '${key}' changed. Page re-translation required.`);
+                    break;
+                }
+            }
+        }
+
+        const messageType = needsReTranslation ? 'RELOAD_TRANSLATION_JOB' : 'SETTINGS_UPDATED';
+        console.log(`[Service Worker] Settings changed. Notifying content scripts with '${messageType}'.`);
+
         // Notify all active tabs
         browser.tabs.query({}).then(tabs => {
             for (const tab of tabs) {
                 if (tab.id) {
-                    browser.tabs.sendMessage(tab.id, { type: 'SETTINGS_UPDATED' }).catch(e => {
+                    browser.tabs.sendMessage(tab.id, { type: messageType }).catch(e => {
                         // Ignore errors, as content script might not be injected in all tabs
                         if (!e.message.includes("Receiving end does not exist")) {
                             logError('storage.onChanged (notify tab)', e);
@@ -593,15 +621,7 @@ browser.storage.onChanged.addListener((changes, area) => {
                 }
             }
         });
-
-        // Notify the popup (if open)
-        browser.runtime.sendMessage({ type: 'SETTINGS_UPDATED' }).catch(e => {
-            // Ignore errors, as popup might not be open
-            if (!e.message.includes("Could not establish connection. Receiving end does not exist.")) {
-                logError('storage.onChanged (notify popup)', e);
-            }
-        });
-
+ 
         // Also, update any service-worker-specific variables that depend on settings
         TranslatorManager.updateConcurrencyLimit();
     }
