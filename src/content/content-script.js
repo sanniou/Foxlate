@@ -9,8 +9,9 @@ import { DOMWalker } from './dom-walker.js';
  */
 function logError(context, error) {
     // 过滤掉用户中断的“错误”，因为它不是一个真正的异常
-    if (error && error.message.includes("interrupted")) {
-        console.log(`[Foxlate] Task interrupted in ${context}.`);
+    // AbortError 是一个受控的中断，不是真正的错误。记录它用于调试，但不应视为错误。
+    if (error && error.name === 'AbortError') {
+        console.log(`[Foxlate] Task was interrupted in ${context}:`, error.message);
         return;
     }
     console.error(`[Foxlate Content Script Error] in ${context}:`, error.message, error.stack);
@@ -394,12 +395,23 @@ const messageHandlers = {
 
     async SETTINGS_UPDATED() {
         console.log("[Content Script] Received settings update. Updating local cache.");
+        const newSettings = await getEffectiveSettings();
         if (currentPageJob) {
-            currentPageJob.settings = await getEffectiveSettings();
-            console.log("[Foxlate] Updated job settings:", currentPageJob.settings);
+            currentPageJob.settings = newSettings;
+            console.log("[Foxlate] Updated page translation job settings:", newSettings);
+        }
+        // 新增：如果页面已翻译，则根据新设置更新显示模式
+        if (currentPageJob && (currentPageJob.state === 'translated' || currentPageJob.state === 'translating')) {
+            DisplayManager.updateDisplayMode(newSettings.displayMode);
+        }
+
+        // 新增：通知字幕管理器设置已更新
+        if (window.subtitleManager && typeof window.subtitleManager.updateSettings === 'function') {
+            window.subtitleManager.updateSettings(newSettings);
         }
         return { success: true };
     },
+
 
     async RELOAD_TRANSLATION_JOB() {
         if (currentPageJob) {

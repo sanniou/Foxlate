@@ -245,21 +245,21 @@ class YouTubeSubtitleStrategy {
   }
 
   /**
-   * 动态更新字幕的显示模式。
-   * @param {string} newMode - 新的显示模式 ('off', 'translated', 'bilingual').
+   * (新增) 接收来自 SubtitleManager 的设置更新，并应用它们。
+   * @param {object} newSettings - 最新的有效设置对象。
    */
-  updateDisplayMode(newMode) {
+  updateSettings(newSettings) {
+    this.settings = newSettings;
+    const newMode = this.settings?.subtitleSettings?.displayMode || 'off';
+
     if (!this.renderer) {
-      console.warn('[YouTubeSubtitleStrategy] Renderer not available, cannot update display mode.');
+      console.warn('[YouTubeSubtitleStrategy] Renderer not available, cannot update settings.');
       return;
     }
 
     console.log(`[YouTubeSubtitleStrategy] Updating display mode from "${this.renderer.options.displayMode}" to "${newMode}".`);
     this.renderer.updateOptions({ displayMode: newMode });
 
-    // 模式更新后，需要立即重新渲染当前时间的字幕，以反映变化。
-    // 例如，从 'off' 切换到 'bilingual' 时，字幕需要立即出现。
-    // 从 'bilingual' 切换到 'off' 时，字幕需要立即消失。
     if (this.videoElement) {
       this.updateSubtitleDisplay(this.videoElement.currentTime);
     }
@@ -471,7 +471,12 @@ class YouTubeSubtitleStrategy {
 
       // --- 步骤 4: 批量翻译并创建最终的字幕脚本 (无变化) ---
       const originalTexts = timedSentences.map(s => s.text);
-      const translatedTexts = await this.requestBatchTranslation(originalTexts);
+      // 确保在翻译前我们有有效的设置。
+      if (!this.settings) {
+        console.warn("[YouTubeStrategy] Settings not loaded before translation, fetching now.");
+        this.settings = await window.getEffectiveSettings();
+      }
+      const translatedTexts = await this.requestBatchTranslation(originalTexts, this.settings.targetLanguage, this.settings.translatorEngine);
       if (!translatedTexts || originalTexts.length !== translatedTexts.length) {
         throw new Error("Translation failed or returned mismatched results.");
       }
@@ -490,11 +495,14 @@ class YouTubeSubtitleStrategy {
     }
   }
   
-  async requestBatchTranslation(texts) {
+  async requestBatchTranslation(texts, targetLanguage, translatorEngine) {
     try {
       // 直接使用 await，因为 browser.runtime.sendMessage 返回一个 Promise
       // 消息格式与其他处理器保持一致，使用 payload
-      const response = await browser.runtime.sendMessage({ type: 'TRANSLATE_BATCH', payload: { texts } });
+      const response = await browser.runtime.sendMessage({
+        type: 'TRANSLATE_BATCH',
+        payload: { texts, targetLanguage, translatorEngine }
+      });
       if (response && response.success) {
         return response.translatedTexts;
       }

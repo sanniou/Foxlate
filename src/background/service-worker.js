@@ -23,8 +23,9 @@ const STRATEGY_FILE_MAP = new Map(
  */
 function logError(context, error) {
     if (error instanceof Error) {
-        if (error.message.includes("interrupted")) {
-            console.log(`[Foxlate] Task interrupted in ${context}.`);
+        // AbortError 是一个受控的中断，不是真正的错误。记录它用于调试，但不应视为错误。
+        if (error.name === 'AbortError') {
+            console.log(`[Foxlate] Task was interrupted in ${context}:`, error.message);
             return;
         }
         console.error(`[Foxlate Error] in ${context}:`, error.message, error.stack);
@@ -344,14 +345,24 @@ const messageHandlers = {
     },
 
     async TRANSLATE_BATCH(request) {
-        const { texts } = request.payload;
+        const { texts, targetLanguage, translatorEngine } = request.payload;
         if (!Array.isArray(texts)) {
             throw new Error("Invalid payload: 'texts' must be an array.");
         }
-        // 从全局配置中获取翻译设置
-        const settings = await getValidatedSettings();
+
+        // 如果调用方没有提供语言或引擎，则从全局设置中获取作为后备。
+        // 这使得该处理器对新旧调用方式都兼容。
+        let finalTargetLang = targetLanguage;
+        let finalEngine = translatorEngine;
+
+        if (!finalTargetLang || !finalEngine) {
+            const settings = await getValidatedSettings();
+            finalTargetLang = finalTargetLang || settings.targetLanguage;
+            finalEngine = finalEngine || settings.translatorEngine;
+        }
+
         const promises = texts.map(text =>
-            TranslatorManager.translateText(text, settings.targetLanguage, settings.sourceLanguage, settings.translatorEngine)
+            TranslatorManager.translateText(text, finalTargetLang, 'auto', finalEngine)
         );
         // TranslatorManager 内部的队列机制会自动处理并发
         const results = await Promise.all(promises);

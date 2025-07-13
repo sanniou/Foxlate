@@ -36,10 +36,11 @@ class SubtitleManager {
             return;
         }
         const targetLang = effectiveSettings.targetLanguage;
+        const translatorEngine = effectiveSettings.translatorEngine;
 
         browser.runtime.sendMessage({
             type: 'TRANSLATE_TEXT',
-            payload: { text, targetLang, sourceLang: 'auto' }
+            payload: { text, targetLang, sourceLang: 'auto', translatorEngine }
         }).then(response => {
             if (response.success && response.translatedText.translated) {
                 this.displayTranslatedSubtitle(element, response.translatedText.text);
@@ -76,6 +77,17 @@ class SubtitleManager {
         translationContainer.textContent = translatedText;
         translationContainer.classList.toggle('error', isError);
         translationContainer.style.color = isError ? '#FF5252' : '#42a5f5';
+    }
+
+    /**
+     * (新增) 当设置更新时，由 content-script 调用。
+     * @param {object} newSettings - 最新的有效设置。
+     */
+    updateSettings(newSettings) {
+        if (this.strategy && typeof this.strategy.updateSettings === 'function') {
+            console.log('[SubtitleManager] Forwarding settings update to strategy.');
+            this.strategy.updateSettings(newSettings);
+        }
     }
 
     toggle(enabled) {
@@ -156,20 +168,6 @@ class SubtitleManager {
                 case 'REQUEST_SUBTITLE_TRANSLATION_STATUS':
                     // Popup 请求当前字幕功能的状态
                     sendResponse(this.getStatus());
-                    return true; // 异步响应
-
-                case 'UPDATE_SUBTITLE_DISPLAY_MODE':
-                    // Popup 请求更新字幕的显示模式
-                    if (this.strategy && typeof this.strategy.updateDisplayMode === 'function') {
-                        const { displayMode } = request.payload;
-                        this.strategy.updateDisplayMode(displayMode);
-                        console.log(`[SubtitleManager] Display mode updated to: ${displayMode}`);
-                        sendResponse({ success: true });
-                    } else {
-                        const errorMsg = 'Strategy not available or does not support display mode update.';
-                        console.error(`[SubtitleManager] ${errorMsg}`);
-                        sendResponse({ success: false, error: errorMsg });
-                    }
                     return true; // 异步响应
             }
         });

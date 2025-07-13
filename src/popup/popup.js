@@ -133,7 +133,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 // 使用设置中的显示模式，而不是从内容脚本读取，因为 popup 的显示状态应该由规则控制。
                 const displayMode = finalRule.subtitleSettings.displayMode || 'off';
                 elements.subtitleDisplayModeSelect.value = displayMode;
-                browser.tabs.sendMessage(activeTabId, { type: 'UPDATE_SUBTITLE_DISPLAY_MODE', payload: { displayMode } });
             }
         } catch (e) {
             // 如果无法与内容脚本通信（例如，在 about:blank 或受限制的页面上），
@@ -285,18 +284,9 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.engineSelect.addEventListener('change', (e) => saveChangeToRule('translatorEngine', e.target.value));
         elements.targetLanguageSelect.addEventListener('change', (e) => saveChangeToRule('targetLanguage', e.target.value));
         elements.displayModeSelect.addEventListener('change', async (e) => {
-           const newDisplayMode = e.target.value;
-           await saveChangeToRule('displayMode', newDisplayMode);
-           // 询问页面真实状态，以决定是否需要实时更新显示模式
-           try {
-               const response = await browser.tabs.sendMessage(activeTabId, { type: 'REQUEST_TRANSLATION_STATUS' });
-               // 如果页面处于任何翻译会话中（正在加载或已完成），则发送更新消息
-               if (response && (response.state === 'translated' || response.state === 'loading')) {
-                   browser.tabs.sendMessage(activeTabId, { type: 'UPDATE_DISPLAY_MODE', payload: { displayMode: newDisplayMode } });
-                }
-            } catch (error) {
-                console.warn(`[Popup] Could not send display mode update. Content script may not be active.`, error.message);
-            }
+            // 逻辑已简化。现在只负责保存设置。
+            // 后台脚本将广播 SETTINGS_UPDATED，内容脚本将处理UI更新。
+            await saveChangeToRule('displayMode', e.target.value);
         });
 
         elements.subtitleDisplayModeSelect.addEventListener('change', async (e) => {
