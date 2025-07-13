@@ -346,26 +346,14 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.m3-form-field.filled select').forEach(initializeSelectLabel);
     };
 
-    const toggleApiFields = () => {
-        const engine = elements.translatorEngine.value;
-        elements.deeplxUrlGroup.style.display = 'none'; // 默认隐藏 DeepLx API URL
-        // elements.aiEngineManagementGroup.style.display is now always 'block' from HTML
-
-
-        if (engine === 'deeplx') elements.deeplxUrlGroup.style.display = 'block'; // Show DeepLx if selected
-        else if (engine.startsWith('ai:')) elements.aiEngineManagementGroup.style.display = 'block'; // Show AI management if any AI engine is selected
-    };
-
     // --- Core Logic Functions ---
-
-
     const loadSettings = async () => {
         try {
             const currentSettings = await getValidatedSettings();
 
             // Load AI Engines and populate the dropdown BEFORE setting the value
             aiEngines = JSON.parse(JSON.stringify(currentSettings.aiEngines)); // Deep copy
-            populateTranslatorEngineOptions(); // Populate the main dropdown
+            populateTranslatorEngineOptions(elements.translatorEngine); // Populate the main dropdown
 
             // Now that all <option> elements exist, set the selected value.
             elements.translatorEngine.value = currentSettings.translatorEngine;
@@ -381,7 +369,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             precheckRules = JSON.parse(JSON.stringify(currentSettings.precheckRules));
 
-            toggleApiFields();
+            updateApiFieldsVisibility();
             renderDomainRules();
             renderPrecheckRulesUI();
             await updateCacheInfo();
@@ -1079,7 +1067,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         updateSaveButtonState(); // Mark settings as changed
         renderAiEngineList();
-        populateTranslatorEngineOptions(); // Update main dropdown
+        populateTranslatorEngineOptions(elements.translatorEngine); // Update main dropdown
         hideAiEngineForm(); // Hide form and test results, and clear state
         showStatusMessage(browser.i18n.getMessage('saveAiEngineSuccess'));
     };
@@ -1094,7 +1082,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // 3. 更新所有相关的UI
             renderAiEngineList(); // 更新弹窗中的列表
-            populateTranslatorEngineOptions(); // 更新主设置中的下拉菜单
+            populateTranslatorEngineOptions(elements.translatorEngine); // 更新主设置中的下拉菜单
 
             // 4. 如果被删除的引擎是当前选中的，则选择一个新的有效引擎
             if (wasSelected) {
@@ -1107,49 +1095,68 @@ document.addEventListener('DOMContentLoaded', () => {
                     elements.translatorEngine.value = elements.translatorEngine.options[0].value;
                 }
             }
-            toggleApiFields();
+            updateApiFieldsVisibility();
             updateSaveButtonState();
             showStatusMessage(browser.i18n.getMessage('removeAiEngineSuccess'));
         }
     };
 
-    const populateTranslatorEngineOptions = () => {
-        // 1. 彻底清空，以防止任何重复
-        elements.translatorEngine.innerHTML = '';
+    const updateApiFieldsVisibility = () => {
+        const engine = elements.translatorEngine.value;
+        elements.deeplxUrlGroup.style.display = 'none'; // 默认隐藏 DeepLx API URL
+        // elements.aiEngineManagementGroup.style.display is now always 'block' from HTML
 
-        // 2. 从常量添加内置翻译引擎
+        if (engine === 'deeplx') elements.deeplxUrlGroup.style.display = 'block'; // Show DeepLx if selected
+        else if (engine.startsWith('ai:')) elements.aiEngineManagementGroup.style.display = 'block'; // Show AI management if any AI engine is selected
+    };
+    /**
+     * 填充翻译引擎选择器的选项。
+     * @param {HTMLElement} selectElement - 要填充的 <select> 元素。
+     * @param {boolean} includeDefault - 是否包含“使用默认设置”选项。
+     */
+    const populateTranslatorEngineOptions = (selectElement, includeDefault = false) => {
+        if (!selectElement) return;
+        selectElement.innerHTML = '';
+
+        // 添加 "Use Default" 选项
+        if (includeDefault) {
+            // Add "Use Default" option
+            const defaultOption = document.createElement('option');
+            defaultOption.value = 'default';
+            defaultOption.textContent = browser.i18n.getMessage('useDefaultSetting');
+            selectElement.appendChild(defaultOption);
+        }
         for (const key in Constants.SUPPORTED_ENGINES) {
             const option = document.createElement('option');
             option.value = key;
             option.textContent = browser.i18n.getMessage(Constants.SUPPORTED_ENGINES[key]);
-            elements.translatorEngine.appendChild(option);
+            selectElement.appendChild(option);
         }
 
         // 3. 添加用户配置的 AI 引擎
         aiEngines.forEach(engine => {
             const option = document.createElement('option');
             option.value = `ai:${engine.id}`;
-            option.textContent = engine.name; // Use the user-defined name directly.
-            elements.translatorEngine.appendChild(option);
+            option.textContent = engine.name;
+            selectElement.appendChild(option);
         });
     };
 
-    const populateFallbackEngineOptions = (currentEngineId = null) => {
-        const select = elements.aiShortTextEngineSelect;
-        select.innerHTML = ''; // Clear existing options
-
-        // Add "Use Default" option
-        const defaultOption = document.createElement('option');
-        defaultOption.value = 'default';
-        defaultOption.textContent = browser.i18n.getMessage('useDefaultSetting');
-        select.appendChild(defaultOption);
+    /**
+     * 填充备用引擎选择器的选项。
+     * @param {HTMLElement} selectElement - 要填充的 <select> 元素。
+     * @param {string|null} currentEngineId - 当前引擎的 ID，用于在选项中排除自身。
+     */
+    const populateFallbackEngineOptions = (selectElement, currentEngineId = null) => {
+        if (!selectElement) return;
+        selectElement.innerHTML = '';
 
         // Add default translators
         for (const key in Constants.SUPPORTED_ENGINES) {
             const option = document.createElement('option');
             option.value = key;
             option.textContent = browser.i18n.getMessage(Constants.SUPPORTED_ENGINES[key]);
-            select.appendChild(option);
+            selectElement.appendChild(option);
         }
 
         // Add other AI engines
@@ -1158,12 +1165,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const option = document.createElement('option');
                 option.value = `ai:${engine.id}`;
                 option.textContent = engine.name;
-                select.appendChild(option);
+                selectElement.appendChild(option);
             }
-        });
-        // 修复：在填充完选项后，强制更新标签UI以防止重叠
-        initializeSelectLabel(select);
-    };
+        })
+    }
 
     /**
      * Populates the dropdowns within the domain rule modal.
@@ -1171,24 +1176,9 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     const populateModalDropdowns = () => {
         // Populate Translator Engine dropdown
-        const engineSelect = elements.ruleTranslatorEngineSelect;
-        engineSelect.innerHTML = ''; // 清空现有选项
-        const defaultEngineOption = document.createElement('option');
-        defaultEngineOption.value = 'default';
-        defaultEngineOption.textContent = browser.i18n.getMessage('useDefaultSetting');
-        engineSelect.appendChild(defaultEngineOption);
-        for (const key in Constants.SUPPORTED_ENGINES) {
-            const option = document.createElement('option');
-            option.value = key;
-            option.textContent = browser.i18n.getMessage(Constants.SUPPORTED_ENGINES[key]);
-            engineSelect.appendChild(option);
-        }
-        aiEngines.forEach(engine => {
-            const option = document.createElement('option');
-            option.value = `ai:${engine.id}`;
-            option.textContent = engine.name;
-            engineSelect.appendChild(option);
-        });
+        populateTranslatorEngineOptions(elements.ruleTranslatorEngineSelect, true);
+
+
 
         // Populate Target Language dropdown
         const langSelect = elements.ruleTargetLanguageSelect;
@@ -1548,7 +1538,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Main settings listeners
         elements.translatorEngine.addEventListener('change', () => {
             updateSaveButtonState();
-            toggleApiFields(); // 合并监听器，使逻辑更清晰
+            updateApiFieldsVisibility(); // 合并监听器，使逻辑更清晰
         });
         elements.targetLanguage.addEventListener('change', updateSaveButtonState);
         elements.defaultInlineSelector.addEventListener('input', updateSaveButtonState);
