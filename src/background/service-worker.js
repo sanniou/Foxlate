@@ -62,47 +62,59 @@ async function unregisterSessionTranslation(tabId) {
     }
 }
 /**
- * Ensures specific content scripts are injected and ready in a given frame of a tab.
- * Uses session storage to track injected scripts and prevent re-injection.
+ * 确保指定的资源（CSS 和 JS）被注入到标签页的特定框架中。
+ * 此函数使用 `browser.storage.session` 来跟踪已注入的资源，以避免重复注入。
  * @param {number} tabId The ID of the tab.
  * @param {number} frameId The ID of the frame within the tab.
- * @param {string[]} scriptsToInject An array of script file paths to inject.
+ * @param {string[]} filesToInject An array of file paths to inject (e.g., ['style.css', 'script.js']).
  * @returns {Promise<boolean>} True if scripts are ready or successfully injected, false otherwise.
  */
-async function ensureScriptsInjected(tabId, frameId, scriptsToInject) {
-    if (!scriptsToInject || scriptsToInject.length === 0) {
-        return true; // Nothing to inject.
+const INJECTED_RESOURCES_KEY = 'injectedResources';
+
+async function ensureScriptsInjected(tabId, frameId, filesToInject) {
+    if (!filesToInject || filesToInject.length === 0) {
+        return true;
     }
 
     try {
-        // 1. 检查 CSS 是否已注入 (假设 content_script 注入后会设置一个全局变量)
-        let cssInjected = false;
-        try {
-            const result = await browser.scripting.executeScript({
-                target: { tabId, frameIds: [frameId] },
-                // 确保这个变量名与 content_script 中实际设置的全局变量名一致
-                func: () => window.__foxlate_css_injected === true
-            });
-            cssInjected = result[0]?.result === true;
-        } catch (e) { /* 忽略错误，说明 content script 可能未注入，或全局变量不存在 */ }
+        // 1. 从会话存储中获取已注入的资源记录
+        const data = await browser.storage.session.get(INJECTED_RESOURCES_KEY);
+        const injectedResources = data[INJECTED_RESOURCES_KEY] || {};
+        const frameInjections = injectedResources[tabId]?.[frameId] || [];
 
-        if (!cssInjected) {
-            await browser.scripting.insertCSS({ target: { tabId, frameIds: [frameId] }, files: CSS_FILES });
-            // 如果你希望能够检查 CSS 注入状态，可以在 content_script 中设置一个全局变量
+        // 2. 确定哪些文件是新的，需要注入
+        const newFiles = filesToInject.filter(file => !frameInjections.includes(file));
+        if (newFiles.length === 0) {
+            return true;
+        }
+
+        // 3. 将新文件分为 CSS 和 JS
+        const cssToInject = newFiles.filter(file => file.endsWith('.css'));
+        const jsToInject = newFiles.filter(file => file.endsWith('.js'));
+
+        // 4. 按顺序注入
+        if (cssToInject.length > 0) {
+            await browser.scripting.insertCSS({
+                target: { tabId, frameIds: [frameId] },
+                files: cssToInject
+            });
+        }
+        if (jsToInject.length > 0) {
             await browser.scripting.executeScript({
                 target: { tabId, frameIds: [frameId] },
-                func: () => { window.__foxlate_css_injected = true; }
+                files: jsToInject
             });
         }
 
-        // 2. 注入脚本 (无需检查是否已注入，直接注入，利用浏览器机制避免重复注入)
-        await browser.scripting.executeScript({
-            target: { tabId, frameIds: [frameId] },
-            files: scriptsToInject
-        });
+        // 5. 更新会话存储中的记录
+        if (!injectedResources[tabId]) {
+            injectedResources[tabId] = {};
+        }
+        injectedResources[tabId][frameId] = [...frameInjections, ...newFiles];
+        await browser.storage.session.set({ [INJECTED_RESOURCES_KEY]: injectedResources });
 
-        // 如果 content-script.js 是此次注入的一部分，确保 tabId 已注入
-        if (frameId === 0 && scriptsToInject.includes("content/content-script.js")) {
+        // 6. 处理特殊逻辑，例如注入 tabId
+        if (frameId === 0 && jsToInject.includes("content/content-script.js")) {
             await browser.scripting.executeScript({ target: { tabId, frameIds: [frameId] }, func: (tabId) => { window.__foxlate_tabId = tabId; }, args: [tabId] });
         }
         return true;
@@ -224,7 +236,7 @@ async function getSelectionDetailsFromTab(tabId) {
 async function handleSelectionTranslation(tab, source) {
     // First, ensure the core content scripts are ready in the main frame to display the result.
     // frameId 0 is the main document frame.
-    const scriptsReady = await ensureScriptsInjected(tab.id, 0, CORE_SCRIPT_FILES);
+    const scriptsReady = await ensureScriptsInjected(tab.id, 0, [...CSS_FILES, ...CORE_SCRIPT_FILES]);
     if (!scriptsReady) {
         logError('handleSelectionTranslation', new Error(`Could not inject scripts into tab ${tab.id}.`));
         return;
@@ -281,54 +293,54 @@ async function handleSelectionTranslation(tab, source) {
 
 const messageHandlers = {
     async TRANSLATE_TEXT(request, sender) {
+        // 此处理器现在只服务于内容脚本的页面翻译请求。
         const { text, targetLang, sourceLang, elementId, translatorEngine } = request.payload;
         const originTabId = sender.tab?.id;
  
+        // 防御性检查，确保调用者是内容脚本
+        if (!originTabId || !elementId) {
+            const errorMsg = 'Invalid TRANSLATE_TEXT call: Missing originTabId or elementId. This handler is for content scripts only.';
+            logError('TRANSLATE_TEXT', new Error(errorMsg));
+            return;
+        }
+
         try {
-            // 这一步是通用的：执行翻译。
             const result = await TranslatorManager.translateText(text, targetLang, sourceLang, translatorEngine);
- 
-            // 根据调用者决定如何响应。
-            if (originTabId && elementId) {
-                // 场景1：来自内容脚本的调用。发送消息回标签页。
-                await browser.tabs.sendMessage(originTabId, {
-                    type: 'TRANSLATE_TEXT_RESULT',
-                    payload: {
-                        elementId: elementId,
-                        success: !result.error,
-                        translatedText: result.text,
-                        wasTranslated: result.translated,
-                        error: result.error || null
-                    }
-                });
-            } else {
-                // 场景2：来自选项页或弹窗的调用。直接返回结果。
-                return {
+            await browser.tabs.sendMessage(originTabId, {
+                type: 'TRANSLATE_TEXT_RESULT',
+                payload: {
+                    elementId: elementId,
                     success: !result.error,
-                    translatedText: { text: result.text, translated: result.translated },
-                    error: result.error || null,
-                    log: result.log || []
-                };
-            }
+                    translatedText: result.text,
+                    wasTranslated: result.translated,
+                    error: result.error || null
+                }
+            });
         } catch (error) {
             logError('TRANSLATE_TEXT (execution)', error);
-            if (originTabId && elementId) {
-                // 错误场景1：通知内容脚本失败。
-                try {
-                    await browser.tabs.sendMessage(originTabId, {
-                        type: 'TRANSLATE_TEXT_RESULT',
-                        payload: { elementId, success: false, translatedText: '', wasTranslated: false, error: error.message }
-                    });
-                } catch (e) {
-                    if (!e.message.includes("Receiving end does not exist")) {
-                        logError('TRANSLATE_TEXT (sending error)', e);
-                    }
+            try {
+                await browser.tabs.sendMessage(originTabId, {
+                    type: 'TRANSLATE_TEXT_RESULT',
+                    payload: { elementId, success: false, translatedText: '', wasTranslated: false, error: error.message }
+                });
+            } catch (e) {
+                if (!e.message.includes("Receiving end does not exist")) {
+                    logError('TRANSLATE_TEXT (sending error)', e);
                 }
-            } else {
-                // 错误场景2：向选项页返回错误。
-                return { success: false, error: error.message, log: [] };
             }
         }
+    },
+
+    // 新增：专门用于选项页测试翻译的处理器
+    async TEST_TRANSLATE_TEXT(request) {
+        const { text, targetLang, sourceLang, translatorEngine } = request.payload;
+        const result = await TranslatorManager.translateText(text, targetLang, sourceLang, translatorEngine);
+        return {
+            success: !result.error,
+            translatedText: { text: result.text, translated: result.translated },
+            error: result.error || null,
+            log: result.log || []
+        };
     },
 
     async TRANSLATE_BATCH(request) {
@@ -418,7 +430,7 @@ const messageHandlers = {
     async TOGGLE_TRANSLATION_REQUEST(request) {
         console.log("[Foxlate] TOGGLE_TRANSLATION_REQUEST: Received from background script.", request.payload.tabId);
         const { tabId } = request.payload;
-        const scriptsReady = await ensureScriptsInjected(tabId, 0, CORE_SCRIPT_FILES);
+        const scriptsReady = await ensureScriptsInjected(tabId, 0, [...CSS_FILES, ...CORE_SCRIPT_FILES]);
         if (!scriptsReady) {
             // If scripts can't be injected, we can't do anything.
             // We should also clear any lingering state for this tab.
@@ -671,7 +683,7 @@ async function handleNavigation(details) {
     // 所有只应在页面顶层文档执行一次的操作都应放在这里。
     if (frameId === 0) {
         // 1. 注入核心内容脚本
-        const coreScriptsReady = await ensureScriptsInjected(tabId, frameId, CORE_SCRIPT_FILES);
+        const coreScriptsReady = await ensureScriptsInjected(tabId, frameId, [...CSS_FILES, ...CORE_SCRIPT_FILES]);
         if (!coreScriptsReady) {
             logError(`handleNavigation for ${url}`, new Error("Failed to inject core scripts. Aborting further actions."));
             return; // 如果核心脚本注入失败，后续操作无法进行，直接返回。
@@ -710,27 +722,34 @@ browser.webNavigation.onHistoryStateUpdated.addListener(handleNavigation, { url:
 browser.tabs.onRemoved.addListener(async (tabId) => {
     try {
         // Get all session data at once
-        const sessionData = await browser.storage.session.get(['tabTranslationStates', 'sessionTabTranslations']);
-        const { tabTranslationStates = {}, sessionTabTranslations = {} } = sessionData;
+        const sessionData = await browser.storage.session.get(['tabTranslationStates', 'sessionTabTranslations', INJECTED_RESOURCES_KEY]);
+        const { tabTranslationStates = {}, sessionTabTranslations = {}, injectedResources = {} } = sessionData;
         let needsUpdate = false;
 
         // Clean up translation state
         if (tabTranslationStates[tabId]) {
             delete tabTranslationStates[tabId];
             needsUpdate = true;
-            console.log(`Cleaned up translation state for closed tab ${tabId}.`);
+            console.log(`[Session Cleanup] Cleaned up translation state for closed tab ${tabId}.`);
         }
 
         // Clean up session auto-translation rule
         if (sessionTabTranslations[tabId]) {
             delete sessionTabTranslations[tabId];
             needsUpdate = true;
-            console.log(`Cleaned up session auto-translation rule for closed tab ${tabId}.`);
+            console.log(`[Session Cleanup] Cleaned up session auto-translation rule for closed tab ${tabId}.`);
+        }
+
+        // Clean up injection records
+        if (injectedResources[tabId]) {
+            delete injectedResources[tabId];
+            needsUpdate = true;
+            console.log(`[Session Cleanup] Cleaned up injection records for closed tab ${tabId}.`);
         }
 
         // Write back to storage only if something changed
         if (needsUpdate) {
-            await browser.storage.session.set({ tabTranslationStates, sessionTabTranslations });
+            await browser.storage.session.set({ tabTranslationStates, sessionTabTranslations, injectedResources });
         }
 
     } catch (error) {

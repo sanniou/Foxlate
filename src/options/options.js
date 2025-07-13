@@ -530,72 +530,73 @@ document.addEventListener('DOMContentLoaded', () => {
         container.appendChild(tabContent);
     }
 
-    function createRuleItemElement(rule) {
-        const item = document.createElement('div');
-        item.className = 'rule-item';
-        const ruleNamePlaceholder = browser.i18n.getMessage('ruleNamePlaceholder') || 'Rule Name';
-        const regexPlaceholder = browser.i18n.getMessage('regexPlaceholder') || 'Regular Expression';
-        const flagsPlaceholder = browser.i18n.getMessage('flagsPlaceholder') || 'flags';
-        const blacklistText = browser.i18n.getMessage('blacklist') || 'Blacklist';
-        const whitelistText = browser.i18n.getMessage('whitelist') || 'Whitelist';
-        const enabledText = browser.i18n.getMessage('enabled') || 'Enabled';
+    /**
+     * Applies i18n translations to all elements with `i18n-text` within a given fragment.
+     * @param {DocumentFragment|HTMLElement} fragment The fragment to translate.
+     */
+    function applyTranslationsToFragment(fragment) {
+        fragment.querySelectorAll('[i18n-text]').forEach(el => {
+            const key = el.getAttribute('i18n-text');
+            const message = browser.i18n.getMessage(key);
+            if (message) {
+                el.textContent = message;
+            }
+        });
+    }
 
-        // Unique ID for connecting labels and inputs, crucial for accessibility
+    function createRuleItemElement(rule) {
+        const template = document.getElementById('precheck-rule-template');
+        if (!template) {
+            console.error("Fatal: precheck-rule-template not found in DOM.");
+            return document.createElement('div'); // Return empty div to prevent crash
+        }
+
+        const fragment = template.content.cloneNode(true);
+        const item = fragment.querySelector('.rule-item');
+
+        // --- 为可访问性生成唯一的 ID ---
         const randomId = `rule-${Math.random().toString(36).substr(2, 9)}`;
 
-        item.innerHTML = `
-        <div class="m3-form-field filled rule-name-field">
-            <input type="text" id="${randomId}-name" class="rule-name" value="${escapeHtml(rule.name || '')}" placeholder=" ">
-            <label for="${randomId}-name">${ruleNamePlaceholder}</label>
-        </div>
-        <div class="m3-form-field filled rule-regex-field">
-            <input type="text" id="${randomId}-regex" class="rule-regex" value="${escapeHtml(rule.regex || '')}" placeholder=" ">
-            <label for="${randomId}-regex">${regexPlaceholder}</label>
-            <div class="error-message"></div>
-        </div>
-        <div class="m3-form-field filled rule-flags-field">
-            <input type="text" id="${randomId}-flags" class="rule-flags" value="${escapeHtml(rule.flags || '')}" placeholder=" ">
-            <label for="${randomId}-flags">${flagsPlaceholder}</label>
-            <div class="error-message"></div>
-        </div>
-        <div class="m3-form-field filled rule-mode-field">
-            <select id="${randomId}-mode" class="rule-mode">
-                <option value="blacklist" ${rule.mode === 'blacklist' ? 'selected' : ''}>${blacklistText}</option>
-                <option value="whitelist" ${rule.mode === 'whitelist' ? 'selected' : ''}>${whitelistText}</option>
-            </select>
-            <label for="${randomId}-mode">${browser.i18n.getMessage('rule')}</label>
-        </div>
-        <div class="rule-item-controls">
-            <div class="m3-switch">
-                <input type="checkbox" id="${randomId}-enabled" class="rule-enabled-checkbox" ${rule.enabled ? 'checked' : ''}>
-                <label for="${randomId}-enabled" class="switch-track">
-                    <span class="switch-thumb"></span>
-                </label>
-                <label for="${randomId}-enabled" class="switch-label">${enabledText}</label>
-            </div>
-            <button class="test-rule-btn m3-button text">${browser.i18n.getMessage('test')}</button>
-            <button class="remove-rule-btn m3-icon-button danger">
-                <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-            </button>
-        </div>
-        `;
+        // --- 查找元素并填充数据 ---
+        const nameInput = item.querySelector('.rule-name');
+        nameInput.id = `${randomId}-name`;
+        nameInput.value = rule.name || '';
+        item.querySelector('.rule-name-field label').htmlFor = nameInput.id;
 
         const regexInput = item.querySelector('.rule-regex');
-        const flagsInput = item.querySelector('.rule-flags');
+        regexInput.id = `${randomId}-regex`;
+        regexInput.value = rule.regex || '';
+        item.querySelector('.rule-regex-field label').htmlFor = regexInput.id;
 
-        // Add event listeners for real-time validation and marking as changed
+        const flagsInput = item.querySelector('.rule-flags');
+        flagsInput.id = `${randomId}-flags`;
+        flagsInput.value = rule.flags || '';
+        item.querySelector('.rule-flags-field label').htmlFor = flagsInput.id;
+
+        const modeSelect = item.querySelector('.rule-mode');
+        modeSelect.id = `${randomId}-mode`;
+        modeSelect.value = rule.mode;
+        item.querySelector('.rule-mode-field label').htmlFor = modeSelect.id;
+
+        const enabledCheckbox = item.querySelector('.rule-enabled-checkbox');
+        enabledCheckbox.id = `${randomId}-enabled`;
+        enabledCheckbox.checked = rule.enabled;
+        item.querySelector('.m3-switch .switch-track').htmlFor = enabledCheckbox.id;
+        item.querySelector('.m3-switch .switch-label').htmlFor = enabledCheckbox.id;
+
+        // --- 应用国际化文本 ---
+        applyTranslationsToFragment(item);
+
+        // --- 添加事件监听器 ---
         const validateAndMarkChanged = () => {
-            // Hide the test result whenever the regex or flags are edited,
-            // as the result is now stale.
             const testResultElement = item.querySelector('.rule-test-result');
             if (testResultElement) {
                 testResultElement.classList.remove('show');
             }
-            validateRegexInput(regexInput, flagsInput); // Perform validation
-            updateSaveButtonState(); // 任何规则内容的更改都可能导致状态变化
+            validateRegexInput(regexInput, flagsInput);
+            updateSaveButtonState();
         };
         item.querySelector('.rule-name').addEventListener('input', updateSaveButtonState);
-        // 应用涟漪效果到测试按钮
         regexInput.addEventListener('input', validateAndMarkChanged);
         flagsInput.addEventListener('input', validateAndMarkChanged);
         item.querySelector('.rule-mode').addEventListener('change', updateSaveButtonState);
@@ -603,27 +604,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         item.querySelector('.remove-rule-btn').addEventListener('click', (e) => {
             e.currentTarget.closest('.rule-item').remove();
-            updateSaveButtonState(); // 移除规则也是一种更改
+            updateSaveButtonState();
         });
 
-        // Add test result element (initially hidden)
-        const testResultElement = document.createElement('div');
-        testResultElement.className = 'rule-test-result';
-        item.appendChild(testResultElement);
-        // Apply ripple effect to the test button
         addRippleEffect(item.querySelector('.test-rule-btn'));
 
-
-        // Add event listener for the "Test" button
         item.querySelector('.test-rule-btn').addEventListener('click', () => {
-            const testResultElement = item.querySelector('.rule-test-result'); // Get the result display area
+            const testResultElement = item.querySelector('.rule-test-result');
             testRegex(regexInput, flagsInput, testResultElement);
         });
         return item;
     }
-
-    // Initial validation when the element is created (after it's appended to DOM)
-    // This is handled by the call to createRuleItemElement inside renderPrecheckRulesUI
 
     function addRuleToCategory(category) {
         const newRule = { name: '', regex: '', mode: 'blacklist', enabled: true, flags: '' };
@@ -1401,7 +1392,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             // Send message to background service worker for translation
             const response = await browser.runtime.sendMessage({
-                type: 'TRANSLATE_TEXT',
+                type: 'TEST_TRANSLATE_TEXT',
                 payload: {
                     text: sourceText,
                     targetLang: elements.targetLanguage.value,
