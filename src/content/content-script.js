@@ -70,14 +70,36 @@ function findTranslatableElements(effectiveSettings, rootNodes = [document.body]
 
     const finalCandidates = new Set();
 
-    // 关键过滤步骤：只选择“最深”的匹配元素（叶子节点）。
-    // 这种方法可以防止因宽泛的选择器（如 'div'）导致整个页面被作为一个单元进行翻译。
-    // 它确保我们翻译的是包含实际文本的最小单元，而不是它们的父容器。
+    // --- 步骤 1: 识别叶子节点和潜在的混合内容父节点 ---
+    const potentialMixedParents = new Set();
     for (const el of allCandidates) {
         // 检查当前元素 'el' 是否包含任何其他也匹配选择器的子元素。
         if (!el.querySelector(allSelectors)) {
-            // 如果 'el' 内部没有其他匹配项，那么它就是一个“叶子”节点，我们选择它进行翻译。
+            // 如果没有，它就是一个“叶子”节点，直接添加到最终候选列表中。
             finalCandidates.add(el);
+        } else {
+            // 如果有，它就是一个父节点，可能包含需要翻译的“孤立”文本。
+            potentialMixedParents.add(el);
+        }
+    }
+
+    // --- 步骤 2: 从混合内容父节点中“拯救”孤立的文本节点 ---
+    // 这一步是关键，用于处理像 `<div>Some text <p>More text</p></div>` 这样的结构，
+    // 其中 "Some text" 会被遗漏，因为它不是叶子节点的一部分。
+    for (const parent of potentialMixedParents) {
+        // 遍历父节点的所有直接子节点。
+        for (const child of Array.from(parent.childNodes)) {
+            // 我们只关心包含非空白字符的文本节点。
+            if (child.nodeType === Node.TEXT_NODE && child.textContent.trim() !== '') {
+                // 创建一个新的 <span> 来包裹这个孤立的文本节点。
+                const wrapperSpan = document.createElement('span');
+                // (新) 添加一个临时标志，以便 MutationObserver 可以识别并忽略此更改。
+                wrapperSpan.dataset.foxlateGenerated = 'true';
+                parent.insertBefore(wrapperSpan, child);
+                wrapperSpan.appendChild(child);
+                // 将新创建的包裹元素添加到候选列表中进行翻译。
+                finalCandidates.add(wrapperSpan);
+            }
         }
     }
 
@@ -275,7 +297,13 @@ class PageTranslationJob {
         for (const mutation of mutations) {
             if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
                 mutation.addedNodes.forEach(node => {
-                    if (node.nodeType === Node.ELEMENT_NODE && !node.closest('[data-translation-id], #universal-translator-selection-panel')) {
+                    if (node.nodeType === Node.ELEMENT_NODE && !node.closest('[data-translation-id], .foxlate-panel')) {
+                        // (新) 检查此节点是否是由我们的脚本生成的。
+                        if (node.dataset.foxlateGenerated === 'true') {
+                            // 如果是，我们只移除标志，不将其添加到队列中，以防止重复翻译。
+                            delete node.dataset.foxlateGenerated;
+                            return;
+                        }
                         this.mutationQueue.add(node);
                         hasNewNodes = true;
                     }
