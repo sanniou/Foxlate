@@ -32,6 +32,17 @@ export class TranslatorManager {
             console.error("[TranslatorManager] Failed to set initial concurrency limit.", e);
         }
     })();
+
+        // 监听存储变化，以便在用户更改设置时动态更新配置。
+    browser.storage.onChanged.addListener((changes, area) => {
+        // 确保是 sync 存储区域且 settings 对象发生了变化
+        if (area === 'sync' && changes.settings) {
+            console.log("[TranslatorManager] Settings changed, updating configuration.");
+            // 无需等待这些promise，因为它们是后台更新，不阻塞其他操作。
+            this.updateConcurrencyLimit();
+            this.updateCacheSize();
+        }
+    });
   }
 
   // --- Private Static Methods ---

@@ -112,8 +112,7 @@ class PageTranslationJob {
         this.idleCallbackId = null;
         this.intersectionObserver = null;
         this.mutationObserver = null;
-        this.totalElements = 0;
-        this.completedElements = 0;
+        this.activeTranslations = 0; // 只跟踪当前在途的翻译任务数量
 
         this.state = 'idle'; // 'idle', 'starting', 'translating', 'translated', 'reverting'
     }
@@ -152,10 +151,8 @@ class PageTranslationJob {
         this.#startMutationObserver();
 
         const elementsToObserve = findTranslatableElements(this.settings);
-        this.totalElements = elementsToObserve.length;
-        console.log(`[Foxlate] Found ${this.totalElements} total elements to observe.`);
-
-        if (this.totalElements > 0) {
+        console.log(`[Foxlate] Found ${elementsToObserve.length} initial elements to observe.`);
+        if (elementsToObserve.length > 0) {
             this.#observeElements(elementsToObserve);
             this.state = 'translating'; // 正式进入翻译中状态
         } else {
@@ -194,6 +191,7 @@ class PageTranslationJob {
         this.state = 'reverting';
 
         this.#stopObservers();
+        this.activeTranslations = 0;
 
         try {
             delete document.body.dataset.translationSession;
@@ -248,10 +246,6 @@ class PageTranslationJob {
         }
     }
 
-    #translateElement(element) {
-        translateElement(element, this.settings);
-    }
-
     #handleIntersection(entries) {
         const intersectingElements = entries.filter(entry => entry.isIntersecting).map(entry => entry.target);
         if (intersectingElements.length === 0) return;
@@ -259,24 +253,21 @@ class PageTranslationJob {
         // 元素已由 findTranslatableElements 预先过滤。
         // 我们可以直接翻译它们，无需再次检查CSS选择器。
         intersectingElements.forEach(element => {
-            // 为容器元素生成唯一的 ID
-            element.dataset.translationId = `ut-${generateUUID()}`;
-            this.#translateElement(element);
-            // 取消 IntersectionObserver 的观察，防止重复触发
             this.intersectionObserver.unobserve(element);
+            // 直接委托给 translateElement，它将处理所有启动逻辑
+            translateElement(element, this.settings);
         });
     }
 
-    updateProgress() {
-        this.completedElements++;
-        // 只有在翻译中状态才检查是否完成
-        if (this.state === 'translating' && this.completedElements >= this.totalElements) {
+    checkCompletion() {
+        // 只有在翻译中状态，并且没有在途任务和待处理的DOM变动时，才算“完成”当前批次。
+        if (this.state === 'translating' && this.activeTranslations === 0 && this.mutationQueue.size === 0) {
             this.state = 'translated';
-            console.log(`[Foxlate] Page translation completed. Processed ${this.completedElements}/${this.totalElements} elements.`);
+            console.log(`[Foxlate] Page translation completed.`);
             browser.runtime.sendMessage({
                 type: 'TRANSLATION_STATUS_UPDATE',
                 payload: { status: 'translated', tabId: this.tabId }
-            }).catch(e => logError('updateProgress (sending completed status)', e));
+            }).catch(e => logError('checkCompletion (sending completed status)', e));
         }
     }
     #handleMutation(mutations) {
@@ -311,8 +302,12 @@ class PageTranslationJob {
 
         const newElements = findTranslatableElements(this.settings, newNodes);
         if (newElements.length > 0) {
+            console.log(`[Foxlate] Found ${newElements.length} new dynamic elements to observe.`);
             this.#observeElements(newElements);
         }
+        // 即使没有找到新的可翻译元素，也可能清空了 mutationQueue，
+        // 这可能是完成翻译的最后一个条件，所以需要检查。
+        this.checkCompletion();
     }
 }
 
@@ -339,20 +334,42 @@ function translateElement(element, effectiveSettings) {
         return; // 不翻译，跳过
     }
 
-    // 4. 发送到后台翻译
+    // --- 启动翻译的核心逻辑 ---
+    // 只有在确定要翻译后，才更新状态和计数器
+    if (currentPageJob) {
+        // 如果作业已完成，但现在有一个新的元素开始翻译，
+        // 我们必须将状态切换回“翻译中”，并通知UI再次显示加载状态。
+        // 这确保了即使用户滚动到底部，进度状态也能正确更新。
+        if (currentPageJob.state === 'translated') {
+            currentPageJob.state = 'translating';
+            browser.runtime.sendMessage({
+                type: 'TRANSLATION_STATUS_UPDATE',
+                payload: { status: 'loading', tabId: currentPageJob.tabId }
+            }).catch(e => logError('translateElement (sending loading status)', e));
+        }
+        currentPageJob.activeTranslations++;
+    }
+
+    const elementId = `ut-${generateUUID()}`;
+    element.dataset.translationId = elementId;
+
     const targetLang = effectiveSettings.targetLanguage;
     const translatorEngine = effectiveSettings.translatorEngine;
-    // 将所有初始状态（原始HTML和翻译单元）一次性传递给 DisplayManager，
-    // 由其统一管理，而不是使用一个单独的 map。
     const initialState = { originalContent: element.innerHTML, translationUnit };
     DisplayManager.displayLoading(element, effectiveSettings.displayMode, initialState); // 设置加载状态
 
-    console.log(`[Foxlate] Sending text to translate for ${element.dataset.translationId}`, { textToTranslate });
+    console.log(`[Foxlate] Sending text to translate for ${elementId}`, { textToTranslate });
     browser.runtime.sendMessage({
-        type: 'TRANSLATE_TEXT', // 使用新的消息类型
-        payload: { text: textToTranslate, targetLang, sourceLang: 'auto', elementId: element.dataset.translationId, translatorEngine }
+        type: 'TRANSLATE_TEXT',
+        payload: { text: textToTranslate, targetLang, sourceLang: 'auto', elementId, translatorEngine }
     }).catch(e => {
         logError('translateElement (send message)', e);
+        // 如果消息发送失败，我们需要手动回滚状态和计数器，
+        // 因为 handleTranslationResult 将不会被调用。
+        if (currentPageJob) {
+            currentPageJob.activeTranslations--;
+            currentPageJob.checkCompletion();
+        }
         DisplayManager.revert(element);
     });
 }
@@ -364,11 +381,19 @@ function translateElement(element, effectiveSettings) {
  */
 function handleTranslationResult(payload) {
     const { elementId, success, translatedText, wasTranslated, error } = payload;
+
+    if (!currentPageJob) {
+        // 如果没有当前作业，则无需执行任何操作。
+        return;
+    }
+
+    // 收到结果后减少计数器
+    currentPageJob.activeTranslations--;
+
     const wrapper = document.querySelector(`[data-translation-id="${elementId}"]`);
 
     if (!wrapper) {
-        // 即使元素已从DOM中消失，这个翻译任务也算“完成”了。
-        currentPageJob?.updateProgress();
+        currentPageJob.checkCompletion();
         return;
     }
 
@@ -383,8 +408,8 @@ function handleTranslationResult(payload) {
         const errorMessage = error || 'An unknown error occurred during translation.';
         DisplayManager.displayError(wrapper, errorMessage);
     }
-    // 无论成功与否，都更新进度。
-    currentPageJob?.updateProgress();
+    // 无论成功与否，都检查作业是否已完成。
+    currentPageJob.checkCompletion();
 }
 // --- Message Handling & UI ---
 
