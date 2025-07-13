@@ -78,31 +78,31 @@ export class DisplayManager {
         }
     }
 
-    static revert(element) {
-        // 安全地获取显示模式，对 HTMLElement 和普通对象都有效。
-        const displayMode = element?.dataset?.translationStrategy;
-        const strategy = this.getStrategy(displayMode);
+    static revert(elementOrObject) {
+        // 1. 从状态或元素中安全地获取显示模式
+        const stateData = this.elementStates.get(elementOrObject);
+        const displayMode = stateData?.strategy || elementOrObject?.dataset?.translationStrategy;
 
-        if (strategy && strategy.revertTranslation) {
-            strategy.revertTranslation(element, this); // 将 DisplayManager 实例传递给策略
+        // 2. 获取并调用策略的还原方法
+        const strategy = this.getStrategy(displayMode);
+        if (strategy && strategy.revert) {
+            strategy.revert(elementOrObject, this); // 策略负责清理其自身添加的UI
         }
 
-        // 总是执行清理，无论策略是否成功。
-        // 这确保了即使在异常情况下，元素也能恢复到干净的状态。
-        if (element instanceof HTMLElement) {
-            element.classList.remove('universal-translator-translated');
-            // 在此处集中清理与框架相关的 dataset 属性，
-            // 使此方法成为还原元素的唯一真实来源。
-            if (element.dataset) {
-                delete element.dataset.translationId;
-                delete element.dataset.translationStrategy;
+        // 3. DisplayManager 负责清理其自身的通用标记和状态
+        // 这种检查是合理的，因为 DisplayManager 确实需要区分它管理的两种目标
+        if (elementOrObject instanceof HTMLElement) {
+            elementOrObject.classList.remove('universal-translator-translated');
+            // 在此处集中清理与框架相关的 dataset 属性
+            if (elementOrObject.dataset) {
+                delete elementOrObject.dataset.translationId;
+                delete elementOrObject.dataset.translationStrategy;
             }
         }
-        this.elementStates.delete(element);
+        this.elementStates.delete(elementOrObject);
 
-        // If this was an ephemeral target, also remove it from the active map
-        // to ensure immediate cleanup and prevent potential memory leaks.
-        if (this.activeEphemeralTargets.has(displayMode) && this.activeEphemeralTargets.get(displayMode) === element) {
+        // 4. 如果是临时目标，则从活动映射中移除
+        if (this.activeEphemeralTargets.has(displayMode) && this.activeEphemeralTargets.get(displayMode) === elementOrObject) {
             this.activeEphemeralTargets.delete(displayMode);
         }
     }
@@ -112,24 +112,24 @@ export class DisplayManager {
     }
 
     static updateDisplayMode(newDisplayMode) {
-        // Find all elements that are currently translated.
         const translatedElements = document.querySelectorAll('.universal-translator-translated');
 
         for (const element of translatedElements) {
-            // Get the old strategy before we change the dataset attribute
             const oldDisplayMode = element.dataset.translationStrategy;
             const oldStrategy = this.getStrategy(oldDisplayMode);
 
-            // Revert the UI changes made by the old strategy.
-            // This should restore the element's content/structure to its pre-translation state.
-            if (oldStrategy && oldStrategy.revertTranslation) {
-                oldStrategy.revertTranslation(element);
+            // 只调用策略的还原方法，而不触及 DisplayManager 的状态。
+            // 这会清理旧的UI，但保留元素为“已翻译”状态。
+            if (oldStrategy && oldStrategy.revert) {
+                oldStrategy.revert(element, this);
             }
 
-            // Now, set the new strategy for the element.
+            // 更新 dataset 和状态中的策略
             element.dataset.translationStrategy = newDisplayMode;
-            // Re-apply the UI for the 'TRANSLATED' state using the new strategy.
-            // The element's state is still 'TRANSLATED', we're just changing how it's displayed.
+            const currentState = this.elementStates.get(element) || {};
+            this.elementStates.set(element, { ...currentState, strategy: newDisplayMode });
+
+            // 使用新策略重新应用“已翻译”状态的UI
             this.updateElementUI(element, this.STATES.TRANSLATED);
         }
     }
@@ -142,7 +142,8 @@ export class DisplayManager {
         // 在状态机生命周期的开始，将策略存储在元素上。
         element.dataset.translationStrategy = displayMode;
         // 将所有初始状态（如 originalContent 和 translationUnit）存储起来。
-        this.setElementState(element, this.STATES.LOADING, initialState);
+        const loadingState = { ...initialState, strategy: displayMode };
+        this.setElementState(element, this.STATES.LOADING, loadingState);
     }
 
     static displayTranslation(element, { translatedText, plainText = null }) {

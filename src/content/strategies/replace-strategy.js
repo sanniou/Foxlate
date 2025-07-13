@@ -8,7 +8,7 @@ class ReplaceStrategy {
      * 将元素的内容恢复为原始状态。
      * @param {HTMLElement} element - 目标元素。
      */
-    revertTranslation(element) {
+    revert(element) {
         // 从 DisplayManager 获取状态，而不是从 DOM 的 dataset 读取。
         // 这确保了状态的单一来源，并修复了切换模式时丢失原始内容的问题。
         const data = DisplayManager.getElementData(element);
@@ -17,6 +17,7 @@ class ReplaceStrategy {
         }
         // 确保移除所有此策略可能添加的视觉效果
         element.classList.remove('foxlate-replacing', 'foxlate-error-underline');
+        element.title = ''; // 清理可能存在的错误提示
         element.querySelector('.foxlate-inline-loading')?.remove();
     }
 
@@ -24,11 +25,12 @@ class ReplaceStrategy {
        // 在应用新状态前，先清理掉旧状态的视觉效果（但不恢复内容）。
        // 这样可以避免在状态切换时残留旧的样式。
        element.classList.remove('foxlate-replacing', 'foxlate-error-underline');
+       element.title = '';
        element.querySelector('.foxlate-inline-loading')?.remove();
 
        switch (state) {
            case Constants.DISPLAY_MANAGER_STATES.ORIGINAL:
-               this.revertTranslation(element);
+               this.revert(element);
                break;
             case Constants.DISPLAY_MANAGER_STATES.LOADING:
                // 添加一个 class 来改变文本样式（例如，变暗），而不是替换它。
@@ -57,7 +59,7 @@ class ReplaceStrategy {
                     // 如果没有nodeMap，说明是简单文本，执行纯文本替换
                     element.innerHTML = escapeHtml(data.translatedText).replace(/\n/g, '<br>');
                 } else {
-                    this.revertTranslation(element);
+                    this.revert(element);
                 }
                 break;
        case Constants.DISPLAY_MANAGER_STATES.ERROR:

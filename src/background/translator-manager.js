@@ -97,6 +97,20 @@ export class TranslatorManager {
   }
 
   /**
+   * (新) 解析引擎ID。如果未提供，则从设置中获取默认值。
+   * @param {string|undefined} engine - 初始请求的引擎ID。
+   * @returns {Promise<string>} 解析后的引擎ID。
+   * @private
+   */
+  static async #resolveEngine(engine) {
+      if (engine) {
+          return engine;
+      }
+      const settings = await getValidatedSettings();
+      return settings.translatorEngine;
+  }
+
+  /**
    * (新) 根据文本和引擎设置，解析出最终应使用的翻译器及其配置。
    * 此方法将复杂的 AI 备用逻辑从 #executeTranslation 中分离出来。
    * @param {string} processedText - 已预处理的文本。
@@ -105,10 +119,11 @@ export class TranslatorManager {
    * @returns {Promise<{translator: object, engine: string, config: object|null}>}
    */
   static async #resolveTranslatorForText(processedText, initialEngine, log) {
-      const { translator, engine: resolvedInitialEngine } = await this.getTranslator(initialEngine);
+      const resolvedInitialEngine = await this.#resolveEngine(initialEngine);
+      const translator = this.getTranslator(resolvedInitialEngine);
 
       // 对于非 AI 引擎，逻辑很简单，直接返回。
-      if (translator.name !== 'AI') {
+      if (!translator || translator.name !== 'AI') {
           return { translator, engine: resolvedInitialEngine, config: null };
       }
 
@@ -136,7 +151,8 @@ export class TranslatorManager {
               return { translator, engine: resolvedInitialEngine, config: aiConfig };
           }
 
-          const { translator: fallbackTranslator, engine: resolvedFallbackEngine } = await this.getTranslator(fallbackEngineName);
+          const resolvedFallbackEngine = await this.#resolveEngine(fallbackEngineName);
+          const fallbackTranslator = this.getTranslator(resolvedFallbackEngine);
           if (fallbackTranslator) {
               log.push(`短文本切换：单词数 ${wordCount} <= ${aiConfig.wordCountThreshold}，切换到 ${resolvedFallbackEngine}`);
               let fallbackConfig = null;
@@ -216,18 +232,22 @@ export class TranslatorManager {
 
   // --- Public Static API ---
 
-  static async getTranslator(engine) { // engine can be undefined
-    let resolvedEngine = engine;
+  /**
+   * (已修改) 根据已解析的引擎ID，同步获取一个翻译器实例。
+   * 此方法不再处理默认引擎的解析逻辑。
+   * @param {string} resolvedEngine - 一个明确的引擎ID (例如, 'deeplx', 'ai:12345')。
+   * @returns {object|undefined} 翻译器实例。
+   */
+  static getTranslator(resolvedEngine) {
     if (!resolvedEngine) {
-        const settings = await getValidatedSettings();
-        resolvedEngine = settings.translatorEngine;
+        console.error("getTranslator requires a resolved engine ID.");
+        return undefined;
     }
     let translatorKey = resolvedEngine;
     if (translatorKey.startsWith('ai:')) {
       translatorKey = 'ai';
     }
-    // 返回解析后的引擎ID和翻译器实例
-    return { translator: this.#translators[translatorKey], engine: resolvedEngine };
+    return this.#translators[translatorKey];
   }
 
   /**
