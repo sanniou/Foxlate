@@ -35,15 +35,16 @@ class AppendStrategy {
 
     /**
      * 移除追加的翻译元素。
+     * 此方法是策略接口的一部分，由 DisplayManager 调用以将元素恢复到其原始状态。
      * @param {HTMLElement} element - 目标元素。
      */
-    revertTranslation(element) {
+    revert(element) {
         element.querySelector('.foxlate-appended-text')?.remove();
     }
 
     updateUI(element, state) {
         // 在更新UI前，总是先清理掉旧的追加元素，以避免重复。
-        this.revertTranslation(element);
+        this.revert(element);
 
         // 关键：追加策略现在自己决定其追加类型，而不是依赖 DisplayManager。
         const appendType = this.#classifyAppendType(element);
@@ -63,7 +64,7 @@ class AppendStrategy {
             case Constants.DISPLAY_MANAGER_STATES.TRANSLATED:
                 const data = DisplayManager.getElementData(element);
                 if (!data || !data.translatedText) {
-                    this.revertTranslation(element);
+                    this.revert(element);
                     return;
                 }
 
