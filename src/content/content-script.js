@@ -168,6 +168,12 @@ class PageTranslationJob {
     }
 
     async revert() {
+        // 添加状态守卫，确保 revert() 方法是幂等的。
+        // 如果作业已经在还原中或已处于空闲状态，则忽略后续的还原请求。
+        if (this.state === 'reverting' || this.state === 'idle') {
+            console.warn(`[Foxlate] Job is already reverting or idle (state: ${this.state}). Ignoring revert request.`);
+            return;
+        }
         try {
             await browser.runtime.sendMessage({ type: 'STOP_TRANSLATION', payload: { tabId: this.tabId } });
         } catch (e) {

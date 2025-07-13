@@ -524,8 +524,18 @@ const messageHandlers = {
         return browser.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
             return { tabId: tab?.id };
         });
-    }
-    ,
+    },
+
+    async GET_CACHE_INFO() {
+        // 委托给 TranslatorManager 获取缓存信息
+        return TranslatorManager.getCacheInfo();
+    },
+
+    async CLEAR_CACHE() {
+        // 委托给 TranslatorManager 清空缓存
+        await TranslatorManager.clearCache();
+        return { success: true };
+    },
 };
 
 // --- Main Event Listeners ---
@@ -624,6 +634,7 @@ browser.storage.onChanged.addListener((changes, area) => {
  
         // Also, update any service-worker-specific variables that depend on settings
         TranslatorManager.updateConcurrencyLimit();
+        TranslatorManager.updateCacheSize();
     }
 });
 

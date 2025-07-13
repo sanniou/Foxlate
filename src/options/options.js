@@ -80,7 +80,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // Global Pre-check Test Elements
         runGlobalTestBtn: document.getElementById('runGlobalTestBtn'),
         testTextInput: document.getElementById('testTextInput'),
-        testTextInputError: document.getElementById('testTextInputError')
+        testTextInputError: document.getElementById('testTextInputError'),
+        // Cache Management Elements
+        cacheSizeInput: document.getElementById('cacheSizeInput'),
+        cacheInfoDisplay: document.getElementById('cacheInfoDisplay'),
+        clearCacheBtn: document.getElementById('clearCacheBtn'),
     };
     elements.toggleLogBtn = document.getElementById('toggleLogBtn');
     elements.logContent = document.getElementById('log-content');
@@ -366,6 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.deeplxApiUrl.value = currentSettings.deeplxApiUrl;
             elements.displayModeSelect.value = currentSettings.displayMode;
 
+            elements.cacheSizeInput.value = currentSettings.cacheSize ?? Constants.DEFAULT_SETTINGS.cacheSize;
             domainRules = JSON.parse(JSON.stringify(currentSettings.domainRules)); // Deep copy
 
             precheckRules = JSON.parse(JSON.stringify(currentSettings.precheckRules));
@@ -373,6 +378,7 @@ document.addEventListener('DOMContentLoaded', () => {
             toggleApiFields();
             renderDomainRules();
             renderPrecheckRulesUI();
+            await updateCacheInfo();
             clearUnsavedChanges(); // Reset tracking on load
         } catch (error) {
             console.error("Failed to load and validate settings:", error);
@@ -430,6 +436,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (unsavedChanges.domainRules) {
                 settingsToSave.domainRules = domainRules;
+            }
+            if (unsavedChanges.cacheSize) {
+                const size = parseInt(elements.cacheSizeInput.value, 10);
+                // Basic validation to ensure it's a non-negative number
+                settingsToSave.cacheSize = !isNaN(size) && size >= 0 ? size : Constants.DEFAULT_SETTINGS.cacheSize;
             }
 
             await browser.storage.sync.set({ settings: settingsToSave });
@@ -1612,6 +1623,29 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
+    // --- Cache Management Logic ---
+    const updateCacheInfo = async () => {
+        try {
+            const info = await browser.runtime.sendMessage({ type: 'GET_CACHE_INFO' });
+            if (info) {
+                elements.cacheInfoDisplay.textContent = `${info.count} / ${info.limit}`;
+            }
+        } catch (error) {
+            console.error("Failed to get cache info:", error);
+            elements.cacheInfoDisplay.textContent = 'N/A';
+        }
+    };
+
+    const clearCache = async () => {
+        const confirmationMessage = browser.i18n.getMessage('clearCacheConfirm') || 'Are you sure you want to clear the entire translation cache? This action cannot be undone.';
+        if (window.confirm(confirmationMessage)) {
+            await browser.runtime.sendMessage({ type: 'CLEAR_CACHE' });
+            await updateCacheInfo();
+            showStatusMessage(browser.i18n.getMessage('clearCacheSuccess'));
+        }
+    };
+
+
     // --- Initialization and Event Listeners ---
     const initialize = async () => {
         applyTranslations();
@@ -1639,6 +1673,10 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.resetSettingsBtn.addEventListener('click', resetSettings);
         elements.exportBtn.addEventListener('click', exportSettings);
         elements.importBtn.addEventListener('click', () => elements.importInput.click());
+
+        // Cache Management Listeners
+        elements.cacheSizeInput.addEventListener('input', () => markSettingAsChanged('cacheSize'));
+        elements.clearCacheBtn.addEventListener('click', clearCache);
 
         // AI Engine Modal Listeners
         elements.manageAiEnginesBtn.addEventListener('click', openAiEngineModal);

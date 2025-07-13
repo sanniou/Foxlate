@@ -219,6 +219,34 @@
     "message": "Configuration Management",
     "description": "Section heading for configuration management."
   },
+  "cacheManagement": {
+    "message": "Cache Management",
+    "description": "Section heading for cache management."
+  },
+  "cacheSizeLabel": {
+    "message": "Cache Size (number of items)",
+    "description": "Label for the cache size input."
+  },
+  "cacheSizeDescription": {
+    "message": "Sets the maximum number of translations to store locally. A larger cache improves performance but uses more disk space. Set to 0 to disable caching.",
+    "description": "Helper text for the cache size input."
+  },
+  "currentCacheUsage": {
+    "message": "Current Usage:",
+    "description": "Label for the current cache usage display."
+  },
+  "clearCache": {
+    "message": "Clear Cache",
+    "description": "Button text to clear the cache."
+  },
+  "clearCacheConfirm": {
+    "message": "Are you sure you want to clear the entire translation cache? This action cannot be undone.",
+    "description": "Confirmation message before clearing the cache."
+  },
+  "clearCacheSuccess": {
+    "message": "Cache cleared successfully.",
+    "description": "Status message after clearing the cache."
+  },
   "saveSettings": {
     "message": "Save Settings",
     "description": "Button text to save settings."
@@ -514,8 +542,8 @@
     "description": "Log entry for a pre-check configuration error. Placeholder: [errorMessage]"
   },
   "logEntryEngineUsed": {
-    "message": "[Engine] Using translation engine: $1",
-    "description": "Log entry for the chosen translation engine. Placeholder: [engineName]"
+    "message": "[Engine] Using translation engine: $1 ($2)",
+    "description": "Log entry for the chosen translation engine. Placeholders: [translatorName, resolvedEngineName]"
   },
   "logEntryApiRequest": {
     "message": "[API Call] Requesting translation from $1 API.",

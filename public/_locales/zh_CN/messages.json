@@ -223,6 +223,34 @@
     "message": "配置管理",
     "description": "配置管理部分标题。"
   },
+  "cacheManagement": {
+    "message": "缓存管理",
+    "description": "缓存管理部分标题。"
+  },
+  "cacheSizeLabel": {
+    "message": "缓存大小（条目数）",
+    "description": "缓存大小输入框的标签。"
+  },
+  "cacheSizeDescription": {
+    "message": "设置本地存储的翻译最大数量。更大的缓存可以提高性能，但会占用更多磁盘空间。设置为 0 可禁用缓存。",
+    "description": "缓存大小输入框的辅助文本。"
+  },
+  "currentCacheUsage": {
+    "message": "当前用量：",
+    "description": "当前缓存用量显示的标签。"
+  },
+  "clearCache": {
+    "message": "清空缓存",
+    "description": "清空缓存按钮的文本。"
+  },
+  "clearCacheConfirm": {
+    "message": "您确定要清空全部翻译缓存吗？此操作无法撤销。",
+    "description": "清空缓存前的确认消息。"
+  },
+  "clearCacheSuccess": {
+    "message": "缓存已成功清除。",
+    "description": "清空缓存后的状态消息。"
+  },
   "saveSettings": {
     "message": "保存设置",
     "description": "保存设置的按钮文本。"
@@ -532,8 +560,8 @@
     "description": "Log entry for a pre-check configuration error. Placeholder: [errorMessage]"
   },
   "logEntryEngineUsed": {
-    "message": "[引擎] 使用翻译引擎：$1",
-    "description": "Log entry for the chosen translation engine. Placeholder: [engineName]"
+    "message": "[引擎] 使用翻译引擎: $1 ($2)",
+    "description": "Log entry for the chosen translation engine. Placeholders: [translatorName, resolvedEngineName]"
   },
   "logEntryApiRequest": {
     "message": "[API 调用] 请求 $1 API 翻译。",

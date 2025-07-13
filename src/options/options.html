@@ -215,6 +215,24 @@
         </section>
 
         <section class="settings-section">
+            <h2 i18n-text="cacheManagement">Cache Management</h2>
+            <div class="form-group">
+                <div class="m3-form-field filled">
+                    <input type="number" id="cacheSizeInput" min="0" step="100" placeholder=" ">
+                    <label for="cacheSizeInput" i18n-text="cacheSizeLabel">Cache Size (number of items)</label>
+                </div>
+                <div class="m3-helper-text">
+                    <small i18n-text="cacheSizeDescription">Sets the maximum number of translations to store locally. A larger cache improves performance but uses more disk space. Set to 0 to disable caching.</small>
+                </div>
+            </div>
+            <div class="form-group cache-info-group">
+                <span i18n-text="currentCacheUsage">Current Usage:</span>
+                <span id="cacheInfoDisplay">...</span>
+                <button id="clearCacheBtn" class="m3-button text danger" i18n-text="clearCache">Clear Cache</button>
+            </div>
+        </section>
+
+        <section class="settings-section">
             <h2 i18n-text="configurationManagement">Configuration Management</h2>
             <div class="form-group button-group">
                 <button id="export-btn" class="m3-button filled-tonal" i18n-text="exportSettings">Export Settings</button>

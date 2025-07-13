@@ -15,14 +15,19 @@ export class TranslatorManager {
   static #taskQueue = [];
   static #activeTasks = new Map();
   static #taskIdCounter = 0;
+  // --- 静态配置 ---
   static #MAX_CONCURRENT_REQUESTS = 5;
+  static #maxCacheSize = 5000; // 默认缓存大小，可以被用户设置覆盖
+  static #STORAGE_KEY = 'translationCache';
 
   // --- Static Initialization Block ---
   // This block runs once when the class is loaded, setting up initial values.
   static {
     (async () => {
         try {
+            await this.#loadCacheFromStorage();
             await this.updateConcurrencyLimit();
+            await this.updateCacheSize();
         } catch (e) {
             console.error("[TranslatorManager] Failed to set initial concurrency limit.", e);
         }
@@ -30,6 +35,34 @@ export class TranslatorManager {
   }
 
   // --- Private Static Methods ---
+
+  static async #loadCacheFromStorage() {
+    try {
+        const result = await browser.storage.local.get(this.#STORAGE_KEY);
+        if (result[this.#STORAGE_KEY]) {
+            // 从普通对象重建 Map
+            this.#translationCache = new Map(Object.entries(result[this.#STORAGE_KEY]));
+            console.log(`[TranslatorManager] Loaded ${this.#translationCache.size} items from persistent cache.`);
+        }
+    } catch (e) {
+        console.error("[TranslatorManager] Failed to load cache from storage.", e);
+    }
+  }
+
+  static async #saveCacheToStorage() {
+      try {
+          // 将 Map 转换为可序列化的普通对象
+          const plainObject = Object.fromEntries(this.#translationCache);
+          await browser.storage.local.set({ [this.#STORAGE_KEY]: plainObject });
+      } catch (e) {
+          console.error("[TranslatorManager] Failed to save cache to storage.", e);
+      }
+  }
+
+  static #setCache(key, value) {
+      this.#translationCache.set(key, value);
+      this.#enforceCacheLimit();
+  }
 
   static #preProcess(text) {
       if (typeof text !== 'string') return '';
@@ -63,18 +96,70 @@ export class TranslatorManager {
       })();
   }
 
-  static async #executeTranslation(text, targetLang, sourceLang = 'auto', engine, signal) {
+  /**
+   * (新) 根据文本和引擎设置，解析出最终应使用的翻译器及其配置。
+   * 此方法将复杂的 AI 备用逻辑从 #executeTranslation 中分离出来。
+   * @param {string} processedText - 已预处理的文本。
+   * @param {string} initialEngine - 初始请求的引擎。
+   * @param {string[]} log - 用于记录决策过程的日志数组。
+   * @returns {Promise<{translator: object, engine: string, config: object|null}>}
+   */
+  static async #resolveTranslatorForText(processedText, initialEngine, log) {
+      const { translator, engine: resolvedInitialEngine } = await this.getTranslator(initialEngine);
+
+      // 对于非 AI 引擎，逻辑很简单，直接返回。
+      if (translator.name !== 'AI') {
+          return { translator, engine: resolvedInitialEngine, config: null };
+      }
+
+      // --- AI 引擎的特殊逻辑 ---
+      const settings = await getValidatedSettings();
+      const engineId = resolvedInitialEngine.split(':')[1];
+      const aiConfig = settings.aiEngines.find(e => e.id === engineId);
+
+      if (!aiConfig) {
+          throw new Error(`Selected AI engine configuration not found for ID: ${engineId}`);
+      }
+
+      // 检查是否满足短文本备用条件
+      const wordCount = processedText.split(/\s+/).length;
+      if (aiConfig.wordCountThreshold && wordCount <= aiConfig.wordCountThreshold && aiConfig.fallbackEngine) {
+          let fallbackEngineName = aiConfig.fallbackEngine;
+          if (fallbackEngineName === 'default') {
+              fallbackEngineName = settings.translatorEngine;
+              log.push(`短文本引擎为“默认”，解析为全局引擎: ${fallbackEngineName}`);
+          }
+
+          // 避免循环依赖
+          if (fallbackEngineName === `ai:${aiConfig.id}`) {
+              log.push(`[警告] 检测到循环依赖：备用引擎 (${fallbackEngineName}) 与当前引擎相同。为防止死循环，将使用原始AI引擎。`);
+              return { translator, engine: resolvedInitialEngine, config: aiConfig };
+          }
+
+          const { translator: fallbackTranslator, engine: resolvedFallbackEngine } = await this.getTranslator(fallbackEngineName);
+          if (fallbackTranslator) {
+              log.push(`短文本切换：单词数 ${wordCount} <= ${aiConfig.wordCountThreshold}，切换到 ${resolvedFallbackEngine}`);
+              let fallbackConfig = null;
+              if (resolvedFallbackEngine.startsWith('ai:')) {
+                  const fallbackEngineId = resolvedFallbackEngine.split(':')[1];
+                  fallbackConfig = settings.aiEngines.find(e => e.id === fallbackEngineId);
+              }
+              return { translator: fallbackTranslator, engine: resolvedFallbackEngine, config: fallbackConfig };
+          }
+          log.push(`[警告] 找不到备用翻译器 '${fallbackEngineName}'。将使用原始AI引擎。`);
+      }
+
+      // 默认情况：使用原始请求的 AI 引擎
+      return { translator, engine: resolvedInitialEngine, config: aiConfig };
+  }
+
+  static async #executeTranslation(processedText, targetLang, sourceLang = 'auto', engine, signal) {
       const log = [];
-      log.push(browser.i18n.getMessage('logEntryStart', [text, sourceLang, targetLang]));
+      log.push(browser.i18n.getMessage('logEntryStart', [processedText, sourceLang, targetLang]));
           if (sourceLang !== 'auto' && sourceLang === targetLang) {
               log.push(browser.i18n.getMessage('logEntryPrecheckMatch', [browser.i18n.getMessage('precheckRuleSameLanguage'), 'blacklist']));
               log.push(browser.i18n.getMessage('logEntryPrecheckNoTranslation'));
-              return { text: text, translated: false, log: log };
-          }
-          const processedText = this.#preProcess(text);
-          if (!processedText) {
-              log.push(browser.i18n.getMessage('logEntryPrecheckNoTranslation'));
-              return { text: "", translated: false, log: log };
+              return { text: processedText, translated: false, log: log };
           }
 
       if (signal?.aborted) {
@@ -82,81 +167,31 @@ export class TranslatorManager {
       }
 
       try {
-          const cacheKey = `${sourceLang}:${targetLang}:${processedText}`;
-          if (this.#translationCache.has(cacheKey)) {
-              const cachedResult = this.#translationCache.get(cacheKey);
-              log.push(browser.i18n.getMessage('logEntryCacheHit'));
-              return { text: this.#postProcess(cachedResult), translated: true, log: log };
-          } else {
-              log.push(browser.i18n.getMessage('logEntryCacheMiss'));
-          }
+          // 此函数仅在缓存未命中时调用，因此我们直接记录缓存未命中。
+          log.push(browser.i18n.getMessage('logEntryCacheMiss'));
 
-          const { translator, engine: resolvedEngine } = await this.getTranslator(engine);
-          engine = resolvedEngine;
+          const cacheKey = `${sourceLang}:${targetLang}:${processedText}`;
+
+          // 步骤 1: 解析出最终要使用的翻译器和配置
+          const { translator, engine: resolvedEngine, config } = await this.#resolveTranslatorForText(processedText, engine, log);
+
           if (!translator) {
-              const errorMessage = "未选择或初始化有效的翻译器。";
+              const errorMessage = browser.i18n.getMessage('errorNoTranslator');
               log.push(browser.i18n.getMessage('logEntryNoTranslator'));
               log.push(errorMessage);
               return { text: "", translated: false, log: log, error: errorMessage };
           }
-          log.push(browser.i18n.getMessage('logEntryEngineUsed', translator.name));
+          log.push(browser.i18n.getMessage('logEntryEngineUsed', [translator.name, resolvedEngine]));
 
-          let translatedResult;
-          let translatorLog;
-
-          if (translator.name === 'AI') {
-              if (!engine || !engine.startsWith('ai:')) {
-                  throw new Error(`Invalid AI engine identifier provided: ${engine}`);
-              }
-              const settings = await getValidatedSettings();
-              const selectedEngineId = engine.split(':')[1];
-              const aiConfig = settings.aiEngines.find(e => e.id === selectedEngineId);
-
-              if (!aiConfig) {
-                  throw new Error(`Selected AI engine configuration not found for ID: ${selectedEngineId}`);
-              }
-
-              const wordCount = processedText.split(/\s+/).length;
-              if (aiConfig.wordCountThreshold && wordCount <= aiConfig.wordCountThreshold && aiConfig.fallbackEngine) {
-                  let fallbackEngineName = aiConfig.fallbackEngine;
-
-                  if (fallbackEngineName === 'default') {
-                      fallbackEngineName = settings.translatorEngine;
-                      log.push(`短文本引擎为“默认”，解析为全局引擎: ${fallbackEngineName}`);
-                  }
-
-                  const isCircular = fallbackEngineName === `ai:${aiConfig.id}`;
-
-                  if (isCircular) {
-                      log.push(`[警告] 检测到循环依赖：备用引擎 (${fallbackEngineName}) 与当前引擎相同。为防止死循环，将使用原始AI引擎。`);
-                      ({ text: translatedResult, log: translatorLog } = await translator.translate(processedText, targetLang, sourceLang, aiConfig, signal));
-                  } else {
-                      const { translator: fallbackTranslator, engine: resolvedFallbackEngine } = await this.getTranslator(fallbackEngineName);
-                      if (fallbackTranslator) {
-                          log.push(`短文本切换：单词数 ${wordCount} <= ${aiConfig.wordCountThreshold}，切换到 ${resolvedFallbackEngine}`);
-                          let fallbackAiConfig = null;
-                          if (resolvedFallbackEngine.startsWith('ai:')) {
-                              const fallbackEngineId = resolvedFallbackEngine.split(':')[1];
-                              fallbackAiConfig = settings.aiEngines.find(e => e.id === fallbackEngineId);
-                          }
-                          ({ text: translatedResult, log: translatorLog } = await fallbackTranslator.translate(processedText, targetLang, sourceLang, fallbackAiConfig, signal));
-                      } else {
-                          log.push(`[警告] 找不到备用翻译器 '${fallbackEngineName}'。将使用原始AI引擎。`);
-                          ({ text: translatedResult, log: translatorLog } = await translator.translate(processedText, targetLang, sourceLang, aiConfig, signal));
-                      }
-                  }
-              } else {
-                  ({ text: translatedResult, log: translatorLog } = await translator.translate(processedText, targetLang, sourceLang, aiConfig, signal));
-              }
-          } else {
-              ({ text: translatedResult, log: translatorLog } = await translator.translate(processedText, targetLang, sourceLang, null, signal));
-          }
+          // 步骤 2: 使用解析出的翻译器执行翻译
+          const { text: translatedResult, log: translatorLog } = await translator.translate(processedText, targetLang, sourceLang, config, signal);
           log.push(...translatorLog);
           log.push(browser.i18n.getMessage('logEntryTranslationSuccess'));
 
           if (translatedResult) {
-              this.#translationCache.set(cacheKey, translatedResult);
+              this.#setCache(cacheKey, translatedResult);
           }
+          await this.#saveCacheToStorage(); // 保存更新后的缓存
           const finalResult = this.#postProcess(translatedResult);
           return { text: finalResult, translated: true, log: log };
       } catch (error) {
@@ -166,6 +201,16 @@ export class TranslatorManager {
           log.push(browser.i18n.getMessage('logEntryTranslationError', errorMessage));
           console.error(`[TranslatorManager] Overall error caught:`, error);
           return { text: "", translated: false, log: log, error: errorMessage };
+      }
+  }
+
+  static #enforceCacheLimit() {
+      // 当缓存超出大小时，移除最旧的条目。
+      // Map 会记住原始的插入顺序，所以这是一种有效的 FIFO 驱逐策略。
+      while (this.#translationCache.size > this.#maxCacheSize) {
+          // map.keys().next().value 获取第一个（即最旧的）键
+          const oldestKey = this.#translationCache.keys().next().value;
+          this.#translationCache.delete(oldestKey);
       }
   }
 
@@ -202,12 +247,18 @@ export class TranslatorManager {
 
     // 1. 检查永久缓存
     if (this.#translationCache.has(cacheKey)) {
-      const cachedResult = this.#translationCache.get(cacheKey);
       const log = [
         browser.i18n.getMessage('logEntryStart', [text, sourceLang, targetLang]),
         browser.i18n.getMessage('logEntryCacheHit')
       ];
-      return Promise.resolve({ text: this.#postProcess(cachedResult), translated: true, log: log });
+      const cachedResult = this.#translationCache.get(cacheKey);
+
+      // 实现 LRU 策略：当一个条目被访问时，将它移动到 Map 的末尾，
+      // 表示它是“最近使用的”。这可以防止常用翻译被不常用的新翻译挤出缓存。
+      this.#translationCache.delete(cacheKey);
+      this.#translationCache.set(cacheKey, cachedResult);
+
+      return Promise.resolve({ text: this.#postProcess(cachedResult), translated: true, log });
     }
 
     // 2. 检查是否有正在进行的相同请求
@@ -220,7 +271,7 @@ export class TranslatorManager {
     const translationPromise = new Promise((resolve, reject) => {
       const controller = new AbortController();
       this.#taskQueue.push({
-        text,
+        text: processedText, // 传递已处理的文本
         targetLang,
         sourceLang,
         engine,
@@ -269,5 +320,31 @@ export class TranslatorManager {
           this.#MAX_CONCURRENT_REQUESTS = max;
       }
       console.log(`[TranslatorManager] Concurrency limit updated to ${this.#MAX_CONCURRENT_REQUESTS}`);
+  }
+
+  static async updateCacheSize() {
+      const settings = await getValidatedSettings();
+      const size = settings.cacheSize; // 假设设置项名为 cacheSize
+      if (size && typeof size === 'number' && size >= 0) {
+          this.#maxCacheSize = size;
+      }
+      console.log(`[TranslatorManager] Cache size limit updated to ${this.#maxCacheSize}`);
+  }
+
+  /**
+   * 获取当前缓存的信息。
+   * @returns {Promise<{count: number, limit: number}>}
+   */
+  static async getCacheInfo() {
+      return {
+          count: this.#translationCache.size,
+          limit: this.#maxCacheSize
+      };
+  }
+
+  static async clearCache() {
+      this.#translationCache.clear();
+      await this.#saveCacheToStorage();
+      console.log("[TranslatorManager] Translation cache has been cleared.");
   }
 }

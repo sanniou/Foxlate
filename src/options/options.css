@@ -1006,6 +1006,24 @@ button.m3-icon-button.danger { /* Specificity for danger color */
   animation: spin 1s ease-in-out infinite;
 }
 
+/* --- Cache Management Section --- */
+.cache-info-group {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 16px;
+    background-color: var(--md-sys-color-surface-container);
+    border-radius: 12px;
+    color: var(--md-sys-color-on-surface-variant);
+}
+.cache-info-group #cacheInfoDisplay {
+    font-weight: 600;
+    color: var(--md-sys-color-on-surface);
+}
+.cache-info-group #clearCacheBtn {
+    margin-left: auto; /* Push the button to the far right */
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
