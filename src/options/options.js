@@ -46,14 +46,6 @@ document.addEventListener('DOMContentLoaded', () => {
         cancelAiEngineBtn: document.getElementById('cancelAiEngineBtn'),
         testAiEngineBtn: document.getElementById('testAiEngineBtn'),
         aiTestResult: document.getElementById('aiTestResult'),
-        displayModeSelect: document.getElementById('displayModeSelect'),
-        saveSettingsBtn: document.getElementById('saveSettingsBtn'),
-        fabIconSave: document.getElementById('fab-icon-save'),
-        fabIconLoading: document.getElementById('fab-icon-loading'),
-        fabIconSuccess: document.getElementById('fab-icon-success'),
-        // Domain Rule Modal Elements
-        domainRuleModal: document.getElementById('domainRuleModal'),
-        domainRuleForm: document.getElementById('domainRuleForm'),
         closeDomainRuleModalBtn: document.querySelector('#domainRuleModal .close-button'),
         domainRuleFormTitle: document.getElementById('domainRuleFormTitle'),
         editingDomainInput: document.getElementById('editingDomain'),
@@ -72,6 +64,9 @@ document.addEventListener('DOMContentLoaded', () => {
         ruleSubtitleSettingsGroup: document.getElementById('ruleSubtitleSettingsGroup'),
         ruleSubtitleStrategySelect: document.getElementById('ruleSubtitleStrategy'),
         ruleSubtitleDisplayMode: document.getElementById('ruleSubtitleDisplayMode'),
+        displayModeSelect: document.getElementById('displayModeSelect'),
+        saveSettingsBtn: document.getElementById('saveSettingsBtn'),
+        domainRuleModal: document.getElementById('domainRuleModal'),
 
         saveDomainRuleBtn: document.getElementById('saveDomainRuleBtn'),
         // Global Pre-check Test Elements
@@ -82,6 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
         cacheSizeInput: document.getElementById('cacheSizeInput'),
         cacheInfoDisplay: document.getElementById('cacheInfoDisplay'),
         clearCacheBtn: document.getElementById('clearCacheBtn'),
+        domainRuleForm: document.getElementById('domainRuleForm'),
     };
     elements.toggleLogBtn = document.getElementById('toggleLogBtn');
     elements.logContent = document.getElementById('log-content');
@@ -399,79 +395,46 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const saveSettings = async () => {
-        // --- State: Saving ---
-        elements.saveSettingsBtn.disabled = true;
-        elements.fabIconSave.classList.remove('active');
-        elements.fabIconLoading.classList.add('active');
-        elements.fabIconSuccess.classList.remove('active');
+        // --- 1. 设置状态为 'loading'，CSS 将自动显示加载动画 ---
+        elements.saveSettingsBtn.dataset.state = 'loading';
 
-
-        // 1. 从UI获取当前设置。此操作会附带执行验证，并为无效字段添加 'is-invalid' 类。
+        // --- 2. 从UI获取设置并验证 ---
         const settingsToSave = getSettingsFromUI();
-
-        // 2. 检查验证是否失败。
         const hasInvalidRegex = !!document.querySelector('.rule-item .m3-form-field.is-invalid');
 
         if (hasInvalidRegex) {
-            // --- 状态：错误/重置 ---
-            elements.saveSettingsBtn.disabled = false;
-            elements.fabIconLoading.classList.remove('active');
-            elements.fabIconSave.classList.add('active');
-            elements.saveSettingsBtn.classList.add('error-shake');
-
+            // --- 3a. 处理验证错误，CSS 将自动触发抖动动画 ---
+            elements.saveSettingsBtn.dataset.state = 'error';
             const firstInvalidField = document.querySelector('.rule-item .m3-form-field.is-invalid');
             if (firstInvalidField) {
                 firstInvalidField.classList.add('error-shake');
                 setTimeout(() => firstInvalidField.classList.remove('error-shake'), 500);
             }
-            setTimeout(() => elements.saveSettingsBtn.classList.remove('error-shake'), 500);
-            return; // 中止保存过程
+            // 抖动动画结束后，重置 FAB 状态，以便用户可以再次点击
+            setTimeout(() => {
+                elements.saveSettingsBtn.dataset.state = '';
+            }, 500);
+            return; // 中止保存
         }
 
         try {
+            // --- 3b. 保存设置 ---
             await browser.storage.sync.set({ settings: settingsToSave });
-            // 成功保存后，将快照更新为新状态
-            initialSettingsSnapshot = JSON.stringify(settingsToSave);
-            updateSaveButtonState(); // 这将隐藏按钮
+            initialSettingsSnapshot = JSON.stringify(settingsToSave); // 更新快照
 
-            // --- State: Success ---
-            elements.saveSettingsBtn.classList.add('success');
-            elements.fabIconLoading.classList.remove('active');
-            elements.fabIconSuccess.classList.add('active');
+            // --- 4. 处理成功 UI，CSS 将自动显示对勾图标和颜色 ---
+            elements.saveSettingsBtn.dataset.state = 'success';
 
-            // --- State: Disappear and Reset ---
-            setTimeout(() => { // 动画效果
-                elements.saveSettingsBtn.classList.remove('visible'); // Start fade out animation
-
-                // This function will be our event handler to robustly reset the FAB.
-                const resetFabOnFadeOut = (event) => {
-                    // We only care about the opacity transition ending to avoid firing multiple times.
-                    if (event.propertyName === 'opacity') {
-                        elements.saveSettingsBtn.disabled = false;
-                        elements.saveSettingsBtn.classList.remove('success');
-                        elements.fabIconSuccess.classList.remove('active');
-                        elements.fabIconSave.classList.add('active');
-
-                        // Clean up the listener to prevent it from firing again.
-                        elements.saveSettingsBtn.removeEventListener('transitionend', resetFabOnFadeOut);
-                    }
-                };
-
-                // Add the listener before triggering the transition.
-                elements.saveSettingsBtn.addEventListener('transitionend', resetFabOnFadeOut);
-
-            }, 1200); // Display success state for 1.2 seconds for a better feel.
+            // 成功状态显示 1.2 秒后，隐藏 FAB
+            setTimeout(() => {
+                updateSaveButtonState(); // 触发隐藏动画
+                setTimeout(() => { elements.saveSettingsBtn.dataset.state = ''; }, 200); // 动画后重置状态
+            }, 1200);
         } catch (error) {
             console.error('Error saving settings:', error);
-            // --- State: Error/Reset ---
-            elements.saveSettingsBtn.disabled = false;
-            elements.fabIconLoading.classList.remove('active');
-            elements.fabIconSave.classList.add('active');
-            elements.saveSettingsBtn.classList.add('error-shake');
-            setTimeout(() => elements.saveSettingsBtn.classList.remove('error-shake'), 500);
-        } finally {
-            // In case of error, we don't clear changes, so the user can try again.
-            // The FAB state is reset above.
+            // --- 5. 处理保存错误 ---
+            elements.saveSettingsBtn.dataset.state = 'error';
+            setTimeout(() => { elements.saveSettingsBtn.dataset.state = ''; }, 500);
         }
     };
 

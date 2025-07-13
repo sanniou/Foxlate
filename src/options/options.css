@@ -965,16 +965,6 @@ button.m3-icon-button.danger { /* Specificity for danger color */
   background-color: #757575; /* Grey when saving */
 }
 
-.fab.success {
-  background-color: #4caf50; /* A slightly different green for success */
-  transform: scale(1.1);
-}
-
-.fab.error-shake {
-  animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
-  background-color: var(--md-sys-color-error);
-}
-
 @keyframes shake {
   10%, 90% { transform: translate3d(-1px, 0, 0) scale(1); }
   20%, 80% { transform: translate3d(2px, 0, 0) scale(1); }
@@ -982,19 +972,45 @@ button.m3-icon-button.danger { /* Specificity for danger color */
   40%, 60% { transform: translate3d(4px, 0, 0) scale(1); }
 }
 
+/* --- 声明式的 FAB 动画状态 --- */
 .fab-icon {
-  display: flex; /* Keep flex for centering content like the spinner */
-  align-items: center;
-  justify-content: center;
-  position: absolute; /* Stack icons on top of each other */
-  transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
-  opacity: 0;
-  transform: scale(0.8);
+    display: none; /* 默认隐藏所有图标 */
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    transition: opacity 0.2s ease-in-out;
 }
 
-.fab-icon.active {
-  opacity: 1;
-  transform: scale(1);
+/* 默认状态：显示保存图标 */
+.fab:not([data-state]) #fab-icon-save,
+.fab[data-state=''] #fab-icon-save {
+    display: block;
+}
+
+/* 加载状态：显示加载动画并禁用指针事件 */
+.fab[data-state='loading'] {
+    pointer-events: none; /* 加载时阻止点击 */
+}
+.fab[data-state='loading'] #fab-icon-loading {
+    display: block;
+}
+
+/* 成功状态：显示对勾并改变颜色 */
+.fab[data-state='success'] {
+    background-color: #4caf50; /* 一个明确的成功绿色 */
+}
+.fab[data-state='success'] #fab-icon-success {
+    display: block;
+}
+
+/* 错误状态：触发抖动动画并改变颜色 */
+.fab[data-state='error'] {
+    animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+    background-color: var(--md-sys-color-error);
+}
+.fab[data-state='error'] #fab-icon-save {
+    display: block; /* 错误时再次显示保存图标 */
 }
 
 .fab .spinner {
