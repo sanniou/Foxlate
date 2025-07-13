@@ -57,7 +57,6 @@ class AppendStrategy {
             case Constants.DISPLAY_MANAGER_STATES.LOADING:
                 const loadingIndicator = document.createElement('span');
                 loadingIndicator.className = `foxlate-appended-text foxlate-appended-${appendType} loading`;
-                loadingIndicator.textContent = '...';
                 element.appendChild(loadingIndicator);
                 break;
 
