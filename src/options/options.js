@@ -2,18 +2,22 @@ import '../lib/browser-polyfill.js';
 import { getValidatedSettings, generateDefaultPrecheckRules, precompileRules } from '../common/settings-manager.js';
 import { shouldTranslate } from '../common/precheck.js';
 import * as Constants from '../common/constants.js';
+import { FormValidator } from './validator.js';
 import { SUBTITLE_STRATEGIES } from '../content/subtitle/strategy-manifest.js';
 
 document.addEventListener('DOMContentLoaded', () => {
+
+    // --- 全局验证器实例 ---
+    let aiEngineValidator;
+    let domainRuleValidator;
+
     // --- Element Cache ---
     const elements = {
         translatorEngine: document.getElementById('translatorEngine'),
         deeplxUrlGroup: document.getElementById('deeplxUrlGroup'),
         aiEngineManagementGroup: document.getElementById('aiEngineManagementGroup'), // New AI management group   
-        addDomainRuleBtn: document.getElementById('addDomainRuleBtn'),
-        domainRulesList: document.getElementById('domainRulesList'),
-        newDomainInput: document.getElementById('newDomain'),
-        newDomainRuleSelect: document.getElementById('newDomainRule'),
+        addDomainRuleBtn: document.getElementById('addDomainRuleBtn'), // This is used
+        domainRulesList: document.getElementById('domainRulesList'), // This is used
         exportBtn: document.getElementById('export-btn'),
         importBtn: document.getElementById('import-btn'),
         importInput: document.getElementById('import-input'),
@@ -38,29 +42,22 @@ document.addEventListener('DOMContentLoaded', () => {
         aiCustomPromptInput: document.getElementById('aiCustomPrompt'),
         aiShortTextThresholdInput: document.getElementById('aiShortTextThreshold'),
         aiShortTextEngineSelect: document.getElementById('aiShortTextEngine'),
-        // AI Engine Form Error Elements
-        aiEngineNameError: document.getElementById('aiEngineNameError'),
-        aiApiKeyError: document.getElementById('aiApiKeyError'),
-        aiApiUrlError: document.getElementById('aiApiUrlError'),
-        aiModelNameError: document.getElementById('aiModelNameError'),
-        aiCustomPromptError: document.getElementById('aiCustomPromptError'),
         saveAiEngineBtn: document.getElementById('saveAiEngineBtn'),
         cancelAiEngineBtn: document.getElementById('cancelAiEngineBtn'),
         testAiEngineBtn: document.getElementById('testAiEngineBtn'),
         aiTestResult: document.getElementById('aiTestResult'),
         displayModeSelect: document.getElementById('displayModeSelect'),
-        mainTabButtons: document.querySelectorAll('.main-tab-button'),
         saveSettingsBtn: document.getElementById('saveSettingsBtn'),
         fabIconSave: document.getElementById('fab-icon-save'),
         fabIconLoading: document.getElementById('fab-icon-loading'),
         fabIconSuccess: document.getElementById('fab-icon-success'),
         // Domain Rule Modal Elements
         domainRuleModal: document.getElementById('domainRuleModal'),
+        domainRuleForm: document.getElementById('domainRuleForm'),
         closeDomainRuleModalBtn: document.querySelector('#domainRuleModal .close-button'),
         domainRuleFormTitle: document.getElementById('domainRuleFormTitle'),
         editingDomainInput: document.getElementById('editingDomain'),
         ruleDomainInput: document.getElementById('ruleDomain'),
-        ruleDomainError: document.getElementById('ruleDomainError'),
         ruleApplyToSubdomainsCheckbox: document.getElementById('ruleApplyToSubdomains'),
         ruleAutoTranslateSelect: document.getElementById('ruleAutoTranslate'),
         ruleTranslatorEngineSelect: document.getElementById('ruleTranslatorEngine'),
@@ -94,32 +91,12 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.logContent.style.wordBreak = 'break-all';   // 允许在长单词或URL内部断开，防止溢出
     }
 
-    // --- Unsaved Changes Tracking ---
-    let unsavedChanges = {}; // Track changes per setting
-
-    const updateSaveButtonState = () => {
-        const hasChanges = Object.values(unsavedChanges).some(Boolean);
-        elements.saveSettingsBtn.classList.toggle('visible', hasChanges);
-    };
-
-    const markSettingAsChanged = (settingKey) => {
-        if (!unsavedChanges[settingKey]) {
-            unsavedChanges[settingKey] = true;
-            updateSaveButtonState();
-        }
-    };
-
-    const clearUnsavedChanges = () => {
-        unsavedChanges = {};
-        // Visibility is now handled by updateSaveButtonState
-        updateSaveButtonState();
-    };
-
     /**
-     * Tests a regular expression against a given input and displays the result.
-     * @param {HTMLInputElement} regexInput - The input element containing the regex.
+     * Validates a regular expression and its flags.
+     * Adds/removes 'is-invalid' class and sets 'title' attribute for error messages.
+     * @param {HTMLInputElement} regexInput - The input element containing the regex string.
      * @param {HTMLInputElement} flagsInput - The input element containing the regex flags.
-     * @param {HTMLElement} resultElement - The element to display the test result.
+     * @returns {boolean} True if the regex is valid, false otherwise.
      */
     function testRegex(regexInput, flagsInput, resultElement) {
         const regexValue = regexInput.value.trim();
@@ -241,6 +218,39 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return isValid;
     }
+
+    // --- 状态管理：快照机制 ---
+    let initialSettingsSnapshot = ''; // 将存储初始设置的 JSON 字符串。
+    /**
+     * 从 UI 读取所有值并构建一个设置对象。
+     * 这是选项页面当前状态的唯一真实来源。
+     * @returns {object} 当前的设置对象。
+     */
+    const getSettingsFromUI = () => {
+        const settings = {};
+        settings.translatorEngine = elements.translatorEngine.value;
+        settings.targetLanguage = elements.targetLanguage.value;
+        settings.displayMode = elements.displayModeSelect.value;
+        settings.deeplxApiUrl = elements.deeplxApiUrl.value;
+        settings.translationSelector = {
+            default: {
+                inline: elements.defaultInlineSelector.value,
+                block: elements.defaultBlockSelector.value
+            }
+        };
+        settings.aiEngines = aiEngines; // 此数组在内存中保持同步
+        settings.precheckRules = getPrecheckRulesFromUI(); // 此函数已从 UI 读取
+        settings.domainRules = domainRules; // 此对象在内存中保持同步
+        const size = parseInt(elements.cacheSizeInput.value, 10);
+        settings.cacheSize = !isNaN(size) && size >= 0 ? size : Constants.DEFAULT_SETTINGS.cacheSize;
+        return settings;
+    };
+
+    const updateSaveButtonState = () => {
+        const currentSettingsString = JSON.stringify(getSettingsFromUI());
+        const hasChanges = currentSettingsString !== initialSettingsSnapshot;
+        elements.saveSettingsBtn.classList.toggle('visible', hasChanges);
+    };
 
     let precheckRules = {};
     let aiEngines = []; // Array to hold AI engine configurations
@@ -379,7 +389,9 @@ document.addEventListener('DOMContentLoaded', () => {
             renderDomainRules();
             renderPrecheckRulesUI();
             await updateCacheInfo();
-            clearUnsavedChanges(); // Reset tracking on load
+            // 创建初始快照并确保保存按钮被隐藏
+            initialSettingsSnapshot = JSON.stringify(getSettingsFromUI());
+            updateSaveButtonState();
         } catch (error) {
             console.error("Failed to load and validate settings:", error);
             showStatusMessage(browser.i18n.getMessage('loadSettingsError'), true);
@@ -387,64 +399,40 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const saveSettings = async () => {
-        // First, validate all pre-check rules before attempting to save
-        // This call also updates the UI with validation feedback
-        const precheckRulesToSave = getPrecheckRulesFromUI();
-        let hasInvalidRegex = false;
-        document.querySelectorAll('.rule-item input.is-invalid').forEach(() => {
-            hasInvalidRegex = true;
-        });
-
-        if (hasInvalidRegex) {
-            elements.saveSettingsBtn.classList.add('error-shake');
-            const firstInvalidField = document.querySelector('.rule-item .m3-form-field.is-invalid');
-            if (firstInvalidField) {
-                firstInvalidField.classList.add('error-shake');
-                setTimeout(() => firstInvalidField.classList.remove('error-shake'), 500);
-            }
-            setTimeout(() => elements.saveSettingsBtn.classList.remove('error-shake'), 500);
-        }
         // --- State: Saving ---
         elements.saveSettingsBtn.disabled = true;
         elements.fabIconSave.classList.remove('active');
         elements.fabIconLoading.classList.add('active');
         elements.fabIconSuccess.classList.remove('active');
 
+
+        // 1. 从UI获取当前设置。此操作会附带执行验证，并为无效字段添加 'is-invalid' 类。
+        const settingsToSave = getSettingsFromUI();
+
+        // 2. 检查验证是否失败。
+        const hasInvalidRegex = !!document.querySelector('.rule-item .m3-form-field.is-invalid');
+
+        if (hasInvalidRegex) {
+            // --- 状态：错误/重置 ---
+            elements.saveSettingsBtn.disabled = false;
+            elements.fabIconLoading.classList.remove('active');
+            elements.fabIconSave.classList.add('active');
+            elements.saveSettingsBtn.classList.add('error-shake');
+
+            const firstInvalidField = document.querySelector('.rule-item .m3-form-field.is-invalid');
+            if (firstInvalidField) {
+                firstInvalidField.classList.add('error-shake');
+                setTimeout(() => firstInvalidField.classList.remove('error-shake'), 500);
+            }
+            setTimeout(() => elements.saveSettingsBtn.classList.remove('error-shake'), 500);
+            return; // 中止保存过程
+        }
+
         try {
-            const { settings: existingSettings } = await browser.storage.sync.get('settings');
-            const settingsToSave = { ...existingSettings };
-
-            // Selectively build the settings object based on what has changed
-            if (unsavedChanges.translatorEngine) settingsToSave.translatorEngine = elements.translatorEngine.value;
-            if (unsavedChanges.targetLanguage) settingsToSave.targetLanguage = elements.targetLanguage.value;
-            if (unsavedChanges.displayMode) settingsToSave.displayMode = elements.displayModeSelect.value;
-            if (unsavedChanges.deeplxApiUrl) settingsToSave.deeplxApiUrl = elements.deeplxApiUrl.value;
-            if (unsavedChanges.translationSelector) {
-                settingsToSave.translationSelector = {
-                    ...(settingsToSave.translationSelector || {}),
-                    default: {
-                        inline: elements.defaultInlineSelector.value,
-                        block: elements.defaultBlockSelector.value
-                    }
-                };
-            }
-            if (unsavedChanges.aiEngines) {
-                settingsToSave.aiEngines = aiEngines;
-            }
-            if (unsavedChanges.precheckRules) {
-                settingsToSave.precheckRules = precheckRulesToSave;
-            }
-            if (unsavedChanges.domainRules) {
-                settingsToSave.domainRules = domainRules;
-            }
-            if (unsavedChanges.cacheSize) {
-                const size = parseInt(elements.cacheSizeInput.value, 10);
-                // Basic validation to ensure it's a non-negative number
-                settingsToSave.cacheSize = !isNaN(size) && size >= 0 ? size : Constants.DEFAULT_SETTINGS.cacheSize;
-            }
-
             await browser.storage.sync.set({ settings: settingsToSave });
-            clearUnsavedChanges(); // Reset tracking after successful save
+            // 成功保存后，将快照更新为新状态
+            initialSettingsSnapshot = JSON.stringify(settingsToSave);
+            updateSaveButtonState(); // 这将隐藏按钮
 
             // --- State: Success ---
             elements.saveSettingsBtn.classList.add('success');
@@ -452,7 +440,7 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.fabIconSuccess.classList.add('active');
 
             // --- State: Disappear and Reset ---
-            setTimeout(() => {
+            setTimeout(() => { // 动画效果
                 elements.saveSettingsBtn.classList.remove('visible'); // Start fade out animation
 
                 // This function will be our event handler to robustly reset the FAB.
@@ -641,18 +629,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 testResultElement.classList.remove('show');
             }
             validateRegexInput(regexInput, flagsInput); // Perform validation
-            markSettingAsChanged('precheckRules'); // Any change in rule content marks as unsaved
+            updateSaveButtonState(); // 任何规则内容的更改都可能导致状态变化
         };
-        item.querySelector('.rule-name').addEventListener('input', () => markSettingAsChanged('precheckRules'));
-        // Apply ripple effect to the test button
+        item.querySelector('.rule-name').addEventListener('input', updateSaveButtonState);
+        // 应用涟漪效果到测试按钮
         regexInput.addEventListener('input', validateAndMarkChanged);
         flagsInput.addEventListener('input', validateAndMarkChanged);
-        item.querySelector('.rule-mode').addEventListener('change', () => markSettingAsChanged('precheckRules'));
-        item.querySelector('.rule-enabled-checkbox').addEventListener('change', () => markSettingAsChanged('precheckRules'));
+        item.querySelector('.rule-mode').addEventListener('change', updateSaveButtonState);
+        item.querySelector('.rule-enabled-checkbox').addEventListener('change', updateSaveButtonState);
 
         item.querySelector('.remove-rule-btn').addEventListener('click', (e) => {
             e.currentTarget.closest('.rule-item').remove();
-            markSettingAsChanged('precheckRules'); // Removing a rule counts as a change.
+            updateSaveButtonState(); // 移除规则也是一种更改
         });
 
         // Add test result element (initially hidden)
@@ -686,7 +674,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (newSelect) {
                 initializeSelectLabel(newSelect);
             }
-            markSettingAsChanged('precheckRules'); // 添加规则也算作更改
+            updateSaveButtonState(); // 添加规则也算作更改
         }
     }
 
@@ -742,16 +730,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // For now, the DOM query in saveSettings is sufficient.
     }
 
-    // --- Main Tabs UI Logic ---
-    function switchMainTab(tabName) {
-        // Hide all panels
-        document.querySelectorAll('.main-tab-panel').forEach(panel => panel.classList.remove('active'));
-        // Deactivate all buttons
-        elements.mainTabButtons.forEach(button => button.classList.remove('active'));
-        // Activate the selected tab and panel
-        document.getElementById(`tab-panel-${tabName}`).classList.add('active');
-        document.querySelector(`.main-tab-button[data-tab="${tabName}"]`).classList.add('active');
-    }
     const renderDomainRules = () => {
         elements.domainRulesList.innerHTML = ""; // Clear the <ul>
         const rulesArray = Object.entries(domainRules).map(([domain, rule]) => ({ domain, ...rule }));
@@ -793,8 +771,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (window.confirm(confirmationMessage)) {
             if (domainRules[domainToRemove]) {
                 delete domainRules[domainToRemove];
-                renderDomainRules();
-                markSettingAsChanged('domainRules');
+                renderDomainRules(); // Re-render the list
+                updateSaveButtonState(); // Update save button state
                 showStatusMessage(browser.i18n.getMessage('removeRuleSuccess'));
             }
         }
@@ -812,20 +790,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveDomainRule = async () => {
         const newDomain = elements.ruleDomainInput.value.trim();
         const originalDomain = elements.editingDomainInput.value;
-
-        // --- 1. Validation ---
-        if (!newDomain) {
-            const field = elements.ruleDomainInput.closest('.m3-form-field');
-            field.classList.add('is-invalid');
-            elements.ruleDomainError.textContent = browser.i18n.getMessage('domainCannotBeEmpty') || 'Domain cannot be empty.';
-            // Add shake animation for direct feedback
-            field.classList.add('error-shake');
-            setTimeout(() => field.classList.remove('error-shake'), 500);
+        // --- 1. 使用通用验证器进行验证 ---
+        if (!domainRuleValidator.validate()) {
             return;
         }
-        // Error is cleared via an input event listener for better UX
-
-        // --- 2. Construct rule object, excluding default values for efficiency ---
+        // --- 2. 构造规则对象，为提高效率排除默认值 ---
         const rule = {};
         // The default for applyToSubdomains is true, so only save the value if it's false.
         if (!elements.ruleApplyToSubdomainsCheckbox.checked) {
@@ -881,7 +850,7 @@ document.addEventListener('DOMContentLoaded', () => {
             delete domainRules[originalDomain];
         }
         domainRules[newDomain] = rule;
-        markSettingAsChanged('domainRules');
+        updateSaveButtonState();
         closeDomainRuleModal();
         renderDomainRules();
         showStatusMessage(browser.i18n.getMessage('saveRuleSuccess') || 'Rule saved successfully.');
@@ -962,7 +931,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const hideAiEngineForm = () => {
         elements.aiEngineForm.style.display = 'none';
         elements.aiTestResult.style.display = 'none';
-        clearAiFormErrors();
+        aiEngineValidator.clearAllErrors();
         currentEditingAiEngineId = null;
     };
 
@@ -1037,9 +1006,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Ensure all select labels are correctly positioned after populating values.
         elements.domainRuleModal.querySelectorAll('.m3-form-field.filled select').forEach(initializeSelectLabel);
-        // Also clear any previous validation state
-        elements.ruleDomainInput.closest('.m3-form-field').classList.remove('is-invalid');
-        elements.ruleDomainError.textContent = '';
+        // 使用验证器清除任何先前的验证状态
+        domainRuleValidator.clearAllErrors();
     };
 
     const closeDomainRuleModal = () => {
@@ -1060,7 +1028,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const renderAiEngineList = () => {
         elements.aiEngineList.innerHTML = '';
         if (aiEngines.length === 0) {
-            elements.aiEngineList.innerHTML = `<p>${browser.i18n.getMessage('noRulesFound') || 'No AI engines configured.'}</p>`; // Need a new i18n key
+            elements.aiEngineList.innerHTML = `<p>${browser.i18n.getMessage('noAiEnginesFound') || 'No AI engines configured.'}</p>`;
             return;
         }
         const ul = document.createElement('ul');
@@ -1070,7 +1038,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <span>${escapeHtml(engine.name)}</span>
                 <div class="actions">
                     <button class="m3-button text edit-ai-engine-btn" data-id="${engine.id}">${browser.i18n.getMessage('edit') || 'Edit'}</button>
-                    <button class="m3-button text danger remove-ai-engine-btn" data-id="${engine.id}">${browser.i18n.getMessage('removeRule') || 'Remove'}</button>
+                    <button class="m3-button text danger remove-ai-engine-btn" data-id="${engine.id}">${browser.i18n.getMessage('removeAiEngine') || 'Remove'}</button>
                 </div>
             `;
             ul.appendChild(li);
@@ -1092,15 +1060,15 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.aiEngineModal.offsetWidth;
         elements.aiEngineModal.classList.add('is-visible'); // Trigger content transition
 
-        // Clear previous errors before populating form
-        clearAiFormErrors(); // 每次显示表单时清除所有错误提示
+        // 每次显示表单时清除所有错误提示
+        aiEngineValidator.clearAllErrors();
 
         // Show the form itself
         elements.aiEngineForm.style.display = 'block'; // This should be controlled by the modal's visibility
 
         // Hide test result
         elements.aiTestResult.style.display = 'none';
-        elements.aiFormTitle.textContent = engine.id ? (browser.i18n.getMessage('edit') || 'Edit') : (browser.i18n.getMessage('addAiEngine') || 'Add');
+        elements.aiFormTitle.textContent = engine.id ? (browser.i18n.getMessage('edit') || 'Edit') : (browser.i18n.getMessage('add') || 'Add');
         elements.aiEngineNameInput.value = engine.name || '';
         elements.aiApiKeyInput.value = engine.apiKey || '';
         elements.aiApiUrlInput.value = engine.apiUrl || '';
@@ -1111,39 +1079,6 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.aiShortTextEngineSelect.value = engine.fallbackEngine ?? 'default';
         initializeSelectLabel(elements.aiShortTextEngineSelect); // 修复：更新标签UI，防止重叠
         currentEditingAiEngineId = engine.id || null;
-    };
-
-    /**
-     * Clears all validation error messages and invalid states from the AI engine form.
-     */
-    const clearAiFormErrors = () => {
-        const fields = ['aiEngineName', 'aiApiKey', 'aiApiUrl', 'aiModelName', 'aiCustomPrompt'];
-        fields.forEach(field => {
-            const input = elements[`${field}Input`];
-            const errorDiv = elements[`${field}Error`];
-            if (input && errorDiv) {
-                input.closest('.m3-form-field').classList.remove('is-invalid');
-                errorDiv.textContent = '';
-            }
-        });
-    };
-
-    /**
-     * Validates a single AI form field.
-     * @param {HTMLInputElement|HTMLTextAreaElement} inputElement The input or textarea element.
-     * @param {HTMLElement} errorElement The div to display the error message.
-     * @param {string} i18nKey The i18n key for the field's name.
-     * @returns {boolean} True if valid, false otherwise.
-     */
-    const validateAiFormField = (inputElement, errorElement, i18nKey) => {
-        if (inputElement.value.trim() === '') {
-            inputElement.closest('.m3-form-field').classList.add('is-invalid');
-            errorElement.textContent = `${browser.i18n.getMessage(i18nKey) || i18nKey} ${browser.i18n.getMessage('isRequired') || 'is required.'}`;
-            return false;
-        }
-        inputElement.closest('.m3-form-field').classList.remove('is-invalid');
-        errorElement.textContent = ''; // 修复：将 errorDiv 改为 errorElement
-        return true;
     };
 
     const addAiEngine = () => {
@@ -1171,27 +1106,12 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const saveAiEngine = async () => {
-        clearAiFormErrors(); // Clear previous errors before validating
-
-        const engineData = getAiEngineFormData();
-
-        let isValid = true;
-        isValid = validateAiFormField(elements.aiEngineNameInput, elements.aiEngineNameError, 'aiEngineName') && isValid;
-        isValid = validateAiFormField(elements.aiApiKeyInput, elements.aiApiKeyError, 'aiApiKey') && isValid;
-        isValid = validateAiFormField(elements.aiApiUrlInput, elements.aiApiUrlError, 'aiApiUrl') && isValid;
-        isValid = validateAiFormField(elements.aiModelNameInput, elements.aiModelNameError, 'aiModelName') && isValid;
-        isValid = validateAiFormField(elements.aiCustomPromptInput, elements.aiCustomPromptError, 'aiCustomPrompt') && isValid;
-
-        if (!isValid) {
-            // Find the first invalid field and shake it for better user feedback
-            const firstInvalidField = elements.aiEngineForm.querySelector('.m3-form-field.is-invalid');
-            if (firstInvalidField) {
-                firstInvalidField.classList.add('error-shake');
-                setTimeout(() => firstInvalidField.classList.remove('error-shake'), 500);
-            }
+        // 使用通用验证器
+        if (!aiEngineValidator.validate()) {
             return;
         }
 
+        const engineData = getAiEngineFormData();
         if (currentEditingAiEngineId) {
             // Edit existing
             const index = aiEngines.findIndex(e => e.id === currentEditingAiEngineId);
@@ -1203,29 +1123,39 @@ document.addEventListener('DOMContentLoaded', () => {
             const newId = `ai-${Date.now()}`; // Simple unique ID
             aiEngines.push({ id: newId, ...engineData });
         }
-        markSettingAsChanged('aiEngines'); // Mark settings as changed
+        updateSaveButtonState(); // Mark settings as changed
         renderAiEngineList();
         populateTranslatorEngineOptions(); // Update main dropdown
         hideAiEngineForm(); // Hide form and test results, and clear state
+        showStatusMessage(browser.i18n.getMessage('saveAiEngineSuccess'));
     };
 
     const removeAiEngine = (id) => {
-        if (window.confirm(browser.i18n.getMessage('confirmDeleteRule') || 'Are you sure you want to remove this AI engine?')) { // Need new i18n key
+        if (window.confirm(browser.i18n.getMessage('confirmDeleteAiEngine'))) {
+            // 1. 检查被删除的引擎当前是否被选中
+            const wasSelected = elements.translatorEngine.value === `ai:${id}`;
+
+            // 2. 从数据中移除引擎
             aiEngines = aiEngines.filter(e => e.id !== id);
-            markSettingAsChanged('aiEngines'); // Mark settings as changed
-            renderAiEngineList();
-            populateTranslatorEngineOptions(); // Update main dropdown
-            // If the removed engine was selected, reset the main dropdown
-            if (elements.translatorEngine.value === `ai:${id}`) {
-                // 这部分逻辑需要调整，确保在没有 AI 引擎时，下拉菜单显示正确的默认选项
+
+            // 3. 更新所有相关的UI
+            renderAiEngineList(); // 更新弹窗中的列表
+            populateTranslatorEngineOptions(); // 更新主设置中的下拉菜单
+
+            // 4. 如果被删除的引擎是当前选中的，则选择一个新的有效引擎
+            if (wasSelected) {
+                // 因为 populateTranslatorEngineOptions 已经运行，下拉菜单现在只包含有效的选项。
+                // 如果还有其他 AI 引擎，选择第一个。否则，选择第一个内置引擎。
                 if (aiEngines.length > 0) {
-                    // 如果还有其他 AI 引擎，则选择第一个
                     elements.translatorEngine.value = `ai:${aiEngines[0].id}`;
-                } else {
-                    elements.translatorEngine.value = 'deeplx';
-                    toggleApiFields();
+                } else if (elements.translatorEngine.options.length > 0) {
+                    // 如果没有 AI 引擎了，选择列表中的第一个（即第一个内置引擎）
+                    elements.translatorEngine.value = elements.translatorEngine.options[0].value;
                 }
             }
+            toggleApiFields();
+            updateSaveButtonState();
+            showStatusMessage(browser.i18n.getMessage('removeAiEngineSuccess'));
         }
     };
 
@@ -1386,10 +1316,10 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     /**
- * Populates a select element with auto-translate mode options.
- * @param {HTMLSelectElement} selectElement The <select> element to populate.
- * @param {boolean} includeDefault If true, adds a "Use Default" option at the beginning.
- */
+    * Populates a select element with auto-translate mode options.
+    * @param {HTMLSelectElement} selectElement The <select> element to populate.
+    * @param {boolean} includeDefault If true, adds a "Use Default" option at the beginning.
+    */
     const populateAutoTranslateOptions = (selectElement, includeDefault = false) => {
         if (!selectElement) return;
         selectElement.innerHTML = ''; // Clear existing options
@@ -1545,22 +1475,12 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const testAiEngineConnection = async () => {
-        clearAiFormErrors(); // Clear previous errors before validating
-
-        const engineData = getAiEngineFormData();
-
-        let isValid = true;
-        isValid = validateAiFormField(elements.aiEngineNameInput, elements.aiEngineNameError, 'aiEngineName') && isValid;
-        isValid = validateAiFormField(elements.aiApiKeyInput, elements.aiApiKeyError, 'aiApiKey') && isValid;
-        isValid = validateAiFormField(elements.aiApiUrlInput, elements.aiApiUrlError, 'aiApiUrl') && isValid;
-        isValid = validateAiFormField(elements.aiModelNameInput, elements.aiModelNameError, 'aiModelName') && isValid;
-        isValid = validateAiFormField(elements.aiCustomPromptInput, elements.aiCustomPromptError, 'aiCustomPrompt') && isValid;
-
-        if (!isValid) {
-            elements.aiTestResult.style.display = 'none'; // Hide test result if validation fails
+        // 使用通用验证器
+        if (!aiEngineValidator.validate()) {
             return;
         }
 
+        const engineData = getAiEngineFormData();
         elements.aiTestResult.textContent = browser.i18n.getMessage('testing') || 'Testing...';
         // Reset classes and make visible
         elements.aiTestResult.classList.remove('success', 'error');
@@ -1658,38 +1578,46 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.m3-button:not(#saveSettingsBtn)').forEach(addRippleEffect);
         addRippleEffect(elements.addDomainRuleBtn); // Ensure this one gets it too (for opening the modal)
 
+        // 初始化验证器
+        aiEngineValidator = new FormValidator(elements.aiEngineForm, {
+            'aiEngineName': { rules: 'required', labelKey: 'aiEngineName' },
+            'aiApiKey': { rules: 'required', labelKey: 'aiApiKey' },
+            'aiApiUrl': { rules: 'required', labelKey: 'aiApiUrl' },
+            'aiModelName': { rules: 'required', labelKey: 'aiModelName' },
+            'aiCustomPrompt': { rules: 'required', labelKey: 'aiCustomPrompt' }
+        });
+
+        domainRuleValidator = new FormValidator(elements.domainRuleForm, {
+            'ruleDomain': { rules: 'required', labelKey: 'domain' }
+        });
 
         // Main settings listeners
         elements.translatorEngine.addEventListener('change', () => {
-            markSettingAsChanged('translatorEngine');
+            updateSaveButtonState();
             toggleApiFields(); // 合并监听器，使逻辑更清晰
         });
-        elements.targetLanguage.addEventListener('change', () => markSettingAsChanged('targetLanguage'));
-        elements.defaultInlineSelector.addEventListener('input', () => markSettingAsChanged('translationSelector'));
-        elements.defaultBlockSelector.addEventListener('input', () => markSettingAsChanged('translationSelector'));
-        elements.deeplxApiUrl.addEventListener('input', () => markSettingAsChanged('deeplxApiUrl'));
-        elements.displayModeSelect.addEventListener('change', () => markSettingAsChanged('displayMode'));
+        elements.targetLanguage.addEventListener('change', updateSaveButtonState);
+        elements.defaultInlineSelector.addEventListener('input', updateSaveButtonState);
+        elements.defaultBlockSelector.addEventListener('input', updateSaveButtonState);
+        elements.deeplxApiUrl.addEventListener('input', updateSaveButtonState);
+        elements.displayModeSelect.addEventListener('change', updateSaveButtonState);
         elements.saveSettingsBtn.addEventListener('click', saveSettings);
         elements.resetSettingsBtn.addEventListener('click', resetSettings);
         elements.exportBtn.addEventListener('click', exportSettings);
         elements.importBtn.addEventListener('click', () => elements.importInput.click());
 
         // Cache Management Listeners
-        elements.cacheSizeInput.addEventListener('input', () => markSettingAsChanged('cacheSize'));
+        elements.cacheSizeInput.addEventListener('input', updateSaveButtonState);
         elements.clearCacheBtn.addEventListener('click', clearCache);
 
         // AI Engine Modal Listeners
         elements.manageAiEnginesBtn.addEventListener('click', openAiEngineModal);
         elements.closeAiEngineModalBtn.addEventListener('click', closeAiEngineModal);
         elements.addAiEngineBtn.addEventListener('click', addAiEngine);
-        // Clear the specific field's error on input for better UX
-        elements.aiEngineForm.addEventListener('input', (event) => {
-            const field = event.target.closest('.m3-form-field');
-            if (field && field.classList.contains('is-invalid')) {
-                field.classList.remove('is-invalid');
-                const errorDiv = field.querySelector('.error-message');
-                if (errorDiv) errorDiv.textContent = '';
-                field.classList.remove('error-shake'); // Also remove shake class if present
+        // 在输入时清除所有AI表单错误，以获得更好的用户体验
+        elements.aiEngineForm.addEventListener('input', () => {
+            if (aiEngineValidator) {
+                aiEngineValidator.clearAllErrors();
             }
         });
         elements.saveAiEngineBtn.addEventListener('click', saveAiEngine);
@@ -1714,12 +1642,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Clear domain rule validation error on input
         elements.ruleDomainInput.addEventListener('input', () => {
-            const field = elements.ruleDomainInput.closest('.m3-form-field');
-            if (field.classList.contains('is-invalid')) {
-                field.classList.remove('is-invalid');
-                elements.ruleDomainError.textContent = '';
-                field.classList.remove('error-shake');
-            }
+            // 使用验证器来清除错误，而不是手动操作DOM
+            domainRuleValidator.clearAllErrors();
         });
 
         // Other listeners
@@ -1753,22 +1677,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const sourceTextArea = document.getElementById('test-source-text');
         const manualTranslateBtn = document.getElementById('manual-test-translate-btn');
         if (manualTranslateBtn) manualTranslateBtn.addEventListener('click', performTestTranslation);
-
-        elements.mainTabButtons.forEach(button => {
-            button.addEventListener('click', () => switchMainTab(button.dataset.tab));
-        });
         // Apply ripple to tab buttons
         document.querySelectorAll('.tab-button').forEach(addRippleEffect);
         // Apply ripple to add rule button in precheck rules
         document.querySelectorAll('.add-rule-btn').forEach(addRippleEffect);
 
         // --- Before Unload Listener ---
-        window.addEventListener('beforeunload', (event) => {
-            const hasChanges = Object.values(unsavedChanges).some(Boolean);
+        window.addEventListener('beforeunload', (e) => {
+            const currentSettingsString = JSON.stringify(getSettingsFromUI());
+            const hasChanges = currentSettingsString !== initialSettingsSnapshot;
             if (hasChanges) {
                 // 现代浏览器通常会显示一个通用的提示信息，而不是自定义的字符串
-                event.preventDefault(); // 阻止默认行为，触发提示
-                event.returnValue = ''; // 某些浏览器需要设置此属性
+                e.preventDefault(); // 阻止默认行为，触发提示
+                e.returnValue = ''; // 某些浏览器需要设置此属性
                 return ''; // 某些浏览器需要返回一个字符串
             }
         });

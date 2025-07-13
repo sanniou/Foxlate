@@ -39,9 +39,9 @@
     "message": "引擎名称：",
     "description": "AI 引擎名称输入框的标签。"
   },
-  "noRulesFound": {
+  "noAiEnginesFound": {
     "message": "未配置任何引擎。",
-    "description": "Message when no AI engines are configured."
+    "description": "当没有配置AI引擎时显示的消息。"
   },
   "noDomainRulesFound": {
     "message": "未配置任何域名规则。",
@@ -155,6 +155,10 @@
     "message": "添加 AI 引擎",
     "description": "添加新 AI 引擎配置的按钮文本。"
   },
+  "add": {
+    "message": "添加",
+    "description": "通用添加按钮/标题文本。"
+  },
   "addDomainRule": {
     "message": "添加域名规则",
     "description": "打开域名规则模态框以进行添加的按钮。"
@@ -174,6 +178,10 @@
   "saveRule": {
     "message": "保存规则",
     "description": "保存域名规则的按钮文本。"
+  },
+  "saveAiEngine": {
+    "message": "保存 AI 引擎",
+    "description": "保存 AI 引擎配置的按钮文本。"
   },
   "applyToSubdomains": {
     "message": "应用于所有子域名",
@@ -203,9 +211,21 @@
     "message": "规则已成功保存。",
     "description": "保存域名规则后的状态消息。"
   },
+  "saveAiEngineSuccess": {
+    "message": "AI 引擎已保存。",
+    "description": "在弹窗中保存 AI 引擎配置后的状态消息。"
+  },
+  "removeAiEngineSuccess": {
+    "message": "AI 引擎已移除。",
+    "description": "移除 AI 引擎配置后的状态消息。"
+  },
   "confirmDeleteRule": {
     "message": "您确定要删除此规则吗？",
     "description": "删除域名规则前的确认消息。"
+  },
+  "confirmDeleteAiEngine": {
+    "message": "您确定要删除此 AI 引擎吗？",
+    "description": "删除 AI 引擎配置前的确认消息。"
   },
   "currentRules": {
     "message": "当前域名规则：",
@@ -277,6 +297,10 @@
   "addRuleErrorNoDomain": { "message": "请输入一个域名。" },
   "removeRule": { "message": "移除" },
   "removeRuleSuccess": { "message": "域名规则已移除。" },
+  "removeAiEngine": {
+    "message": "移除",
+    "description": "移除 AI 引擎配置的按钮文本。"
+  },
   "exportSuccess": { "message": "设置已成功导出！" },
   "importSuccess": { "message": "设置已成功导入！界面已更新。" },
   "importError": { "message": "导入设置失败。文件可能已损坏或格式无效。" },
@@ -650,6 +674,10 @@
   "testRegexInputDescription": {
     "message": "在此输入文本以测试您的正则表达式规则。",
     "description": "测试文本输入框的辅助文本。"
+  },
+  "globalTestAreaDescription": {
+    "message": "输入文本以同时测试所有已启用的预检查规则。",
+    "description": "全局预检查测试按钮的辅助文本。"
   },
   "testRegexInputPlaceholder": {
     "message": "输入文本以测试正则表达式...",

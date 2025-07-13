@@ -110,7 +110,7 @@
                             <textarea id="test-source-text" i18n-placeholder="testSourcePlaceholder"></textarea>
                         </div>
                         <div class="translation-col button-col">
-                            <button id="manual-test-translate-btn" class="m3-button" i18n-text="translate">Translate</button>
+                    <button id="manual-test-translate-btn" class="m3-button" i18n-text="translateButtonText">Translate</button>
                         </div>
                         <div class="translation-col">
                             <div id="test-result-area" class="test-result-area"></div>
@@ -299,7 +299,7 @@
                     <button id="testAiEngineBtn" class="m3-button filled" i18n-text="test">Test Connection</button>
                     <div class="action-buttons">
                         <button id="cancelAiEngineBtn" class="m3-button text" i18n-text="cancel">Cancel</button>
-                        <button id="saveAiEngineBtn" class="m3-button filled" i18n-text="saveSettings">Save AI Engine</button>
+                        <button id="saveAiEngineBtn" class="m3-button filled" i18n-text="saveAiEngine">Save AI Engine</button>
                     </div>
                 </div>
                 <div id="aiTestResult" class="ai-test-result-message"></div>
@@ -418,5 +418,6 @@
     </div>
 
     <script src="/common/precheck.js"></script> <!-- Load shared precheck logic -->
+    <script src="validator.js" type="module"></script>
     <script src="options.js" type="module"></script>
 </html>
