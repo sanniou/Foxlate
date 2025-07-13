@@ -23,20 +23,21 @@ export function reconstructDOM(taggedText, nodeMap) {
                 if (parentStack.length > 1) parentStack.pop(); // 遇到闭合标签，父节点出栈
                 else console.warn(`[DOM Reconstructor] 遇到不匹配的闭合标签: ${part}`);
             } else { // 开放标签
-                const nodeShell = nodeMap[tagId];
-                if (nodeShell) {
-                    const newNode = nodeShell.cloneNode(true); // 从映射表克隆节点
+                const nodeData = nodeMap[tagId];
+                if (nodeData) {
+                    const newNode = nodeData.node.cloneNode(true); // 从映射表克隆节点
                     parentStack[parentStack.length - 1].appendChild(newNode);
+                    // (新) 将 preservesWhitespace 元数据附加到新创建的节点上，供后续文本节点处理时使用。
+                    newNode._preservesWhitespace = nodeData.preservesWhitespace;
                     parentStack.push(newNode); // 新节点成为新的父节点，入栈
                 } else console.warn(`[DOM Reconstructor] 遇到未知的翻译器标签: ${part}`);
             }
         } else {
             // 是纯文本部分。
-            // 关键优化：检查当前上下文是否为预格式化（如在 <pre> 或 <code> 标签内）。
             const currentParent = parentStack[parentStack.length - 1];
-            // 检查当前直接父节点是否为预格式化标签。
-            // 这是一个简单而有效的检查，因为 walk() 保证了 <pre> 和 <code> 自身会被保留为 <t_id> 标签。
-            const isPreformatted = currentParent.nodeName === 'PRE' || currentParent.nodeName === 'CODE';
+            // (新) 检查从 DOMWalker 传递过来的元数据，而不是硬编码的标签名。
+            // 这种方法更健壮，可以处理通过 CSS `white-space: pre` 定义的元素。
+            const isPreformatted = currentParent._preservesWhitespace === true;
 
             if (isPreformatted) {
                 // 在预格式化上下文中，直接插入文本，保留所有空白和换行符。

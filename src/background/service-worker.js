@@ -70,51 +70,28 @@ async function unregisterSessionTranslation(tabId) {
  * @param {string[]} filesToInject An array of file paths to inject (e.g., ['style.css', 'script.js']).
  * @returns {Promise<boolean>} True if scripts are ready or successfully injected, false otherwise.
  */
-const INJECTED_RESOURCES_KEY = 'injectedResources';
-
 async function ensureScriptsInjected(tabId, frameId, filesToInject) {
     if (!filesToInject || filesToInject.length === 0) {
         return true;
     }
 
     try {
-        // 1. 从会话存储中获取已注入的资源记录
-        const data = await browser.storage.session.get(INJECTED_RESOURCES_KEY);
-        const injectedResources = data[INJECTED_RESOURCES_KEY] || {};
-        const frameInjections = injectedResources[tabId]?.[frameId] || [];
+        // 将要注入的文件分为 CSS 和 JS
+        const cssToInject = filesToInject.filter(file => file.endsWith('.css'));
+        const jsToInject = filesToInject.filter(file => file.endsWith('.js'));
 
-        // 2. 确定哪些文件是新的，需要注入
-        const newFiles = filesToInject.filter(file => !frameInjections.includes(file));
-        if (newFiles.length === 0) {
-            return true;
-        }
-
-        // 3. 将新文件分为 CSS 和 JS
-        const cssToInject = newFiles.filter(file => file.endsWith('.css'));
-        const jsToInject = newFiles.filter(file => file.endsWith('.js'));
-
-        // 4. 按顺序注入
+        // 按顺序注入：先 CSS，后 JS。
+        // 内容脚本内部有自己的保护机制（window.foxlateContentScriptInitialized），
+        // 可以防止在同一个页面上下文中重复执行初始化逻辑。
         if (cssToInject.length > 0) {
-            await browser.scripting.insertCSS({
-                target: { tabId, frameIds: [frameId] },
-                files: cssToInject
-            });
+            await browser.scripting.insertCSS({ target: { tabId, frameIds: [frameId] }, files: cssToInject });
         }
         if (jsToInject.length > 0) {
-            await browser.scripting.executeScript({
-                target: { tabId, frameIds: [frameId] },
-                files: jsToInject
-            });
+            await browser.scripting.executeScript({ target: { tabId, frameIds: [frameId] }, files: jsToInject });
         }
 
-        // 5. 更新会话存储中的记录
-        if (!injectedResources[tabId]) {
-            injectedResources[tabId] = {};
-        }
-        injectedResources[tabId][frameId] = [...frameInjections, ...newFiles];
-        await browser.storage.session.set({ [INJECTED_RESOURCES_KEY]: injectedResources });
-
-        // 6. 处理特殊逻辑，例如注入 tabId
+        // 注入 tabId 的特殊逻辑，仅在主框架和注入核心脚本时执行。
+        // 这一步可以重复执行，没有副作用。
         if (frameId === 0 && jsToInject.includes("content/content-script.js")) {
             await browser.scripting.executeScript({ target: { tabId, frameIds: [frameId] }, func: (tabId) => { window.__foxlate_tabId = tabId; }, args: [tabId] });
         }
@@ -733,8 +710,8 @@ browser.webNavigation.onHistoryStateUpdated.addListener(handleNavigation, { url:
 browser.tabs.onRemoved.addListener(async (tabId) => {
     try {
         // Get all session data at once
-        const sessionData = await browser.storage.session.get(['tabTranslationStates', 'sessionTabTranslations', INJECTED_RESOURCES_KEY]);
-        const { tabTranslationStates = {}, sessionTabTranslations = {}, injectedResources = {} } = sessionData;
+        const sessionData = await browser.storage.session.get(['tabTranslationStates', 'sessionTabTranslations']);
+        const { tabTranslationStates = {}, sessionTabTranslations = {} } = sessionData;
         let needsUpdate = false;
 
         // Clean up translation state
@@ -751,16 +728,9 @@ browser.tabs.onRemoved.addListener(async (tabId) => {
             console.log(`[Session Cleanup] Cleaned up session auto-translation rule for closed tab ${tabId}.`);
         }
 
-        // Clean up injection records
-        if (injectedResources[tabId]) {
-            delete injectedResources[tabId];
-            needsUpdate = true;
-            console.log(`[Session Cleanup] Cleaned up injection records for closed tab ${tabId}.`);
-        }
-
         // Write back to storage only if something changed
         if (needsUpdate) {
-            await browser.storage.session.set({ tabTranslationStates, sessionTabTranslations, injectedResources });
+            await browser.storage.session.set({ tabTranslationStates, sessionTabTranslations });
         }
 
     } catch (error) {

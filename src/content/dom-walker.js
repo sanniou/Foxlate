@@ -74,7 +74,14 @@ export class DOMWalker {
                     // 步骤 2: 处理元素内容
                     if (isPreservable) {
                         const tagId = `t${tagIndex++}`;
-                        nodeMap[tagId] = child.cloneNode(false);
+                        // (新) 检查元素的 white-space 样式，以决定是否保留换行符。
+                        // 这个信息将传递给 dom-reconstructor。
+                        const style = window.getComputedStyle(child);
+                        const whiteSpace = style.whiteSpace;
+                        nodeMap[tagId] = {
+                            node: child.cloneNode(false),
+                            preservesWhitespace: whiteSpace === 'pre' || whiteSpace === 'pre-wrap' || whiteSpace === 'pre-line'
+                        };
                         sourceText += `<${tagId}>`;
                         walk(child);
                         sourceText += `</${tagId}>`;

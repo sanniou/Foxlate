@@ -298,30 +298,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     /**
- * Adds a Material Design ripple effect to a given button element.
- * @param {HTMLElement} button The button element to apply the ripple effect to.
- */
-    const addRippleEffect = (button) => {
-        button.addEventListener('click', (e) => {
-            const ripple = document.createElement('span');
-            ripple.classList.add('ripple');
-
-            // Calculate position and size of the ripple
-            const rect = button.getBoundingClientRect();
-            const size = Math.max(rect.width, rect.height);
-            const x = e.clientX - rect.left - (size / 2);
-            const y = e.clientY - rect.top - (size / 2);
-
-            ripple.style.width = ripple.style.height = `${size}px`;
-            ripple.style.left = `${x}px`;
-            ripple.style.top = `${y}px`;
-
-            button.appendChild(ripple);
-            ripple.addEventListener('animationend', () => ripple.remove(), { once: true });
-        });
-    };
-
-    /**
      * Initializes the floating label state for a single <select> element.
      * @param {HTMLSelectElement} selectEl The select element to initialize.
      */
@@ -478,8 +454,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const categoryKey = `precheckTab_${category}`;
             const categoryDisplayName = browser.i18n.getMessage(categoryKey) || category;
             tabButton.textContent = categoryDisplayName;
-            tabButton.dataset.category = category;
-            tabButton.addEventListener('click', () => switchPrecheckTab(category));
+            tabButton.dataset.category = category; // 数据集用于事件委托
             tabButtons.appendChild(tabButton);
 
             // Create Tab Panel
@@ -502,7 +477,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const addRuleBtn = document.createElement('button');
             addRuleBtn.textContent = browser.i18n.getMessage('addPrecheckRule');
             addRuleBtn.className = 'add-rule-btn m3-button filled-tonal';
-            addRuleBtn.addEventListener('click', () => addRuleToCategory(category));
             panel.appendChild(addRuleBtn);
 
             tabContent.appendChild(panel);
@@ -574,33 +548,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- 应用国际化文本 ---
         applyTranslationsToFragment(item);
-
-        // --- 添加事件监听器 ---
-        const validateAndMarkChanged = () => {
-            const testResultElement = item.querySelector('.rule-test-result');
-            if (testResultElement) {
-                testResultElement.classList.remove('show');
-            }
-            validateRegexInput(regexInput, flagsInput);
-            updateSaveButtonState();
-        };
-        item.querySelector('.rule-name').addEventListener('input', updateSaveButtonState);
-        regexInput.addEventListener('input', validateAndMarkChanged);
-        flagsInput.addEventListener('input', validateAndMarkChanged);
-        item.querySelector('.rule-mode').addEventListener('change', updateSaveButtonState);
-        item.querySelector('.rule-enabled-checkbox').addEventListener('change', updateSaveButtonState);
-
-        item.querySelector('.remove-rule-btn').addEventListener('click', (e) => {
-            e.currentTarget.closest('.rule-item').remove();
-            updateSaveButtonState();
-        });
-
-        addRippleEffect(item.querySelector('.test-rule-btn'));
-
-        item.querySelector('.test-rule-btn').addEventListener('click', () => {
-            const testResultElement = item.querySelector('.rule-test-result');
-            testRegex(regexInput, flagsInput, testResultElement);
-        });
         return item;
     }
 
@@ -696,13 +643,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 <button class="delete-rule-btn m3-button text danger" data-domain="${rule.domain}">${browser.i18n.getMessage('removeRule') || 'Delete'}</button>
             </div>`;
             elements.domainRulesList.appendChild(li);
-        });
-
-        elements.domainRulesList.querySelectorAll('.edit-rule-btn').forEach(button => {
-            button.addEventListener('click', (e) => editDomainRule(e.target.dataset.domain));
-        });
-        elements.domainRulesList.querySelectorAll('.delete-rule-btn').forEach(button => {
-            button.addEventListener('click', (e) => removeDomainRule(e.target.dataset.domain));
         });
     };
 
@@ -835,39 +775,61 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- AI Engine Management Logic ---
     let currentEditingAiEngineId = null; // To track which engine is being edited
 
-    const openAiEngineModal = () => {
+    /**
+     * A generic function to open a modal with the standard animation.
+     * @param {HTMLElement} modalElement The modal's top-level element.
+     */
+    const openModal = (modalElement) => {
+        if (!modalElement) return;
         document.body.classList.add('modal-open');
-        elements.aiEngineModal.style.display = 'flex'; // Show overlay with flex for centering
-        // Force reflow to ensure CSS transition applies
-        elements.aiEngineModal.offsetWidth;
-        elements.aiEngineModal.classList.add('is-visible'); // Trigger content transition
-        renderAiEngineList();
-        populateFallbackEngineOptions();
-        elements.aiEngineForm.style.display = 'none'; // Hide form initially
-        elements.aiTestResult.style.display = 'none'; // Hide test result
-        // Apply ripple to dynamically added buttons in the list
-        elements.aiEngineList.querySelectorAll('.m3-button').forEach(addRippleEffect);
-        // Apply ripple to the "Add New AI Engine" button
-        addRippleEffect(elements.addAiEngineBtn);
+        modalElement.style.display = 'flex';
+        // Force reflow to ensure the initial state is rendered before the transition starts.
+        modalElement.offsetWidth;
+        modalElement.classList.add('is-visible');
     };
 
-    const closeAiEngineModal = () => {
+    /**
+     * A generic function to close a modal with the standard animation.
+     * @param {HTMLElement} modalElement The modal's top-level element.
+     * @param {Function} [onClosed] An optional callback to run after the closing animation completes.
+     */
+    const closeModal = (modalElement, onClosed) => {
+        if (!modalElement) return;
         document.body.classList.remove('modal-open');
-        elements.aiEngineModal.classList.remove('is-visible'); // Trigger content transition back
-        // Listen for the transition end on the modal-content
-        const modalContent = elements.aiEngineModal.querySelector('.modal-content');
+        modalElement.classList.remove('is-visible');
+
+        const modalContent = modalElement.querySelector('.modal-content');
+        if (!modalContent) {
+            // Fallback for modals without a .modal-content wrapper
+            modalElement.style.display = 'none';
+            if (onClosed) onClosed();
+            return;
+        }
+
         const onTransitionEnd = (e) => {
-            // Ensure it's the transition of the modal-content's transform/opacity
-            if (e.propertyName === 'transform' || e.propertyName === 'opacity') {
-                elements.aiEngineModal.style.display = 'none'; // Hide overlay after content transition
+            if (e.target === modalContent && (e.propertyName === 'transform' || e.propertyName === 'opacity')) {
+                modalElement.style.display = 'none';
                 modalContent.removeEventListener('transitionend', onTransitionEnd);
+                if (onClosed) onClosed();
             }
         };
         modalContent.addEventListener('transitionend', onTransitionEnd);
+    };
 
-        elements.aiEngineForm.style.display = 'none';
-        elements.aiTestResult.style.display = 'none';
-        currentEditingAiEngineId = null;
+    const openAiEngineModal = () => {
+        openModal(elements.aiEngineModal);
+        renderAiEngineList();
+        populateFallbackEngineOptions();
+        elements.aiEngineForm.style.display = 'none'; // Hide form initially
+    };
+
+    const closeAiEngineModal = () => {
+        closeModal(elements.aiEngineModal, () => {
+            // Cleanup logic after modal is fully hidden
+            elements.aiEngineForm.style.display = 'none';
+            elements.aiTestResult.style.display = 'none';
+            currentEditingAiEngineId = null;
+        });
     };
 
     const hideAiEngineForm = () => {
@@ -903,13 +865,7 @@ document.addEventListener('DOMContentLoaded', () => {
      * @param {Object} [ruleData] - The rule data to populate the form with for editing.
      */
     const openDomainRuleModal = (ruleData = {}) => {
-        document.body.classList.add('modal-open');
-        elements.domainRuleModal.style.display = 'flex'; // Show overlay with flex for centering
-        // Force reflow to ensure CSS transition applies
-        elements.domainRuleModal.offsetWidth;
-        elements.domainRuleModal.classList.add('is-visible'); // Trigger content transition
-
-        // Populate dropdowns with options (including "Use Default")
+        openModal(elements.domainRuleModal);
 
         // Set form title and initial values
         elements.domainRuleFormTitle.textContent = ruleData.domain ? browser.i18n.getMessage('editDomainRule') || 'Edit Domain Rule' : browser.i18n.getMessage('addDomainRule') || 'Add Domain Rule';
@@ -953,18 +909,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const closeDomainRuleModal = () => {
-        document.body.classList.remove('modal-open');
-        elements.domainRuleModal.classList.remove('is-visible'); // Trigger content transition back
-        const modalContent = elements.domainRuleModal.querySelector('.modal-content');
-        // Listen for the transition end on the modal-content
-        const onTransitionEnd = (e) => {
-            // Ensure it's the transition of the modal-content's transform/opacity
-            if (e.propertyName === 'transform' || e.propertyName === 'opacity') {
-                elements.domainRuleModal.style.display = 'none'; // Hide overlay after content transition
-                modalContent.removeEventListener('transitionend', onTransitionEnd);
-            }
-        };
-        modalContent.addEventListener('transitionend', onTransitionEnd);
+        closeModal(elements.domainRuleModal);
     };
 
     const renderAiEngineList = () => {
@@ -986,27 +931,14 @@ document.addEventListener('DOMContentLoaded', () => {
             ul.appendChild(li);
         });
         elements.aiEngineList.appendChild(ul);
-
-        ul.querySelectorAll('.edit-ai-engine-btn').forEach(button => {
-            button.addEventListener('click', (e) => editAiEngine(e.target.dataset.id));
-        });
-        ul.querySelectorAll('.remove-ai-engine-btn').forEach(button => {
-            button.addEventListener('click', (e) => removeAiEngine(e.target.dataset.id));
-        });
     };
 
     const showAiEngineForm = (engine = {}) => {
-        // Apply modal animation classes
-        elements.aiEngineModal.style.display = 'flex'; // Show overlay with flex for centering
-        // Force reflow to ensure CSS transition applies
-        elements.aiEngineModal.offsetWidth;
-        elements.aiEngineModal.classList.add('is-visible'); // Trigger content transition
-
         // 每次显示表单时清除所有错误提示
         aiEngineValidator.clearAllErrors();
 
         // Show the form itself
-        elements.aiEngineForm.style.display = 'block'; // This should be controlled by the modal's visibility
+        elements.aiEngineForm.style.display = 'block';
 
         // Hide test result
         elements.aiTestResult.style.display = 'none';
@@ -1032,6 +964,179 @@ document.addEventListener('DOMContentLoaded', () => {
         if (engine) {
             populateFallbackEngineOptions(id);
             showAiEngineForm(engine);
+        }
+    };
+
+    // --- Delegated Event Handlers ---
+
+    const handleGlobalClick = (e) => {
+        const target = e.target;
+
+        // --- 弹窗关闭按钮 ---
+        // 将其独立处理，因为它们可能不是 <button> 元素，
+        // 以确保无论其标签如何（例如，<span>, <i>），它们都能正常工作。
+        if (target.closest('#aiEngineModal .close-button')) return closeAiEngineModal();
+        if (target.closest('#domainRuleModal .close-button')) return closeDomainRuleModal();
+
+        const closestButton = target.closest('button, [role="button"]');
+        if (!closestButton) return;
+
+        // --- Ripple Effect ---
+        // 仅对具有视觉背景的按钮应用波纹效果（例如，非文本按钮）
+        const isRippleButton = (closestButton.classList.contains('m3-button') && !closestButton.classList.contains('text') && closestButton.id !== 'saveSettingsBtn') || closestButton.classList.contains('tab-button');
+        if (isRippleButton) {
+            const ripple = document.createElement('span');
+            ripple.classList.add('ripple');
+            const rect = closestButton.getBoundingClientRect();
+            const size = Math.max(rect.width, rect.height);
+            const x = e.clientX - rect.left - size / 2;
+            const y = e.clientY - rect.top - size / 2;
+            ripple.style.width = ripple.style.height = `${size}px`;
+            ripple.style.left = `${x}px`;
+            ripple.style.top = `${y}px`;
+            closestButton.appendChild(ripple);
+            ripple.addEventListener('animationend', () => ripple.remove(), { once: true });
+        }
+
+        // --- Main Actions ---
+        if (closestButton.id === 'saveSettingsBtn') return saveSettings();
+        if (closestButton.id === 'reset-settings-btn') return resetSettings();
+        if (closestButton.id === 'export-btn') return exportSettings();
+        if (closestButton.id === 'import-btn') return elements.importInput.click();
+
+        // --- Cache ---
+        if (closestButton.id === 'clearCacheBtn') return clearCache();
+
+        // --- AI Engine Modal ---
+        if (closestButton.id === 'manageAiEnginesBtn') return openAiEngineModal();
+        if (closestButton.id === 'addAiEngineBtn') return addAiEngine();
+        if (closestButton.id === 'saveAiEngineBtn') return saveAiEngine();
+        if (closestButton.id === 'cancelAiEngineBtn') return hideAiEngineForm();
+        if (closestButton.id === 'testAiEngineBtn') return testAiEngineConnection();
+        const editAiEngineBtn = target.closest('.edit-ai-engine-btn');
+        if (editAiEngineBtn) return editAiEngine(editAiEngineBtn.dataset.id);
+        const removeAiEngineBtn = target.closest('.remove-ai-engine-btn');
+        if (removeAiEngineBtn) return removeAiEngine(removeAiEngineBtn.dataset.id);
+
+        // --- Domain Rule Modal ---
+        if (closestButton.id === 'addDomainRuleBtn') return openDomainRuleModal();
+        if (closestButton.id === 'cancelDomainRuleBtn') return closeDomainRuleModal();
+        if (closestButton.id === 'saveDomainRuleBtn') return saveDomainRule();
+        const editDomainRuleBtn = target.closest('.edit-rule-btn');
+        if (editDomainRuleBtn) return editDomainRule(editDomainRuleBtn.dataset.domain);
+        const deleteDomainRuleBtn = target.closest('.delete-rule-btn');
+        if (deleteDomainRuleBtn) return removeDomainRule(deleteDomainRuleBtn.dataset.domain);
+
+        // --- Pre-check Rules ---
+        const tabButton = target.closest('.tab-button');
+        if (tabButton) return switchPrecheckTab(tabButton.dataset.category);
+        const addRuleBtn = target.closest('.add-rule-btn');
+        if (addRuleBtn) return addRuleToCategory(addRuleBtn.closest('.tab-panel').dataset.category);
+        const removeRuleBtn = target.closest('.remove-rule-btn');
+        if (removeRuleBtn) {
+            removeRuleBtn.closest('.rule-item').remove();
+            updateSaveButtonState();
+            return;
+        }
+        const testRuleBtn = target.closest('.test-rule-btn');
+        if (testRuleBtn) {
+            const item = testRuleBtn.closest('.rule-item');
+            const regexInput = item.querySelector('.rule-regex');
+            const flagsInput = item.querySelector('.rule-flags');
+            const resultElement = item.querySelector('.rule-test-result');
+            testRegex(regexInput, flagsInput, resultElement);
+            return;
+        }
+
+        // --- Global Test Area ---
+        if (closestButton.id === 'runGlobalTestBtn') return runGlobalPrecheckTest();
+        if (closestButton.id === 'testTranslationBtn') return toggleTestArea();
+        if (closestButton.id === 'toggleLogBtn') return toggleLogArea();
+        if (closestButton.id === 'manual-test-translate-btn') return performTestTranslation();
+    };
+
+    const handleGlobalInput = (e) => {
+        const target = e.target;
+
+        // --- Settings that trigger save button ---
+        if (target.matches('#defaultInlineSelector, #defaultBlockSelector, #deeplxApiUrl, #cacheSizeInput')) {
+            return updateSaveButtonState();
+        }
+
+        // --- Pre-check rule inputs ---
+        const precheckItem = target.closest('.rule-item');
+        if (precheckItem) {
+            if (target.matches('.rule-name')) {
+                updateSaveButtonState();
+            } else if (target.matches('.rule-regex, .rule-flags')) {
+                const testResultElement = precheckItem.querySelector('.rule-test-result');
+                if (testResultElement) testResultElement.classList.remove('show');
+                validateRegexInput(
+                    precheckItem.querySelector('.rule-regex'),
+                    precheckItem.querySelector('.rule-flags')
+                );
+                updateSaveButtonState();
+            }
+            return;
+        }
+
+        // --- AI Engine form ---
+        if (target.closest('#aiEngineForm')) {
+            if (aiEngineValidator) aiEngineValidator.clearAllErrors();
+            return;
+        }
+
+        // --- Domain Rule form ---
+        if (target.matches('#ruleDomain')) {
+            domainRuleValidator.clearAllErrors();
+            return;
+        }
+
+        // --- Global test input ---
+        if (target.matches('#testTextInput')) {
+            const fieldContainer = target.closest('.m3-form-field');
+            if (fieldContainer.classList.contains('is-invalid')) {
+                fieldContainer.classList.remove('is-invalid');
+                elements.testTextInputError.textContent = '';
+            }
+            return;
+        }
+    };
+
+    const handleGlobalChange = (e) => {
+        const target = e.target;
+
+        // --- Main translator engine & display mode ---
+        if (target.matches('#translatorEngine, #displayModeSelect, #targetLanguage')) {
+            updateSaveButtonState();
+            if (target.id === 'translatorEngine') {
+                updateApiFieldsVisibility();
+            }
+            return;
+        }
+
+        // --- Rule-specific changes ---
+        const precheckItem = target.closest('.rule-item');
+        if (precheckItem && target.matches('.rule-mode, .rule-enabled-checkbox')) {
+            updateSaveButtonState();
+            return;
+        }
+
+        // --- Domain Rule modal changes ---
+        if (target.closest('#domainRuleModal') && target.matches('#ruleEnableSubtitle')) {
+            const isChecked = target.checked;
+            elements.ruleSubtitleSettingsGroup.style.display = isChecked ? 'block' : 'none';
+            // 如果是开启，则平滑滚动到新出现的菜单，提升用户体验
+            if (isChecked) {
+                elements.ruleSubtitleSettingsGroup.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+            return;
+        }
+
+        // --- Import file change ---
+        if (target.id === 'import-input') {
+            importSettings(e);
+            return;
         }
     };
 
@@ -1509,6 +1614,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const handleGlobalFocusIn = (e) => {
+        // 当全局测试输入框获得焦点时，隐藏所有单独规则的测试结果
+        if (e.target.id === 'testTextInput') {
+            document.querySelectorAll('.rule-test-result.show').forEach(resultEl => {
+                resultEl.classList.remove('show');
+            });
+        }
+    };
 
     // --- Initialization and Event Listeners ---
     const initialize = async () => {
@@ -1518,9 +1631,6 @@ document.addEventListener('DOMContentLoaded', () => {
         await loadSettings();
         manageSelectLabels(); // Ensure select labels are correctly positioned on load and on change
         populateModalDropdowns(); // Populate modal dropdowns on initialization
-        // Apply ripple effect to all static M3 buttons (excluding FAB for now)
-        document.querySelectorAll('.m3-button:not(#saveSettingsBtn)').forEach(addRippleEffect);
-        addRippleEffect(elements.addDomainRuleBtn); // Ensure this one gets it too (for opening the modal)
 
         // 初始化验证器
         aiEngineValidator = new FormValidator(elements.aiEngineForm, {
@@ -1534,98 +1644,12 @@ document.addEventListener('DOMContentLoaded', () => {
         domainRuleValidator = new FormValidator(elements.domainRuleForm, {
             'ruleDomain': { rules: 'required', labelKey: 'domain' }
         });
-
-        // Main settings listeners
-        elements.translatorEngine.addEventListener('change', () => {
-            updateSaveButtonState();
-            updateApiFieldsVisibility(); // 合并监听器，使逻辑更清晰
-        });
-        elements.targetLanguage.addEventListener('change', updateSaveButtonState);
-        elements.defaultInlineSelector.addEventListener('input', updateSaveButtonState);
-        elements.defaultBlockSelector.addEventListener('input', updateSaveButtonState);
-        elements.deeplxApiUrl.addEventListener('input', updateSaveButtonState);
-        elements.displayModeSelect.addEventListener('change', updateSaveButtonState);
-        elements.saveSettingsBtn.addEventListener('click', saveSettings);
-        elements.resetSettingsBtn.addEventListener('click', resetSettings);
-        elements.exportBtn.addEventListener('click', exportSettings);
-        elements.importBtn.addEventListener('click', () => elements.importInput.click());
-
-        // Cache Management Listeners
-        elements.cacheSizeInput.addEventListener('input', updateSaveButtonState);
-        elements.clearCacheBtn.addEventListener('click', clearCache);
-
-        // AI Engine Modal Listeners
-        elements.manageAiEnginesBtn.addEventListener('click', openAiEngineModal);
-        elements.closeAiEngineModalBtn.addEventListener('click', closeAiEngineModal);
-        elements.addAiEngineBtn.addEventListener('click', addAiEngine);
-        // 在输入时清除所有AI表单错误，以获得更好的用户体验
-        elements.aiEngineForm.addEventListener('input', () => {
-            if (aiEngineValidator) {
-                aiEngineValidator.clearAllErrors();
-            }
-        });
-        elements.saveAiEngineBtn.addEventListener('click', saveAiEngine);
-        elements.cancelAiEngineBtn.addEventListener('click', hideAiEngineForm);
-        elements.testAiEngineBtn.addEventListener('click', testAiEngineConnection);
-
-        // Domain Rule Modal Listeners
-        elements.addDomainRuleBtn.addEventListener('click', () => openDomainRuleModal()); // Open modal for adding new rule
-        elements.closeDomainRuleModalBtn.addEventListener('click', closeDomainRuleModal);
-        elements.cancelDomainRuleBtn.addEventListener('click', closeDomainRuleModal);
-        elements.saveDomainRuleBtn.addEventListener('click', saveDomainRule); // This function will be implemented next
-
-        // 字幕启用复选框的监听器
-        elements.ruleEnableSubtitleCheckbox.addEventListener('change', (e) => {
-            const isChecked = e.target.checked;
-            elements.ruleSubtitleSettingsGroup.style.display = isChecked ? 'block' : 'none';
-            // 如果是开启，则平滑滚动到新出现的菜单，提升用户体验
-            if (isChecked) {
-                elements.ruleSubtitleSettingsGroup.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }
-        });
-
-        // Clear domain rule validation error on input
-        elements.ruleDomainInput.addEventListener('input', () => {
-            // 使用验证器来清除错误，而不是手动操作DOM
-            domainRuleValidator.clearAllErrors();
-        });
-
-        // Other listeners
-        elements.importInput.addEventListener('change', importSettings);
-
-        elements.runGlobalTestBtn.addEventListener('click', runGlobalPrecheckTest);
-        if (elements.testTextInput) {
-            elements.testTextInput.addEventListener('focus', () => {
-                // Hide all visible test results when the main test text input gets focus
-                document.querySelectorAll('.rule-test-result.show').forEach(resultEl => {
-                    resultEl.classList.remove('show');
-                });
-            });
-            // Add an input listener to clear the validation error as the user types.
-            elements.testTextInput.addEventListener('input', () => {
-                const fieldContainer = elements.testTextInput.closest('.m3-form-field');
-                if (fieldContainer.classList.contains('is-invalid')) {
-                    fieldContainer.classList.remove('is-invalid');
-                    elements.testTextInputError.textContent = '';
-                }
-            });
-        }
-
-        // 旧的、通用的“未保存更改”监听器已被移除。
-        // 新的系统使用附加到特定元素或操作的精确监听器。
-
-        const testTranslationBtn = document.getElementById('testTranslationBtn');
-        if (testTranslationBtn) testTranslationBtn.addEventListener('click', toggleTestArea);
-        elements.toggleLogBtn.addEventListener('click', toggleLogArea);
-
-        const sourceTextArea = document.getElementById('test-source-text');
-        const manualTranslateBtn = document.getElementById('manual-test-translate-btn');
-        if (manualTranslateBtn) manualTranslateBtn.addEventListener('click', performTestTranslation);
-        // Apply ripple to tab buttons
-        document.querySelectorAll('.tab-button').forEach(addRippleEffect);
-        // Apply ripple to add rule button in precheck rules
-        document.querySelectorAll('.add-rule-btn').forEach(addRippleEffect);
-
+        // --- 全局事件监听器 ---
+        document.addEventListener('click', handleGlobalClick);
+        document.addEventListener('input', handleGlobalInput);
+        document.addEventListener('change', handleGlobalChange);
+        document.addEventListener('focusin', handleGlobalFocusIn);
+        document.addEventListener('keydown', handleKeyDown); // Existing global listener
         // --- Before Unload Listener ---
         window.addEventListener('beforeunload', (e) => {
             const currentSettingsString = JSON.stringify(getSettingsFromUI());
