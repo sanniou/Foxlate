@@ -7,12 +7,11 @@ export class DeepLxTranslator extends BaseTranslator {
   }
 
   async translate(text, targetLang, sourceLang = 'auto', options, signal) {
-    const { settings } = await browser.storage.sync.get('settings');
     const log = []; // 为当前翻译操作创建本地日志
-    const apiUrl = settings?.deeplxApiUrl;
+    const apiUrl = options?.apiUrl;
 
     if (!apiUrl) {
-      throw new Error('API URL not set in options');
+      throw new Error('DeepLx API URL not provided in options');
     }
 
     try {

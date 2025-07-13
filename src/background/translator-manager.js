@@ -122,8 +122,14 @@ export class TranslatorManager {
       const resolvedInitialEngine = await this.#resolveEngine(initialEngine);
       const translator = this.getTranslator(resolvedInitialEngine);
 
-      // 对于非 AI 引擎，逻辑很简单，直接返回。
+      // 对于非 AI 引擎，逻辑更简单。
       if (!translator || translator.name !== 'AI') {
+          if (translator && translator.name === 'DeepLx') {
+              const settings = await getValidatedSettings();
+              const deeplxConfig = { apiUrl: settings.deeplxApiUrl };
+              return { translator, engine: resolvedInitialEngine, config: deeplxConfig };
+          }
+          // 对于其他非 AI 引擎（如 Google），不需要额外的配置。
           return { translator, engine: resolvedInitialEngine, config: null };
       }
 

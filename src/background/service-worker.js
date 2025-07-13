@@ -757,9 +757,9 @@ browser.tabs.onRemoved.addListener(async (tabId) => {
     }
 });
 
-async function setBadgeAndState(tabId, state, currentStates) {
-    // 不再自己获取，而是使用传入的 currentStates
-    const tabTranslationStates = currentStates || (await browser.storage.session.get('tabTranslationStates')).tabTranslationStates || {};
+async function setBadgeAndState(tabId, state) {
+    // 从会话存储中获取当前所有标签页的状态
+    const { tabTranslationStates = {} } = await browser.storage.session.get('tabTranslationStates');
     if (state === 'original' || !state) {
         delete tabTranslationStates[tabId];
         await browser.action.setBadgeText({ tabId, text: '' });
