@@ -1,6 +1,7 @@
 
 import '../lib/browser-polyfill.js';
-import { getEffectiveSettings, getValidatedSettings } from '../common/settings-manager.js';
+import { getEffectiveSettings, getValidatedSettings, precompileRules } from '../common/settings-manager.js';
+import { shouldTranslate } from '../common/precheck.js';
 import { TranslatorManager } from '../background/translator-manager.js';
 import * as Constants from '../common/constants.js';
 import { AITranslator } from '../background/translators/ai-translator.js';
@@ -245,13 +246,30 @@ async function handleSelectionTranslation(tab, source) {
     try {
         const hostname = new URL(tab.url).hostname;
         const effectiveRule = await getEffectiveSettings(hostname);
-        const result = await TranslatorManager.translateText(selectionText, effectiveRule.targetLanguage, 'auto', effectiveRule.translatorEngine);
 
-        resultPayload = {
-            success: !result.error,
-            translatedText: result.text,
-            error: result.error,
-        };
+        // --- 新增：应用预校验规则 ---
+        // 在使用前编译规则
+        effectiveRule.precheckRules = precompileRules(effectiveRule.precheckRules);
+        const precheckResult = shouldTranslate(selectionText, effectiveRule);
+
+        if (!precheckResult.result) {
+            // 如果预校验失败，则不进行翻译。
+            // 我们将发送一个“成功”的响应，但内容是附带提示的原文。
+            console.log(`[Foxlate] Pre-check failed for selection: "${selectionText}". Reason:`, precheckResult.log.join(' '));
+            resultPayload = {
+                success: true, // 操作本身是成功的，只是没有翻译。
+                translatedText: selectionText,
+                error: null,
+            };
+        } else {
+            // 预校验通过，继续进行翻译。
+            const result = await TranslatorManager.translateText(selectionText, effectiveRule.targetLanguage, 'auto', effectiveRule.translatorEngine);
+            resultPayload = {
+                success: !result.error,
+                translatedText: result.text,
+                error: result.error,
+            };
+        }
     } catch (error) {
         logError('handleSelectionTranslation (Translation Process)', error);
         resultPayload = {
