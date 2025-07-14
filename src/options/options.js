@@ -939,7 +939,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Show the form itself
         elements.aiEngineForm.style.display = 'block';
-        populateEngineSelect(elements.aiShortTextEngineSelect, { includeDefault: true, excludeId: engine.id });
+        populateEngineSelect(elements.aiShortTextEngineSelect, { includeDefault: true, excludeId: engine.id }); // 确保包含“使用默认”选项
 
         // Hide test result
         elements.aiTestResult.style.display = 'none';
@@ -955,19 +955,26 @@ document.addEventListener('DOMContentLoaded', () => {
             aiShortTextThresholdInput: 'wordCountThreshold',
             aiShortTextEngineSelect: 'fallbackEngine'
         };
-        for (const [elementId, engineKey] of Object.entries(formFields)) {
-            elements[elementId].value = engine[engineKey] ?? (engineKey === 'wordCountThreshold' ? 1 : ''); // 修复：设置默认值 1，而不是 0
+
+        for (const [elementKey, engineKey] of Object.entries(formFields)) {
+            const element = elements[elementKey];
+            if (!element) continue;
+
+            let defaultValue;
+            switch (engineKey) {
+                case 'wordCountThreshold':
+                    defaultValue = 1;
+                    break;
+                case 'fallbackEngine':
+                    defaultValue = 'default'; // 新增：为短文本引擎设置默认值
+                    break;
+                default:
+                    defaultValue = '';
+            }
+            element.value = engine[engineKey] ?? defaultValue;
         }
 
-        elements.aiEngineNameInput.value = engine.name || '';
-        elements.aiApiKeyInput.value = engine.apiKey || '';
-        elements.aiApiUrlInput.value = engine.apiUrl || '';
-        elements.aiModelNameInput.value = engine.model || '';
-        elements.aiCustomPromptInput.value = engine.customPrompt || '';
-        // 修复：加载已保存的短文本设置
-        elements.aiShortTextThresholdInput.value = engine.wordCountThreshold ?? 1;
-        elements.aiShortTextEngineSelect.value = engine.fallbackEngine;
-        initializeSelectLabel(elements.aiShortTextEngineSelect); // 修复：更新标签UI，防止重叠
+        initializeSelectLabel(elements.aiShortTextEngineSelect); // 更新标签UI，防止重叠
         currentEditingAiEngineId = engine.id || null;
     };
 
@@ -1657,7 +1664,8 @@ document.addEventListener('DOMContentLoaded', () => {
             'aiApiKey': { rules: 'required', labelKey: 'aiApiKey' },
             'aiApiUrl': { rules: 'required', labelKey: 'aiApiUrl' },
             'aiModelName': { rules: 'required', labelKey: 'aiModelName' },
-            'aiCustomPrompt': { rules: 'required', labelKey: 'aiCustomPrompt' }
+            'aiCustomPrompt': { rules: 'required', labelKey: 'aiCustomPrompt' },
+            'aiShortTextEngine': { rules: 'required', labelKey: 'aiShortTextEngine' } // 新增：将短文本引擎设为必填项
         });
 
         domainRuleValidator = new FormValidator(elements.domainRuleForm, {
