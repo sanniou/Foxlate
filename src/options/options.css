@@ -91,6 +91,20 @@ h3 {
     line-height: 1.2; /* Ensure consistent line height */
     transition: border-color 0.2s ease, padding-bottom 0.2s ease, border-width 0.2s ease;
 }
+
+/*
+ * [修复] 解决 `textarea` 文本滚动到浮动标签下方的问题。
+ * 方案：使用透明的上边框（border-top）代替上内边距（padding-top）来为标签创建空间。
+ * 优点：
+ * 1. 文本内容不会滚动到边框区域，从根本上解决了重叠问题。
+ * 2. `textarea` 的滚动条现在能正确反映可见/可滚动区域的高度，符合用户预期。
+ */
+.m3-form-field.filled textarea {
+    padding-top: 0;
+    border-top: 24px solid transparent;
+    background-clip: padding-box;
+}
+
 .m3-form-field.filled select {
     -webkit-appearance: none;
     -moz-appearance: none;

@@ -329,7 +329,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Load AI Engines and populate the dropdown BEFORE setting the value
             aiEngines = JSON.parse(JSON.stringify(currentSettings.aiEngines)); // Deep copy
-            populateTranslatorEngineOptions(elements.translatorEngine); // Populate the main dropdown
+            populateEngineSelect(elements.translatorEngine); // Populate the main dropdown
 
             // Now that all <option> elements exist, set the selected value.
             elements.translatorEngine.value = currentSettings.translatorEngine;
@@ -819,7 +819,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const openAiEngineModal = () => {
         openModal(elements.aiEngineModal);
         renderAiEngineList();
-        populateFallbackEngineOptions();
         elements.aiEngineForm.style.display = 'none'; // Hide form initially
     };
 
@@ -933,16 +932,33 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.aiEngineList.appendChild(ul);
     };
 
+    // **  修改:  在showAiEngineForm 中填充  fallback engine **
     const showAiEngineForm = (engine = {}) => {
         // 每次显示表单时清除所有错误提示
         aiEngineValidator.clearAllErrors();
 
         // Show the form itself
         elements.aiEngineForm.style.display = 'block';
+        populateEngineSelect(elements.aiShortTextEngineSelect, { includeDefault: true, excludeId: engine.id });
 
         // Hide test result
         elements.aiTestResult.style.display = 'none';
         elements.aiFormTitle.textContent = engine.id ? (browser.i18n.getMessage('edit') || 'Edit') : (browser.i18n.getMessage('add') || 'Add');
+
+        // ** 优化：统一处理所有表单字段的值设置 **
+        const formFields = {
+            aiEngineNameInput: 'name',
+            aiApiKeyInput: 'apiKey',
+            aiApiUrlInput: 'apiUrl',
+            aiModelNameInput: 'model',
+            aiCustomPromptInput: 'customPrompt',
+            aiShortTextThresholdInput: 'wordCountThreshold',
+            aiShortTextEngineSelect: 'fallbackEngine'
+        };
+        for (const [elementId, engineKey] of Object.entries(formFields)) {
+            elements[elementId].value = engine[engineKey] ?? (engineKey === 'wordCountThreshold' ? 1 : ''); // 修复：设置默认值 1，而不是 0
+        }
+
         elements.aiEngineNameInput.value = engine.name || '';
         elements.aiApiKeyInput.value = engine.apiKey || '';
         elements.aiApiUrlInput.value = engine.apiUrl || '';
@@ -950,7 +966,7 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.aiCustomPromptInput.value = engine.customPrompt || '';
         // 修复：加载已保存的短文本设置
         elements.aiShortTextThresholdInput.value = engine.wordCountThreshold ?? 1;
-        elements.aiShortTextEngineSelect.value = engine.fallbackEngine ?? 'default';
+        elements.aiShortTextEngineSelect.value = engine.fallbackEngine;
         initializeSelectLabel(elements.aiShortTextEngineSelect); // 修复：更新标签UI，防止重叠
         currentEditingAiEngineId = engine.id || null;
     };
@@ -962,7 +978,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const editAiEngine = (id) => {
         const engine = aiEngines.find(e => e.id === id);
         if (engine) {
-            populateFallbackEngineOptions(id);
             showAiEngineForm(engine);
         }
     };
@@ -970,10 +985,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Delegated Event Handlers ---
 
     const handleGlobalClick = (e) => {
-        const target = e.target;
+        let target = e.target;
+
+        // * 修改：处理点击目标是 SVG 元素的情况 *
+        if (target instanceof SVGElement && target.parentNode)
+            target = target.parentNode
 
         // --- 弹窗关闭按钮 ---
-        // 将其独立处理，因为它们可能不是 <button> 元素，
+        // 将其独立处理，因为它们可能不是 <button> 元素，或者没有统一的类名，
         // 以确保无论其标签如何（例如，<span>, <i>），它们都能正常工作。
         if (target.closest('#aiEngineModal .close-button')) return closeAiEngineModal();
         if (target.closest('#domainRuleModal .close-button')) return closeDomainRuleModal();
@@ -997,47 +1016,67 @@ document.addEventListener('DOMContentLoaded', () => {
             closestButton.appendChild(ripple);
             ripple.addEventListener('animationend', () => ripple.remove(), { once: true });
         }
-
         // --- Main Actions ---
-        if (closestButton.id === 'saveSettingsBtn') return saveSettings();
-        if (closestButton.id === 'reset-settings-btn') return resetSettings();
-        if (closestButton.id === 'export-btn') return exportSettings();
-        if (closestButton.id === 'import-btn') return elements.importInput.click();
+        switch (closestButton.id) {
+            case 'saveSettingsBtn': return saveSettings();
+            case 'reset-settings-btn': return resetSettings();
+            case 'export-btn': return exportSettings();
+            case 'import-btn': return elements.importInput.click();
+            case 'clearCacheBtn': return clearCache();
+            case 'manageAiEnginesBtn': return openAiEngineModal();
+            case 'addAiEngineBtn': return addAiEngine();
+            case 'saveAiEngineBtn': return saveAiEngine();
+            case 'cancelAiEngineBtn': return hideAiEngineForm();
+            case 'testAiEngineBtn': return testAiEngineConnection();
+            case 'addDomainRuleBtn': return openDomainRuleModal();
+            case 'cancelDomainRuleBtn': return closeDomainRuleModal();
+            case 'saveDomainRuleBtn': return saveDomainRule();
+            case 'runGlobalTestBtn': return runGlobalPrecheckTest();
+            case 'testTranslationBtn': return toggleTestArea();
+            case 'toggleLogBtn': return toggleLogArea();
+            case 'manual-test-translate-btn': return performTestTranslation();
+        }
 
-        // --- Cache ---
-        if (closestButton.id === 'clearCacheBtn') return clearCache();
-
-        // --- AI Engine Modal ---
-        if (closestButton.id === 'manageAiEnginesBtn') return openAiEngineModal();
-        if (closestButton.id === 'addAiEngineBtn') return addAiEngine();
-        if (closestButton.id === 'saveAiEngineBtn') return saveAiEngine();
-        if (closestButton.id === 'cancelAiEngineBtn') return hideAiEngineForm();
-        if (closestButton.id === 'testAiEngineBtn') return testAiEngineConnection();
+        // ---  以下按钮依赖于 data- 属性来区分，不能直接用 id 判断  ---
+        // 找到 Edit AI Engine 按钮并获取 data-id
         const editAiEngineBtn = target.closest('.edit-ai-engine-btn');
-        if (editAiEngineBtn) return editAiEngine(editAiEngineBtn.dataset.id);
+        if (editAiEngineBtn) {
+            return editAiEngine(editAiEngineBtn.dataset.id);
+        }
+        // 找到 Remove AI Engine 按钮并获取 data-id
         const removeAiEngineBtn = target.closest('.remove-ai-engine-btn');
-        if (removeAiEngineBtn) return removeAiEngine(removeAiEngineBtn.dataset.id);
+        if (removeAiEngineBtn) {
+            return removeAiEngine(removeAiEngineBtn.dataset.id);
+        }
 
-        // --- Domain Rule Modal ---
-        if (closestButton.id === 'addDomainRuleBtn') return openDomainRuleModal();
-        if (closestButton.id === 'cancelDomainRuleBtn') return closeDomainRuleModal();
-        if (closestButton.id === 'saveDomainRuleBtn') return saveDomainRule();
+        // 找到 Edit Domain Rule 按钮并获取 data-domain
         const editDomainRuleBtn = target.closest('.edit-rule-btn');
-        if (editDomainRuleBtn) return editDomainRule(editDomainRuleBtn.dataset.domain);
+        if (editDomainRuleBtn) {
+            return editDomainRule(editDomainRuleBtn.dataset.domain);
+        }
+        // 找到 Delete Domain Rule 按钮并获取 data-domain
         const deleteDomainRuleBtn = target.closest('.delete-rule-btn');
-        if (deleteDomainRuleBtn) return removeDomainRule(deleteDomainRuleBtn.dataset.domain);
-
-        // --- Pre-check Rules ---
+        if (deleteDomainRuleBtn) {
+            return removeDomainRule(deleteDomainRuleBtn.dataset.domain);
+        }
+        // Precheck 规则 Tab 切换
         const tabButton = target.closest('.tab-button');
-        if (tabButton) return switchPrecheckTab(tabButton.dataset.category);
+        if (tabButton) {
+            return switchPrecheckTab(tabButton.dataset.category);
+        }
+        // Add Precheck 规则
         const addRuleBtn = target.closest('.add-rule-btn');
-        if (addRuleBtn) return addRuleToCategory(addRuleBtn.closest('.tab-panel').dataset.category);
+        if (addRuleBtn) {
+            return addRuleToCategory(addRuleBtn.closest('.tab-panel').dataset.category);
+        }
+        // Remove Precheck 规则
         const removeRuleBtn = target.closest('.remove-rule-btn');
         if (removeRuleBtn) {
             removeRuleBtn.closest('.rule-item').remove();
             updateSaveButtonState();
             return;
         }
+        // Test Precheck 规则
         const testRuleBtn = target.closest('.test-rule-btn');
         if (testRuleBtn) {
             const item = testRuleBtn.closest('.rule-item');
@@ -1047,12 +1086,6 @@ document.addEventListener('DOMContentLoaded', () => {
             testRegex(regexInput, flagsInput, resultElement);
             return;
         }
-
-        // --- Global Test Area ---
-        if (closestButton.id === 'runGlobalTestBtn') return runGlobalPrecheckTest();
-        if (closestButton.id === 'testTranslationBtn') return toggleTestArea();
-        if (closestButton.id === 'toggleLogBtn') return toggleLogArea();
-        if (closestButton.id === 'manual-test-translate-btn') return performTestTranslation();
     };
 
     const handleGlobalInput = (e) => {
@@ -1172,7 +1205,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         updateSaveButtonState(); // Mark settings as changed
         renderAiEngineList();
-        populateTranslatorEngineOptions(elements.translatorEngine); // Update main dropdown
+        populateEngineSelect(elements.translatorEngine); // Update main dropdown
         hideAiEngineForm(); // Hide form and test results, and clear state
         showStatusMessage(browser.i18n.getMessage('saveAiEngineSuccess'));
     };
@@ -1187,7 +1220,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // 3. 更新所有相关的UI
             renderAiEngineList(); // 更新弹窗中的列表
-            populateTranslatorEngineOptions(elements.translatorEngine); // 更新主设置中的下拉菜单
+            populateEngineSelect(elements.translatorEngine); // 更新主设置中的下拉菜单
 
             // 4. 如果被删除的引擎是当前选中的，则选择一个新的有效引擎
             if (wasSelected) {
@@ -1215,22 +1248,26 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (engine.startsWith('ai:')) elements.aiEngineManagementGroup.style.display = 'block'; // Show AI management if any AI engine is selected
     };
     /**
-     * 填充翻译引擎选择器的选项。
-     * @param {HTMLElement} selectElement - 要填充的 <select> 元素。
-     * @param {boolean} includeDefault - 是否包含“使用默认设置”选项。
+     * (新) 通用函数，用于填充任何引擎选择器下拉菜单。
+     * @param {HTMLSelectElement} selectElement - 要填充的 <select> 元素。
+     * @param {object} [options={}] - 配置选项。
+     * @param {boolean} [options.includeDefault=false] - 是否包含“使用默认设置”选项。
+     * @param {string|null} [options.excludeId=null] - 要从列表中排除的 AI 引擎的 ID。
      */
-    const populateTranslatorEngineOptions = (selectElement, includeDefault = false) => {
+    const populateEngineSelect = (selectElement, { includeDefault = false, excludeId = null } = {}) => {
         if (!selectElement) return;
+        const currentValue = selectElement.value; // 保留当前值
         selectElement.innerHTML = '';
 
-        // 添加 "Use Default" 选项
+        // 如果需要，添加“使用默认”选项
         if (includeDefault) {
-            // Add "Use Default" option
             const defaultOption = document.createElement('option');
             defaultOption.value = 'default';
             defaultOption.textContent = browser.i18n.getMessage('useDefaultSetting');
             selectElement.appendChild(defaultOption);
         }
+
+        // 添加内置引擎
         for (const key in Constants.SUPPORTED_ENGINES) {
             const option = document.createElement('option');
             option.value = key;
@@ -1238,42 +1275,24 @@ document.addEventListener('DOMContentLoaded', () => {
             selectElement.appendChild(option);
         }
 
-        // 3. 添加用户配置的 AI 引擎
+        // 添加用户配置的 AI 引擎
         aiEngines.forEach(engine => {
-            const option = document.createElement('option');
-            option.value = `ai:${engine.id}`;
-            option.textContent = engine.name;
-            selectElement.appendChild(option);
-        });
-    };
-
-    /**
-     * 填充备用引擎选择器的选项。
-     * @param {HTMLElement} selectElement - 要填充的 <select> 元素。
-     * @param {string|null} currentEngineId - 当前引擎的 ID，用于在选项中排除自身。
-     */
-    const populateFallbackEngineOptions = (selectElement, currentEngineId = null) => {
-        if (!selectElement) return;
-        selectElement.innerHTML = '';
-
-        // Add default translators
-        for (const key in Constants.SUPPORTED_ENGINES) {
-            const option = document.createElement('option');
-            option.value = key;
-            option.textContent = browser.i18n.getMessage(Constants.SUPPORTED_ENGINES[key]);
-            selectElement.appendChild(option);
-        }
-
-        // Add other AI engines
-        aiEngines.forEach(engine => {
-            if (engine.id !== currentEngineId) {
+            if (engine.id !== excludeId) {
                 const option = document.createElement('option');
                 option.value = `ai:${engine.id}`;
                 option.textContent = engine.name;
                 selectElement.appendChild(option);
             }
-        })
-    }
+        });
+
+        // 尝试恢复之前选中的值
+        if (Array.from(selectElement.options).some(opt => opt.value === currentValue)) {
+            selectElement.value = currentValue;
+        } else if (selectElement.options.length > 0) {
+            // 如果旧值不再有效，则选择第一个选项
+            selectElement.value = selectElement.options[0].value;
+        }
+    };
 
     /**
      * Populates the dropdowns within the domain rule modal.
@@ -1281,7 +1300,7 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     const populateModalDropdowns = () => {
         // Populate Translator Engine dropdown
-        populateTranslatorEngineOptions(elements.ruleTranslatorEngineSelect, true);
+        populateEngineSelect(elements.ruleTranslatorEngineSelect, { includeDefault: true });
 
 
 
