@@ -58,6 +58,7 @@ export const DEFAULT_SETTINGS = {
     aiEngines: [],
     domainRules: {},
     precheckRules: {}, // Populated dynamically in options.js to handle i18n
+    cacheSize: 5000, // Number of translation items to cache
     parallelRequests: 5, // Number of parallel translation requests
 };
 
