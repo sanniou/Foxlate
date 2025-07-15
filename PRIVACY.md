@@ -1,6 +1,6 @@
 # Privacy Policy for Foxlate
 
-**Last Updated: 2025-07-15**
+**Last Updated: 2024-05-16**
 
 Foxlate respects your privacy. As an open-source extension, its code is available for review on [GitHub](https://github.com/sanniou/foxlate).
 
