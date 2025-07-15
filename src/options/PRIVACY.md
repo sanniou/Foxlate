@@ -1,13 +1,6 @@
 # Privacy Policy for Foxlate
 
-**Last Updated: 2024-05-16**
-
-Thank you for choosing Foxlate! This privacy policy explains what information the Foxlate extension handles and why. Our core principle is to respect your privacy. Foxlate is designed to be a tool that works entirely on your device and with services you control.
-
-To be transparent, Foxlate is an open-source project. You can review the source code on [GitHub](https://github.com/sanniou/foxlate) to understand exactly how your data is handled.
-# Privacy Policy for Foxlate
-
-**Last Updated: 2024-05-16**
+**Last Updated: 2025-07-15**
 
 Foxlate respects your privacy. As an open-source extension, its code is available for review on [GitHub](https://github.com/sanniou/foxlate).
 
