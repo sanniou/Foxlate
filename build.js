@@ -158,23 +158,35 @@ const manifestPlugin = {
                 return;
             }
 
+            // manifest.base.json 是基础，在这里根据目标平台添加特定配置
             const manifest = fs.readJsonSync(manifestBasePath);
+
+            // host_permissions 对于 MV3 两个平台都需要，用于 script 注入和页面访问
+            manifest.host_permissions = ["<all_urls>"];
 
             if (!manifest.background) {
                 manifest.background = {};
             }
 
             if (targetBrowser === 'chrome') {
+                // Chrome V3 使用 service_worker
                 delete manifest.browser_specific_settings;
                 Object.assign(manifest.background, {
                     service_worker: 'background/service-worker.js',
                 });
                 delete manifest.background.scripts;
             } else if (targetBrowser === 'firefox') {
+                // Firefox V3 使用 'scripts'
                 Object.assign(manifest.background, {
                     scripts: ['background/service-worker.js'],
                 });
                 delete manifest.background.service_worker;
+
+                // 为 Firefox 添加 Content Security Policy 以允许连接到外部 API
+                manifest.content_security_policy = {
+                    // 'extension_pages' 涵盖了背景脚本、弹出窗口和选项页
+                    "extension_pages": "script-src 'self'; object-src 'self'; connect-src https: wss:"
+                };
             }
 
             const manifestOutputPath = path.join(outDir, 'manifest.json');

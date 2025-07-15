@@ -721,6 +721,10 @@
     "message": "Enable Subtitle Translation",
     "description": "Toggle label to enable/disable subtitle translation in the popup."
   },
+  "privacyPolicy": {
+    "message": "Privacy Policy",
+    "description": "Link text for the Privacy Policy."
+  },
   "popupSubtitlesHint": {
     "message": "Works only on supported video pages",
     "description": "Hint text for the subtitle translation toggle."

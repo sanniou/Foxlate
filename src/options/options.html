@@ -50,6 +50,20 @@
         .form-section-box .m3-helper-text {
             padding: 0; /* 移除内边距，因为它已经在 box 内部 */
         }
+        .page-footer {
+            text-align: center;
+            margin-top: 48px;
+            margin-bottom: 32px;
+            color: var(--md-sys-color-on-surface-variant);
+            font-size: 0.875rem;
+        }
+        .page-footer a {
+            color: var(--md-sys-color-primary);
+            text-decoration: none;
+        }
+        .page-footer a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -244,6 +258,12 @@
         </section>
 
     </div>
+
+    <footer class="page-footer">
+        <a href="https://github.com/sanniou/foxlate" target="_blank">GitHub</a>
+        <span>&nbsp;&middot;&nbsp;</span>
+        <a href="https://github.com/sanniou/foxlate/blob/main/PRIVACY.md" target="_blank" i18n-text="privacyPolicy">Privacy Policy</a>
+    </footer>
 
     <div id="statusMessage" class="status-message"></div>
     <!-- AI Engine Management Modal -->
