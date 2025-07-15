@@ -1,6 +1,7 @@
 import browser from '../lib/browser-polyfill.js';
 import { shouldTranslate } from '../common/precheck.js';
 import { DisplayManager } from './display-manager.js';
+import { SettingsManager } from '../common/settings-manager.js';
 import { DOMWalker } from './dom-walker.js';
 
 /**
@@ -29,14 +30,24 @@ function generateUUID() {
 }
 
 /**
- * (新) 获取当前页面生效的配置，合并默认和域名规则。
+ * 获取当前页面生效的设置。
+ * 此函数从后台获取原始设置，然后在内容脚本的上下文中编译正则表达式。
+ * 这避免了在通过消息传递API发送不可序列化的 RegExp 对象时出现的问题。
  * @returns {Promise<object>} - 合并后的有效配置对象。
  */
 async function getEffectiveSettings() {
-    return browser.runtime.sendMessage({
+    // 1. 从后台获取原始（可序列化）的设置
+    const rawSettings = await browser.runtime.sendMessage({
         type: 'GET_EFFECTIVE_SETTINGS',
         payload: { hostname: window.location.hostname }
     });
+
+    // 2. 在内容脚本的上下文中预编译正则表达式
+    if (rawSettings && rawSettings.precheckRules) {
+        rawSettings.precheckRules = SettingsManager.precompileRules(rawSettings.precheckRules);
+    }
+
+    return rawSettings;
 }
 
 /**

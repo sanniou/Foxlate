@@ -255,7 +255,7 @@ async function handleSelectionTranslation(tab, source) {
         if (!precheckResult.result) {
             // 如果预校验失败，则不进行翻译。
             // 我们将发送一个“成功”的响应，但内容是附带提示的原文。
-            console.log(`[Foxlate] Pre-check failed for selection: "${selectionText}". Reason:`, precheckResult.log.join(' '));
+            console.log(`[Foxlate] Pre-check failed for selection: "${selectionText}". Reason:`, precheckResult.log?.join(' '));
             resultPayload = {
                 success: true, // 操作本身是成功的，只是没有翻译。
                 translatedText: selectionText,

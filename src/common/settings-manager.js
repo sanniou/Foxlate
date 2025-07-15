@@ -26,23 +26,23 @@ export class SettingsManager {
      * @param {any} obj - The object to clone.
      * @returns {any} The cloned object.
      */
-    static #deepClone(obj) {
+    static deepClone(obj) {
         if (obj === null || typeof obj !== 'object') {
             return obj;
         }
 
         if (obj instanceof RegExp) {
-            return new RegExp(obj.source, obj.flags);
+            return new RegExp(obj.source, obj.flags); // RegExp 可以被在同一个上下文中克隆
         }
 
         if (Array.isArray(obj)) {
-            return obj.map(item => this.#deepClone(item));
+            return obj.map(item => this.deepClone(item));
         }
 
         const clonedObj = {};
         for (const key in obj) {
             if (Object.prototype.hasOwnProperty.call(obj, key)) {
-                clonedObj[key] = this.#deepClone(obj[key]);
+                clonedObj[key] = this.deepClone(obj[key]);
             }
         }
         return clonedObj;
@@ -63,7 +63,7 @@ export class SettingsManager {
 
     static precompileRules(rules) {
         if (!rules) return {};
-        const compiledRules = this.#deepClone(rules); // Use the new deepClone
+        const compiledRules = this.deepClone(rules);
         for (const category in compiledRules) {
             if (Array.isArray(compiledRules[category])) {
                 compiledRules[category].forEach(rule => {
@@ -87,7 +87,7 @@ export class SettingsManager {
 
 
     static generateDefaultPrecheckRules() {
-        const defaultRules = this.#deepClone(Constants.DEFAULT_PRECHECK_RULES);
+        const defaultRules = this.deepClone(Constants.DEFAULT_PRECHECK_RULES);
         if (defaultRules.general) {
             defaultRules.general.forEach(rule => {
                 rule.name = browser.i18n.getMessage(rule.nameKey) || rule.name;
@@ -116,11 +116,11 @@ export class SettingsManager {
 
     static async getValidatedSettings() {
         if (this.#validatedSettingsCache) {
-            return this.#deepClone(this.#validatedSettingsCache); // 使用 deepClone 返回安全副本
+            return this.deepClone(this.#validatedSettingsCache); // 使用 deepClone 返回安全副本
         }
 
         const { settings: storedSettings } = await browser.storage.sync.get('settings');
-        const defaultSettings = this.#deepClone(Constants.DEFAULT_SETTINGS);
+        const defaultSettings = this.deepClone(Constants.DEFAULT_SETTINGS);
         defaultSettings.precheckRules = this.generateDefaultPrecheckRules();
 
         let settingsToValidate = storedSettings || defaultSettings;
@@ -154,9 +154,11 @@ export class SettingsManager {
             });
         }
 
-        validatedSettings.precheckRules = this.precompileRules(validatedSettings.precheckRules);
+        // 移除预编译步骤。编译应该在消费端（content-script 或 background script）进行，
+        // 以避免在跨上下文传递消息时序列化 RegExp 对象。
+        // validatedSettings.precheckRules = this.precompileRules(validatedSettings.precheckRules);
 
-        this.#validatedSettingsCache = this.#deepClone(validatedSettings); // 缓存完全处理后的设置
+        this.#validatedSettingsCache = this.deepClone(validatedSettings); // 缓存未编译但已验证的设置
         return validatedSettings;
     }
 
@@ -231,10 +233,11 @@ export class SettingsManager {
             block: finalBlockSelector,
         };
 
+        // 如果存在特定于域的预检查规则，则使用它们，否则使用全局规则。
+        // 注意：编译步骤已从此函数中移除，应由调用者处理。
         if (domainRule.precheckRules) {
-            effectiveSettings.precheckRules = this.precompileRules(domainRule.precheckRules);
+            effectiveSettings.precheckRules = domainRule.precheckRules;
         }
-
         return effectiveSettings;
     }
 
@@ -246,7 +249,7 @@ export class SettingsManager {
 
 
     static async saveSettings(settings) {
-        const settingsToSave = this.#deepClone(settings);
+        const settingsToSave = this.deepClone(settings);
         delete settingsToSave.source;
 
         if (settingsToSave.precheckRules) {
