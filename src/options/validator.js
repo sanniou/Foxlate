@@ -1,3 +1,4 @@
+import browser from '../lib/browser-polyfill.js';
 /**
  * 一个通用的、基于配置的表单验证器。
  */

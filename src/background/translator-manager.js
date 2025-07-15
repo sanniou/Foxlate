@@ -1,4 +1,5 @@
-import { getValidatedSettings } from '../common/settings-manager.js';
+import browser from '../lib/browser-polyfill.js';
+import { SettingsManager } from '../common/settings-manager.js';
 import { DeepLxTranslator } from './translators/deeplx-translator.js';
 import { GoogleTranslator } from './translators/google-translator.js';
 import { AITranslator } from './translators/ai-translator.js';
@@ -117,7 +118,7 @@ export class TranslatorManager {
       if (engine) {
           return engine;
       }
-      const settings = await getValidatedSettings();
+      const settings = await SettingsManager.getValidatedSettings();
       return settings.translatorEngine;
   }
 
@@ -136,7 +137,7 @@ export class TranslatorManager {
       // 对于非 AI 引擎，逻辑更简单。
       if (!translator || translator.name !== 'AI') {
           if (translator && translator.name === 'DeepLx') {
-              const settings = await getValidatedSettings();
+              const settings = await SettingsManager.getValidatedSettings();
               const deeplxConfig = { apiUrl: settings.deeplxApiUrl };
               return { translator, engine: resolvedInitialEngine, config: deeplxConfig };
           }
@@ -145,7 +146,7 @@ export class TranslatorManager {
       }
 
       // --- AI 引擎的特殊逻辑 ---
-      const settings = await getValidatedSettings();
+      const settings = await SettingsManager.getValidatedSettings();
       const engineId = resolvedInitialEngine.split(':')[1];
       const aiConfig = settings.aiEngines.find(e => e.id === engineId);
 
@@ -351,7 +352,7 @@ export class TranslatorManager {
   }
 
   static async updateConcurrencyLimit() {
-      const settings = await getValidatedSettings();
+      const settings = await SettingsManager.getValidatedSettings();
       const max = settings.parallelRequests;
       if (max && typeof max === 'number' && max > 0) {
           this.#MAX_CONCURRENT_REQUESTS = max;
@@ -360,7 +361,7 @@ export class TranslatorManager {
   }
 
   static async updateCacheSize() {
-      const settings = await getValidatedSettings();
+      const settings = await SettingsManager.getValidatedSettings();
       const size = settings.cacheSize; // 假设设置项名为 cacheSize
       if (size && typeof size === 'number' && size >= 0) {
           this.#maxCacheSize = size;

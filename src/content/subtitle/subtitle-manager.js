@@ -1,3 +1,4 @@
+import browser from '../../lib/browser-polyfill.js';
 class SubtitleManager {
     constructor() {
         this.strategy = null; // Holds the single, registered strategy instance

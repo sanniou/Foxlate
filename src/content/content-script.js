@@ -1,3 +1,4 @@
+import browser from '../lib/browser-polyfill.js';
 import { shouldTranslate } from '../common/precheck.js';
 import { DisplayManager } from './display-manager.js';
 import { DOMWalker } from './dom-walker.js';

@@ -1,3 +1,4 @@
+import browser from '../lib/browser-polyfill.js';
 /**
  * Determines if a text string should be translated based on pre-check rules.
  * This version expects rules to have a `compiledRegex` property for performance.

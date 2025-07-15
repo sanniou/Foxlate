@@ -59,7 +59,7 @@ const staticAssetsManager = {
                 } else {
                     return; // 不是我们需要处理的文件
                 }
-                
+
                 relativePath = path.relative(sourceBaseDir, inPath);
 
                 // 特别处理 src/lib/ 下的 JS，确保目标路径正确
@@ -72,12 +72,12 @@ const staticAssetsManager = {
                     toPath = path.join(outDir, relativePath);
                 } else if (sourceBaseDir === srcDir) {
                     // src/ 下的其他文件（如html, css）也直接映射到 dist/
-                     toPath = path.join(outDir, relativePath);
+                    toPath = path.join(outDir, relativePath);
                 } else {
                     // public/ 下的文件直接映射到 dist/
                     toPath = path.join(outDir, relativePath);
                 }
-                
+
 
                 // 确保目标目录存在
                 await fs.ensureDir(path.dirname(toPath));
@@ -87,17 +87,17 @@ const staticAssetsManager = {
                 console.error(`[Static] Failed to copy ${path.basename(inPath)}:`, err);
             }
         }
-        
+
         async function initialCopy() {
             console.log('📦 Performing initial copy of static assets...');
             // 使用 glob.sync 来查找所有匹配的文件
-            const publicFiles = glob.sync(path.join(publicDir, '**', '*').replace(/\\/g, '/'), { 
+            const publicFiles = glob.sync(path.join(publicDir, '**', '*').replace(/\\/g, '/'), {
                 nodir: true,
                 ignore: path.join(publicDir, 'manifest.base.json').replace(/\\/g, '/')
             });
             const srcFilesHtmlCss = glob.sync(path.join(srcDir, '**', '*.{html,css}').replace(/\\/g, '/'), { nodir: true });
             const srcFilesLibJs = glob.sync(path.join(srcDir, 'lib', '**', '*.js').replace(/\\/g, '/'), { nodir: true });
-            
+
             const allFiles = [...publicFiles, ...srcFilesHtmlCss, ...srcFilesLibJs];
 
             // 并行复制所有文件
@@ -126,23 +126,23 @@ const staticAssetsManager = {
                         return;
                     }
                     const fullPath = path.join(dir, filename);
-                    
+
                     // 检查文件是否是我们关心的类型
                     const isHtmlOrCss = /\.(html|css)$/.test(fullPath);
                     const isLibJs = fullPath.includes(path.join(srcDir, 'lib')) && fullPath.endsWith('.js');
                     const isPublicAsset = fullPath.startsWith(publicDir) && !fullPath.endsWith('manifest.base.json');
-                    
+
                     if (isHtmlOrCss || isLibJs || isPublicAsset) {
-                         // 使用防抖来避免编辑器保存时触发多次事件
+                        // 使用防抖来避免编辑器保存时触发多次事件
                         clearTimeout(build.copyTimeout);
                         build.copyTimeout = setTimeout(() => {
-                           console.log(`\n📄 Static file changed: ${filename}. Copying...`);
-                           copyAsset(fullPath);
+                            console.log(`\n📄 Static file changed: ${filename}. Copying...`);
+                            copyAsset(fullPath);
                         }, 100);
                     }
                 });
             });
-             console.log(`👀 Watching for static file changes in [${watchDirs.join(', ')}]...`);
+            console.log(`👀 Watching for static file changes in [${watchDirs.join(', ')}]...`);
         }
     },
 };
@@ -162,7 +162,8 @@ const manifestPlugin = {
             const manifest = fs.readJsonSync(manifestBasePath);
 
             // host_permissions 对于 MV3 两个平台都需要，用于 script 注入和页面访问
-            manifest.host_permissions = ["<all_urls>"];
+            const permissionsToAdd = ["<all_urls>"];
+            manifest.host_permissions = permissionsToAdd;
 
             if (!manifest.background) {
                 manifest.background = {};
@@ -191,7 +192,8 @@ const manifestPlugin = {
 
             const manifestOutputPath = path.join(outDir, 'manifest.json');
             fs.writeJsonSync(manifestOutputPath, manifest, { spaces: 2 });
-            console.log(`✅ Generated manifest.json for ${targetBrowser}`);
+            console.log(`✅ Generated manifest.json for ${targetBrowser} with host_permissions: [${permissionsToAdd.join(', ')}]`);
+
         }
 
         // 1. 在构建开始时，立即生成一次

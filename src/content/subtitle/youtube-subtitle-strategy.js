@@ -1,3 +1,4 @@
+import browser from '../../lib/browser-polyfill.js';
 import { VideoSubtitleObserver } from './video-subtitle-observer.js';
 
 // 你可以将这个类放在一个新文件，例如 'subtitle-renderer.js'

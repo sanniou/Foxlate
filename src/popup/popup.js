@@ -1,4 +1,4 @@
-import '../lib/browser-polyfill.js'; 
+import browser from '../lib/browser-polyfill.js';
 import * as Constants from '../common/constants.js';
 
 document.addEventListener('DOMContentLoaded', () => {

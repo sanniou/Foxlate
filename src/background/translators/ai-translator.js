@@ -1,3 +1,4 @@
+import browser from '../../lib/browser-polyfill.js';
 import { BaseTranslator } from './base-translator.js';
 
 export class AITranslator extends BaseTranslator {

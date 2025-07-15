@@ -1,5 +1,5 @@
-import '../lib/browser-polyfill.js';
-import { getValidatedSettings, generateDefaultPrecheckRules, precompileRules } from '../common/settings-manager.js';
+import browser from '../lib/browser-polyfill.js';
+import { SettingsManager } from '../common/settings-manager.js';
 import { shouldTranslate } from '../common/precheck.js';
 import * as Constants from '../common/constants.js';
 import { FormValidator } from './validator.js';
@@ -325,7 +325,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Core Logic Functions ---
     const loadSettings = async () => {
         try {
-            const currentSettings = await getValidatedSettings();
+            const currentSettings = await SettingsManager.getValidatedSettings();
 
             // Load AI Engines and populate the dropdown BEFORE setting the value
             aiEngines = JSON.parse(JSON.stringify(currentSettings.aiEngines)); // Deep copy
@@ -408,7 +408,7 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const defaultSettings = JSON.parse(JSON.stringify(Constants.DEFAULT_SETTINGS));
                 // Dynamically generate the default precheck rules with i18n names
-                defaultSettings.precheckRules = generateDefaultPrecheckRules();
+                defaultSettings.precheckRules = SettingsManager.generateDefaultPrecheckRules();
 
                 await browser.storage.sync.set({ settings: defaultSettings });
 
@@ -1487,7 +1487,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- Pre-check Logic ---
         const rawRules = getPrecheckRulesFromUI();
-        const compiledRules = precompileRules(rawRules);
+        const compiledRules = SettingsManager.precompileRules(rawRules);
 
         const currentUiSettings = {
             targetLanguage: elements.targetLanguage.value,

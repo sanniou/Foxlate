@@ -1,3 +1,4 @@
+import browser from '../../lib/browser-polyfill.js';
 import * as Constants from '../../common/constants.js';
 import { DisplayManager } from '../display-manager.js';
 import { escapeHtml } from '../../common/utils.js';

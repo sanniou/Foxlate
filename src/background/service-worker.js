@@ -1,6 +1,6 @@
 
-import '../lib/browser-polyfill.js';
-import { getEffectiveSettings, getValidatedSettings, precompileRules } from '../common/settings-manager.js';
+import browser from '../lib/browser-polyfill.js';
+import { SettingsManager } from '../common/settings-manager.js';
 import { shouldTranslate } from '../common/precheck.js';
 import { TranslatorManager } from '../background/translator-manager.js';
 import * as Constants from '../common/constants.js';
@@ -121,7 +121,7 @@ async function handleSubtitleInjection(tabId, frameId, url) {
         const currentUrl = new URL(url);
         const hostname = currentUrl.hostname;
 
-        const settings = await getValidatedSettings();
+        const settings = await SettingsManager.getValidatedSettings();
         const userRules = settings.domainRules || {};
 
         let strategyToInject = null;
@@ -245,11 +245,11 @@ async function handleSelectionTranslation(tab, source) {
     let resultPayload;
     try {
         const hostname = new URL(tab.url).hostname;
-        const effectiveRule = await getEffectiveSettings(hostname);
+        const effectiveRule = await SettingsManager.getEffectiveSettings(hostname);
 
         // --- 新增：应用预校验规则 ---
         // 在使用前编译规则
-        effectiveRule.precheckRules = precompileRules(effectiveRule.precheckRules);
+        effectiveRule.precheckRules = SettingsManager.precompileRules(effectiveRule.precheckRules);
         const precheckResult = shouldTranslate(selectionText, effectiveRule);
 
         if (!precheckResult.result) {
@@ -292,7 +292,7 @@ const messageHandlers = {
         // 此处理器现在只服务于内容脚本的页面翻译请求。
         const { text, targetLang, sourceLang, elementId, translatorEngine } = request.payload;
         const originTabId = sender.tab?.id;
- 
+
         // 防御性检查，确保调用者是内容脚本
         if (!originTabId || !elementId) {
             const errorMsg = 'Invalid TRANSLATE_TEXT call: Missing originTabId or elementId. This handler is for content scripts only.';
@@ -351,7 +351,7 @@ const messageHandlers = {
         let finalEngine = translatorEngine;
 
         if (!finalTargetLang || !finalEngine) {
-            const settings = await getValidatedSettings();
+            const settings = await SettingsManager.getValidatedSettings();
             finalTargetLang = finalTargetLang || settings.targetLanguage;
             finalEngine = finalEngine || settings.translatorEngine;
         }
@@ -387,7 +387,7 @@ const messageHandlers = {
 
     async SAVE_RULE_CHANGE(request) {
         const { hostname, ruleSource, key, value } = request.payload;
-        const settings = await getValidatedSettings();
+        const settings = await SettingsManager.getValidatedSettings();
 
         const domainToUpdate = (ruleSource === 'default') ? hostname : ruleSource;
         let rule = settings.domainRules[domainToUpdate];
@@ -426,11 +426,11 @@ const messageHandlers = {
 
     async GET_EFFECTIVE_SETTINGS(request) {
         const { hostname } = request.payload;
-        return getEffectiveSettings(hostname);
+        return SettingsManager.getEffectiveSettings(hostname);
     },
 
     async GET_VALIDATED_SETTINGS() { // Still needed by options.js
-        return getValidatedSettings();
+        return SettingsManager.getValidatedSettings();
     },
 
     async TOGGLE_TRANSLATION_REQUEST(request) {
@@ -458,7 +458,7 @@ const messageHandlers = {
 
         const displayModes = Object.keys(Constants.DISPLAY_MODES);
 
-        const effectiveSettings = await getEffectiveSettings(hostname);
+        const effectiveSettings = await SettingsManager.getEffectiveSettings(hostname);
         const { displayMode: currentMode, source: currentRuleSource } = effectiveSettings;
 
         const currentIndex = displayModes.indexOf(currentMode);
@@ -649,7 +649,7 @@ browser.storage.onChanged.addListener((changes, area) => {
                 }
             }
         });
- 
+
         // Also, update any service-worker-specific variables that depend on settings
         TranslatorManager.updateConcurrencyLimit();
         TranslatorManager.updateCacheSize();
@@ -698,7 +698,7 @@ async function handleNavigation(details) {
         // 2. 处理自动翻译
         try {
             const hostname = new URL(url).hostname;
-            const effectiveRule = await getEffectiveSettings(hostname);
+            const effectiveRule = await SettingsManager.getEffectiveSettings(hostname);
             const { sessionTabTranslations = {} } = await browser.storage.session.get('sessionTabTranslations');
             const isSessionTranslate = sessionTabTranslations[tabId] === hostname;
 
