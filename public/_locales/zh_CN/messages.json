@@ -4,8 +4,8 @@
     "description": "扩展程序的名称。"
   },
   "extensionDescription": {
-    "message": "一个多功能的翻译扩展。",
-    "description": "扩展程序的描述。"
+    "message": "一款强大的网页翻译工具，支持划词、全文和视频字幕翻译。集成 DeepLx、谷歌翻译和 AI 引擎，提供高级显示模式、域名规则和内容过滤。",
+    "description": "用于应用商店列表的丰富描述。"
   },
   "settingsHeading": {
     "message": "Foxlate 设置",

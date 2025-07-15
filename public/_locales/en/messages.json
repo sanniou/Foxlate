@@ -4,8 +4,8 @@
     "description": "Name of the extension."
   },
   "extensionDescription": {
-    "message": "A versatile translation extension.",
-    "description": "Description of the extension."
+    "message": "Translate web pages, selected text, and video subtitles with multiple engines (DeepLx, Google, AI). Features advanced rules, display modes, and content filtering.",
+    "description": "A rich description for the extension store listing."
   },
   "settingsHeading": {
     "message": "Foxlate Settings",

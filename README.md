@@ -16,7 +16,8 @@
 - **内容过滤 (预检规则)**: 通过强大的正则表达式规则，精确控制哪些内容**不**被翻译。非常适合用于避免翻译代码、专有名词或特定格式的文本。
 - **键盘快捷键**:
   - `Alt+S`: 快速翻译您选中的文本。
-  - `Alt+A`: 切换页面翻译状态。
+  - `Alt+A`: 切换页面翻译的显示/隐藏状态。
+  - `Alt+X`: 切换页面翻译的显示模式 (替换/追加/悬停)。
 - **多语言界面**：扩展界面支持多语言（i18n），为不同地区的用户提供更友好的体验。
 - **连接测试**：在设置页面提供“测试连接”功能，帮助您验证翻译引擎的 API 配置是否正确。
 - **灵活的设置页面**：
@@ -41,12 +42,12 @@
 1.  确保您已安装 [Node.js](https://nodejs.org/) (推荐 LTS 版本) 和 [pnpm](https://pnpm.io/installation)。
 2.  克隆本仓库到您的本地机器：
     ```bash
-    git clone https://github.com/jichang/SanReader.git
-    cd SanReader
+    git clone https://github.com/sanniou/foxlate.git
+    cd foxlate
     ```
 3.  安装项目依赖：
     ```bash
-    pnpm install
+    npm install
     ```
 
 ### 2. 开发模式 (Development Mode)

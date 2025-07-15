@@ -64,6 +64,18 @@
         .page-footer a:hover {
             text-decoration: underline;
         }
+        .quick-start-guide {
+            background-color: var(--md-sys-color-surface-container-low);
+            border-radius: 12px;
+            padding: 16px 24px;
+            margin-bottom: 32px;
+        }
+        .quick-start-guide h3 {
+            margin-top: 0;
+        }
+        .quick-start-guide ul {
+            padding-left: 20px;
+        }
     </style>
 </head>
 <body>
@@ -82,6 +94,15 @@
 
     <div class="container">
         <h1 i18n-text="settingsHeading">Foxlate Settings</h1>
+
+        <div class="quick-start-guide">
+            <h3 i18n-text="quickStartTitle">🚀 Quick Start</h3>
+            <ul>
+                <li i18n-text="quickStartStep1"></li>
+                <li i18n-text="quickStartStep2"></li>
+                <li i18n-text="quickStartStep3"></li>
+            </ul>
+        </div>
 
         <section class="settings-section">
             <h2 i18n-text="generalSettings">General Settings</h2>
