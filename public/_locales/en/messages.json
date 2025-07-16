@@ -417,10 +417,6 @@
     "message": "Whitespace only",
     "description": "Name of the default rule that matches whitespace."
   },
-  "precheckRulePunctuation": {
-    "message": "Numbers, Punctuation, Symbols",
-    "description": "Name of the default rule that matches numbers, punctuation, and symbols."
-  },
   "precheckRuleEmoji": {
     "message": "Single Emoji",
     "description": "Name of the default rule that matches a single emoji."
