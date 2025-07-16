@@ -25,7 +25,10 @@ export function reconstructDOM(taggedText, nodeMap) {
             } else { // 开放标签
                 const nodeData = nodeMap[tagId];
                 if (nodeData) {
-                    const newNode = nodeData.node.cloneNode(true); // 从映射表克隆节点
+                    // 从映射表克隆节点。
+                    // 使用 cloneNode(false) 因为 nodeData.node 本身就是一个没有子节点的浅克隆模板。
+                    // 这使得代码意图更清晰，尽管行为上与 cloneNode(true) 在此场景下相同。
+                    const newNode = nodeData.node.cloneNode(false);
                     parentStack[parentStack.length - 1].appendChild(newNode);
                     // (新) 将 preservesWhitespace 元数据附加到新创建的节点上，供后续文本节点处理时使用。
                     newNode._preservesWhitespace = nodeData.preservesWhitespace;
