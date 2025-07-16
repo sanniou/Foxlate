@@ -50,23 +50,31 @@ export class DOMWalker {
             }
         };
 
-        function walk(node) {
+        /**
+         * 递归遍历DOM节点。
+         * @param {Node} node - 当前遍历的节点。
+         * @param {boolean} inPreformattedContext - 指示当前是否处于一个保留空白的上下文中（如 <pre>）。
+         */
+        function walk(node, inPreformattedContext) {
             for (const child of node.childNodes) {
                 if (child.nodeType === Node.TEXT_NODE) { // 文本节点
-                    sourceText += child.nodeValue;
+                    let text = child.nodeValue;
+                    // 如果不在预格式化上下文中，则模拟浏览器的行为，将多个连续的空白字符（包括换行符）折叠成一个空格。
+                    // 这可以从根本上防止因源代码格式化而导致的意外换行问题。
+                    if (!inPreformattedContext) {
+                        text = text.replace(/\s+/g, ' ');
+                    }
+                    sourceText += text;
                 } else if (child.nodeType === Node.ELEMENT_NODE) { // 元素节点
                     const tagName = child.tagName.toUpperCase();
                     // 关键：跳过不需要翻译的脚本和样式块
-                    if (SKIPPED_TAGS.has(tagName)) {
-                        continue;
-                    }
+                    if (SKIPPED_TAGS.has(tagName)) continue;
 
                     // (新) 将 <br> 标签显式地转换成一个换行符，以保留其格式。
                     if (tagName === 'BR') {
                         sourceText += '\n';
                         continue;
                     }
-
                     const isBlock = BLOCK_LEVEL_TAGS.has(tagName);
                     const isPreservable = PRESERVABLE_TAGS.has(tagName);
 
@@ -80,15 +88,18 @@ export class DOMWalker {
                         // 这个信息将传递给 dom-reconstructor。
                         const style = window.getComputedStyle(child);
                         const whiteSpace = style.whiteSpace;
+                        const preservesWhitespace = whiteSpace === 'pre' || whiteSpace === 'pre-wrap' || whiteSpace === 'pre-line';
                         nodeMap[tagId] = {
                             node: child.cloneNode(false),
-                            preservesWhitespace: whiteSpace === 'pre' || whiteSpace === 'pre-wrap' || whiteSpace === 'pre-line'
+                            preservesWhitespace: preservesWhitespace
                         };
                         sourceText += `<${tagId}>`;
-                        walk(child);
+                        // 将此元素自身的格式化上下文传递给递归调用。
+                        walk(child, preservesWhitespace);
                         sourceText += `</${tagId}>`;
                     } else {
-                        walk(child);
+                        // 对于结构性但非保留的标签（如 DIV），它们继承父级的格式化上下文。
+                        walk(child, inPreformattedContext);
                     }
 
                     // 步骤 3: 为块级元素添加尾随分隔符
@@ -97,7 +108,11 @@ export class DOMWalker {
             }
         }
 
-        walk(rootElement);
+        // 在开始遍历之前，确定根元素自身的格式化上下文。
+        const rootStyle = window.getComputedStyle(rootElement);
+        const rootPreservesWhitespace = ['pre', 'pre-wrap', 'pre-line'].includes(rootStyle.whiteSpace);
+        walk(rootElement, rootPreservesWhitespace);
+
         const trimmedSourceText = sourceText.trim();
 
         if (!trimmedSourceText) return null;
