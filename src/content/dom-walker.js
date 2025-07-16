@@ -75,11 +75,26 @@ export class DOMWalker {
                         sourceText += '\n';
                         continue;
                     }
-                    const isBlock = BLOCK_LEVEL_TAGS.has(tagName);
+
+                    // 决定元素是否应作为块级分隔符。
+                    // 这取决于它是语义上的块级标签（如 P, DIV）还是通过 CSS 被设置为块级显示（如 <span style="display:block">）。
+                    const isSemanticallyBlock = BLOCK_LEVEL_TAGS.has(tagName);
+                    const isKnownInline = PRESERVABLE_INLINE_TAGS.has(tagName);
+                    let isVisuallyBlock = false;
+                    // 如果一个标签既不是已知的块级标签，也不是已知的内联标签（例如 SPAN），
+                    // 我们需要检查它的 CSS display 属性来判断它是否在布局上起到了分隔作用。
+                    if (!isSemanticallyBlock && !isKnownInline) {
+                        const style = window.getComputedStyle(child);
+                        // 任何非 'inline' 的显示类型通常都会在布局中产生一个断点，应被视为一个块。
+                        if (style.display !== 'inline') {
+                            isVisuallyBlock = true;
+                        }
+                    }
+                    const actsAsBlock = isSemanticallyBlock || isVisuallyBlock;
                     const isPreservable = PRESERVABLE_TAGS.has(tagName);
 
                     // 步骤 1: 为块级元素添加前导分隔符
-                    if (isBlock) ensureSeparator();
+                    if (actsAsBlock) ensureSeparator();
 
                     // 步骤 2: 处理元素内容
                     if (isPreservable) {
@@ -103,7 +118,7 @@ export class DOMWalker {
                     }
 
                     // 步骤 3: 为块级元素添加尾随分隔符
-                    if (isBlock) ensureSeparator();
+                    if (actsAsBlock) ensureSeparator();
                 }
             }
         }
