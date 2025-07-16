@@ -40,6 +40,21 @@ export class DOMWalker {
      * @returns {{sourceText: string, translationUnit: {nodeMap: object}}|null}
      */
     static create(rootElement) {
+        // --- 性能优化：快速预检查 ---
+        // 在进行昂贵的DOM遍历之前，先执行一些快速检查，以提前排除不合格的元素。
+
+        // 1. 检查内容：如果元素（及其后代）根本不包含任何文本，则无需处理。
+        //    这是一个非常快速且有效的检查。
+        if (!rootElement.textContent.trim()) {
+            return null;
+        }
+        // 2. 检查可见性：如果元素的渲染尺寸为0，则它对用户不可见，无需翻译。
+        //    这可以捕获 `display: none` 或其他导致元素不占用空间的样式。
+        const rect = rootElement.getBoundingClientRect();
+        if (rect.width === 0 && rect.height === 0) {
+            return null;
+        }
+
         let sourceText = ''; // 这将是带 <t_id> 标签的文本
         const nodeMap = {};
         let tagIndex = 0;
