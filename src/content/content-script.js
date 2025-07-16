@@ -101,9 +101,10 @@ function findTranslatableElements(effectiveSettings, rootNodes = [document.body]
     for (const parent of potentialMixedParents) {
         // 遍历父节点的所有直接子节点。
         for (const child of Array.from(parent.childNodes)) {
-            // 我们只关心包含非空白字符的文本节点。
-            if (child.nodeType === Node.TEXT_NODE && child.textContent.trim() !== '') {
-                // 创建一个新的 <p> 来包裹这个孤立的文本节点。
+            // 检查是否为文本节点或纯文本的 SPAN 且包含非空白字符。
+            const isTextNode = child.nodeType === Node.TEXT_NODE && child.textContent.trim() !== '';
+            const isPlainTextSpan = child.nodeName === 'SPAN' && child.children.length === 0 && child.textContent.trim() !== '';
+            if (isTextNode || isPlainTextSpan) {
                 const wrapperSpan = document.createElement('p');
                 // (新) 添加一个临时标志，以便 MutationObserver 可以识别并忽略此更改。
                 wrapperSpan.dataset.foxlateGenerated = 'true';
@@ -116,15 +117,12 @@ function findTranslatableElements(effectiveSettings, rootNodes = [document.body]
     }
 
     // 进一步过滤，移除不可见或不应翻译的元素。
-    return Array.from(finalCandidates).filter(el => {
+    return Array.from(finalCandidates).filter(el =>
         // 已经被处理或正在处理的元素
-        if (el.dataset.translationId) {
-            return false;
-        }
+        !el.dataset.translationId &&
         // 预检查，确保元素内有实际内容需要翻译
-        const { result: shouldTranslateResult } = shouldTranslate(el.textContent, effectiveSettings);
-        return shouldTranslateResult;
-    });
+        shouldTranslate(el.textContent, effectiveSettings).result
+    );
 }
 
 // --- State Management Class ---
