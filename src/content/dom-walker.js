@@ -8,7 +8,9 @@ const STRUCTURAL_BLOCK_TAGS = new Set([
 
 // 需要保留格式的内联标签。
 const PRESERVABLE_INLINE_TAGS = new Set([
-    'A', 'B', 'I', 'EM', 'STRONG', 'CODE', 'U', 'S', 'SUB', 'SUP', 'SPAN'
+    // (已优化) 移除了 'SPAN'。SPAN 标签常用于非结构化的样式微调，保留它们会生成过于复杂的翻译文本，
+    // 极易被翻译引擎破坏。移除它可以极大提高翻译的健壮性，代价是丢失一些纯样式。
+    'A', 'B', 'I', 'EM', 'STRONG', 'CODE', 'U', 'S', 'SUB', 'SUP'
 ]);
 
 // 需要保留格式的块级标签。
