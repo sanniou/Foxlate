@@ -105,7 +105,7 @@ function findTranslatableElements(effectiveSettings, rootNodes = [document.body]
             const isTextNode = child.nodeType === Node.TEXT_NODE && child.textContent.trim() !== '';
             const isPlainTextSpan = child.nodeName === 'SPAN' && child.children.length === 0 && child.textContent.trim() !== '';
             if (isTextNode || isPlainTextSpan) {
-                const wrapperSpan = document.createElement('p');
+                const wrapperSpan = document.createElement('span');
                 // (新) 添加一个临时标志，以便 MutationObserver 可以识别并忽略此更改。
                 wrapperSpan.dataset.foxlateGenerated = 'true';
                 parent.insertBefore(wrapperSpan, child);
@@ -308,11 +308,8 @@ class PageTranslationJob {
             if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
                 mutation.addedNodes.forEach(node => {
                     if (node.nodeType === Node.ELEMENT_NODE && !node.closest('[data-translation-id], .foxlate-panel')) {
-                        // (新) 检查此节点是否是由我们的脚本生成的。
-                        if (node.dataset.foxlateGenerated === 'true') {
-                            // 如果是，我们只移除标志，不将其添加到队列中，以防止重复翻译。
-                            delete node.dataset.foxlateGenerated;
-                            return;
+                        if (node.dataset.foxlateGenerated === 'true'){
+                            console.log("检测到新节点是由本脚本生成，跳过");
                         }
                         this.mutationQueue.add(node);
                         hasNewNodes = true;

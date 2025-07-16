@@ -99,11 +99,23 @@ export class DisplayManager {
                 delete elementOrObject.dataset.translationStrategy;
             }
         }
+
         this.elementStates.delete(elementOrObject);
 
         // 4. 如果是临时目标，则从活动映射中移除
         if (this.activeEphemeralTargets.has(displayMode) && this.activeEphemeralTargets.get(displayMode) === elementOrObject) {
             this.activeEphemeralTargets.delete(displayMode);
+        }
+
+        if (elementOrObject.dataset?.foxlateGenerated === 'true') {
+            // (修改) 如果是 findTranslatableElements 创建的包裹元素，则先将其子节点放回原位，再移除包裹元素
+            if (elementOrObject.parentNode) {
+                const parent = elementOrObject.parentNode;
+                while (elementOrObject.firstChild) {
+                    parent.insertBefore(elementOrObject.firstChild, elementOrObject);
+                }
+                parent.removeChild(elementOrObject);
+            }
         }
     }
 

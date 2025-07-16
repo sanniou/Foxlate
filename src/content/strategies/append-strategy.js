@@ -71,6 +71,10 @@ class AppendStrategy {
                 const appendTag = appendType === 'inline' ? 'span' : 'div';
                 const appendedElement = document.createElement(appendTag);
                 appendedElement.className = `foxlate-appended-text foxlate-appended-${appendType}`;
+                
+                // (新) 添加一个明确的标记，以便 DOMWalker 可以在源头识别并忽略此元素，
+                // 防止对已追加的译文进行重复翻译。
+                appendedElement.dataset.foxlateAppendedText = 'true';
 
                 // 检查是否存在格式保留翻译所需的数据
                 if (data.translationUnit?.nodeMap) {

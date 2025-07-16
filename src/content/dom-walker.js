@@ -43,6 +43,12 @@ export class DOMWalker {
         // --- 性能优化：快速预检查 ---
         // 在进行昂贵的DOM遍历之前，先执行一些快速检查，以提前排除不合格的元素。
 
+        // (新) 检查此元素是否为由 'append' 策略添加的翻译容器。
+        // 如果是，则直接跳过，以防止重复翻译。
+        if (rootElement.dataset.foxlateAppendedText === 'true') {
+            return null;
+        }
+
         // 1. 检查内容：如果元素（及其后代）根本不包含任何文本，则无需处理。
         //    这是一个非常快速且有效的检查。
         if (!rootElement.textContent.trim()) {
