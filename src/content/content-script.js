@@ -103,8 +103,8 @@ function findTranslatableElements(effectiveSettings, rootNodes = [document.body]
         for (const child of Array.from(parent.childNodes)) {
             // 我们只关心包含非空白字符的文本节点。
             if (child.nodeType === Node.TEXT_NODE && child.textContent.trim() !== '') {
-                // 创建一个新的 <span> 来包裹这个孤立的文本节点。
-                const wrapperSpan = document.createElement('span');
+                // 创建一个新的 <p> 来包裹这个孤立的文本节点。
+                const wrapperSpan = document.createElement('p');
                 // (新) 添加一个临时标志，以便 MutationObserver 可以识别并忽略此更改。
                 wrapperSpan.dataset.foxlateGenerated = 'true';
                 parent.insertBefore(wrapperSpan, child);
