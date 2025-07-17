@@ -847,6 +847,16 @@ button.m3-icon-button.danger { /* Specificity for danger color */
     padding-bottom: 0;
 }
 
+/* Specific styles for the Import AI Engine modal */
+#importAiEngineModal .modal-content {
+    max-width: 600px; /* A bit smaller for a focused task */
+}
+
+#importAiEngineConfigText {
+    min-height: 200px; /* Ensure a decent height for pasting */
+    resize: vertical;
+}
+
 
 /* Action buttons at the bottom of a modal form (e.g., Domain Rules) */
 .modal-actions {

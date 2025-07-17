@@ -179,6 +179,54 @@
     "message": "Save AI Engine",
     "description": "Button text to save an AI engine profile."
   },
+  "copy": {
+    "message": "Copy",
+    "description": "Generic copy button text."
+  },
+  "copiedAiEngineSuccess": {
+    "message": "Copied AI Engine to clipboard.",
+    "description": "Status message after copying an AI engine configuration."
+  },
+  "copyAiEngineError": {
+    "message": "Failed to copy AI Engine.",
+    "description": "Status message on failure to copy AI engine configuration."
+  },
+  "importAiEngine": {
+    "message": "Import from Text",
+    "description": "Button text to open the modal for importing an AI engine configuration from a text string."
+  },
+  "importedAiEngineSuccess": {
+    "message": "Imported AI Engine configuration.",
+    "description": "Status message after successfully importing an AI engine configuration."
+  },
+  "invalidAiEngineData": {
+    "message": "Invalid or incomplete AI Engine data.",
+    "description": "The data provided is not a valid AI engine configuration."
+  },
+  "importAiEngineError": {
+    "message": "Failed to import AI Engine from text.",
+    "description": "Status message on failure to import AI engine configuration from text."
+  },
+  "importAiEngineModalTitle": {
+    "message": "Import AI Engine from Text",
+    "description": "Title for the modal to import an AI engine configuration from a text string."
+  },
+  "pasteAiEngineConfigPlaceholder": {
+    "message": "Paste the JSON configuration string here...",
+    "description": "Placeholder text for the textarea where users paste the AI engine config."
+  },
+  "pasteAiEngineConfigLabel": {
+    "message": "Configuration JSON",
+    "description": "Label for the textarea where users paste the AI engine config."
+  },
+  "confirmImport": {
+    "message": "Import",
+    "description": "Button text to confirm the import action."
+  },
+  "pasteConfigRequired": {
+    "message": "Configuration cannot be empty.",
+    "description": "Error message shown when the import textarea is empty."
+  },
   "applyToSubdomains": {
     "message": "Apply to all subdomains",
     "description": "Label for the subdomain switch in the domain rule modal."

@@ -183,6 +183,54 @@
     "message": "保存 AI 引擎",
     "description": "保存 AI 引擎配置的按钮文本。"
   },
+  "copy": {
+    "message": "复制",
+    "description": "通用复制按钮文本。"
+  },
+  "copiedAiEngineSuccess": {
+    "message": "已将 AI 引擎复制到剪贴板。",
+    "description": "复制 AI 引擎配置后的状态消息。"
+  },
+  "copyAiEngineError": {
+    "message": "复制 AI 引擎失败。",
+    "description": "复制 AI 引擎配置失败的状态消息。"
+  },
+  "importAiEngine": {
+    "message": "从文本导入",
+    "description": "打开模态框以从文本字符串导入 AI 引擎配置的按钮文本。"
+  },
+  "importedAiEngineSuccess": {
+    "message": "已导入 AI 引擎配置。",
+    "description": "成功导入 AI 引擎配置后的状态消息。"
+  },
+  "invalidAiEngineData": {
+    "message": "AI 引擎数据无效或不完整。",
+    "description": "提供的数据不是有效的 AI 引擎配置。"
+  },
+  "importAiEngineError": {
+    "message": "从文本导入 AI 引擎失败。",
+    "description": "从文本导入 AI 引擎配置失败的状态消息。"
+  },
+  "importAiEngineModalTitle": {
+    "message": "从文本导入 AI 引擎",
+    "description": "从文本字符串导入 AI 引擎配置的模态框标题。"
+  },
+  "pasteAiEngineConfigPlaceholder": {
+    "message": "在此处粘贴 JSON 配置字符串...",
+    "description": "用户粘贴 AI 引擎配置的文本区域的占位符文本。"
+  },
+  "pasteAiEngineConfigLabel": {
+    "message": "配置 JSON",
+    "description": "用户粘贴 AI 引擎配置的文本区域的标签。"
+  },
+  "confirmImport": {
+    "message": "导入",
+    "description": "确认导入操作的按钮文本。"
+  },
+  "pasteConfigRequired": {
+    "message": "配置不能为空。",
+    "description": "导入文本区域为空时显示的错误消息。"
+  },
   "applyToSubdomains": {
     "message": "应用于所有子域名",
     "description": "域名规则模态框中子域名开关的标签。"

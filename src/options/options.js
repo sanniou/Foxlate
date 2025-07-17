@@ -35,6 +35,12 @@ document.addEventListener('DOMContentLoaded', () => {
         addAiEngineBtn: document.getElementById('addAiEngineBtn'),
         aiEngineForm: document.getElementById('aiEngineForm'),
         aiFormTitle: document.getElementById('aiFormTitle'),
+        importAiEngineModal: document.getElementById('importAiEngineModal'),
+        openImportAiEngineModalBtn: document.getElementById('openImportAiEngineModalBtn'),
+        confirmImportAiEngineBtn: document.getElementById('confirmImportAiEngineBtn'),
+        cancelImportAiEngineBtn: document.getElementById('cancelImportAiEngineBtn'),
+        importAiEngineConfigText: document.getElementById('importAiEngineConfigText'),
+        importAiEngineErrorText: document.getElementById('importAiEngineErrorText'),
         aiEngineNameInput: document.getElementById('aiEngineName'),
         aiApiKeyInput: document.getElementById('aiApiKey'),
         aiApiUrlInput: document.getElementById('aiApiUrl'),
@@ -830,6 +836,19 @@ document.addEventListener('DOMContentLoaded', () => {
             currentEditingAiEngineId = null;
         });
     };
+    const openImportAiEngineModal = () => {
+        elements.importAiEngineConfigText.value = ''; // 清除旧内容
+        elements.importAiEngineErrorText.textContent = ''; // 清除旧错误
+        elements.importAiEngineConfigText.closest('.m3-form-field').classList.remove('is-invalid');
+        openModal(elements.importAiEngineModal);
+        elements.importAiEngineConfigText.focus(); // 聚焦到文本区域
+    };
+
+    const closeImportAiEngineModal = () => {
+        closeModal(elements.importAiEngineModal);
+    };
+
+
 
     const hideAiEngineForm = () => {
         elements.aiEngineForm.style.display = 'none';
@@ -841,7 +860,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // ** 添加 Esc 按键监听器 **
     const handleKeyDown = (event) => {
         if (event.key === "Escape") {
-            // 检查 AI 引擎弹窗是否可见
+            if (elements.importAiEngineModal.classList.contains('is-visible')) {
+                closeImportAiEngineModal();
+                return;
+            }
             if (elements.aiEngineModal.classList.contains('is-visible')) {
                 // 如果编辑表单是可见的，则先关闭表单
                 if (elements.aiEngineForm.style.display !== 'none') {
@@ -923,6 +945,7 @@ document.addEventListener('DOMContentLoaded', () => {
             li.innerHTML = `
                 <span>${escapeHtml(engine.name)}</span>
                 <div class="actions">
+                    <button class="m3-button text copy-ai-engine-btn" data-id="${engine.id}">${browser.i18n.getMessage('copy') || 'Copy'}</button>
                     <button class="m3-button text edit-ai-engine-btn" data-id="${engine.id}">${browser.i18n.getMessage('edit') || 'Edit'}</button>
                     <button class="m3-button text danger remove-ai-engine-btn" data-id="${engine.id}">${browser.i18n.getMessage('removeAiEngine') || 'Remove'}</button>
                 </div>
@@ -991,7 +1014,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Delegated Event Handlers ---
 
-    const handleGlobalClick = (e) => {
+    const handleGlobalClick = async (e) => {
         let target = e.target;
 
         // * 修改：处理点击目标是 SVG 元素的情况 *
@@ -1001,6 +1024,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- 弹窗关闭按钮 ---
         // 将其独立处理，因为它们可能不是 <button> 元素，或者没有统一的类名，
         // 以确保无论其标签如何（例如，<span>, <i>），它们都能正常工作。
+        if (target.closest('#importAiEngineModal .close-button')) return closeImportAiEngineModal();
         if (target.closest('#aiEngineModal .close-button')) return closeAiEngineModal();
         if (target.closest('#domainRuleModal .close-button')) return closeDomainRuleModal();
 
@@ -1029,6 +1053,9 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'reset-settings-btn': return resetSettings();
             case 'export-btn': return exportSettings();
             case 'import-btn': return elements.importInput.click();
+            case 'openImportAiEngineModalBtn': return openImportAiEngineModal();
+            case 'confirmImportAiEngineBtn': return handleConfirmImportAiEngine();
+            case 'cancelImportAiEngineBtn': return closeImportAiEngineModal();
             case 'clearCacheBtn': return clearCache();
             case 'manageAiEnginesBtn': return openAiEngineModal();
             case 'addAiEngineBtn': return addAiEngine();
@@ -1051,6 +1078,24 @@ document.addEventListener('DOMContentLoaded', () => {
             return editAiEngine(editAiEngineBtn.dataset.id);
         }
         // 找到 Remove AI Engine 按钮并获取 data-id
+
+        // 找到 Copy AI Engine 按钮并获取 data-id
+        const copyAiEngineBtn = target.closest('.copy-ai-engine-btn');
+        if (copyAiEngineBtn) {
+            const engineId = copyAiEngineBtn.dataset.id;
+            const engine = aiEngines.find(e => e.id === engineId);
+            if (engine) {
+                try {
+                    await navigator.clipboard.writeText(JSON.stringify(engine));
+                    showStatusMessage(browser.i18n.getMessage('copiedAiEngineSuccess') || 'Copied AI Engine to clipboard.');
+                } catch (err) {
+                    showStatusMessage(browser.i18n.getMessage('copyAiEngineError') || 'Failed to copy AI Engine.', true);
+                    console.error('Failed to copy AI Engine:', err);
+                }
+            }
+            return;
+        }
+
         const removeAiEngineBtn = target.closest('.remove-ai-engine-btn');
         if (removeAiEngineBtn) {
             return removeAiEngine(removeAiEngineBtn.dataset.id);
@@ -1190,6 +1235,39 @@ document.addEventListener('DOMContentLoaded', () => {
             wordCountThreshold: parseInt(elements.aiShortTextThresholdInput.value, 10) || 0,
             fallbackEngine: elements.aiShortTextEngineSelect.value
         };
+    };
+
+    const handleConfirmImportAiEngine = () => {
+        const formField = elements.importAiEngineConfigText.closest('.m3-form-field');
+        const errorEl = elements.importAiEngineErrorText;
+        const configText = elements.importAiEngineConfigText.value.trim();
+
+        // 清除之前的错误
+        formField.classList.remove('is-invalid');
+        errorEl.textContent = '';
+
+        if (!configText) {
+            errorEl.textContent = browser.i18n.getMessage('pasteConfigRequired') || 'Configuration cannot be empty.';
+            formField.classList.add('is-invalid');
+            return;
+        }
+
+        try {
+            const engineData = JSON.parse(configText);
+
+            // 基本验证
+            if (engineData && engineData.name && engineData.apiKey && engineData.apiUrl && engineData.model && engineData.customPrompt) {
+                closeImportAiEngineModal();
+                showAiEngineForm(engineData);
+                showStatusMessage(browser.i18n.getMessage('importedAiEngineSuccess') || 'Imported AI Engine configuration.');
+            } else {
+                throw new Error(browser.i18n.getMessage('invalidAiEngineData') || 'Invalid or incomplete AI Engine data.');
+            }
+        } catch (err) {
+            errorEl.textContent = err.message;
+            formField.classList.add('is-invalid');
+            console.error('Failed to import AI Engine:', err);
+        }
     };
 
     const saveAiEngine = async () => {

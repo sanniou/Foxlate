@@ -274,9 +274,11 @@
             <div id="aiEngineList" class="ai-engine-list">
                 <!-- AI engines will be dynamically added here -->
             </div>
-            <button id="addAiEngineBtn" class="m3-button filled-tonal" i18n-text="addAiEngine">Add New AI Engine</button>
+            <div class="button-group">
+                <button id="addAiEngineBtn" class="m3-button filled-tonal" i18n-text="addAiEngine"></button>
+               <button id="openImportAiEngineModalBtn" class="m3-button filled-tonal" i18n-text="importAiEngine"></button>
+            </div>            <div id="aiEngineForm" class="form-group" style="display: none;">
 
-            <div id="aiEngineForm" class="form-group" style="display: none;">
                 <h3><span id="aiFormTitle"></span> AI Engine</h3>
                 <div class="m3-form-field filled">
                     <input type="text" id="aiEngineName" placeholder=" ">
@@ -326,6 +328,25 @@
             </div>
         </div>
     </div>
+        <!-- Import AI Engine Modal -->
+    <div id="importAiEngineModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h2 i18n-text="importAiEngineModalTitle"></h2>
+            <div id="importAiEngineForm" class="form-group">
+                <div class="m3-form-field filled">
+                    <textarea id="importAiEngineConfigText" rows="10" i18n-placeholder="pasteAiEngineConfigPlaceholder" placeholder=" "></textarea>
+                    <label for="importAiEngineConfigText" i18n-text="pasteAiEngineConfigLabel"></label>
+                    <div class="error-message" id="importAiEngineErrorText"></div>
+                </div>
+            </div>
+            <div class="button-group modal-actions">
+                <button id="cancelImportAiEngineBtn" class="m3-button text" i18n-text="cancel"></button>
+                <button id="confirmImportAiEngineBtn" class="m3-button filled" i18n-text="confirmImport"></button>
+            </div>
+        </div>
+    </div>
+
 
     <!-- Domain Rule Management Modal -->
     <div id="domainRuleModal" class="modal" style="display: none;">
