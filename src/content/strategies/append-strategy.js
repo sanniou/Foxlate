@@ -15,7 +15,8 @@ class AppendStrategy {
     #classifyAppendType(element) {
         // 规则 1: 结构性内容优先。如果元素内包含块级子元素，或者文本量很大，
         // 那么它自身就应被视为一个块级容器，追加的内容应该换行。
-        const hasBlockChildren = element.querySelector('p, div, h1, h2, h3, li, tr, blockquote');
+        const blockSelectors = 'p, div, h1, h2, h3, h4, h5, h6, li, tr, td, th, blockquote, pre, section, article, header, footer, nav, aside, form, hr, table';
+        const hasBlockChildren = element.querySelector(blockSelectors);
         const textLength = (element.textContent || '').trim().length;
 
         if (hasBlockChildren || textLength > 80) {
@@ -26,7 +27,7 @@ class AppendStrategy {
         const display = window.getComputedStyle(element).display;
 
         // 如果是明确的内联元素，则追加为内联。
-        if (display === 'inline' || display === 'inline-block') {
+        if (display.startsWith('inline')) { // 涵盖 'inline', 'inline-block', 'inline-flex', 'inline-grid', 'inline-table' 等
             return 'inline';
         }
 
@@ -43,6 +44,24 @@ class AppendStrategy {
         element.querySelector('.foxlate-appended-text')?.remove();
     }
 
+    /**
+ * @private
+ * 创建用于追加的包装元素
+ * @param {'inline' | 'block'} appendType 
+ * @param {string[]} additionalClasses - 额外的 CSS 类名，如 'loading', 'error'
+ * @returns {HTMLElement}
+ */
+    #createAppendWrapper(appendType, additionalClasses = []) {
+        const tag = appendType === 'inline' ? 'span' : 'div';
+        const wrapper = document.createElement(tag);
+        const classNames = ['foxlate-appended-text', `foxlate-appended-${appendType}`, ...additionalClasses];
+        wrapper.className = classNames.join(' ');
+        // (新) 添加一个明确的标记，以便 DOMWalker 可以在源头识别并忽略此元素，
+        // 防止对已追加的译文进行重复翻译。
+        wrapper.dataset.foxlateAppendedText = 'true';
+        return wrapper;
+    }
+
     updateUI(element, state) {
         // 在更新UI前，总是先清理掉旧的追加元素，以避免重复。
         this.revert(element);
@@ -56,8 +75,7 @@ class AppendStrategy {
                 break;
 
             case Constants.DISPLAY_MANAGER_STATES.LOADING:
-                const loadingIndicator = document.createElement('span');
-                loadingIndicator.className = `foxlate-appended-text foxlate-appended-${appendType} loading`;
+                const loadingIndicator = this.#createAppendWrapper(appendType, ['loading']);
                 element.appendChild(loadingIndicator);
                 break;
 
@@ -68,14 +86,7 @@ class AppendStrategy {
                     return;
                 }
 
-                const appendTag = appendType === 'inline' ? 'span' : 'div';
-                const appendedElement = document.createElement(appendTag);
-                appendedElement.className = `foxlate-appended-text foxlate-appended-${appendType}`;
-                
-                // (新) 添加一个明确的标记，以便 DOMWalker 可以在源头识别并忽略此元素，
-                // 防止对已追加的译文进行重复翻译。
-                appendedElement.dataset.foxlateAppendedText = 'true';
-
+                const appendedElement = this.#createAppendWrapper(appendType);
                 // 检查是否存在格式保留翻译所需的数据
                 if (data.translationUnit?.nodeMap) {
                     try {
@@ -96,12 +107,9 @@ class AppendStrategy {
                 const errorData = DisplayManager.getElementData(element);
                 const errorPrefix = browser.i18n.getMessage('contextMenuErrorPrefix') || 'Error';
                 const errorMessage = errorData?.errorMessage || 'Translation Error';
-                const fullErrorMessage = `⚠️ ${escapeHtml(errorPrefix)}: ${escapeHtml(errorMessage)}`;
 
-                const errorAppendTag = appendType === 'inline' ? 'span' : 'div';
-                const errorElement = document.createElement(errorAppendTag);
-                errorElement.className = `foxlate-appended-text foxlate-appended-${appendType} error`;
-                errorElement.innerHTML = fullErrorMessage; // fullErrorMessage is already escaped
+                const errorElement = this.#createAppendWrapper(appendType, ['error']);
+                errorElement.textContent = `⚠️ ${errorPrefix}: ${errorMessage}`; // 使用 textContent 更安全，因为前缀是固定的，错误信息已在前面处理过，或者假设其为纯文本。
                 element.appendChild(errorElement);
                 break;
 
