@@ -22,10 +22,17 @@ class AppendStrategy {
         if (hasBlockChildren || textLength > 80) {
             return 'block';
         }
+        // 规则 2: 优先检查计算样式，做出更明确的判断
+        const style = window.getComputedStyle(element);
+        const display = style.display;
+        const floating = style.float;
 
-        // 规则 2: 检查元素的计算样式。
-        const display = window.getComputedStyle(element).display;
-
+        // 明确的块级行为：如果 display 是 block, flex, grid 等，或者元素是浮动的，都应视为块级追加。
+        // 这些 display 类型在文档流中都会表现为“块”。
+        if (display === 'block' || display === 'flex' || display === 'grid' || display === 'table' || display === 'list-item' || floating !== 'none') {
+            return 'block';
+        }
+        
         // 如果是明确的内联元素，则追加为内联。
         if (display.startsWith('inline')) { // 涵盖 'inline', 'inline-block', 'inline-flex', 'inline-grid', 'inline-table' 等
             return 'inline';
