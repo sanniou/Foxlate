@@ -20,20 +20,26 @@ export class GoogleTranslator extends BaseTranslator {
       return { text: '', log: log };
     }
 
-    const url = new URL(this.apiUrl);
-    url.searchParams.append('client', 'gtx'); // 或者 't', 'webapp'
-    url.searchParams.append('sl', sourceLang); // source language
-    url.searchParams.append('tl', targetLang); // target language
-    // dt=t 表示返回翻译结果。这个非官方端点通常会保留未知的、简单的HTML标签（如我们自定义的<t0>），
-    // 这正是我们实现格式保留所需要的。
-    url.searchParams.append('dt', 't');
-    url.searchParams.append('q', textToSend); // query text
+    // 切换到 POST 请求以支持更长的文本，并避免 URL 长度限制问题。
+    const requestUrl = new URL(this.apiUrl);
+    requestUrl.searchParams.append('client', 'gtx');
+    requestUrl.searchParams.append('sl', sourceLang);
+    requestUrl.searchParams.append('tl', targetLang);
+    requestUrl.searchParams.append('dt', 't'); // dt=t 表示返回翻译结果
 
     log.push(browser.i18n.getMessage('logEntryApiRequest', this.name));
-    log.push(`[API URL] ${url.toString()}`); // 记录实际调用的 URL
+    log.push(`[API URL] ${requestUrl.toString()}`); // 记录实际调用的 URL
 
     try {
-      const response = await fetch(url.toString(), { signal });
+      const response = await fetch(requestUrl.toString(), {
+        method: 'POST',
+        headers: {
+          // Google 的这个非官方端点需要这个 Content-Type
+          'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8',
+        },
+        // 将要翻译的文本放在请求体中
+        body: `q=${encodeURIComponent(textToSend)}`,
+        signal });
 
       if (!response.ok) {
         log.push(browser.i18n.getMessage('logEntryApiResponseError', [response.status, response.statusText]));
