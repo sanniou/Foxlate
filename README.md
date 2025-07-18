@@ -7,7 +7,7 @@
 - **右键菜单翻译**：选中网页上的任何文本，通过右键菜单快速翻译。翻译结果将以浮窗形式显示在选定文本附近。
 - **多翻译引擎支持**：
   - **DeepLx**：支持自定义 DeepLx API 地址。
-  - **Google Translate**：通过 Google Cloud Translation API 进行翻译。
+  - **Google Translate**：使用免费的谷歌翻译网页版 API，无需配置。
   - **AI Translator (GPT)**：支持 OpenAI 兼容的 API，可自定义 API 地址和模型名称。
     - **短文本切换**: 为 AI 引擎特别优化。您可以设置一个“短文本切换阈值”，当需要翻译的文本（如单个单词或短语）少于该阈值时，将自动使用一个更快速、更经济的备用翻译引擎（如 DeepLx 或 Google），从而在保证长文本翻译质量的同时，优化短文本的翻译体验和成本。
 - **高级显示模式**: 不仅仅是浮窗！您可以选择将译文直接**替换**原文、**追加**在原文后方，或在**悬停**时显示。
@@ -96,9 +96,9 @@
 3.  在“通用设置”部分，选择您希望使用的 **“Translation Engine”**。
 4.  根据所选引擎，填写相应的 **API URL** 或 **API Key**。
     - **DeepLx**：输入您的 DeepLx API 地址。
-    - **Google Translate**：输入您的 Google Cloud Translation API Key。
     - **AI Translator**：输入您的 AI API Key，并可选地设置 API Endpoint URL 和 Model Name。
-5.  点击 API 输入框旁边的 **“Test”** 按钮，验证您的配置是否正确。测试结果将以浮窗形式显示。
+    - **Google Translate** 无需额外配置。
+5.  对于需要配置的引擎（如 DeepLx 或 AI），您可以使用 **“Test”** 按钮验证配置是否正确。
 6.  设置 **“Target Language”** (例如 `ZH` 代表中文，`EN` 代表英文)。
 7.  点击页面底部的 **“Save Settings”** 按钮保存您的配置。
 
