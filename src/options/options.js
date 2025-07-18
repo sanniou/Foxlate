@@ -719,17 +719,23 @@ document.addEventListener('DOMContentLoaded', () => {
             delete rule.cssSelector;
         }
 
-        // 保存字幕设置
+        // --- 保存字幕设置 ---
+        // 改进：在禁用时保留现有设置，以改善用户体验。
         const enabled = elements.ruleEnableSubtitleCheckbox.checked;
+        const existingRule = domainRules[originalDomain] || {};
+        const existingSubtitleSettings = existingRule.subtitleSettings || {};
+
         if (enabled) {
             rule.subtitleSettings = {
+                ...existingSubtitleSettings, // 保留任何其他潜在的未知设置
                 enabled: true,
                 strategy: elements.ruleSubtitleStrategySelect.value,
                 displayMode: elements.ruleSubtitleDisplayMode.value
             };
         } else {
-            // 如果用户显式地为某个域禁用了该功能，我们应该记录下来。
+            // 如果之前有设置，则在其基础上禁用。否则，创建一个新的已禁用设置。
             rule.subtitleSettings = {
+                ...existingSubtitleSettings,
                 enabled: false
             };
         }
