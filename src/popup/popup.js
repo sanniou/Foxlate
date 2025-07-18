@@ -266,6 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         elements.openOptionsBtn.addEventListener('click', () => browser.runtime.openOptionsPage());
         elements.translatePageBtn.addEventListener('click', handleTranslateButtonClick);
+        elements.aboutBtn.addEventListener('click', () => browser.tabs.create({ url: 'https://github.com/sanniou/foxlate' }));
 
         elements.sourceLanguageSelect.addEventListener('change', (e) => saveChangeToRule('sourceLanguage', e.target.value));
         elements.autoTranslateCheckbox.addEventListener('change', async (e) => {
