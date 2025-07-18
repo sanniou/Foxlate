@@ -6,14 +6,14 @@
  */
 export function reconstructDOM(taggedText, nodeMap) {
     // 正则表达式用于分割文本和我们的自定义标签
-    const regex = /(<t\d+>|<\/t\d+>)/g;
+    const regex = /(<\/?\s*t\d+\s*>)/g; // 更宽松的正则，允许标签内部有空格
     const parts = taggedText.split(regex).filter(Boolean); // filter(Boolean) 移除空字符串
 
     const fragment = document.createDocumentFragment();
     const parentStack = [fragment]; // 使用一个栈来追踪当前父节点
 
     for (const part of parts) {
-        const match = part.match(/<(\/)?(t\d+)>/);
+        const match = part.match(/<(\/)?\s*(t\d+)\s*>/); // 匹配更宽松的标签格式
 
         if (match) {
             const isClosing = !!match[1];
