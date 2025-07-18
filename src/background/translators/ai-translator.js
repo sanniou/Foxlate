@@ -10,7 +10,7 @@ export class AITranslator extends BaseTranslator {
     const log = []; // 为当前翻译操作创建本地日志
     const { apiKey, apiUrl, model, customPrompt: customPromptTemplate } = aiConfig;
     if (!apiKey || apiKey.trim() === '') {
-      throw new Error('AI API Key not set in options');
+      throw new Error(browser.i18n.getMessage('aiApiKeyMissingError'));
     }
 
     if (!customPromptTemplate || customPromptTemplate.trim() === '') {

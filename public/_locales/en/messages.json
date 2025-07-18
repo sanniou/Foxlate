@@ -641,6 +641,10 @@
     "message": "[Error] $1",
     "description": "Log entry for translation failure. Placeholder: [errorMessage]"
   },
+  "aiApiKeyMissingError": {
+    "message": "AI API Key is not configured. Please set it up in the AI Engine profile.",
+    "description": "Error message when the AI API Key is missing."
+  },
   "aiCustomPromptMissingError": {
     "message": "AI Custom Prompt is not configured in settings. Please set it up.",
     "description": "Error message when the AI custom prompt is missing."
