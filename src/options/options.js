@@ -695,14 +695,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if (excludeSelectorErrorEl) excludeSelectorErrorEl.textContent = '';
 
         if (excludeSelector) {
-            try {
-                // 仅用于验证目的，如果选择器无效则会抛出异常。
-                document.querySelector(excludeSelector.split(',')[0]);
-            } catch (e) {
+            // (新) 验证列表中的每一个选择器，而不仅仅是第一个。
+            const selectors = excludeSelector.split(',').map(s => s.trim()).filter(s => s);
+            let isInvalid = false;
+            for (const selector of selectors) {
+                try {
+                    // 仅用于验证目的，如果选择器无效则会抛出异常。
+                    document.querySelector(selector);
+                } catch (e) {
+                    isInvalid = true;
+                    break; // 找到第一个无效的选择器后就停止
+                }
+            }
+            if (isInvalid) {
                 excludeSelectorField.classList.add('is-invalid');
-                if (excludeSelectorErrorEl) excludeSelectorErrorEl.textContent = browser.i18n.getMessage('invalidCssSelector') || 'Invalid CSS selector.';
-                excludeSelectorField.classList.add('error-shake');
-                setTimeout(() => excludeSelectorField.classList.remove('error-shake'), 500);
+                if (excludeSelectorErrorEl) excludeSelectorErrorEl.textContent = browser.i18n.getMessage('invalidCssSelector');
                 return; // 停止保存
             }
         }

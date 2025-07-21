@@ -99,6 +99,10 @@
     "message": "排除选择器",
     "description": "排除 CSS 选择器文本区域的标签。"
   },
+  "excludeSelectorsDescription": {
+    "message": "匹配这些选择器的元素（及其子元素）将不会被翻译。使用逗号分隔多个选择器。",
+    "description": "排除 CSS 选择器文本区域的辅助文本。"
+  },
   "ruleManagement": {
     "message": "规则管理",
     "description": "Rule Management section title."

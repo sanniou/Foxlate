@@ -99,6 +99,10 @@
     "message": "Exclude Selectors",
     "description": "Label for the exclude CSS selector textarea."
   },
+  "excludeSelectorsDescription": {
+    "message": "Elements matching these selectors (and their children) will not be translated. Use a comma to separate multiple selectors.",
+    "description": "Helper text for the exclude CSS selector textarea."
+  },
   "ruleManagement": {
     "message": "Rule Management",
     "description": "Rule Management section title."
