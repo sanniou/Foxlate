@@ -36,19 +36,36 @@
     pointer-events: none;
 }
 
+/* 
+  下面是加载指示器的实现。
+  核心技术是使用 SVG Mask，它可以确保指示器的形状（圆形弧线）在任何情况下都不会被拉伸或变形。
+  动画则通过复用一个简单的 CSS keyframe 动画来实现。
+*/
+
 /* 面板的加载状态 */
+.foxlate-panel.loading {
+    /* 使用 Flexbox 进行可靠的对齐和间距 */
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
 .foxlate-panel.loading::before {
     content: '';
     display: inline-block;
     width: 1em;
     height: 1em;
-    aspect-ratio: 1; /* 强制保持 1:1 的宽高比，防止被拉伸成椭圆 */
-    border: 2px solid currentColor;
-    border-right-color: transparent;
-    border-radius: 50%;
+    flex-shrink: 0; /* 在 flex 布局中防止被压缩 */
+    color: var(--md-sys-color-primary, #3B64E8);
+    background-color: currentColor;
+    -webkit-mask-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3e%3cpath fill='currentColor' d='M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z'/%3e%3c/svg%3e");
+    mask-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3e%3cpath fill='currentColor' d='M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z'/%3e%3c/svg%3e");
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    mask-size: contain;
     animation: foxlate-spin 0.75s linear infinite;
-    margin-right: 8px;
-    vertical-align: -0.15em;
 }
 
 /* 面板的错误状态 */
@@ -67,13 +84,7 @@
 
 /* 追加模式的样式 */
 .foxlate-appended-text {
-    /* 通过左侧的引用线来区分原文和译文，同时保持文本样式一致。 */
-    /* 使用 inline-block 和 vertical-align: baseline 来确保与原文的垂直对齐，解决边框与文本不对齐的问题。*/
     display: inline-block;
-    vertical-align: baseline;
-    /* 这种方式既提供了清晰的视觉分隔，又不破坏与原文的格式统一性。 */
-    /* 移除了 margin-left，让引用线直接紧随原文，使连接更紧密。*/
-    /* 保留 padding-left 来确保译文与引用线之间有足够的间距。*/
     border-left: 2px solid var(--md-sys-color-outline-variant, #CAC4D0);
     padding-left: 8px;
 }
@@ -110,6 +121,15 @@
     }
 }
 
+/* 尊重用户对动效的偏好 */
+@media (prefers-reduced-motion: reduce) {
+  .foxlate-panel.loading::before,
+  .foxlate-appended-text.loading,
+  .foxlate-inline-loading {
+    animation: none;
+  }
+}
+
 /* 为 hover 策略添加新的高亮样式 */
 .foxlate-loading-highlight {
     /* 你可以选择一个不同的背景色或边框 */
@@ -117,16 +137,21 @@
 }
 /* Append 模式的加载状态样式 */
 .foxlate-appended-text.loading {
-    /* 渲染为一个 MD3 风格的加载动画 */
     display: inline-block;
     width: 0.9em;
     height: 0.9em;
-    aspect-ratio: 1; /* 强制保持 1:1 的宽高比，防止在某些布局下被拉伸成椭圆 */
-    vertical-align: -0.15em; /* 微调垂直对齐，使其与文本更协调 */
-    border: 2px solid var(--md-sys-color-primary, #3B64E8); /* 使用主题色 */
-    border-right-color: transparent;
-    border-radius: 50%;
-    animation: foxlate-spin 0.75s linear infinite; /* 复用已有的旋转动画 */
+    color: var(--md-sys-color-primary, #3B64E8);
+    background-color: currentColor;
+    -webkit-mask-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3e%3cpath fill='currentColor' d='M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z'/%3e%3c/svg%3e");
+    mask-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3e%3cpath fill='currentColor' d='M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z'/%3e%3c/svg%3e");
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    animation: foxlate-spin 0.75s linear infinite;
+    vertical-align: -0.15em;
 }
 
 /* Append 模式的错误状态样式 */
@@ -138,13 +163,19 @@
 /* 用于替换模式的内联加载动画 */
 .foxlate-inline-loading {
     display: inline-block;
-    width: 0.8em; /* 尺寸稍小，不那么突兀 */
+    width: 0.8em; /* 覆盖尺寸 */
     height: 0.8em;
-    aspect-ratio: 1; /* 强制保持 1:1 的宽高比，防止在某些布局下被拉伸成椭圆 */
-    border: 2px solid currentColor;
-    border-right-color: transparent;
-    border-radius: 50%;
+    color: var(--md-sys-color-primary, #3B64E8);
+    background-color: currentColor;
+    -webkit-mask-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3e%3cpath fill='currentColor' d='M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z'/%3e%3c/svg%3e");
+    mask-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3e%3cpath fill='currentColor' d='M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z'/%3e%3c/svg%3e");
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    mask-size: contain;
     animation: foxlate-spin 0.75s linear infinite;
-    vertical-align: -0.1em;
-    margin-left: 6px; /* 与原文保持一点距离 */
+    vertical-align: -0.1em; /* 内联元素微调依然需要 */
+    margin-left: 6px;
 }
