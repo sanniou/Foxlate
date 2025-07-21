@@ -1,4 +1,4 @@
-@import url('/common/common.css');
+@import url('../common/common.css');
 
 /* 
   为 Foxlate 注入的所有浮动 UI 元素（如划词翻译、悬停提示）提供统一的 MD3 风格面板。
