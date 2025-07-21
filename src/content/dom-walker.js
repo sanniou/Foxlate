@@ -34,12 +34,53 @@ const BLOCK_LEVEL_TAGS = new Set([...STRUCTURAL_BLOCK_TAGS, ...PRESERVABLE_BLOCK
  */
 export class DOMWalker {
     /**
+     * @private
+     * @static
+     * 使用混合方法确定元素的追加类型 ('inline' 或 'block')。
+     * 此方法优先考虑用户定义的 CSS 选择器，然后回退到启发式分析。
+     *
+     * @param {HTMLElement} element - 要分类的元素。
+     * @param {object} config - 当前生效的配置，包含用户定义的选择器。
+     * @param {string} [config.block] - 应视为块级的 CSS 选择器。
+     * @param {string} [config.inline] - 应视为内联的 CSS 选择器。
+     * @returns {'inline' | 'block'} - 确定的追加类型。
+     */
+    static #determineAppendType(element, config) {
+        // 1. 用户配置优先 (最高优先级)
+        if (config.block && element.matches(config.block)) {
+            return 'block';
+        }
+        if (config.inline && element.matches(config.inline)) {
+            return 'inline';
+        }
+
+        // 2. 启发式分析作为后备方案
+        const blockChildSelectors = 'p, div, h1, h2, h3, h4, h5, h6, li, tr, td, th, blockquote, pre, section, article, header, footer, nav, aside, form, hr, table';
+        if (element.querySelector(blockChildSelectors) || (element.textContent || '').trim().length > 80) {
+            return 'block';
+        }
+
+        const style = window.getComputedStyle(element);
+        const display = style.display;
+        if (['block', 'flex', 'grid', 'table', 'list-item'].includes(display) || style.float !== 'none') {
+            return 'block';
+        }
+
+        if (display.startsWith('inline')) {
+            return 'inline';
+        }
+
+        // 3. 安全的默认值
+        return 'inline';
+    }
+    /**
      * (新) 通过深度遍历DOM，将元素内容解构为带标签的文本和节点映射表。
      * 这是实现格式保留翻译的核心。
      * @param {HTMLElement} rootElement - The element to process.
-     * @returns {{sourceText: string, translationUnit: {nodeMap: object}}|null}
+     * @param {object} [config={}] - 包含 'inline' 和 'block' 选择器的配置对象。
+     * @returns {{sourceText: string, translationUnit: object}|null}
      */
-    static create(rootElement) {
+    static create(rootElement, config = {}) {
         // --- 性能优化：快速预检查 ---
         // 在进行昂贵的DOM遍历之前，先执行一些快速检查，以提前排除不合格的元素。
 
@@ -153,10 +194,16 @@ export class DOMWalker {
 
         if (!trimmedSourceText) return null;
 
+        // (新) 调用混合决策系统来确定追加类型
+        const appendType = DOMWalker.#determineAppendType(rootElement, config);
+
         // 返回带标签的源文本和用于重建的节点映射表
         return {
             sourceText: trimmedSourceText,
-            translationUnit: { nodeMap }
+            translationUnit: {
+                nodeMap,
+                appendType // 存储确定的追加类型
+            }
         };
     }
 }

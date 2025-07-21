@@ -6,43 +6,6 @@ import { reconstructDOM } from '../dom-reconstructor.js';
 
 class AppendStrategy {
     /**
-     * @private
-     * (新) 通过启发式算法对元素进行分类，以确定最佳的追加样式。
-     * 此逻辑已从 DisplayManager 移至此处，以实现更好的内聚性。
-     * @param {HTMLElement} element
-     * @returns {'inline' | 'block'}
-     */
-    #classifyAppendType(element) {
-        // 规则 1: 结构性内容优先。如果元素内包含块级子元素，或者文本量很大，
-        // 那么它自身就应被视为一个块级容器，追加的内容应该换行。
-        const blockSelectors = 'p, div, h1, h2, h3, h4, h5, h6, li, tr, td, th, blockquote, pre, section, article, header, footer, nav, aside, form, hr, table';
-        const hasBlockChildren = element.querySelector(blockSelectors);
-        const textLength = (element.textContent || '').trim().length;
-
-        if (hasBlockChildren || textLength > 80) {
-            return 'block';
-        }
-        // 规则 2: 优先检查计算样式，做出更明确的判断
-        const style = window.getComputedStyle(element);
-        const display = style.display;
-        const floating = style.float;
-
-        // 明确的块级行为：如果 display 是 block, flex, grid 等，或者元素是浮动的，都应视为块级追加。
-        // 这些 display 类型在文档流中都会表现为“块”。
-        if (display === 'block' || display === 'flex' || display === 'grid' || display === 'table' || display === 'list-item' || floating !== 'none') {
-            return 'block';
-        }
-        
-        // 如果是明确的内联元素，则追加为内联。
-        if (display.startsWith('inline')) { // 涵盖 'inline', 'inline-block', 'inline-flex', 'inline-grid', 'inline-table' 等
-            return 'inline';
-        }
-
-        // 规则 3: 安全回退。对于其他情况，默认追加为 'inline'，以避免不必要的强制换行。
-        return 'inline';
-    }
-
-    /**
      * 移除追加的翻译元素。
      * 此方法是策略接口的一部分，由 DisplayManager 调用以将元素恢复到其原始状态。
      * @param {HTMLElement} element - 目标元素。
@@ -73,8 +36,10 @@ class AppendStrategy {
         // 在更新UI前，总是先清理掉旧的追加元素，以避免重复。
         this.revert(element);
 
-        // 关键：追加策略现在自己决定其追加类型，而不是依赖 DisplayManager。
-        const appendType = this.#classifyAppendType(element);
+        // 从 DisplayManager 获取包括 appendType 在内的所有数据。
+        // appendType 由 DOMWalker 在初始阶段根据用户配置和启发式算法决定，确保了配置的权威性。
+        const data = DisplayManager.getElementData(element);
+        const appendType = data?.translationUnit?.appendType || 'inline'; // 安全回退到 'inline'
 
         switch (state) {
             case Constants.DISPLAY_MANAGER_STATES.ORIGINAL:
@@ -87,7 +52,6 @@ class AppendStrategy {
                 break;
 
             case Constants.DISPLAY_MANAGER_STATES.TRANSLATED:
-                const data = DisplayManager.getElementData(element);
                 if (!data || !data.translatedText) {
                     this.revert(element);
                     return;
