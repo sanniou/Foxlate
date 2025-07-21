@@ -66,9 +66,15 @@
 
 /* 追加模式的样式 */
 .foxlate-appended-text {
-    color: var(--md-sys-color-on-surface-variant, #49454F);
-    margin-left: 8px;
-    font-style: italic;
+    /* 通过左侧的引用线来区分原文和译文，同时保持文本样式一致。 */
+    /* 使用 inline-block 和 vertical-align: baseline 来确保与原文的垂直对齐，解决边框与文本不对齐的问题。*/
+    display: inline-block;
+    vertical-align: baseline;
+    /* 这种方式既提供了清晰的视觉分隔，又不破坏与原文的格式统一性。 */
+    /* 移除了 margin-left，让引用线直接紧随原文，使连接更紧密。*/
+    /* 保留 padding-left 来确保译文与引用线之间有足够的间距。*/
+    border-left: 2px solid var(--md-sys-color-outline-variant, #CAC4D0);
+    padding-left: 8px;
 }
 /* 当追加的翻译处于块级上下文时，在其前面添加换行 */
 .foxlate-appended-block::before {
@@ -121,8 +127,7 @@
 }
 /* Append 模式的加载状态样式 */
 .foxlate-appended-text.loading {
-    /* 移除文本样式，将其渲染为一个 MD3 风格的加载动画 */
-    font-style: normal;
+    /* 渲染为一个 MD3 风格的加载动画 */
     display: inline-block;
     width: 0.9em;
     height: 0.9em;
@@ -135,8 +140,7 @@
 
 /* Append 模式的错误状态样式 */
 .foxlate-appended-text.error {
-    /* 重置斜体样式，并使用错误颜色 */
-    font-style: normal;
+    /* 使用错误颜色来表示错误状态 */
     color: var(--md-sys-color-error, #B3261E);
 }
 
