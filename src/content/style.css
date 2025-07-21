@@ -42,6 +42,7 @@
     display: inline-block;
     width: 1em;
     height: 1em;
+    aspect-ratio: 1; /* 强制保持 1:1 的宽高比，防止被拉伸成椭圆 */
     border: 2px solid currentColor;
     border-right-color: transparent;
     border-radius: 50%;
@@ -109,21 +110,10 @@
     }
 }
 
-.foxlate-loading {
-  display: inline-block;
-  margin-left: 0.5em;
-  animation: foxlate-loading-spin 1s linear infinite;
-}
-
-@keyframes foxlate-loading-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
 /* 为 hover 策略添加新的高亮样式 */
 .foxlate-loading-highlight {
     /* 你可以选择一个不同的背景色或边框 */
-    background-color: #eee; /* 例如，浅灰色背景 */
+    background-color: rgba(var(--md-sys-color-on-surface-rgb, 28, 27, 31), 0.12); /* 使用表面颜色的半透明变体，以适应不同主题 */
 }
 /* Append 模式的加载状态样式 */
 .foxlate-appended-text.loading {
@@ -131,6 +121,7 @@
     display: inline-block;
     width: 0.9em;
     height: 0.9em;
+    aspect-ratio: 1; /* 强制保持 1:1 的宽高比，防止在某些布局下被拉伸成椭圆 */
     vertical-align: -0.15em; /* 微调垂直对齐，使其与文本更协调 */
     border: 2px solid var(--md-sys-color-primary, #3B64E8); /* 使用主题色 */
     border-right-color: transparent;
@@ -144,16 +135,12 @@
     color: var(--md-sys-color-error, #B3261E);
 }
 
-.foxlate-appended-text.error::before {
-    content: '⚠️'; /* 使用 emoji 作为错误图标 */
-    margin-right: 4px;
-}
-
 /* 用于替换模式的内联加载动画 */
 .foxlate-inline-loading {
     display: inline-block;
     width: 0.8em; /* 尺寸稍小，不那么突兀 */
     height: 0.8em;
+    aspect-ratio: 1; /* 强制保持 1:1 的宽高比，防止在某些布局下被拉伸成椭圆 */
     border: 2px solid currentColor;
     border-right-color: transparent;
     border-radius: 50%;
