@@ -141,8 +141,27 @@ export class DOMWalker {
                     if (!inPreformattedContext) {
                         text = text.replace(/\s+/g, ' ');
                     }
-                    sourceText += text;
-                } else if (child.nodeType === Node.ELEMENT_NODE) { // 元素节点
+                    // (新) 优化空白拼接逻辑。
+                    // 如果 sourceText 已经以空白结尾，并且新的文本片段以空白开头，
+                    // 则移除新片段的起始空白，以防止出现连续的多个空格。
+                    if (/\s$/.test(sourceText) && /^\s/.test(text)) {
+                        sourceText += text.trimStart();
+                    } else {
+                        sourceText += text;
+                    }
+                } else if (child.nodeType === Node.ELEMENT_NODE) {
+                    // (新) 在遍历期间检查元素是否匹配排除规则。
+                    // 这修复了只排除顶层容器而不排除其内部匹配元素的缺陷。
+                    if (config.excludeSelectors) {
+                        try {
+                            if (child.matches(config.excludeSelectors)) {
+                                continue; // 如果匹配，则跳过此元素及其所有子元素。
+                            }
+                        } catch (e) {
+                            // 错误已在顶层处理，此处静默失败以避免控制台垃圾信息。
+                        }
+                    }
+
                     const tagName = child.tagName.toUpperCase();
                     // 关键：跳过不需要翻译的脚本和样式块
                     if (SKIPPED_TAGS.has(tagName)) continue;
