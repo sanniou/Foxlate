@@ -95,6 +95,10 @@
     "message": "For main content like paragraphs and articles. Translations will preserve original newlines.",
     "description": "Helper text for the block CSS selector."
   },
+  "excludeSelectorsLabel": {
+    "message": "Exclude Selectors",
+    "description": "Label for the exclude CSS selector textarea."
+  },
   "ruleManagement": {
     "message": "Rule Management",
     "description": "Rule Management section title."
@@ -704,6 +708,10 @@
   "invalidRegexFlags": {
     "message": "Invalid regex flags",
     "description": "Message indicating invalid regular expression flags."
+  },
+  "invalidCssSelector": {
+    "message": "Invalid CSS selector",
+    "description": "Error message when the user-provided CSS selector is invalid."
   },
   "testRegexInputLabel": {
     "message": "Test Text:",

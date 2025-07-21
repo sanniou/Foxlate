@@ -64,6 +64,8 @@ document.addEventListener('DOMContentLoaded', () => {
         ruleDisplayModeSelect: document.getElementById('ruleDisplayMode'),
         ruleInlineSelectorTextarea: document.getElementById('ruleInlineSelector'),
         ruleBlockSelectorTextarea: document.getElementById('ruleBlockSelector'),
+        ruleExcludeSelectorTextarea: document.getElementById('ruleExcludeSelector'),
+        ruleExcludeSelectorError: document.getElementById('ruleExcludeSelectorError'), // 新增
         ruleCssSelectorOverrideCheckbox: document.getElementById('ruleCssSelectorOverride'),
         cancelDomainRuleBtn: document.getElementById('cancelDomainRuleBtn'),
         ruleEnableSubtitleCheckbox: document.getElementById('ruleEnableSubtitle'),
@@ -682,6 +684,28 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!domainRuleValidator.validate()) {
             return;
         }
+
+        // (新) 手动验证排除选择器
+        const excludeSelectorInput = elements.ruleExcludeSelectorTextarea;
+        const excludeSelectorField = excludeSelectorInput.closest('.m3-form-field');
+        const excludeSelectorErrorEl = elements.ruleExcludeSelectorError;
+        const excludeSelector = excludeSelectorInput.value.trim();
+
+        excludeSelectorField.classList.remove('is-invalid');
+        if (excludeSelectorErrorEl) excludeSelectorErrorEl.textContent = '';
+
+        if (excludeSelector) {
+            try {
+                // 仅用于验证目的，如果选择器无效则会抛出异常。
+                document.querySelector(excludeSelector.split(',')[0]);
+            } catch (e) {
+                excludeSelectorField.classList.add('is-invalid');
+                if (excludeSelectorErrorEl) excludeSelectorErrorEl.textContent = browser.i18n.getMessage('invalidCssSelector') || 'Invalid CSS selector.';
+                excludeSelectorField.classList.add('error-shake');
+                setTimeout(() => excludeSelectorField.classList.remove('error-shake'), 500);
+                return; // 停止保存
+            }
+        }
         // --- 2. 构造规则对象，为提高效率排除默认值 ---
         const rule = {};
         // The default for applyToSubdomains is true, so only save the value if it's false.
@@ -718,7 +742,12 @@ document.addEventListener('DOMContentLoaded', () => {
             // 这样，除非勾选了覆盖，否则它将继承全局规则。
             delete rule.cssSelector;
         }
-
+        // (新) 保存排除选择器
+        if (excludeSelector) {
+            rule.excludeSelectors = excludeSelector;
+        } else {
+            delete rule.excludeSelectors; // 如果为空，则从规则中删除该属性，保持数据清洁
+        }
         // --- 保存字幕设置 ---
         // 改进：在禁用时保留现有设置，以改善用户体验。
         const enabled = elements.ruleEnableSubtitleCheckbox.checked;
@@ -916,6 +945,7 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.ruleInlineSelectorTextarea.value = selectorObj.inline || '';
             elements.ruleBlockSelectorTextarea.value = selectorObj.block || '';
         }
+        elements.ruleExcludeSelectorTextarea.value = ruleData.excludeSelectors || ''; // 新增：填充排除选择器
         // Default to false if not specified
         elements.ruleCssSelectorOverrideCheckbox.checked = ruleData.cssSelectorOverride || false;
 

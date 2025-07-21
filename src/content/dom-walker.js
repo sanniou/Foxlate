@@ -77,12 +77,27 @@ export class DOMWalker {
      * (新) 通过深度遍历DOM，将元素内容解构为带标签的文本和节点映射表。
      * 这是实现格式保留翻译的核心。
      * @param {HTMLElement} rootElement - The element to process.
-     * @param {object} [config={}] - 包含 'inline' 和 'block' 选择器的配置对象。
+     * @param {object} [config={}] - 包含选择器配置的对象。
+     * @param {string} [config.inline] - 应视为内联的 CSS 选择器。
+     * @param {string} [config.block] - 应视为块级的 CSS 选择器。
+     * @param {string} [config.excludeSelectors] - 应排除翻译的 CSS 选择器。
      * @returns {{sourceText: string, translationUnit: object}|null}
      */
     static create(rootElement, config = {}) {
         // --- 性能优化：快速预检查 ---
         // 在进行昂贵的DOM遍历之前，先执行一些快速检查，以提前排除不合格的元素。
+
+        // (新) 检查此元素或其父元素是否匹配排除选择器，并添加了错误处理。
+        if (config.excludeSelectors) {
+            try {
+                if (rootElement.closest(config.excludeSelectors)) {
+                    return null;
+                }
+            } catch (e) {
+                // 如果选择器无效，记录错误并忽略该规则，而不是使整个脚本崩溃。
+                console.error(`[Foxlate] Invalid exclude selector in configuration: "${config.excludeSelectors}". Translation will proceed.`, e);
+            }
+        }
 
         // (新) 检查此元素是否为由 'append' 策略添加的翻译容器。
         // 如果是，则直接跳过，以防止重复翻译。

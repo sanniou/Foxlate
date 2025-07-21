@@ -95,6 +95,10 @@
     "message": "用于段落、文章等主要内容。译文将保留原有换行。",
     "description": "块级 CSS 选择器的辅助文本。"
   },
+  "excludeSelectorsLabel": {
+    "message": "排除选择器",
+    "description": "排除 CSS 选择器文本区域的标签。"
+  },
   "ruleManagement": {
     "message": "规则管理",
     "description": "Rule Management section title."
@@ -714,6 +718,10 @@
   "invalidRegexFlags": {
     "message": "无效的正则表达式标志",
     "description": "提示用户输入的正则表达式标志无效。"
+  },
+  "invalidCssSelector": {
+    "message": "无效的 CSS 选择器",
+    "description": "当用户输入的 CSS 选择器无效时显示的错误消息。"
   },
   "testRegexInputLabel": {
     "message": "测试文本:",
