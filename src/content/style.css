@@ -84,9 +84,26 @@
 
 /* 追加模式的样式 */
 .foxlate-appended-text {
+    /* 使用 position: relative，以便为其 ::before 伪元素提供定位上下文。 */
+    position: relative;
     display: inline-block;
-    border-left: 2px solid var(--md-sys-color-outline-variant, #CAC4D0);
-    padding-left: 8px;
+    /* 移除 border-left，因为引用线现在由伪元素处理。 */
+    /* 新的 padding-left 为引用线（2px）和间距（8px）留出空间。 */
+    padding-left: 10px;
+}
+
+/* 使用 ::before 伪元素来创建引用线，这样可以独立控制其样式。 */
+.foxlate-appended-text::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    /* 通过调整 top 和 bottom 值，可以独立控制引用线的高度和垂直位置。 */
+    /* 例如，使用 em 单位可以使其与文本大小成比例地缩进，看起来更精致。 */
+    top: 0.15em;
+    bottom: 0.15em;
+    width: 2px; /* 引用线的宽度 */
+    background-color: var(--md-sys-color-outline-variant, #CAC4D0);
+    border-radius: 1px; /* 为线条添加轻微的圆角，使其看起来更柔和。 */
 }
 /* 当追加的翻译处于块级上下文时，在其前面添加换行 */
 .foxlate-appended-block::before {
