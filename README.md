@@ -27,6 +27,10 @@
 - **跨浏览器兼容**: 基于 WebExtension Polyfill 开发，确保在 Chrome 和 Firefox 上提供一致的体验。
 - **友好的用户界面**：简洁直观的设置页面和翻译结果展示。
 
+## 📜 更新日志 (Changelog)
+
+详细的版本更新历史请查看 [changelog.md](changelog.md)。
+
 ## 🚀 支持的翻译引擎
 
 目前支持以下翻译引擎：

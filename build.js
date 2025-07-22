@@ -10,6 +10,10 @@ const outDir = path.join(__dirname, 'dist');
 const srcDir = path.join(__dirname, 'src');
 const publicDir = path.join(__dirname, 'public');
 
+// --- (新) 将 package.json 作为版本号的唯一真实来源 ---
+const packageJson = fs.readJsonSync(path.join(__dirname, 'package.json'));
+const version = packageJson.version;
+
 // --- 目标浏览器参数解析 ---
 let targetBrowser = 'chrome';
 const targetArg = process.argv.find(arg => arg.startsWith('--target='));
@@ -21,7 +25,7 @@ if (!['chrome', 'firefox'].includes(targetBrowser)) {
     exit(1);
 }
 
-console.log(`🚀 Building for target: ${targetBrowser}${isWatchMode ? ' (watch mode enabled)' : ''}`);
+console.log(`🚀 Building v${version} for target: ${targetBrowser}${isWatchMode ? ' (watch mode enabled)' : ''}`);
 
 // --- 清理输出目录 ---
 try {
@@ -161,6 +165,9 @@ const manifestPlugin = {
             // manifest.base.json 是基础，在这里根据目标平台添加特定配置
             const manifest = fs.readJsonSync(manifestBasePath);
 
+            // (新) 从 package.json 自动同步版本号
+            manifest.version = version;
+
             // host_permissions 对于 MV3 两个平台都需要，用于 script 注入和页面访问
             const permissionsToAdd = ["<all_urls>"];
             manifest.host_permissions = permissionsToAdd;
@@ -192,7 +199,7 @@ const manifestPlugin = {
 
             const manifestOutputPath = path.join(outDir, 'manifest.json');
             fs.writeJsonSync(manifestOutputPath, manifest, { spaces: 2 });
-            console.log(`✅ Generated manifest.json for ${targetBrowser} with host_permissions: [${permissionsToAdd.join(', ')}]`);
+            console.log(`✅ Generated manifest.json for ${targetBrowser}`);
 
         }
 
