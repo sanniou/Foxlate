@@ -256,7 +256,7 @@
     "description": "CSS覆盖开关的标签。"
   },
   "selectorOverrideDescription": {
-    "message": "启用后，将完全使用上方定义的域名选择器，忽略全局规则。留空则继承全局规则。",
+    "message": "启用后，将仅使用上方定义的域名特定选择器，完全替换全局规则。如果某个输入框留空，则该类型的选择器将不会被应用。",
     "description": "域名规则中选择器覆盖开关的辅助文本。"
   },
   "domainCannotBeEmpty": {

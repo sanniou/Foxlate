@@ -284,7 +284,7 @@
     "description": "Heading for domain specific rules"
   },
   "selectorOverrideDescription": {
-    "message": "When enabled, only the domain-specific selectors defined above will be used, ignoring global rules. Leave empty to inherit global rules.",
+    "message": "When enabled, only the domain-specific selectors will be used, completely replacing the global ones. If an input is left empty, no selectors of that type will be applied.",
     "description": "Helper text for the selector override switch in domain rules."
   },
   "rulesDescription": {
