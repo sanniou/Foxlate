@@ -95,25 +95,57 @@ function findTranslatableElements(effectiveSettings, rootNodes = [document.body]
         }
     }
 
-    // --- 步骤 2: 从混合内容父节点中“拯救”孤立的文本节点 ---
-    // 这一步是关键，用于处理像 `<div>Some text <p>More text</p></div>` 这样的结构，
-    // 其中 "Some text" 会被遗漏，因为它不是叶子节点的一部分。
+    // --- 步骤 2: 从混合内容父节点中“拯救”孤立的节点 ---
+    // 这一步是关键，用于处理像 `<div>Some text <i>and italic</i> <p>More text</p></div>` 这样的结构，
+    // 其中 "Some text <i>and italic</i>" 会被旧逻辑遗漏。
     for (const parent of potentialMixedParents) {
-        // 遍历父节点的所有直接子节点。
-        for (const child of Array.from(parent.childNodes)) {
-            // 检查是否为文本节点或纯文本的 SPAN 且包含非空白字符。
-            const isTextNode = child.nodeType === Node.TEXT_NODE && child.textContent.trim() !== '';
-            const isPlainTextSpan = child.nodeName === 'SPAN' && child.children.length === 0 && child.textContent.trim() !== '';
-            if (isTextNode || isPlainTextSpan) {
+        let consecutiveOrphans = []; // 用于收集连续的孤立节点
+
+        const wrapOrphans = () => {
+            if (consecutiveOrphans.length === 0) return;
+
+            // 仅当孤立节点序列中包含有意义的内容（不只是空白）时才进行包裹。
+            const hasSignificantContent = consecutiveOrphans.some(node =>
+                node.nodeType !== Node.TEXT_NODE || node.textContent.trim() !== ''
+            );
+
+            if (hasSignificantContent) {
                 const wrapperSpan = document.createElement('span');
-                // (新) 添加一个临时标志，以便 MutationObserver 可以识别并忽略此更改。
                 wrapperSpan.dataset.foxlateGenerated = 'true';
-                parent.insertBefore(wrapperSpan, child);
-                wrapperSpan.appendChild(child);
+
+                // 将包裹元素插入到第一个孤立节点之前。
+                parent.insertBefore(wrapperSpan, consecutiveOrphans[0]);
+
+                // 将所有连续的孤立节点（包括空白文本节点）移动到包裹元素中，以保持原始间距。
+                consecutiveOrphans.forEach(node => wrapperSpan.appendChild(node));
+
                 // 将新创建的包裹元素添加到候选列表中进行翻译。
                 finalCandidates.add(wrapperSpan);
             }
+            consecutiveOrphans = []; // 重置收集器
+        };
+
+        // 遍历父节点的所有直接子节点。
+        for (const child of Array.from(parent.childNodes)) {
+            // (新) 重新定义“边界”节点。一个节点如果满足以下任一条件，它就不是孤立的：
+            // 1. 它本身匹配翻译选择器。
+            // 2. 它已经被翻译或正在被翻译。
+            // 3. 它的子孙节点中包含匹配翻译选择器的元素。
+            // 这可以防止将包含其他待翻译内容的容器（如 <table>）错误地包裹起来。
+            const isBoundary = child.nodeType === Node.ELEMENT_NODE &&
+                (child.matches(allSelectors) || child.dataset.translationId || child.querySelector(allSelectors));
+
+            if (isBoundary) {
+                // 遇到一个已选择的元素，意味着之前的孤立节点序列结束了。
+                wrapOrphans();
+            } else {
+                // 这是一个孤立节点（文本节点、未被选择的元素如<i>, <b>等），将它加入收集器。
+                consecutiveOrphans.push(child);
+            }
         }
+
+        // 处理遍历结束后可能剩余在收集器中的最后一组孤立节点。
+        wrapOrphans();
     }
 
     // 进一步过滤，移除不可见或不应翻译的元素。
@@ -348,6 +380,14 @@ class PageTranslationJob {
 
 /**
  * (新) 启动对单个容器元素的翻译过程。
+ *
+ * 注意：此函数已修改，以防止在父元素包含已翻译的子元素时重复追加翻译。
+ * 具体来说，如果元素内部的任何子元素已经具有 data-translation-id 属性，
+ * 则假定该元素已被处理（或其内容的一部分已被处理），因此跳过对此元素的追加翻译。
+ * 这种方法依赖于“由内向外”的处理顺序，即先翻译子元素，再翻译其容器。
+ *
+ * 如果需要“由外向内”的翻译方式，即先翻译容器，再翻译其内容，则需要一个不同的解决方案。
+ * 例如，可以考虑在 DisplayManager 中实现更复杂的 diff/patch 策略，而不是简单的追加。
  * 创建翻译单元，保存原始 innerHTML，发送文本内容到后台翻译，并更新元素状态。
  */
 function translateElement(element, effectiveSettings) {
@@ -355,6 +395,14 @@ function translateElement(element, effectiveSettings) {
 
     // 1. 创建翻译单元并解构结果
     const domWalkerResult = DOMWalker.create(element, effectiveSettings.translationSelector);
+
+    // (新) 检查该元素是否包含任何已经翻译过的子元素。
+    // 如果是，则跳过翻译，因为它应该由其子元素处理。
+    // 这里假设翻译是“由内向外”进行的。
+    if (element.querySelector('[data-translation-id]')) {
+        console.log(`[Foxlate] 元素 ${element.tagName} 内部包含已翻译内容，跳过以避免重复。`);
+        return;
+    }
     if (!domWalkerResult) {
         return; // 没有可翻译的内容
     }
