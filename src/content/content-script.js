@@ -51,6 +51,50 @@ async function getEffectiveSettings() {
 }
 
 /**
+ * 递归查找并返回页面上所有的搜索根（主文档和所有开放的 Shadow Root）。
+ * @param {Node} rootNode - 开始搜索的节点，通常是 document.body。
+ * @returns {DocumentFragment[]} 一个包含所有搜索根的数组。
+ */
+/**
+ * 递归查找并返回页面上所有的搜索根（包括初始节点和所有内部的 Shadow Root）。
+ * @param {Node} rootNode - 开始搜索的节点，例如 document.body 或一个 shadowRoot。
+ * @returns {(Document|DocumentFragment|Element)[]} 一个包含所有搜索根的数组。
+ */
+function findAllSearchRoots(rootNode) {
+    const roots = [];
+
+    // 步骤 1: 将传入的根节点本身添加到列表中。
+    // 无论是 document.body (Element) 还是 shadowRoot (DocumentFragment)，它都是一个有效的搜索根。
+    if (rootNode) {
+        roots.push(rootNode);
+    } else {
+        return []; // 如果传入无效节点，直接返回空数组
+    }
+
+    // 步骤 2: 遍历该根节点下的所有元素，递归查找 shadow roots。
+    // 注意：TreeWalker 的根应该是 rootNode 本身。
+    const walker = document.createTreeWalker(
+        rootNode,
+        NodeFilter.SHOW_ELEMENT, // 我们只关心元素节点
+        {
+            acceptNode: function (node) {
+                // 如果元素有 shadowRoot，我们就接受它进行处理
+                return node.shadowRoot ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+            }
+        }
+    );
+
+    while (walker.nextNode()) {
+        const elementWithShadow = walker.currentNode;
+        // 关键点：对新发现的 shadow root 进行递归调用
+        // 并将返回的结果（该 shadow root 自身和它内部的所有嵌套的 roots）合并进来。
+        roots.push(...findAllSearchRoots(elementWithShadow.shadowRoot));
+    }
+
+    return roots;
+}
+
+/**
  * (新) 使用“自顶向下”的 CSS 选择器模型查找页面上所有可翻译的元素。
  * 此函数取代了旧的基于CSS选择器的方法。
  * @param {object} effectiveSettings - 设置对象（用于预检查）。
@@ -69,14 +113,20 @@ function findTranslatableElements(effectiveSettings, rootNodes = [document.body]
 
     const allCandidates = new Set();
     for (const root of rootNodes) {
-        // 确保根节点是元素节点，可以进行查询。
-        if (root.nodeType !== Node.ELEMENT_NODE) continue;
+        // 确保根节点是可以执行 querySelectorAll 的节点类型。
+        // 这包括元素节点 (Element) 和文档片段节点 (DocumentFragment)，例如 Shadow Root。
+        if (root.nodeType !== Node.ELEMENT_NODE && root.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) {
+            continue;
+        }
 
         // 如果根节点本身匹配，也将其加入候选列表。
-        if (root.matches(allSelectors)) {
+        // 注意：Shadow Root 本身没有 tagName，不能直接 matches，但它的 host 元素可能匹配。
+        // 为简化逻辑，我们主要关注其内部的查询。
+        if (root.nodeType === Node.ELEMENT_NODE && root.matches(allSelectors)) {
             allCandidates.add(root);
         }
         // 查询根节点下的所有匹配项。
+        // Element 和 DocumentFragment 都支持 querySelectorAll。
         root.querySelectorAll(allSelectors).forEach(el => allCandidates.add(el));
     }
 
@@ -214,8 +264,10 @@ class PageTranslationJob {
         this.#initializeObservers();
         this.#startMutationObserver();
 
-        const elementsToObserve = findTranslatableElements(this.settings);
-        console.log(`[Foxlate] Found ${elementsToObserve.length} initial elements to observe.`);
+        const allSearchRoots = findAllSearchRoots(document.body);
+        const elementsToObserve = findTranslatableElements(this.settings, allSearchRoots);
+
+        console.log(`[Foxlate] Found ${elementsToObserve.length} initial elements to observe across ${allSearchRoots.length} roots.`);
         if (elementsToObserve.length > 0) {
             this.#observeElements(elementsToObserve);
             this.state = 'translating'; // 正式进入翻译中状态
@@ -347,8 +399,8 @@ class PageTranslationJob {
                     // (新) 修复：正确跳过由脚本自身生成的包裹元素。
                     if (node.dataset.foxlateGenerated === 'true') continue;
 
-                        this.mutationQueue.add(node);
-                        hasNewNodes = true;
+                    this.mutationQueue.add(node);
+                    hasNewNodes = true;
                 }
             }
         }
@@ -370,7 +422,15 @@ class PageTranslationJob {
             return;
         }
 
-        const newElements = findTranslatableElements(this.settings, newNodes);
+        // 对每个新增的节点，也查找其内部可能存在的 Shadow Root
+        let allSearchRoots = newNodes;
+        newNodes.forEach(node => {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+                allSearchRoots = allSearchRoots.concat(findAllSearchRoots(node));
+            }
+        });
+
+        const newElements = findTranslatableElements(this.settings, allSearchRoots);
         if (newElements.length > 0) {
             console.log(`[Foxlate] Found ${newElements.length} new dynamic elements to observe.`);
             this.#observeElements(newElements);
