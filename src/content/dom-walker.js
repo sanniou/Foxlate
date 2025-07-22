@@ -80,7 +80,7 @@ export class DOMWalker {
      * @param {object} [config={}] - 包含选择器配置的对象。
      * @param {string} [config.inline] - 应视为内联的 CSS 选择器。
      * @param {string} [config.block] - 应视为块级的 CSS 选择器。
-     * @param {string} [config.excludeSelectors] - 应排除翻译的 CSS 选择器。
+     * @param {string} [config.exclude] - 应排除翻译的 CSS 选择器。
      * @returns {{sourceText: string, translationUnit: object}|null}
      */
     static create(rootElement, config = {}) {
@@ -88,14 +88,14 @@ export class DOMWalker {
         // 在进行昂贵的DOM遍历之前，先执行一些快速检查，以提前排除不合格的元素。
 
         // (新) 检查此元素或其父元素是否匹配排除选择器，并添加了错误处理。
-        if (config.excludeSelectors) {
+        if (config.exclude) {
             try {
-                if (rootElement.closest(config.excludeSelectors)) {
+                if (rootElement.closest(config.exclude)) {
                     return null;
                 }
             } catch (e) {
                 // 如果选择器无效，记录错误并忽略该规则，而不是使整个脚本崩溃。
-                console.error(`[Foxlate] Invalid exclude selector in configuration: "${config.excludeSelectors}". Translation will proceed.`, e);
+                console.error(`[Foxlate] Invalid exclude selector in configuration: "${config.exclude}". Translation will proceed.`, e);
             }
         }
 
@@ -152,9 +152,9 @@ export class DOMWalker {
                 } else if (child.nodeType === Node.ELEMENT_NODE) {
                     // (新) 在遍历期间检查元素是否匹配排除规则。
                     // 这修复了只排除顶层容器而不排除其内部匹配元素的缺陷。
-                    if (config.excludeSelectors) {
+                    if (config.exclude) {
                         try {
-                            if (child.matches(config.excludeSelectors)) {
+                            if (child.matches(config.exclude)) {
                                 continue; // 如果匹配，则跳过此元素及其所有子元素。
                             }
                         } catch (e) {

@@ -220,18 +220,23 @@ export class SettingsManager {
         if (ruleSelector) {
             const ruleInline = ruleSelector.inline || '';
             const ruleBlock = ruleSelector.block || '';
+            const ruleExclude = ruleSelector.exclude || '';
             if (override) {
                 finalInlineSelector = ruleInline;
                 finalBlockSelector = ruleBlock;
+                finalExcludeSelector = ruleExclude;
             } else {
-                if (ruleInline) finalInlineSelector = `${finalInlineSelector}, ${ruleInline}`.replace(/^, /, '');
-                if (ruleBlock) finalBlockSelector = `${finalBlockSelector}, ${ruleBlock}`.replace(/^, /, '');
+                // 使用 filter(Boolean) 和 join 来优雅地合并选择器，避免前导逗号
+                if (ruleInline) finalInlineSelector = [finalInlineSelector, ruleInline].filter(Boolean).join(', ');
+                if (ruleBlock) finalBlockSelector = [finalBlockSelector, ruleBlock].filter(Boolean).join(', ');
+                if (ruleExclude) finalExcludeSelector = [finalExcludeSelector, ruleExclude].filter(Boolean).join(', ');
             }
         }
 
         effectiveSettings.translationSelector = {
             inline: finalInlineSelector,
             block: finalBlockSelector,
+            exclude: finalExcludeSelector,
         };
 
         // 如果存在特定于域的预检查规则，则使用它们，否则使用全局规则。

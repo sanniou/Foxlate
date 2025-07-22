@@ -354,7 +354,7 @@ function translateElement(element, effectiveSettings) {
     if (!element || !(element instanceof HTMLElement)) return;
 
     // 1. 创建翻译单元并解构结果
-    const domWalkerResult = DOMWalker.create(element);
+    const domWalkerResult = DOMWalker.create(element, effectiveSettings.translationSelector);
     if (!domWalkerResult) {
         return; // 没有可翻译的内容
     }
