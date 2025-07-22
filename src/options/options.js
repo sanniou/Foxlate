@@ -48,7 +48,9 @@ document.addEventListener('DOMContentLoaded', () => {
         aiModelNameInput: document.getElementById('aiModelName'),
         aiCustomPromptInput: document.getElementById('aiCustomPrompt'),
         aiShortTextThresholdInput: document.getElementById('aiShortTextThreshold'),
+        aiTestText: document.getElementById('aiTestText'),
         aiShortTextEngineSelect: document.getElementById('aiShortTextEngine'),
+        aiTestSection: document.getElementById('aiTestSection'), // (新) 测试区域容器
         saveAiEngineBtn: document.getElementById('saveAiEngineBtn'),
         cancelAiEngineBtn: document.getElementById('cancelAiEngineBtn'),
         testAiEngineBtn: document.getElementById('testAiEngineBtn'),
@@ -863,8 +865,15 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     const closeModal = (modalElement, onClosed) => {
         if (!modalElement) return;
-        document.body.classList.remove('modal-open');
         modalElement.classList.remove('is-visible');
+
+        // (新) 检查是否还有其他可见的弹窗。
+        // 仅当这是最后一个关闭的弹窗时，才解除对 body 的滚动锁定。
+        // 这修复了在层叠弹窗中关闭顶层弹窗时，背景页面会滚动的问题。
+        const stillVisibleModals = document.querySelectorAll('.modal.is-visible');
+        if (stillVisibleModals.length === 0) {
+            document.body.classList.remove('modal-open');
+        }
 
         const modalContent = modalElement.querySelector('.modal-content');
         if (!modalContent) {
@@ -914,7 +923,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const hideAiEngineForm = () => {
         elements.aiEngineForm.style.display = 'none';
-        elements.aiTestResult.style.display = 'none';
+        elements.aiTestSection.style.display = 'none'; // (新) 隐藏整个测试区域，它会重置其内部状态
         aiEngineValidator.clearAllErrors();
         currentEditingAiEngineId = null;
     };
@@ -1025,11 +1034,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Show the form itself
         elements.aiEngineForm.style.display = 'block';
+        elements.aiTestSection.style.display = 'none'; // (新) 确保在编辑/添加时测试区域是隐藏的
         populateEngineSelect(elements.aiShortTextEngineSelect, { includeDefault: true, excludeId: engine.id }); // 确保包含“使用默认”选项
 
-        // Hide test result
-        elements.aiTestResult.style.display = 'none';
         elements.aiFormTitle.textContent = engine.id ? (browser.i18n.getMessage('edit') || 'Edit') : (browser.i18n.getMessage('add') || 'Add');
+        elements.aiTestText.value = 'Hello, world!'; // 设置默认测试文本
 
         // ** 优化：统一处理所有表单字段的值设置 **
         const formFields = {
@@ -1696,26 +1705,38 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // (新) 点击测试时，显示测试区域
+        elements.aiTestSection.style.display = 'block';
+
         const engineData = getAiEngineFormData();
+        const testText = elements.aiTestText.value.trim() || 'Hello, world!'; // 如果为空则使用默认文本
+
         elements.aiTestResult.textContent = browser.i18n.getMessage('testing') || 'Testing...';
         // Reset classes and make visible
         elements.aiTestResult.classList.remove('success', 'error');
         elements.aiTestResult.style.display = 'block';
+
+        // (新) 自动滚动到结果区域，以改善用户体验
+        elements.aiTestResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
         try {
             const response = await browser.runtime.sendMessage({
                 type: 'TEST_CONNECTION',
                 payload: {
                     engine: 'ai',
-                    settings: { ...engineData } // Pass the specific AI config to test
+                    settings: { ...engineData }, // 传递特定的 AI 配置以供测试
+                    text: testText // (新) 传递用户输入的测试文本
                 }
             });
 
             if (response.success) {
-                elements.aiTestResult.textContent = `${browser.i18n.getMessage('testOriginal')}: test, ${browser.i18n.getMessage('testTranslated')}: ${response.translatedText.text}`;
+                elements.aiTestResult.innerHTML = `
+                    <strong>${browser.i18n.getMessage('testOriginal') || 'Original'}:</strong> ${escapeHtml(testText)}<br>
+                    <strong>${browser.i18n.getMessage('testTranslated') || 'Translated'}:</strong> ${escapeHtml(response.translatedText.text)}
+                `;
                 elements.aiTestResult.classList.add('success');
             } else {
-                elements.aiTestResult.textContent = `${browser.i18n.getMessage('testError')}: ${response.error}`;
+                elements.aiTestResult.textContent = `${browser.i18n.getMessage('testError') || 'Error'}: ${response.error}`;
                 elements.aiTestResult.classList.add('error');
             }
         } catch (error) {

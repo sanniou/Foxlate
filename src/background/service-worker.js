@@ -367,14 +367,14 @@ const messageHandlers = {
 
 
     async TEST_CONNECTION(request) {
-        const { engine, settings } = request.payload;
+        const { engine, settings, text } = request.payload;
         if (engine !== 'ai') {
             return { success: false, error: `Connection test is only supported for AI engines, but got: ${engine}` };
         }
         const translator = new AITranslator();
         try {
             // 直接使用从 payload 传来的临时设置调用翻译器。
-            const result = await translator.translate('test', 'EN', 'auto', settings);
+            const result = await translator.translate(text, 'EN', 'auto', settings);
 
             // 返回与 TRANSLATE_TEXT 处理器一致的数据结构，
             // 这是选项页面 UI 所期望的。

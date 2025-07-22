@@ -30,6 +30,14 @@
         #domainRuleForm > .m3-form-field:first-child {
             margin-top: 0;
         }
+        /* (新) 弹窗内小标题样式 */
+        .modal-content h4 {
+            font-size: var(--md-sys-typescale-title-small-font-size);
+            color: var(--md-sys-color-on-surface-variant);
+            margin-top: 0; /* 在 hr 之后，不需要上边距 */
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+        }
         .form-grid-2col {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -334,6 +342,18 @@
                         </select>
                         <label for="aiShortTextEngine" i18n-text="aiShortTextEngine">Short Text Engine</label>
                     </div>
+
+                    <!-- (新) 将测试部分包裹在一个默认隐藏的容器中 -->
+                    <div id="aiTestSection" style="display: none;">
+                        <hr class="divider">
+                        <h4 i18n-text="testConnection">Test Connection</h4>
+                        <div class="m3-form-field filled">
+                            <textarea id="aiTestText" rows="2" placeholder=" "></textarea>
+                            <label for="aiTestText" i18n-text="testOriginal">Original</label>
+                        </div>
+                        <div id="aiTestResult" class="ai-test-result-message"></div>
+                    </div>
+
                     <div class="button-group ai-engine-form-buttons">
                         <button id="testAiEngineBtn" class="m3-button filled" i18n-text="test">Test Connection</button>
                         <div class="action-buttons">
@@ -341,7 +361,6 @@
                             <button id="saveAiEngineBtn" class="m3-button filled" i18n-text="saveAiEngine">Save AI Engine</button>
                         </div>
                     </div>
-                    <div id="aiTestResult" class="ai-test-result-message"></div>
                 </div>
             </div>
         </div>
