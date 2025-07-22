@@ -884,6 +884,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // Force reflow to ensure the initial state is rendered before the transition starts.
         modalElement.offsetWidth;
         modalElement.classList.add('is-visible');
+
+        // (新) 每次打开弹窗时，重置其滚动位置到顶部。
+        // 这确保了用户每次都能从头开始查看内容，而不是从上次关闭时的位置继续。
+        const scrollableContent = modalElement.querySelector('#domainRuleForm, .modal-scroll-content');
+        if (scrollableContent) {
+            scrollableContent.scrollTop = 0;
+        } else {
+            // 对于那些自身可滚动的弹窗（例如导入弹窗），直接重置其滚动位置。
+            modalElement.scrollTop = 0;
+        }
     };
 
     /**
