@@ -6,13 +6,15 @@
     <title>Foxlate Settings</title>
     <link rel="stylesheet" href="options.css">
     <style>
-        /* 为域名规则弹窗添加滚动条 */
-        #domainRuleModal .modal-content {
+        /* 为弹窗添加滚动条 */
+        #domainRuleModal .modal-content,
+        #aiEngineModal .modal-content {
             display: flex;
             flex-direction: column;
             max-height: 85vh; /* 限制弹窗最大高度，为屏幕留出边距 */
         }
-        #domainRuleForm {
+        #domainRuleForm,
+        #aiEngineModal .modal-scroll-content {
             overflow-y: auto; /* 为表单内容区域启用垂直滚动 */
             padding-right: 12px; /* 为滚动条留出一些空间，避免内容紧贴滚动条 */
         }
@@ -284,60 +286,63 @@
         <div class="modal-content">
             <span class="close-button">&times;</span>
             <h2 i18n-text="aiEngineProfiles">AI Engine Profiles</h2>
-            <div id="aiEngineList" class="ai-engine-list">
-                <!-- AI engines will be dynamically added here -->
-            </div>
-            <div class="button-group">
-                <button id="addAiEngineBtn" class="m3-button filled-tonal" i18n-text="addAiEngine"></button>
-               <button id="openImportAiEngineModalBtn" class="m3-button filled-tonal" i18n-text="importAiEngine"></button>
-            </div>            <div id="aiEngineForm" class="form-group" style="display: none;">
+            <div class="modal-scroll-content">
+                <div id="aiEngineList" class="ai-engine-list">
+                    <!-- AI engines will be dynamically added here -->
+                </div>
+                <div class="button-group">
+                    <button id="addAiEngineBtn" class="m3-button filled-tonal" i18n-text="addAiEngine"></button>
+                   <button id="openImportAiEngineModalBtn" class="m3-button filled-tonal" i18n-text="importAiEngine"></button>
+                </div>
+                <div id="aiEngineForm" class="form-group" style="display: none;">
 
-                <h3><span id="aiFormTitle"></span> AI Engine</h3>
-                <div class="m3-form-field filled">
-                    <input type="text" id="aiEngineName" placeholder=" ">
-                    <label for="aiEngineName" i18n-text="aiEngineName">Engine Name:<span class="required-indicator">*</span></label>
-                    <div class="error-message" id="aiEngineNameError"></div>
-                </div>
-                <div class="m3-form-field filled">
-                    <input type="password" id="aiApiKey" i18n-placeholder="aiApiKeyPlaceholder" placeholder=" ">
-                    <label for="aiApiKey" i18n-text="aiApiKey">AI API Key:<span class="required-indicator">*</span></label>
-                    <div class="error-message" id="aiApiKeyError"></div>
-                </div>
-                <div class="m3-form-field filled">
-                    <input type="text" id="aiApiUrl" i18n-placeholder="aiApiUrlPlaceholder" placeholder=" ">
-                    <label for="aiApiUrl" i18n-text="aiApiUrl">API Endpoint URL:<span class="required-indicator">*</span></label>
-                    <div class="error-message" id="aiApiUrlError"></div>
-                </div>
-                <div class="m3-form-field filled">
-                    <input type="text" id="aiModelName" i18n-placeholder="aiModelNamePlaceholder" placeholder=" ">
-                    <label for="aiModelName" i18n-text="aiModelName">Model Name:<span class="required-indicator">*</span></label>
-                    <div class="error-message" id="aiModelNameError"></div>
-                </div>
-                <div class="m3-form-field filled">
-                    <textarea id="aiCustomPrompt" rows="4" i18n-placeholder="aiCustomPromptPlaceholder" placeholder=" "></textarea>
-                    <label for="aiCustomPrompt" i18n-text="aiCustomPrompt">Custom Prompt:<span class="required-indicator">*</span></label>
-                    <div class="error-message" id="aiCustomPromptError"></div>
-                </div>
-
-                <div class="m3-form-field filled">
-                    <input type="number" id="aiShortTextThreshold" min="0" value="1" placeholder=" ">
-                    <label for="aiShortTextThreshold" i18n-text="aiShortTextThreshold">Short Text Word Threshold</label>
-                </div>
-
-                <div class="m3-form-field filled">
-                    <select id="aiShortTextEngine">
-                        <!-- Options will be populated by options.js -->
-                    </select>
-                    <label for="aiShortTextEngine" i18n-text="aiShortTextEngine">Short Text Engine</label>
-                </div>
-                <div class="button-group ai-engine-form-buttons">
-                    <button id="testAiEngineBtn" class="m3-button filled" i18n-text="test">Test Connection</button>
-                    <div class="action-buttons">
-                        <button id="cancelAiEngineBtn" class="m3-button text" i18n-text="cancel">Cancel</button>
-                        <button id="saveAiEngineBtn" class="m3-button filled" i18n-text="saveAiEngine">Save AI Engine</button>
+                    <h3><span id="aiFormTitle"></span> AI Engine</h3>
+                    <div class="m3-form-field filled">
+                        <input type="text" id="aiEngineName" placeholder=" ">
+                        <label for="aiEngineName" i18n-text="aiEngineName">Engine Name:<span class="required-indicator">*</span></label>
+                        <div class="error-message" id="aiEngineNameError"></div>
                     </div>
+                    <div class="m3-form-field filled">
+                        <input type="password" id="aiApiKey" i18n-placeholder="aiApiKeyPlaceholder" placeholder=" ">
+                        <label for="aiApiKey" i18n-text="aiApiKey">AI API Key:<span class="required-indicator">*</span></label>
+                        <div class="error-message" id="aiApiKeyError"></div>
+                    </div>
+                    <div class="m3-form-field filled">
+                        <input type="text" id="aiApiUrl" i18n-placeholder="aiApiUrlPlaceholder" placeholder=" ">
+                        <label for="aiApiUrl" i18n-text="aiApiUrl">API Endpoint URL:<span class="required-indicator">*</span></label>
+                        <div class="error-message" id="aiApiUrlError"></div>
+                    </div>
+                    <div class="m3-form-field filled">
+                        <input type="text" id="aiModelName" i18n-placeholder="aiModelNamePlaceholder" placeholder=" ">
+                        <label for="aiModelName" i18n-text="aiModelName">Model Name:<span class="required-indicator">*</span></label>
+                        <div class="error-message" id="aiModelNameError"></div>
+                    </div>
+                    <div class="m3-form-field filled">
+                        <textarea id="aiCustomPrompt" rows="4" i18n-placeholder="aiCustomPromptPlaceholder" placeholder=" "></textarea>
+                        <label for="aiCustomPrompt" i18n-text="aiCustomPrompt">Custom Prompt:<span class="required-indicator">*</span></label>
+                        <div class="error-message" id="aiCustomPromptError"></div>
+                    </div>
+
+                    <div class="m3-form-field filled">
+                        <input type="number" id="aiShortTextThreshold" min="0" value="1" placeholder=" ">
+                        <label for="aiShortTextThreshold" i18n-text="aiShortTextThreshold">Short Text Word Threshold</label>
+                    </div>
+
+                    <div class="m3-form-field filled">
+                        <select id="aiShortTextEngine">
+                            <!-- Options will be populated by options.js -->
+                        </select>
+                        <label for="aiShortTextEngine" i18n-text="aiShortTextEngine">Short Text Engine</label>
+                    </div>
+                    <div class="button-group ai-engine-form-buttons">
+                        <button id="testAiEngineBtn" class="m3-button filled" i18n-text="test">Test Connection</button>
+                        <div class="action-buttons">
+                            <button id="cancelAiEngineBtn" class="m3-button text" i18n-text="cancel">Cancel</button>
+                            <button id="saveAiEngineBtn" class="m3-button filled" i18n-text="saveAiEngine">Save AI Engine</button>
+                        </div>
+                    </div>
+                    <div id="aiTestResult" class="ai-test-result-message"></div>
                 </div>
-                <div id="aiTestResult" class="ai-test-result-message"></div>
             </div>
         </div>
     </div>
