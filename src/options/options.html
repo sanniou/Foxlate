@@ -160,6 +160,7 @@
                 <div class="m3-form-field filled">
                     <textarea id="defaultInlineSelector" rows="3" placeholder=" "></textarea>
                     <label for="defaultInlineSelector" i18n-text="inlineSelectorLabel">Inline Selector (Single Line)</label>
+                    <div class="error-message" id="defaultInlineSelectorError"></div>
                 </div>
                 <div class="m3-helper-text">
                     <small i18n-text="inlineSelectorDescription">For short texts like titles, buttons, and labels. Translations will be merged into a single line.</small>
@@ -170,9 +171,21 @@
                 <div class="m3-form-field filled">
                     <textarea id="defaultBlockSelector" rows="3" placeholder=" "></textarea>
                     <label for="defaultBlockSelector" i18n-text="blockSelectorLabel">Block Selector (Preserve Newlines)</label>
+                    <div class="error-message" id="defaultBlockSelectorError"></div>
                 </div>
                 <div class="m3-helper-text">
                     <small i18n-text="blockSelectorDescription">For main content like paragraphs and articles. Translations will preserve original newlines.</small>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <div class="m3-form-field filled">
+                    <textarea id="defaultExcludeSelector" rows="2" placeholder=" "></textarea>
+                    <label for="defaultExcludeSelector" i18n-text="excludeSelectorsLabel">Exclude Selectors</label>
+                    <div class="error-message" id="defaultExcludeSelectorError"></div>
+                </div>
+                <div class="m3-helper-text">
+                    <small i18n-text="excludeSelectorsDescription">Elements matching these selectors (and their children) will not be translated. Use a comma to separate multiple selectors.</small>
                 </div>
             </div>
 
@@ -406,10 +419,12 @@
                     <div class="m3-form-field filled">
                         <textarea id="ruleInlineSelector" rows="2" placeholder=" "></textarea>
                         <label for="ruleInlineSelector" i18n-text="inlineSelectorLabel">Inline Selector (Single Line)</label>
+                        <div class="error-message" id="ruleInlineSelectorError"></div>
                     </div>
                     <div class="m3-form-field filled">
                         <textarea id="ruleBlockSelector" rows="2" placeholder=" "></textarea>
                         <label for="ruleBlockSelector" i18n-text="blockSelectorLabel">Block Selector (Preserve Newlines)</label>
+                        <div class="error-message" id="ruleBlockSelectorError"></div>
                     </div>
                     <div class="m3-form-field filled">
                         <textarea id="ruleExcludeSelector" rows="2" placeholder=" "></textarea>

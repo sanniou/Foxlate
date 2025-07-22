@@ -209,12 +209,13 @@ export class SettingsManager {
             effectiveSettings.subtitleSettings = { enabled: false, strategy: 'none', displayMode: 'off' };
         }
 
-        const defaultSelector = settings.translationSelector?.default || { inline: '', block: '' };
+        const defaultSelector = settings.translationSelector?.default || { inline: '', block: '', exclude: '' };
         const ruleSelector = domainRule.cssSelector;
         const override = domainRule.cssSelectorOverride || false;
 
         let finalInlineSelector = defaultSelector.inline || '';
         let finalBlockSelector = defaultSelector.block || '';
+        let finalExcludeSelector = defaultSelector.exclude || '';
 
         if (ruleSelector) {
             const ruleInline = ruleSelector.inline || '';

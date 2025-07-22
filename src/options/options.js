@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
         targetLanguage: document.getElementById('targetLanguage'),
         defaultInlineSelector: document.getElementById('defaultInlineSelector'),
         defaultBlockSelector: document.getElementById('defaultBlockSelector'),
+        defaultExcludeSelector: document.getElementById('defaultExcludeSelector'),
         deeplxApiUrl: document.getElementById('deeplxApiUrl'),
         // AI Engine Modal Elements
         aiEngineModal: document.getElementById('aiEngineModal'),
@@ -65,7 +66,6 @@ document.addEventListener('DOMContentLoaded', () => {
         ruleInlineSelectorTextarea: document.getElementById('ruleInlineSelector'),
         ruleBlockSelectorTextarea: document.getElementById('ruleBlockSelector'),
         ruleExcludeSelectorTextarea: document.getElementById('ruleExcludeSelector'),
-        ruleExcludeSelectorError: document.getElementById('ruleExcludeSelectorError'), // 新增
         ruleCssSelectorOverrideCheckbox: document.getElementById('ruleCssSelectorOverride'),
         cancelDomainRuleBtn: document.getElementById('cancelDomainRuleBtn'),
         ruleEnableSubtitleCheckbox: document.getElementById('ruleEnableSubtitle'),
@@ -177,6 +177,38 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
+ * (新) 通用 CSS 选择器验证器。
+ * 验证一个输入字段中的逗号分隔的 CSS 选择器列表。
+ * @param {HTMLInputElement|HTMLTextAreaElement} inputElement - 要验证的输入元素。
+ * @returns {boolean} 如果所有选择器都有效或输入为空，则返回 true；否则返回 false。
+ */
+    function validateCssSelectorInput(inputElement) {
+        const field = inputElement.closest('.m3-form-field');
+        if (!field) return true; // 找不到容器，假定有效
+
+        const errorEl = field.querySelector('.error-message');
+        const selectorValue = inputElement.value.trim();
+
+        // 清除之前的错误
+        field.classList.remove('is-invalid');
+        if (errorEl) errorEl.textContent = '';
+
+        if (selectorValue) {
+            const selectors = selectorValue.split(',').map(s => s.trim()).filter(s => s);
+            for (const selector of selectors) {
+                try {
+                    // 这仅用于验证目的。如果选择器无效，它将抛出错误。
+                    document.querySelector(selector);
+                } catch (e) {
+                    field.classList.add('is-invalid');
+                    if (errorEl) errorEl.textContent = browser.i18n.getMessage('invalidCssSelector');
+                    return false; // 无效
+                }
+            }
+        }
+        return true; // 有效
+    }
+    /**
      * Validates a regular expression and its flags.
      * Adds/removes 'is-invalid' class and sets 'title' attribute for error messages.
      * @param {HTMLInputElement} regexInput - The input element containing the regex string.
@@ -239,7 +271,8 @@ document.addEventListener('DOMContentLoaded', () => {
         settings.translationSelector = {
             default: {
                 inline: elements.defaultInlineSelector.value,
-                block: elements.defaultBlockSelector.value
+                block: elements.defaultBlockSelector.value,
+                exclude: elements.defaultExcludeSelector.value
             }
         };
         settings.aiEngines = aiEngines; // 此数组在内存中保持同步
@@ -345,6 +378,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const defaultSelector = currentSettings.translationSelector.default || {};
             elements.defaultInlineSelector.value = defaultSelector.inline || '';
             elements.defaultBlockSelector.value = defaultSelector.block || '';
+            elements.defaultExcludeSelector.value = defaultSelector.exclude || '';
             elements.deeplxApiUrl.value = currentSettings.deeplxApiUrl;
             elements.displayModeSelect.value = currentSettings.displayMode;
 
@@ -374,10 +408,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const settingsToSave = getSettingsFromUI();
         const hasInvalidRegex = !!document.querySelector('.rule-item .m3-form-field.is-invalid');
 
-        if (hasInvalidRegex) {
+        // (新) 统一验证
+        let areSelectorsValid = true;
+        areSelectorsValid = validateCssSelectorInput(elements.defaultInlineSelector) && areSelectorsValid;
+        areSelectorsValid = validateCssSelectorInput(elements.defaultBlockSelector) && areSelectorsValid;
+        areSelectorsValid = validateCssSelectorInput(elements.defaultExcludeSelector) && areSelectorsValid;
+
+        if (hasInvalidRegex || !areSelectorsValid) {
             // --- 3a. 处理验证错误，CSS 将自动触发抖动动画 ---
             elements.saveSettingsBtn.dataset.state = 'error';
-            const firstInvalidField = document.querySelector('.rule-item .m3-form-field.is-invalid');
+            const firstInvalidField = document.querySelector('.settings-section .m3-form-field.is-invalid');
+
             if (firstInvalidField) {
                 firstInvalidField.classList.add('error-shake');
                 setTimeout(() => firstInvalidField.classList.remove('error-shake'), 500);
@@ -678,42 +719,26 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const saveDomainRule = async () => {
-        const newDomain = elements.ruleDomainInput.value.trim();
-        const originalDomain = elements.editingDomainInput.value;
-        // --- 1. 使用通用验证器进行验证 ---
-        if (!domainRuleValidator.validate()) {
+        // --- 1. 统一验证 ---
+        // 首先验证必填项（如域名），然后验证所有 CSS 选择器。
+        let isFormValid = domainRuleValidator.validate();
+        isFormValid = validateCssSelectorInput(elements.ruleInlineSelectorTextarea) && isFormValid;
+        isFormValid = validateCssSelectorInput(elements.ruleBlockSelectorTextarea) && isFormValid;
+        isFormValid = validateCssSelectorInput(elements.ruleExcludeSelectorTextarea) && isFormValid;
+
+        if (!isFormValid) {
+            // 如果验证失败，则抖动弹窗内的第一个无效字段以提示用户。
+            const firstInvalidField = elements.domainRuleModal.querySelector('.m3-form-field.is-invalid');
+            if (firstInvalidField) {
+                firstInvalidField.classList.add('error-shake');
+                setTimeout(() => firstInvalidField.classList.remove('error-shake'), 500);
+            }
             return;
         }
 
-        // (新) 手动验证排除选择器
-        const excludeSelectorInput = elements.ruleExcludeSelectorTextarea;
-        const excludeSelectorField = excludeSelectorInput.closest('.m3-form-field');
-        const excludeSelectorErrorEl = elements.ruleExcludeSelectorError;
-        const excludeSelector = excludeSelectorInput.value.trim();
-
-        excludeSelectorField.classList.remove('is-invalid');
-        if (excludeSelectorErrorEl) excludeSelectorErrorEl.textContent = '';
-
-        if (excludeSelector) {
-            // (新) 验证列表中的每一个选择器，而不仅仅是第一个。
-            const selectors = excludeSelector.split(',').map(s => s.trim()).filter(s => s);
-            let isInvalid = false;
-            for (const selector of selectors) {
-                try {
-                    // 仅用于验证目的，如果选择器无效则会抛出异常。
-                    document.querySelector(selector);
-                } catch (e) {
-                    isInvalid = true;
-                    break; // 找到第一个无效的选择器后就停止
-                }
-            }
-            if (isInvalid) {
-                excludeSelectorField.classList.add('is-invalid');
-                if (excludeSelectorErrorEl) excludeSelectorErrorEl.textContent = browser.i18n.getMessage('invalidCssSelector');
-                return; // 停止保存
-            }
-        }
         // --- 2. 构造规则对象，为提高效率排除默认值 ---
+        const newDomain = elements.ruleDomainInput.value.trim();
+        const originalDomain = elements.editingDomainInput.value;
         const rule = {};
         // The default for applyToSubdomains is true, so only save the value if it's false.
         if (!elements.ruleApplyToSubdomainsCheckbox.checked) {
@@ -736,24 +761,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const inlineSelector = elements.ruleInlineSelectorTextarea.value.trim();
         const blockSelector = elements.ruleBlockSelectorTextarea.value.trim();
+        const excludeSelector = elements.ruleExcludeSelectorTextarea.value.trim();
 
         rule.cssSelectorOverride = elements.ruleCssSelectorOverrideCheckbox.checked;
         // 仅当至少一个选择器有值时，才保存 cssSelector 对象。
-        if (inlineSelector || blockSelector) {
+        if (inlineSelector || blockSelector || excludeSelector) {
             rule.cssSelector = {
                 inline: inlineSelector,
-                block: blockSelector
+                block: blockSelector,
+                exclude: excludeSelector
             };
         } else {
             // 如果两者都为空，则不保存 cssSelector 属性。
             // 这样，除非勾选了覆盖，否则它将继承全局规则。
             delete rule.cssSelector;
-        }
-        // (新) 保存排除选择器
-        if (excludeSelector) {
-            rule.excludeSelectors = excludeSelector;
-        } else {
-            delete rule.excludeSelectors; // 如果为空，则从规则中删除该属性，保持数据清洁
         }
         // --- 保存字幕设置 ---
         // 改进：在禁用时保留现有设置，以改善用户体验。
@@ -951,8 +972,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const selectorObj = selector || {};
             elements.ruleInlineSelectorTextarea.value = selectorObj.inline || '';
             elements.ruleBlockSelectorTextarea.value = selectorObj.block || '';
+            elements.ruleExcludeSelectorTextarea.value = selectorObj.exclude || '';
         }
-        elements.ruleExcludeSelectorTextarea.value = ruleData.excludeSelectors || ''; // 新增：填充排除选择器
         // Default to false if not specified
         elements.ruleCssSelectorOverrideCheckbox.checked = ruleData.cssSelectorOverride || false;
 
@@ -1187,7 +1208,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const target = e.target;
 
         // --- Settings that trigger save button ---
-        if (target.matches('#defaultInlineSelector, #defaultBlockSelector, #deeplxApiUrl, #cacheSizeInput')) {
+        if (target.matches('#defaultInlineSelector, #defaultBlockSelector, #defaultExcludeSelector, #deeplxApiUrl, #cacheSizeInput')) {
             return updateSaveButtonState();
         }
 
