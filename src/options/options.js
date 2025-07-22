@@ -408,13 +408,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const settingsToSave = getSettingsFromUI();
         const hasInvalidRegex = !!document.querySelector('.rule-item .m3-form-field.is-invalid');
 
-        // (新) 统一验证
-        let areSelectorsValid = true;
-        areSelectorsValid = validateCssSelectorInput(elements.defaultInlineSelector) && areSelectorsValid;
-        areSelectorsValid = validateCssSelectorInput(elements.defaultBlockSelector) && areSelectorsValid;
-        areSelectorsValid = validateCssSelectorInput(elements.defaultExcludeSelector) && areSelectorsValid;
+        // (新) 独立验证所有选择器以显示所有错误，而不是因短路而停止。
+        const isInlineValid = validateCssSelectorInput(elements.defaultInlineSelector);
+        const isBlockValid = validateCssSelectorInput(elements.defaultBlockSelector);
+        const isExcludeValid = validateCssSelectorInput(elements.defaultExcludeSelector);
 
-        if (hasInvalidRegex || !areSelectorsValid) {
+        if (hasInvalidRegex || !isInlineValid || !isBlockValid || !isExcludeValid) {
             // --- 3a. 处理验证错误，CSS 将自动触发抖动动画 ---
             elements.saveSettingsBtn.dataset.state = 'error';
             const firstInvalidField = document.querySelector('.settings-section .m3-form-field.is-invalid');
@@ -720,13 +719,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const saveDomainRule = async () => {
         // --- 1. 统一验证 ---
-        // 首先验证必填项（如域名），然后验证所有 CSS 选择器。
-        let isFormValid = domainRuleValidator.validate();
-        isFormValid = validateCssSelectorInput(elements.ruleInlineSelectorTextarea) && isFormValid;
-        isFormValid = validateCssSelectorInput(elements.ruleBlockSelectorTextarea) && isFormValid;
-        isFormValid = validateCssSelectorInput(elements.ruleExcludeSelectorTextarea) && isFormValid;
+        // 独立运行所有验证器，以确保所有错误消息都会显示，而不是因短路而停止。
+        const isDomainValid = domainRuleValidator.validate();
+        const isInlineValid = validateCssSelectorInput(elements.ruleInlineSelectorTextarea);
+        const isBlockValid = validateCssSelectorInput(elements.ruleBlockSelectorTextarea);
+        const isExcludeValid = validateCssSelectorInput(elements.ruleExcludeSelectorTextarea);
 
-        if (!isFormValid) {
+        if (!isDomainValid || !isInlineValid || !isBlockValid || !isExcludeValid) {
             // 如果验证失败，则抖动弹窗内的第一个无效字段以提示用户。
             const firstInvalidField = elements.domainRuleModal.querySelector('.m3-form-field.is-invalid');
             if (firstInvalidField) {

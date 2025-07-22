@@ -243,9 +243,9 @@
     "message": "Use Default",
     "description": "Option in dropdowns to inherit from global settings."
   },
-  "selectorPlaceholderDomain": {
-    "message": "e.g., .content, #main-article",
-    "description": "Placeholder for the domain-specific CSS selector textarea."
+  "selectorPlaceholderGlobal": {
+    "message": "e.g., .class, #id, [attribute=value]",
+    "description": "Placeholder for the global CSS selector textareas."
   },
   "overrideDefaultSelectors": {
     "message": "Override default selectors",

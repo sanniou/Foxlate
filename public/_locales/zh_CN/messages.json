@@ -247,9 +247,9 @@
     "message": "使用默认设置",
     "description": "下拉菜单中继承全局设置的选项。"
   },
-  "selectorPlaceholderDomain": {
-    "message": "例如：.content, #main-article",
-    "description": "域名特定CSS选择器文本区域的占位符。"
+  "selectorPlaceholderGlobal": {
+    "message": "例如：.class, #id, [attribute=value]",
+    "description": "全局 CSS 选择器文本区域的占位符。"
   },
   "overrideDefaultSelectors": {
     "message": "覆盖默认选择器",

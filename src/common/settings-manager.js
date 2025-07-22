@@ -20,6 +20,20 @@ export class SettingsManager {
 
     // --- Public Static Methods ---
 
+    /**
+     * @private
+     * (新) 智能地合并两个逗号分隔的选择器字符串，同时移除重复项和多余的空格。
+     * @param {string} baseSelectors - 基础选择器字符串（例如，全局规则）。
+     * @param {string} additionalSelectors - 要添加的选择器字符串（例如，域名规则）。
+     * @returns {string} 一个干净、无重复的合并后选择器字符串。
+     */
+    static #mergeSelectors(baseSelectors, additionalSelectors) {
+        const base = baseSelectors.split(',').map(s => s.trim()).filter(Boolean);
+        const additional = additionalSelectors.split(',').map(s => s.trim()).filter(Boolean);
+        // 使用 Set 自动处理重复项
+        const combined = new Set([...base, ...additional]);
+        return Array.from(combined).join(', ');
+    }
 
     /**
      * Deep clones an object, correctly handling RegExp instances.
@@ -226,10 +240,9 @@ export class SettingsManager {
                 finalBlockSelector = ruleBlock;
                 finalExcludeSelector = ruleExclude;
             } else {
-                // 使用 filter(Boolean) 和 join 来优雅地合并选择器，避免前导逗号
-                if (ruleInline) finalInlineSelector = [finalInlineSelector, ruleInline].filter(Boolean).join(', ');
-                if (ruleBlock) finalBlockSelector = [finalBlockSelector, ruleBlock].filter(Boolean).join(', ');
-                if (ruleExclude) finalExcludeSelector = [finalExcludeSelector, ruleExclude].filter(Boolean).join(', ');
+                finalInlineSelector = this.#mergeSelectors(finalInlineSelector, ruleInline);
+                finalBlockSelector = this.#mergeSelectors(finalBlockSelector, ruleBlock);
+                finalExcludeSelector = this.#mergeSelectors(finalExcludeSelector, ruleExclude);
             }
         }
 
