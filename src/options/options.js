@@ -290,6 +290,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const hasChanges = currentSettingsString !== initialSettingsSnapshot;
         elements.saveSettingsBtn.classList.toggle('visible', hasChanges);
     };
+    /**
+     * (新) 更新设置快照并隐藏“保存”按钮。
+     * 在通过弹窗进行原子化保存后调用此函数，以防止不必要的“离开页面”警告。
+     */
+    const updateSnapshotAndHideSaveButton = () => {
+        initialSettingsSnapshot = JSON.stringify(getSettingsFromUI());
+        updateSaveButtonState(); // 这将使 hasChanges 为 false，从而隐藏 FAB
+    };
 
     let precheckRules = {};
     let aiEngines = []; // Array to hold AI engine configurations
@@ -698,14 +706,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-    const removeDomainRule = (domainToRemove) => {
+    const removeDomainRule = async (domainToRemove) => {
         const confirmationMessage = browser.i18n.getMessage('confirmDeleteRule') || 'Are you sure you want to delete this rule?';
         if (window.confirm(confirmationMessage)) {
-            if (domainRules[domainToRemove]) {
-                delete domainRules[domainToRemove];
-                renderDomainRules(); // Re-render the list
-                updateSaveButtonState(); // Update save button state
-                showStatusMessage(browser.i18n.getMessage('removeRuleSuccess'));
+            try {
+                const settings = await SettingsManager.getValidatedSettings();
+                if (settings.domainRules[domainToRemove]) {
+                    delete settings.domainRules[domainToRemove];
+                    await browser.storage.sync.set({ settings });
+                    // 更新本地状态并重新渲染UI
+                    domainRules = settings.domainRules;
+                    renderDomainRules();
+                    showStatusMessage(browser.i18n.getMessage('removeRuleSuccess'));
+                    updateSnapshotAndHideSaveButton();
+                }
+            } catch (error) {
+                console.error("Failed to remove domain rule:", error);
+                showStatusMessage("Failed to remove domain rule.", true);
             }
         }
     };
@@ -737,75 +754,86 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // --- 2. 构造规则对象，为提高效率排除默认值 ---
-        const newDomain = elements.ruleDomainInput.value.trim();
-        const originalDomain = elements.editingDomainInput.value;
-        const rule = {};
-        // The default for applyToSubdomains is true, so only save the value if it's false.
-        if (!elements.ruleApplyToSubdomainsCheckbox.checked) {
-            rule.applyToSubdomains = false;
-        }
-        if (elements.ruleAutoTranslateSelect.value !== 'default') {
-            rule.autoTranslate = elements.ruleAutoTranslateSelect.value;
-        }
-        if (elements.ruleTranslatorEngineSelect.value !== 'default') {
-            rule.translatorEngine = elements.ruleTranslatorEngineSelect.value;
-        }
-        if (elements.ruleTargetLanguageSelect.value !== 'default') {
-            rule.targetLanguage = elements.ruleTargetLanguageSelect.value;
-        }
-        if (elements.ruleSourceLanguageSelect.value !== 'default') { // 新增
-            rule.sourceLanguage = elements.ruleSourceLanguageSelect.value;
-        }
-        if (elements.ruleDisplayModeSelect.value !== 'default') {
-            rule.displayMode = elements.ruleDisplayModeSelect.value;
-        }
-        const inlineSelector = elements.ruleInlineSelectorTextarea.value.trim();
-        const blockSelector = elements.ruleBlockSelectorTextarea.value.trim();
-        const excludeSelector = elements.ruleExcludeSelectorTextarea.value.trim();
+        try {
+            // --- 2. 构造规则对象，为提高效率排除默认值 ---
+            const newDomain = elements.ruleDomainInput.value.trim();
+            const originalDomain = elements.editingDomainInput.value;
+            const rule = {};
+            // The default for applyToSubdomains is true, so only save the value if it's false.
+            if (!elements.ruleApplyToSubdomainsCheckbox.checked) {
+                rule.applyToSubdomains = false;
+            }
+            if (elements.ruleAutoTranslateSelect.value !== 'default') {
+                rule.autoTranslate = elements.ruleAutoTranslateSelect.value;
+            }
+            if (elements.ruleTranslatorEngineSelect.value !== 'default') {
+                rule.translatorEngine = elements.ruleTranslatorEngineSelect.value;
+            }
+            if (elements.ruleTargetLanguageSelect.value !== 'default') {
+                rule.targetLanguage = elements.ruleTargetLanguageSelect.value;
+            }
+            if (elements.ruleSourceLanguageSelect.value !== 'default') { // 新增
+                rule.sourceLanguage = elements.ruleSourceLanguageSelect.value;
+            }
+            if (elements.ruleDisplayModeSelect.value !== 'default') {
+                rule.displayMode = elements.ruleDisplayModeSelect.value;
+            }
+            const inlineSelector = elements.ruleInlineSelectorTextarea.value.trim();
+            const blockSelector = elements.ruleBlockSelectorTextarea.value.trim();
+            const excludeSelector = elements.ruleExcludeSelectorTextarea.value.trim();
 
-        rule.cssSelectorOverride = elements.ruleCssSelectorOverrideCheckbox.checked;
-        // 仅当至少一个选择器有值时，才保存 cssSelector 对象。
-        if (inlineSelector || blockSelector || excludeSelector) {
-            rule.cssSelector = {
-                inline: inlineSelector,
-                block: blockSelector,
-                exclude: excludeSelector
-            };
-        } else {
-            // 如果两者都为空，则不保存 cssSelector 属性。
-            // 这样，除非勾选了覆盖，否则它将继承全局规则。
-            delete rule.cssSelector;
-        }
-        // --- 保存字幕设置 ---
-        // 改进：在禁用时保留现有设置，以改善用户体验。
-        const enabled = elements.ruleEnableSubtitleCheckbox.checked;
-        const existingRule = domainRules[originalDomain] || {};
-        const existingSubtitleSettings = existingRule.subtitleSettings || {};
+            rule.cssSelectorOverride = elements.ruleCssSelectorOverrideCheckbox.checked;
+            // 仅当至少一个选择器有值时，才保存 cssSelector 对象。
+            if (inlineSelector || blockSelector || excludeSelector) {
+                rule.cssSelector = {
+                    inline: inlineSelector,
+                    block: blockSelector,
+                    exclude: excludeSelector
+                };
+            } else {
+                // 如果两者都为空，则不保存 cssSelector 属性。
+                // 这样，除非勾选了覆盖，否则它将继承全局规则。
+                delete rule.cssSelector;
+            }
+            // --- 保存字幕设置 ---
+            // 改进：在禁用时保留现有设置，以改善用户体验。
+            const enabled = elements.ruleEnableSubtitleCheckbox.checked;
+            const existingRule = domainRules[originalDomain] || {};
+            const existingSubtitleSettings = existingRule.subtitleSettings || {};
 
-        if (enabled) {
-            rule.subtitleSettings = {
-                ...existingSubtitleSettings, // 保留任何其他潜在的未知设置
-                enabled: true,
-                strategy: elements.ruleSubtitleStrategySelect.value,
-                displayMode: elements.ruleSubtitleDisplayMode.value
-            };
-        } else {
-            // 如果之前有设置，则在其基础上禁用。否则，创建一个新的已禁用设置。
-            rule.subtitleSettings = {
-                ...existingSubtitleSettings,
-                enabled: false
-            };
+            if (enabled) {
+                rule.subtitleSettings = {
+                    ...existingSubtitleSettings, // 保留任何其他潜在的未知设置
+                    enabled: true,
+                    strategy: elements.ruleSubtitleStrategySelect.value,
+                    displayMode: elements.ruleSubtitleDisplayMode.value
+                };
+            } else {
+                // 如果之前有设置，则在其基础上禁用。否则，创建一个新的已禁用设置。
+                rule.subtitleSettings = {
+                    ...existingSubtitleSettings,
+                    enabled: false
+                };
+            }
+
+            // --- 3. 直接读、改、写存储，实现原子化保存 ---
+            const settings = await SettingsManager.getValidatedSettings();
+            if (originalDomain && originalDomain !== newDomain) {
+                delete settings.domainRules[originalDomain];
+            }
+            settings.domainRules[newDomain] = rule;
+            await browser.storage.sync.set({ settings });
+
+            // --- 4. 更新本地状态并刷新UI ---
+            domainRules = settings.domainRules;
+            closeDomainRuleModal();
+            renderDomainRules();
+            showStatusMessage(browser.i18n.getMessage('saveRuleSuccess') || 'Rule saved successfully.');
+            updateSnapshotAndHideSaveButton();
+        } catch (error) {
+            console.error("Failed to save domain rule:", error);
+            showStatusMessage("Failed to save domain rule.", true);
         }
-        // --- 3. Save to local state and mark as changed ---
-        if (originalDomain && originalDomain !== newDomain) {
-            delete domainRules[originalDomain];
-        }
-        domainRules[newDomain] = rule;
-        updateSaveButtonState();
-        closeDomainRuleModal();
-        renderDomainRules();
-        showStatusMessage(browser.i18n.getMessage('saveRuleSuccess') || 'Rule saved successfully.');
     };
 
     const exportSettings = async () => {
@@ -1343,56 +1371,63 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const saveAiEngine = async () => {
-        // 使用通用验证器
+        // 1. 验证表单
         if (!aiEngineValidator.validate()) {
             return;
         }
 
-        const engineData = getAiEngineFormData();
-        if (currentEditingAiEngineId) {
-            // Edit existing
-            const index = aiEngines.findIndex(e => e.id === currentEditingAiEngineId);
-            if (index !== -1) {
-                aiEngines[index] = { id: currentEditingAiEngineId, ...engineData };
+        try {
+            // 2. 获取表单数据和当前设置
+            const engineData = getAiEngineFormData();
+            const settings = await SettingsManager.getValidatedSettings();
+
+            // 3. 修改设置（添加或编辑）
+            if (currentEditingAiEngineId) {
+                const index = settings.aiEngines.findIndex(e => e.id === currentEditingAiEngineId);
+                if (index !== -1) {
+                    settings.aiEngines[index] = { id: currentEditingAiEngineId, ...engineData };
+                }
+            } else {
+                const newId = `ai-${Date.now()}`;
+                settings.aiEngines.push({ id: newId, ...engineData });
             }
-        } else {
-            // Add new
-            const newId = `ai-${Date.now()}`; // Simple unique ID
-            aiEngines.push({ id: newId, ...engineData });
+
+            // 4. 将更新后的设置保存回存储
+            await browser.storage.sync.set({ settings });
+
+            // 5. 更新本地状态和UI
+            aiEngines = settings.aiEngines;
+            renderAiEngineList();
+            populateEngineSelect(elements.translatorEngine); // 更新主下拉菜单
+            hideAiEngineForm();
+            showStatusMessage(browser.i18n.getMessage('saveAiEngineSuccess'));
+            updateSnapshotAndHideSaveButton();
+        } catch (error) {
+            console.error("Failed to save AI engine:", error);
+            showStatusMessage("Failed to save AI engine.", true);
         }
-        updateSaveButtonState(); // Mark settings as changed
-        renderAiEngineList();
-        populateEngineSelect(elements.translatorEngine); // Update main dropdown
-        hideAiEngineForm(); // Hide form and test results, and clear state
-        showStatusMessage(browser.i18n.getMessage('saveAiEngineSuccess'));
     };
 
-    const removeAiEngine = (id) => {
+    const removeAiEngine = async (id) => {
         if (window.confirm(browser.i18n.getMessage('confirmDeleteAiEngine'))) {
-            // 1. 检查被删除的引擎当前是否被选中
-            const wasSelected = elements.translatorEngine.value === `ai:${id}`;
+            try {
+                const settings = await SettingsManager.getValidatedSettings();
+                const wasSelected = settings.translatorEngine === `ai:${id}`;
 
-            // 2. 从数据中移除引擎
-            aiEngines = aiEngines.filter(e => e.id !== id);
+                settings.aiEngines = settings.aiEngines.filter(e => e.id !== id);
 
-            // 3. 更新所有相关的UI
-            renderAiEngineList(); // 更新弹窗中的列表
-            populateEngineSelect(elements.translatorEngine); // 更新主设置中的下拉菜单
-
-            // 4. 如果被删除的引擎是当前选中的，则选择一个新的有效引擎
-            if (wasSelected) {
-                // 因为 populateTranslatorEngineOptions 已经运行，下拉菜单现在只包含有效的选项。
-                // 如果还有其他 AI 引擎，选择第一个。否则，选择第一个内置引擎。
-                if (aiEngines.length > 0) {
-                    elements.translatorEngine.value = `ai:${aiEngines[0].id}`;
-                } else if (elements.translatorEngine.options.length > 0) {
-                    // 如果没有 AI 引擎了，选择列表中的第一个（即第一个内置引擎）
-                    elements.translatorEngine.value = elements.translatorEngine.options[0].value;
+                if (wasSelected) {
+                    settings.translatorEngine = settings.aiEngines.length > 0 ? `ai:${settings.aiEngines[0].id}` : 'google';
                 }
+
+                await browser.storage.sync.set({ settings });
+
+                await loadSettings(); // 重新加载所有设置以确保UI完全同步
+                showStatusMessage(browser.i18n.getMessage('removeAiEngineSuccess'));
+            } catch (error) {
+                console.error("Failed to remove AI engine:", error);
+                showStatusMessage("Failed to remove AI engine.", true);
             }
-            updateApiFieldsVisibility();
-            updateSaveButtonState();
-            showStatusMessage(browser.i18n.getMessage('removeAiEngineSuccess'));
         }
     };
 
