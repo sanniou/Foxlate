@@ -338,15 +338,18 @@ class PageTranslationJob {
         let hasNewNodes = false;
         for (const mutation of mutations) {
             if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
-                mutation.addedNodes.forEach(node => {
-                    if (node.nodeType === Node.ELEMENT_NODE && !node.closest('[data-translation-id], .foxlate-panel')) {
-                        if (node.dataset.foxlateGenerated === 'true'){
-                            console.log("检测到新节点是由本脚本生成，跳过");
-                        }
+                for (const node of mutation.addedNodes) {
+                    if (node.nodeType !== Node.ELEMENT_NODE) continue;
+
+                    // 忽略由本扩展自身UI（如 tooltip）或已翻译内容引起的突变。
+                    if (node.closest('[data-translation-id], .foxlate-panel')) continue;
+
+                    // (新) 修复：正确跳过由脚本自身生成的包裹元素。
+                    if (node.dataset.foxlateGenerated === 'true') continue;
+
                         this.mutationQueue.add(node);
                         hasNewNodes = true;
-                    }
-                });
+                }
             }
         }
 

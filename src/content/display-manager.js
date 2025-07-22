@@ -21,20 +21,6 @@ export class DisplayManager {
     // 垃圾回收器可以自动清理它，从而防止在动态页面上发生内存泄漏。
     static elementStates = new WeakMap();
 
-    /**
-     * @private
-     * Escapes a string for safe insertion into HTML.
-     * @param {string} unsafe - The string to escape.
-     * @returns {string} The escaped string.
-     */
-    static #escapeHtml(unsafe) {
-        return unsafe
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-    }
     // 跟踪临时的、非 DOM 绑定的翻译任务，例如右键菜单。
     static activeEphemeralTargets = new Map();
 
