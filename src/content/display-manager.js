@@ -50,13 +50,11 @@ export class DisplayManager {
         const currentState = this.elementStates.get(element) || {};
         const newData = data ? { ...currentState, ...data, state: newState } : { ...currentState, state: newState };
         this.elementStates.set(element, newData);
-        // Manage a common class for translated elements, only for real DOM nodes
-        if (element instanceof HTMLElement) {
-            if (newState === this.STATES.TRANSLATED) {
-                element.classList.add('universal-translator-translated');
-            } else {
-                element.classList.remove('universal-translator-translated');
-            }
+
+        // (修改) 使用 .toggle 方法简化 CSS 类的添加和移除。
+        // .toggle 方法更简洁，且避免了不必要的条件分支。
+        if (element instanceof HTMLElement) {  // 仅对实际 DOM 节点操作
+            element.classList.toggle('universal-translator-translated', newState === this.STATES.TRANSLATED);
         }
 
         // 根据新状态更新 UI
