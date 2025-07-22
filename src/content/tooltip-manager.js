@@ -1,3 +1,5 @@
+import { escapeHtml } from '../common/utils.js';
+
 /**
  * TooltipManager
  * A singleton class to manage the creation, positioning, and lifecycle of a single,
@@ -7,16 +9,6 @@
 class TooltipManager {
     #tooltipEl = null;
     #activeHideHandler = null; // A single handler for both click and scroll
-
-    #escapeHtml(unsafe) {
-        if (typeof unsafe !== 'string') return '';
-        return unsafe
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-    }
 
     #createTooltip() {
         if (this.#tooltipEl) return;
@@ -91,7 +83,7 @@ class TooltipManager {
         // Clean up any previous state before showing a new tooltip
         this.hide();
 
-        this.#tooltipEl.innerHTML = this.#escapeHtml(text).replace(/\n/g, '<br>');
+        this.#tooltipEl.innerHTML = escapeHtml(text).replace(/\n/g, '<br>');
         this.#tooltipEl.className = `foxlate-panel ${type}-panel`; // Set base and specific class
         this.#tooltipEl.classList.toggle('loading', isLoading);
         this.#tooltipEl.classList.toggle('error', isError);

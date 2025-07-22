@@ -107,15 +107,11 @@ export class DisplayManager {
             this.activeEphemeralTargets.delete(displayMode);
         }
 
-        if (elementOrObject.dataset?.foxlateGenerated === 'true') {
-            // (修改) 如果是 findTranslatableElements 创建的包裹元素，则先将其子节点放回原位，再移除包裹元素
-            if (elementOrObject.parentNode) {
-                const parent = elementOrObject.parentNode;
-                while (elementOrObject.firstChild) {
-                    parent.insertBefore(elementOrObject.firstChild, elementOrObject);
-                }
-                parent.removeChild(elementOrObject);
-            }
+        // (新) 如果元素是由脚本生成的包裹器，则用其内容替换它（“解包”）。
+        // 这比手动移动子节点更简洁、更高效。
+        if (elementOrObject.dataset?.foxlateGenerated === 'true' && elementOrObject.parentNode) {
+            // 使用 `replaceWith` 将包裹元素替换为其所有子节点。
+            elementOrObject.replaceWith(...elementOrObject.childNodes);
         }
     }
 

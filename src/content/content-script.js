@@ -645,7 +645,9 @@ async function handleMessage(request, sender) {
         return await handler(request, sender);
     } catch (error) {
         logError(`handleMessage (type: ${request.type})`, error);
-        return Promise.reject(error);
+        // (新) 始终返回一个解析后的 Promise，并带有错误信息，以避免在浏览器中出现“未捕获的 Promise 拒绝”错误。
+        // 这也与消息传递API的预期行为更一致。
+        return { success: false, error: error.message };
     }
 }
 

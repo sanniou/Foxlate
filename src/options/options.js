@@ -1,6 +1,7 @@
 import browser from '../lib/browser-polyfill.js';
 import { SettingsManager } from '../common/settings-manager.js';
 import { shouldTranslate } from '../common/precheck.js';
+import { escapeHtml } from '../common/utils.js';
 import * as Constants from '../common/constants.js';
 import { FormValidator } from './validator.js';
 import { SUBTITLE_STRATEGIES } from '../content/subtitle/strategy-manifest.js';
@@ -164,18 +165,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // 重新验证输入框以显示错误状态
             validateRegexInput(regexInput, flagsInput);
         }
-    }
-
-    // 辅助函数：对 HTML 字符串进行转义，防止 XSS 攻击
-    function escapeHtml(text) {
-        const map = {
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#039;'
-        };
-        return text.replace(/[&<>"']/g, function (m) { return map[m]; });
     }
 
     /**
