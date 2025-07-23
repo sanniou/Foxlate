@@ -105,6 +105,12 @@ export class DOMWalker {
             }
         }
 
+        // (新) 检查 contenteditable 属性。如果元素是可编辑的，则不应翻译，以避免干扰用户输入。
+        // isContentEditable 是一个继承属性，所以这个检查也覆盖了父元素可编辑的情况。
+        if (rootElement.isContentEditable) {
+            return null;
+        }
+
         // (新) 检查此元素是否为由 'append' 策略添加的翻译容器。
         // 如果是，则直接跳过，以防止重复翻译。
         if (rootElement.dataset.foxlateAppendedText === 'true') {
@@ -175,6 +181,12 @@ export class DOMWalker {
                         continue;
                     }
 
+                    // (新) 检查 contenteditable 属性，跳过可编辑的区域以避免干扰用户。
+                    // 这处理了在一个可翻译块内部嵌套一个可编辑区域的情况。
+                    if (child.isContentEditable) {
+                        continue;
+                    }
+
                     const tagName = child.tagName.toUpperCase();
                     // 关键：跳过不需要翻译的脚本和样式块
                     if (SKIPPED_TAGS.has(tagName)) continue;
@@ -182,6 +194,14 @@ export class DOMWalker {
                     // (新) 将 <br> 标签显式地转换成一个换行符，以保留其格式。
                     if (tagName === 'BR') {
                         sourceText += '\n';
+                        continue;
+                    }
+
+                    // (新) 检查子元素的可见性。如果元素的渲染尺寸为0，则它对用户不可见，无需翻译。
+                    // 这可以捕获 `display: none` 或其他导致元素不占用空间的样式。
+                    // 这个检查在 <br> 标签处理之后，以确保换行符不会被错误地跳过。
+                    const rect = child.getBoundingClientRect();
+                    if (rect.width === 0 && rect.height === 0) {
                         continue;
                     }
 
