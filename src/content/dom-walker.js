@@ -37,7 +37,10 @@ const BLOCK_LEVEL_TAGS = new Set([...STRUCTURAL_BLOCK_TAGS, ...PRESERVABLE_BLOCK
  */
 export class DOMWalker {
 
-    static #isElementVisible(element) {
+    static #isElementVisible(element, getCachedStyle) {
+        if (getCachedStyle(element).display === 'none') {
+            return false;
+        }
         // 避免重复获取 rect，如果已经检查过，可以传入
         const rect = element.getBoundingClientRect();
         return rect.width > 0 || rect.height > 0;
@@ -133,15 +136,6 @@ export class DOMWalker {
         if (!rootElement.textContent.trim()) {
             return null;
         }
-        // 2. 检查可见性：如果元素的渲染尺寸为0，则它对用户不可见，无需翻译。
-        //    这可以捕获 `display: none` 或其他导致元素不占用空间的样式。
-        if (!DOMWalker.#isElementVisible(rootElement)) {
-            return null;
-        }
-
-        const segments = []; // 这将是带 <t_id> 标签的文本
-        const nodeMap = {};
-        let tagIndex = 0;
         const styleCache = new WeakMap();
 
         const getCachedStyle = (element) => {
@@ -152,6 +146,16 @@ export class DOMWalker {
             styleCache.set(element, style);
             return style;
         };
+
+        // 2. 检查可见性：如果元素的渲染尺寸为0，则它对用户不可见，无需翻译。
+        //    这可以捕获 `display: none` 或其他导致元素不占用空间的样式。
+        if (!DOMWalker.#isElementVisible(rootElement, getCachedStyle)) {
+            return null;
+        }
+
+        const segments = []; // 这将是带 <t_id> 标签的文本
+        const nodeMap = {};
+        let tagIndex = 0;
 
         const ensureSeparator = () => {
             const lastSegment = segments[segments.length - 1] || '';
@@ -213,7 +217,7 @@ export class DOMWalker {
                     // (新) 检查子元素的可见性。如果元素的渲染尺寸为0，则它对用户不可见，无需翻译。
                     // 这可以捕获 `display: none` 或其他导致元素不占用空间的样式。
                     // 这个检查在 <br> 标签处理之后，以确保换行符不会被错误地跳过。
-                    if (!DOMWalker.#isElementVisible(child)) {
+                    if (!DOMWalker.#isElementVisible(child, getCachedStyle)) {
                         continue;
                     }
 
@@ -257,7 +261,7 @@ export class DOMWalker {
 
                         // 检查是否添加了有效内容
                         const newSegments = segments.slice(openingTagIndex);
-                        const contentAdded = newSegments.join('').trim();
+                        const contentAdded = newSegments.some(s => s.trim() !== '');
 
                         if (contentAdded) {
                             // 如果确实添加了内容，则完成标签的创建。
