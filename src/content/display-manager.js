@@ -21,11 +21,14 @@ export class DisplayManager {
     // 垃圾回收器可以自动清理它，从而防止在动态页面上发生内存泄漏。
     static elementStates = new WeakMap();
 
+    static elementRegistry = new Map();
+
     // 跟踪临时的、非 DOM 绑定的翻译任务，例如右键菜单。
     static activeEphemeralTargets = new Map();
 
     static getElementState(element) {
-        return this.elementStates.get(element) || this.STATES.ORIGINAL;
+        // 只返回状态字符串，如 "TRANSLATED"
+        return (this.elementStates.get(element) || {}).state || this.STATES.ORIGINAL;
     }
 
     static getElementData(element) {
@@ -91,6 +94,11 @@ export class DisplayManager {
             this.activeEphemeralTargets.delete(displayMode);
         }
 
+        // 在方法结束前，清理注册表
+        if (elementOrObject instanceof HTMLElement && elementOrObject.dataset?.translationId) {
+            this.elementRegistry.delete(elementOrObject.dataset.translationId);
+        }
+
         // (新) 如果元素是由脚本生成的包裹器，则用其内容替换它（“解包”）。
         // 这比手动移动子节点更简洁、更高效。
         if (elementOrObject.dataset?.foxlateGenerated === 'true' && elementOrObject.parentNode) {
@@ -104,9 +112,15 @@ export class DisplayManager {
     }
 
     static updateDisplayMode(newDisplayMode) {
-        const translatedElements = document.querySelectorAll('.universal-translator-translated');
+        // 不再使用 querySelectorAll，而是遍历我们的注册表
+        for (const [elementId, weakRef] of this.elementRegistry.entries()) {
+            const element = weakRef.deref();
 
-        for (const element of translatedElements) {
+            // 如果元素不存在了（已被GC），或者不是一个“已翻译”状态的元素，则跳过
+            if (!element || this.getElementState(element) !== this.STATES.TRANSLATED) {
+                console.log(`[Foxlate] Element ${elementId} is not a translated element. Skipping. state: ${this.getElementState(element)}`)
+                continue;
+            }
             const oldDisplayMode = element.dataset.translationStrategy;
             const oldStrategy = this.getStrategy(oldDisplayMode);
 
@@ -124,6 +138,21 @@ export class DisplayManager {
             // 使用新策略重新应用“已翻译”状态的UI
             this.updateElementUI(element, this.STATES.TRANSLATED);
         }
+    }
+
+    static registerElement(elementId, element) {
+        // 我们存储的是一个对元素的弱引用
+        this.elementRegistry.set(elementId, new WeakRef(element));
+    }
+
+    static findElementById(elementId) {
+        const weakRef = this.elementRegistry.get(elementId);
+        if (weakRef) {
+            // .deref() 方法可以获取到被引用的对象
+            // 如果对象已被垃圾回收，则返回 undefined
+            return weakRef.deref();
+        }
+        return undefined;
     }
 
     static displayLoading(element, displayMode, initialState = {}) {

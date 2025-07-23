@@ -297,9 +297,21 @@ class PageTranslationJob {
         try {
             delete document.body.dataset.translationSession;
             DisplayManager.hideAllEphemeralUI();
-            const wrappers = document.querySelectorAll('[data-translation-id]');
-            wrappers.forEach(wrapper => DisplayManager.revert(wrapper));
-            console.log(`[Foxlate] Reverted ${wrappers.length} translated elements.`);
+            // 不再使用 querySelectorAll，而是直接从 DisplayManager 获取所有已注册的元素
+            // 注意：DisplayManager.elementRegistry.values() 返回的是一个迭代器
+            const registeredWeakRefs = Array.from(DisplayManager.elementRegistry.values());
+            let revertedCount = 0;
+
+            for (const weakRef of registeredWeakRefs) {
+                const element = weakRef.deref();
+                if (element) {
+                    // 调用 DisplayManager.revert 会处理所有事情，
+                    // 包括从 elementRegistry 中删除自己
+                    DisplayManager.revert(element);
+                    revertedCount++;
+                }
+            }
+            console.log(`[Foxlate] Reverted ${revertedCount} translated elements.`);
 
         } catch (error) {
             logError('revert (DOM cleanup)', error);
@@ -487,7 +499,9 @@ function translateElement(element, effectiveSettings) {
     const targetLang = effectiveSettings.targetLanguage;
     const translatorEngine = effectiveSettings.translatorEngine;
     const initialState = { originalContent: element.innerHTML, translationUnit };
-    DisplayManager.displayLoading(element, effectiveSettings.displayMode, initialState); // 设置加载状态
+    // 调用 DisplayManager.displayLoading 之前或之后，进行注册
+    DisplayManager.registerElement(elementId, element);
+    DisplayManager.displayLoading(element, effectiveSettings.displayMode, initialState);
 
     console.log(`[Foxlate] Sending text to translate for ${elementId}`, { textToTranslate });
     browser.runtime.sendMessage({
@@ -521,9 +535,13 @@ function handleTranslationResult(payload) {
     // 收到结果后减少计数器
     currentPageJob.activeTranslations--;
 
-    const wrapper = document.querySelector(`[data-translation-id="${elementId}"]`);
+    // const wrapper = document.querySelector(`[data-translation-id="${elementId}"]`);
+    // 不再使用 querySelector，而是从 DisplayManager 的注册表中查找
+    const wrapper = DisplayManager.findElementById(elementId);
 
     if (!wrapper) {
+        // 如果 wrapper 为空，意味着元素已经被垃圾回收了
+        console.log(`[Foxlate] Element for translationId ${elementId} no longer exists. Skipping update.`);
         currentPageJob.checkCompletion();
         return;
     }
