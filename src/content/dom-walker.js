@@ -87,6 +87,12 @@ export class DOMWalker {
         // --- 性能优化：快速预检查 ---
         // 在进行昂贵的DOM遍历之前，先执行一些快速检查，以提前排除不合格的元素。
 
+        // (新) 检查 aria-hidden 属性。如果元素或其任何祖先对辅助技术是隐藏的，
+        // 那么它在语义上就是不可见的，因此不应该被翻译。
+        if (rootElement.closest('[aria-hidden="true"]')) {
+            return null;
+        }
+
         // (新) 检查此元素或其父元素是否匹配排除选择器，并添加了错误处理。
         if (config.exclude) {
             try {
@@ -162,6 +168,13 @@ export class DOMWalker {
                         }
                     }
 
+                    // (新) 检查 aria-hidden 属性。如果一个子元素被标记为对辅助技术隐藏，
+                    // 那么它在语义上也是不可见的，应该被跳过。
+                    // 这修复了顶层元素可见但其部分子元素被隐藏的场景。
+                    if (child.getAttribute('aria-hidden') === 'true') {
+                        continue;
+                    }
+
                     const tagName = child.tagName.toUpperCase();
                     // 关键：跳过不需要翻译的脚本和样式块
                     if (SKIPPED_TAGS.has(tagName)) continue;
@@ -189,25 +202,42 @@ export class DOMWalker {
                     const actsAsBlock = isSemanticallyBlock || isVisuallyBlock;
                     const isPreservable = PRESERVABLE_TAGS.has(tagName);
 
-                    // 步骤 1: 为块级元素添加前导分隔符
+                    // 步骤 1: 为块级元素添加前导分隔符（换行）
                     if (actsAsBlock) ensureSeparator();
 
                     // 步骤 2: 处理元素内容
                     if (isPreservable) {
-                        const tagId = `t${tagIndex++}`;
+                        const textLengthBefore = sourceText.length;
+                        const tagId = `t${tagIndex}`; // 暂时不递增索引
+
                         // (新) 检查元素的 white-space 样式，以决定是否保留换行符。
                         // 这个信息将传递给 dom-reconstructor。
                         const style = window.getComputedStyle(child);
                         const whiteSpace = style.whiteSpace;
                         const preservesWhitespace = whiteSpace === 'pre' || whiteSpace === 'pre-wrap' || whiteSpace === 'pre-line';
-                        nodeMap[tagId] = {
-                            node: child.cloneNode(false),
-                            preservesWhitespace: preservesWhitespace
-                        };
+
+                        // 乐观地添加起始标签，如果子节点为空则后续移除。
                         sourceText += `<${tagId}>`;
+                        const openingTagLength = sourceText.length;
+
                         // 将此元素自身的格式化上下文传递给递归调用。
                         walk(child, preservesWhitespace);
-                        sourceText += `</${tagId}>`;
+
+                        // 检查递归调用是否向 sourceText 添加了任何有效内容。
+                        const contentAdded = sourceText.substring(openingTagLength).trim();
+
+                        if (contentAdded) {
+                            // 如果确实添加了内容，则完成标签的创建。
+                            nodeMap[tagId] = {
+                                node: child.cloneNode(false),
+                                preservesWhitespace: preservesWhitespace
+                            };
+                            sourceText += `</${tagId}>`;
+                            tagIndex++; // 只有在确认标签有效后才递增索引。
+                        } else {
+                            // 如果没有添加任何内容，则回滚，移除之前添加的起始标签。
+                            sourceText = sourceText.substring(0, textLengthBefore);
+                        }
                     } else {
                         // 对于结构性但非保留的标签（如 DIV），它们继承父级的格式化上下文。
                         walk(child, inPreformattedContext);
