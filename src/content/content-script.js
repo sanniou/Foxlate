@@ -50,6 +50,36 @@ async function getEffectiveSettings() {
     return rawSettings;
 }
 
+
+const CSS_FILE_PATH = browser.runtime.getURL("content/style.css");
+
+/**
+ * 向指定的根（通常是 Shadow Root）注入 CSS。
+ * @param {ShadowRoot} root 要注入CSS的Shadow Root。
+ * @param {HTMLElement} host 这个Shadow Root的宿主元素。
+ */
+function injectCSSIntoRoot(root, host) {
+    // 关键检查：在宿主元素上检查标记
+    if (!root || !host || host.dataset.foxlateCssInjected === 'true') {
+        return;
+    }
+
+    try {
+        const styleLink = document.createElement('link');
+        styleLink.rel = 'stylesheet';
+        styleLink.type = 'text/css';
+        styleLink.href = CSS_FILE_PATH;
+
+        root.prepend(styleLink);
+
+        // 在宿主元素上设置标记
+        host.dataset.foxlateCssInjected = 'true';
+        console.log('[Foxlate] Injected CSS and marked host element:', host);
+    } catch (error) {
+        console.error('[Foxlate] Failed to inject CSS into a Shadow Root:', error);
+    }
+}
+
 /**
  * 递归查找并返回页面上所有的搜索根（主文档和所有开放的 Shadow Root）。
  * @param {Node} rootNode - 开始搜索的节点，通常是 document.body。
@@ -61,7 +91,13 @@ async function getEffectiveSettings() {
  * @returns {(Document|DocumentFragment|Element)[]} 一个包含所有搜索根的数组。
  */
 function findAllSearchRoots(rootNode) {
-    const roots = [rootNode];
+    const roots = [];
+
+    if (rootNode) {
+        roots.push(rootNode);
+    } else {
+        return [];
+    }
 
     const walker = document.createTreeWalker(
         rootNode,
@@ -72,6 +108,12 @@ function findAllSearchRoots(rootNode) {
         const element = walker.currentNode;
         // 把判断逻辑从过滤器移到这里
         if (element.shadowRoot) {
+            // 找到了一个宿主元素和它的 shadowRoot
+            const host = element;
+            const shadow = element.shadowRoot;
+
+            // 调用注入函数
+            injectCSSIntoRoot(shadow, host);
             // 只有当元素有 shadowRoot 时，我们才进行递归
             roots.push(...findAllSearchRoots(element.shadowRoot));
         }
