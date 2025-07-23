@@ -13,14 +13,17 @@ const PRESERVABLE_INLINE_TAGS = new Set([
     'A', 'B', 'I', 'EM', 'STRONG', 'CODE', 'U', 'S', 'SUB', 'SUP'
 ]);
 
-// 需要保留格式的块级标签。
 const PRESERVABLE_BLOCK_TAGS = new Set([
     'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'BLOCKQUOTE', 'PRE',
-    'TABLE', 'TR', 'TH', 'TD', 'FIGURE', 'FIGCAPTION', 'ADDRESS', 'HR'
+    'TABLE', 'TR', 'TH', 'TD', 'FIGURE', 'FIGCAPTION', 'ADDRESS', 'HR',
+    'UL', 'OL', 'DL', 'DT', 'DD' // 推荐新增
 ]);
 
 // 定义在遍历时应完全跳过的标签。
-const SKIPPED_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEXTAREA', 'INPUT']);
+const SKIPPED_TAGS = new Set([
+    'SCRIPT', 'STYLE', 'NOSCRIPT', 'TEXTAREA', 'INPUT',
+    'IFRAME', 'CANVAS', 'VIDEO', 'AUDIO', 'SVG' // 推荐新增
+]);
 
 // 通过组合基本集合来构建最终的标签集。
 // 1. 所有需要保留格式的标签（内联 + 块级）。
@@ -33,6 +36,13 @@ const BLOCK_LEVEL_TAGS = new Set([...STRUCTURAL_BLOCK_TAGS, ...PRESERVABLE_BLOCK
  * A utility class for traversing a container element's DOM.
  */
 export class DOMWalker {
+
+    static #isElementVisible(element) {
+        // 避免重复获取 rect，如果已经检查过，可以传入
+        const rect = element.getBoundingClientRect();
+        return rect.width > 0 || rect.height > 0;
+    }
+
     /**
      * @private
      * @static
@@ -42,10 +52,11 @@ export class DOMWalker {
      * @param {HTMLElement} element - 要分类的元素。
      * @param {object} config - 当前生效的配置，包含用户定义的选择器。
      * @param {string} [config.block] - 应视为块级的 CSS 选择器。
-     * @param {string} [config.inline] - 应视为内联的 CSS 选择器。
+     * @param {string} [config.inline] - 应视为内联的 CSS 选择器
+     * @param {function(HTMLElement): CSSStyleDeclaration} getCachedStyle - (修改) 用于获取缓存样式的函数。。
      * @returns {'inline' | 'block'} - 确定的追加类型。
      */
-    static #determineAppendType(element, config) {
+    static #determineAppendType(element, config, getCachedStyle) {
         // 1. 用户配置优先 (最高优先级)
         if (config.block && element.matches(config.block)) {
             return 'block';
@@ -60,7 +71,7 @@ export class DOMWalker {
             return 'block';
         }
 
-        const style = window.getComputedStyle(element);
+        const style = getCachedStyle(element);
         const display = style.display;
         if (['block', 'flex', 'grid', 'table', 'list-item'].includes(display) || style.float !== 'none') {
             return 'block';
@@ -124,26 +135,31 @@ export class DOMWalker {
         }
         // 2. 检查可见性：如果元素的渲染尺寸为0，则它对用户不可见，无需翻译。
         //    这可以捕获 `display: none` 或其他导致元素不占用空间的样式。
-        const rect = rootElement.getBoundingClientRect();
-        if (rect.width === 0 && rect.height === 0) {
+        if (!DOMWalker.#isElementVisible(rootElement)) {
             return null;
         }
 
-        let sourceText = ''; // 这将是带 <t_id> 标签的文本
+        const segments = []; // 这将是带 <t_id> 标签的文本
         const nodeMap = {};
         let tagIndex = 0;
+        const styleCache = new WeakMap();
+
+        const getCachedStyle = (element) => {
+            if (styleCache.has(element)) {
+                return styleCache.get(element);
+            }
+            const style = window.getComputedStyle(element);
+            styleCache.set(element, style);
+            return style;
+        };
 
         const ensureSeparator = () => {
-            if (sourceText.length > 0 && !/\s$/.test(sourceText)) {
-                sourceText += '\n';
+            const lastSegment = segments[segments.length - 1] || '';
+            if (segments.length > 0 && !/\s$/.test(lastSegment)) {
+                segments.push('\n');
             }
         };
 
-        /**
-         * 递归遍历DOM节点。
-         * @param {Node} node - 当前遍历的节点。
-         * @param {boolean} inPreformattedContext - 指示当前是否处于一个保留空白的上下文中（如 <pre>）。
-         */
         function walk(node, inPreformattedContext) {
             for (const child of node.childNodes) {
                 if (child.nodeType === Node.TEXT_NODE) { // 文本节点
@@ -153,13 +169,13 @@ export class DOMWalker {
                     if (!inPreformattedContext) {
                         text = text.replace(/\s+/g, ' ');
                     }
-                    // (新) 优化空白拼接逻辑。
-                    // 如果 sourceText 已经以空白结尾，并且新的文本片段以空白开头，
-                    // 则移除新片段的起始空白，以防止出现连续的多个空格。
-                    if (/\s$/.test(sourceText) && /^\s/.test(text)) {
-                        sourceText += text.trimStart();
+
+                    //使用 segments 的最后一个元素来判断空白
+                    const lastSegment = segments[segments.length - 1] || '';
+                    if (/\s$/.test(lastSegment) && /^\s/.test(text)) {
+                        segments.push(text.trimStart());
                     } else {
-                        sourceText += text;
+                        segments.push(text);
                     }
                 } else if (child.nodeType === Node.ELEMENT_NODE) {
                     // (新) 在遍历期间检查元素是否匹配排除规则。
@@ -173,19 +189,16 @@ export class DOMWalker {
                             // 错误已在顶层处理，此处静默失败以避免控制台垃圾信息。
                         }
                     }
+                    if (child.matches('.notranslate, [lang]:not([lang=""])')) continue;
 
                     // (新) 检查 aria-hidden 属性。如果一个子元素被标记为对辅助技术隐藏，
                     // 那么它在语义上也是不可见的，应该被跳过。
                     // 这修复了顶层元素可见但其部分子元素被隐藏的场景。
-                    if (child.getAttribute('aria-hidden') === 'true') {
-                        continue;
-                    }
+                    if (child.getAttribute('aria-hidden') === 'true') continue;
 
                     // (新) 检查 contenteditable 属性，跳过可编辑的区域以避免干扰用户。
                     // 这处理了在一个可翻译块内部嵌套一个可编辑区域的情况。
-                    if (child.isContentEditable) {
-                        continue;
-                    }
+                    if (child.isContentEditable) continue;
 
                     const tagName = child.tagName.toUpperCase();
                     // 关键：跳过不需要翻译的脚本和样式块
@@ -193,15 +206,14 @@ export class DOMWalker {
 
                     // (新) 将 <br> 标签显式地转换成一个换行符，以保留其格式。
                     if (tagName === 'BR') {
-                        sourceText += '\n';
+                        segments.push('\n');
                         continue;
                     }
 
                     // (新) 检查子元素的可见性。如果元素的渲染尺寸为0，则它对用户不可见，无需翻译。
                     // 这可以捕获 `display: none` 或其他导致元素不占用空间的样式。
                     // 这个检查在 <br> 标签处理之后，以确保换行符不会被错误地跳过。
-                    const rect = child.getBoundingClientRect();
-                    if (rect.width === 0 && rect.height === 0) {
+                    if (!DOMWalker.#isElementVisible(child)) {
                         continue;
                     }
 
@@ -213,7 +225,7 @@ export class DOMWalker {
                     // 如果一个标签既不是已知的块级标签，也不是已知的内联标签（例如 SPAN），
                     // 我们需要检查它的 CSS display 属性来判断它是否在布局上起到了分隔作用。
                     if (!isSemanticallyBlock && !isKnownInline) {
-                        const style = window.getComputedStyle(child);
+                        const style = getCachedStyle(child);
                         // 任何非 'inline' 的显示类型通常都会在布局中产生一个断点，应被视为一个块。
                         if (style.display !== 'inline') {
                             isVisuallyBlock = true;
@@ -227,24 +239,25 @@ export class DOMWalker {
 
                     // 步骤 2: 处理元素内容
                     if (isPreservable) {
-                        const textLengthBefore = sourceText.length;
-                        const tagId = `t${tagIndex}`; // 暂时不递增索引
+                        const segmentsLengthBefore = segments.length;
+                        const tagId = `t${tagIndex}`;
 
                         // (新) 检查元素的 white-space 样式，以决定是否保留换行符。
                         // 这个信息将传递给 dom-reconstructor。
-                        const style = window.getComputedStyle(child);
+                        const style = getCachedStyle(child);
                         const whiteSpace = style.whiteSpace;
                         const preservesWhitespace = whiteSpace === 'pre' || whiteSpace === 'pre-wrap' || whiteSpace === 'pre-line';
 
                         // 乐观地添加起始标签，如果子节点为空则后续移除。
-                        sourceText += `<${tagId}>`;
-                        const openingTagLength = sourceText.length;
+                        segments.push(`<${tagId}>`);
+                        const openingTagIndex = segments.length; // 记录索引
 
                         // 将此元素自身的格式化上下文传递给递归调用。
                         walk(child, preservesWhitespace);
 
-                        // 检查递归调用是否向 sourceText 添加了任何有效内容。
-                        const contentAdded = sourceText.substring(openingTagLength).trim();
+                        // 检查是否添加了有效内容
+                        const newSegments = segments.slice(openingTagIndex);
+                        const contentAdded = newSegments.join('').trim();
 
                         if (contentAdded) {
                             // 如果确实添加了内容，则完成标签的创建。
@@ -252,11 +265,11 @@ export class DOMWalker {
                                 node: child.cloneNode(false),
                                 preservesWhitespace: preservesWhitespace
                             };
-                            sourceText += `</${tagId}>`;
+                            segments.push(`</${tagId}>`); // 添加闭合标签
                             tagIndex++; // 只有在确认标签有效后才递增索引。
                         } else {
                             // 如果没有添加任何内容，则回滚，移除之前添加的起始标签。
-                            sourceText = sourceText.substring(0, textLengthBefore);
+                            segments.length = segmentsLengthBefore;
                         }
                     } else {
                         // 对于结构性但非保留的标签（如 DIV），它们继承父级的格式化上下文。
@@ -270,20 +283,20 @@ export class DOMWalker {
         }
 
         // 在开始遍历之前，确定根元素自身的格式化上下文。
-        const rootStyle = window.getComputedStyle(rootElement);
+        const rootStyle = getCachedStyle(rootElement);
         const rootPreservesWhitespace = ['pre', 'pre-wrap', 'pre-line'].includes(rootStyle.whiteSpace);
         walk(rootElement, rootPreservesWhitespace);
 
-        const trimmedSourceText = sourceText.trim();
+        const sourceText = segments.join('').trim();
 
-        if (!trimmedSourceText) return null;
+        if (!sourceText) return null;
 
         // (新) 调用混合决策系统来确定追加类型
-        const appendType = DOMWalker.#determineAppendType(rootElement, config);
+        const appendType = DOMWalker.#determineAppendType(rootElement, config, getCachedStyle);
 
         // 返回带标签的源文本和用于重建的节点映射表
         return {
-            sourceText: trimmedSourceText,
+            sourceText: sourceText,
             translationUnit: {
                 nodeMap,
                 appendType // 存储确定的追加类型
