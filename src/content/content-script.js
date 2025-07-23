@@ -61,36 +61,21 @@ async function getEffectiveSettings() {
  * @returns {(Document|DocumentFragment|Element)[]} 一个包含所有搜索根的数组。
  */
 function findAllSearchRoots(rootNode) {
-    const roots = [];
+    const roots = [rootNode];
 
-    // 步骤 1: 将传入的根节点本身添加到列表中。
-    // 无论是 document.body (Element) 还是 shadowRoot (DocumentFragment)，它都是一个有效的搜索根。
-    if (rootNode) {
-        roots.push(rootNode);
-    } else {
-        return []; // 如果传入无效节点，直接返回空数组
-    }
-
-    // 步骤 2: 遍历该根节点下的所有元素，递归查找 shadow roots。
-    // 注意：TreeWalker 的根应该是 rootNode 本身。
     const walker = document.createTreeWalker(
         rootNode,
-        NodeFilter.SHOW_ELEMENT, // 我们只关心元素节点
-        {
-            acceptNode: function (node) {
-                // 如果元素有 shadowRoot，我们就接受它进行处理
-                return node.shadowRoot ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
-            }
-        }
+        NodeFilter.SHOW_ELEMENT
     );
 
     while (walker.nextNode()) {
-        const elementWithShadow = walker.currentNode;
-        // 关键点：对新发现的 shadow root 进行递归调用
-        // 并将返回的结果（该 shadow root 自身和它内部的所有嵌套的 roots）合并进来。
-        roots.push(...findAllSearchRoots(elementWithShadow.shadowRoot));
+        const element = walker.currentNode;
+        // 把判断逻辑从过滤器移到这里
+        if (element.shadowRoot) {
+            // 只有当元素有 shadowRoot 时，我们才进行递归
+            roots.push(...findAllSearchRoots(element.shadowRoot));
+        }
     }
-
     return roots;
 }
 
