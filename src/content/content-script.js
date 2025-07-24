@@ -227,12 +227,10 @@ function findTranslatableElements(effectiveSettings, rootNodes = [document.body]
         wrapOrphans();
     }
 
-    // 进一步过滤，移除不可见或不应翻译的元素。
+    // 延迟预检查到实际翻译时执行，避免在元素收集阶段进行不必要的预检查
     return Array.from(finalCandidates).filter(el =>
         // 已经被处理或正在处理的元素
-        !el.dataset.translationId &&
-        // 预检查，确保元素内有实际内容需要翻译
-        shouldTranslate(el.textContent, effectiveSettings).result
+        !el.dataset.translationId
     );
 }
 
