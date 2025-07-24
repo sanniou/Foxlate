@@ -160,12 +160,23 @@ function findTranslatableElements(effectiveSettings, rootNodes = [document.body]
     }
 
     const finalCandidates = new Set();
+    const potentialMixedParents = new Set();
+
+    // 新增辅助函数：检查一个元素是否包含任何已匹配的后代
+    const containsMatchedDescendant = (ancestorElement) => {
+        for (const candidate of allCandidates) {
+            // 如果 candidate 是 ancestorElement 的后代，且不是 ancestorElement 本身
+            if (ancestorElement.contains(candidate) && ancestorElement !== candidate) {
+                return true;
+            }
+        }
+        return false;
+    };
 
     // --- 步骤 1: 识别叶子节点和潜在的混合内容父节点 ---
-    const potentialMixedParents = new Set();
     for (const el of allCandidates) {
-        // 检查当前元素 'el' 是否包含任何其他也匹配选择器的子元素。
-        if (!el.querySelector(allSelectors)) {
+        // 检查 'el' 是否包含任何其他已匹配的候选元素作为后代
+        if (!containsMatchedDescendant(el)) {
             // 如果没有，它就是一个“叶子”节点，直接添加到最终候选列表中。
             finalCandidates.add(el);
         } else {
@@ -211,8 +222,11 @@ function findTranslatableElements(effectiveSettings, rootNodes = [document.body]
             // 2. 它已经被翻译或正在被翻译。
             // 3. 它的子孙节点中包含匹配翻译选择器的元素。
             // 这可以防止将包含其他待翻译内容的容器（如 <table>）错误地包裹起来。
-            const isBoundary = child.nodeType === Node.ELEMENT_NODE &&
-                (child.matches(allSelectors) || child.dataset.translationId || child.querySelector(allSelectors));
+            const isBoundary = child.nodeType === Node.ELEMENT_NODE && (
+                allCandidates.has(child) || // 子节点本身匹配选择器
+                child.dataset.translationId || // 子节点已翻译
+                containsMatchedDescendant(child) // 子节点包含一个匹配的后代
+            );
 
             if (isBoundary) {
                 // 遇到一个已选择的元素，意味着之前的孤立节点序列结束了。
