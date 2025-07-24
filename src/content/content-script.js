@@ -397,7 +397,7 @@ class PageTranslationJob {
     #observeElements(elements) {
         if (!this.intersectionObserver) return;
         for (const element of elements) {
-            if (element.dataset.translated === 'true' || element.dataset.translationId) {
+            if (element.dataset.translationId) {
                 continue;
             }
             this.intersectionObserver.observe(element);
@@ -414,7 +414,7 @@ class PageTranslationJob {
                 this.intersectionObserver.unobserve(entry.target);
             }
         }
-        
+
         if (intersectingElements.length === 0) return;
 
         // 元素已由 findTranslatableElements 预先过滤。
@@ -486,7 +486,7 @@ class PageTranslationJob {
 
         // 优化：批量处理节点，减少重复查找
         const allSearchRoots = new Set();
-        
+
         // 对每个新增的节点，也查找其内部可能存在的 Shadow Root
         for (const node of newNodes) {
             if (node.nodeType === Node.ELEMENT_NODE) {
@@ -498,7 +498,7 @@ class PageTranslationJob {
 
         // 转换为数组
         const searchRootsArray = Array.from(allSearchRoots);
-        
+
         const newElements = findTranslatableElements(this.settings, searchRootsArray);
         if (newElements.length > 0) {
             console.log(`[Foxlate] Found ${newElements.length} new dynamic elements to observe.`);
