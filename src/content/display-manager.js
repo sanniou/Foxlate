@@ -39,11 +39,9 @@ export class DisplayManager {
         const currentState = this.elementStates.get(element) || {};
         const newData = data ? { ...currentState, ...data, state: newState } : { ...currentState, state: newState };
         this.elementStates.set(element, newData);
-
-        // (修改) 使用 .toggle 方法简化 CSS 类的添加和移除。
-        // .toggle 方法更简洁，且避免了不必要的条件分支。
-        if (element instanceof HTMLElement) {  // 仅对实际 DOM 节点操作
-            element.classList.toggle('universal-translator-translated', newState === this.STATES.TRANSLATED);
+ 
+        if (element instanceof HTMLElement) {
+            element.dataset.foxlateState = newState.toLowerCase();
         }
 
         // 根据新状态更新 UI
@@ -78,13 +76,12 @@ export class DisplayManager {
 
         // 3. DisplayManager 负责清理其自身的通用标记和状态
         // 这种检查是合理的，因为 DisplayManager 确实需要区分它管理的两种目标
-        if (elementOrObject instanceof HTMLElement) {
-            elementOrObject.classList.remove('universal-translator-translated');
+        if (elementOrObject instanceof HTMLElement && elementOrObject.dataset) {
             // 在此处集中清理与框架相关的 dataset 属性
-            if (elementOrObject.dataset) {
-                delete elementOrObject.dataset.translationId;
-                delete elementOrObject.dataset.translationStrategy;
-            }
+            delete elementOrObject.dataset.translationId;
+            delete elementOrObject.dataset.translationStrategy;
+            // (新) 清理状态标记
+            delete elementOrObject.dataset.foxlateState;
         }
 
         this.elementStates.delete(elementOrObject);
