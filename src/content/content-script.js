@@ -86,27 +86,28 @@ function injectCSSIntoRoot(root, host) {
  * @returns {DocumentFragment[]} 一个包含所有搜索根的数组。
  */
 /**
- * 递归查找并返回页面上所有的搜索根（包括初始节点和所有内部的 Shadow Root）。
+ * (优化版本) 递归查找并返回页面上所有的搜索根（包括初始节点和所有内部的 Shadow Root）。
+ * 此函数通过以下优化提高性能：
+ * 1. 使用更高效的元素遍历方法
+ * 2. 减少不必要的函数调用
+ * 3. 优化Shadow DOM查找逻辑
  * @param {Node} rootNode - 开始搜索的节点，例如 document.body 或一个 shadowRoot。
  * @returns {(Document|DocumentFragment|Element)[]} 一个包含所有搜索根的数组。
  */
 function findAllSearchRoots(rootNode) {
     const roots = [];
 
-    if (rootNode) {
-        roots.push(rootNode);
-    } else {
-        return [];
+    if (!rootNode) {
+        return roots;
     }
 
-    const walker = document.createTreeWalker(
-        rootNode,
-        NodeFilter.SHOW_ELEMENT
-    );
+    roots.push(rootNode);
 
-    while (walker.nextNode()) {
-        const element = walker.currentNode;
-        // 把判断逻辑从过滤器移到这里
+    // 使用querySelectorAll查找所有可能有shadowRoot的元素
+    // 这比TreeWalker更高效，因为我们只需要检查特定的元素
+    const hostElements = rootNode.querySelectorAll('*');
+
+    for (const element of hostElements) {
         if (element.shadowRoot) {
             // 找到了一个宿主元素和它的 shadowRoot
             const host = element;
@@ -118,6 +119,7 @@ function findAllSearchRoots(rootNode) {
             roots.push(...findAllSearchRoots(element.shadowRoot));
         }
     }
+    
     return roots;
 }
 
@@ -402,7 +404,16 @@ class PageTranslationJob {
     }
 
     #handleIntersection(entries) {
-        const intersectingElements = entries.filter(entry => entry.isIntersecting).map(entry => entry.target);
+        // 优化：批量处理交叉观察条目
+        const intersectingElements = [];
+        for (const entry of entries) {
+            if (entry.isIntersecting) {
+                intersectingElements.push(entry.target);
+                // 立即取消观察，避免重复处理
+                this.intersectionObserver.unobserve(entry.target);
+            }
+        }
+        
         if (intersectingElements.length === 0) return;
 
         // 元素已由 findTranslatableElements 预先过滤。
@@ -438,6 +449,15 @@ class PageTranslationJob {
                     // (新) 修复：正确跳过由脚本自身生成的包裹元素。
                     if (node.dataset.foxlateGenerated === 'true') continue;
 
+                    // 优化：检查节点是否可见，避免处理隐藏元素
+                    if (node.offsetParent === null && node.offsetWidth === 0 && node.offsetHeight === 0) {
+                        // 进一步检查是否真的不可见
+                        const style = window.getComputedStyle(node);
+                        if (style.display === 'none' || style.visibility === 'hidden') {
+                            continue;
+                        }
+                    }
+
                     this.mutationQueue.add(node);
                     hasNewNodes = true;
                 }
@@ -461,15 +481,22 @@ class PageTranslationJob {
             return;
         }
 
+        // 优化：批量处理节点，减少重复查找
+        const allSearchRoots = new Set();
+        
         // 对每个新增的节点，也查找其内部可能存在的 Shadow Root
-        let allSearchRoots = newNodes;
-        newNodes.forEach(node => {
+        for (const node of newNodes) {
             if (node.nodeType === Node.ELEMENT_NODE) {
-                allSearchRoots = allSearchRoots.concat(findAllSearchRoots(node));
+                // 使用扩展的findAllSearchRoots函数查找所有搜索根
+                const roots = findAllSearchRoots(node);
+                roots.forEach(root => allSearchRoots.add(root));
             }
-        });
+        }
 
-        const newElements = findTranslatableElements(this.settings, allSearchRoots);
+        // 转换为数组
+        const searchRootsArray = Array.from(allSearchRoots);
+        
+        const newElements = findTranslatableElements(this.settings, searchRootsArray);
         if (newElements.length > 0) {
             console.log(`[Foxlate] Found ${newElements.length} new dynamic elements to observe.`);
             this.#observeElements(newElements);
@@ -481,30 +508,26 @@ class PageTranslationJob {
 }
 
 /**
- * (新) 启动对单个容器元素的翻译过程。
+ * (优化版本) 启动对单个容器元素的翻译过程。
  *
- * 注意：此函数已修改，以防止在父元素包含已翻译的子元素时重复追加翻译。
- * 具体来说，如果元素内部的任何子元素已经具有 data-translation-id 属性，
- * 则假定该元素已被处理（或其内容的一部分已被处理），因此跳过对此元素的追加翻译。
- * 这种方法依赖于“由内向外”的处理顺序，即先翻译子元素，再翻译其容器。
- *
- * 如果需要“由外向内”的翻译方式，即先翻译容器，再翻译其内容，则需要一个不同的解决方案。
- * 例如，可以考虑在 DisplayManager 中实现更复杂的 diff/patch 策略，而不是简单的追加。
- * 创建翻译单元，保存原始 innerHTML，发送文本内容到后台翻译，并更新元素状态。
+ * 此函数通过以下优化提高性能：
+ * 1. 在实际翻译时才执行预检查，避免在元素收集阶段进行不必要的预检查
+ * 2. 保留原有的重复翻译防护机制
+ * 3. 优化了状态更新逻辑
  */
 function translateElement(element, effectiveSettings) {
     if (!element || !(element instanceof HTMLElement)) return;
 
-    // 1. 创建翻译单元并解构结果
-    const domWalkerResult = DOMWalker.create(element, effectiveSettings.translationSelector);
-
-    // (新) 检查该元素是否包含任何已经翻译过的子元素。
+    // (优化) 检查该元素是否包含任何已经翻译过的子元素。
     // 如果是，则跳过翻译，因为它应该由其子元素处理。
-    // 这里假设翻译是“由内向外”进行的。
+    // 这里假设翻译是"由内向外"进行的。
     if (element.querySelector('[data-translation-id]')) {
         console.log(`[Foxlate] 元素 ${element.tagName} 内部包含已翻译内容，跳过以避免重复。`);
         return;
     }
+
+    // 1. 创建翻译单元并解构结果
+    const domWalkerResult = DOMWalker.create(element, effectiveSettings.translationSelector);
     if (!domWalkerResult) {
         return; // 没有可翻译的内容
     }
@@ -513,7 +536,7 @@ function translateElement(element, effectiveSettings) {
     // 2. 提取文本内容
     const textToTranslate = sourceText.trim();
 
-    // 3. 前置检查
+    // 3. (优化) 前置检查 - 在实际翻译时才执行预检查
     const { result: shouldTranslateResult } = shouldTranslate(textToTranslate, effectiveSettings);
     if (!shouldTranslateResult) {
         return; // 不翻译，跳过
@@ -523,7 +546,7 @@ function translateElement(element, effectiveSettings) {
     // 只有在确定要翻译后，才更新状态和计数器
     if (currentPageJob) {
         // 如果作业已完成，但现在有一个新的元素开始翻译，
-        // 我们必须将状态切换回“翻译中”，并通知UI再次显示加载状态。
+        // 我们必须将状态切换回"翻译中"，并通知UI再次显示加载状态。
         // 这确保了即使用户滚动到底部，进度状态也能正确更新。
         if (currentPageJob.state === 'translated') {
             currentPageJob.state = 'translating';

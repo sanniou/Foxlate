@@ -38,12 +38,26 @@ const BLOCK_LEVEL_TAGS = new Set([...STRUCTURAL_BLOCK_TAGS, ...PRESERVABLE_BLOCK
 export class DOMWalker {
 
     static #isElementVisible(element, getCachedStyle) {
-        if (getCachedStyle(element).display === 'none') {
+        // 优化：首先检查最常见的不可见情况
+        const style = getCachedStyle(element);
+        if (style.display === 'none') {
             return false;
         }
-        // 避免重复获取 rect，如果已经检查过，可以传入
-        const rect = element.getBoundingClientRect();
-        return rect.width > 0 || rect.height > 0;
+        
+        // 优化：检查visibility属性，避免获取布局信息
+        if (style.visibility === 'hidden') {
+            return false;
+        }
+        
+        // 优化：检查opacity属性，避免获取布局信息
+        const opacity = parseFloat(style.opacity);
+        if (opacity === 0) {
+            return false;
+        }
+        
+        // 优化：只有在必要时才获取布局信息
+        // 使用offsetWidth/offsetHeight比getBoundingClientRect()更快
+        return element.offsetWidth > 0 || element.offsetHeight > 0;
     }
 
     /**
