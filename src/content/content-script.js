@@ -187,17 +187,17 @@ function findTranslatableElements(effectiveSettings, rootNodes = [document.body]
             );
 
             if (hasSignificantContent) {
-                const wrapperSpan = document.createElement('span');
-                wrapperSpan.dataset.foxlateGenerated = 'true';
+                const wrapperElement = document.createElement('foxlate-wrapper');
+                wrapperElement.dataset.foxlateGenerated = 'true';
 
                 // 将包裹元素插入到第一个孤立节点之前。
-                parent.insertBefore(wrapperSpan, consecutiveOrphans[0]);
+                parent.insertBefore(wrapperElement, consecutiveOrphans[0]);
 
                 // 将所有连续的孤立节点（包括空白文本节点）移动到包裹元素中，以保持原始间距。
-                consecutiveOrphans.forEach(node => wrapperSpan.appendChild(node));
+                consecutiveOrphans.forEach(node => wrapperElement.appendChild(node));
 
                 // 将新创建的包裹元素添加到候选列表中进行翻译。
-                finalCandidates.add(wrapperSpan);
+                finalCandidates.add(wrapperElement);
             }
             consecutiveOrphans = []; // 重置收集器
         };
