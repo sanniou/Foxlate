@@ -80,7 +80,9 @@ export function shouldTranslate(text, settings, enableLog = false) {
 
     // 2c: Remove neutral characters (digits, spaces, punctuation, symbols).
     const textBeforeNeutral = remainingText;
-    const neutralRegex = /[\d\s\p{P}\p{S}]/gu;
+    // (优化) 增加 \p{M} (Marks) 来移除像 emoji 变体选择符 (U+FE0F) 这类非打印字符，
+    // 这可以更可靠地识别仅由符号、标记和空白组成的字符串。
+    const neutralRegex = /[\d\s\p{P}\p{S}\p{M}]/gu;
     remainingText = remainingText.replace(neutralRegex, '');
     if (enableLog && textBeforeNeutral !== remainingText) {
         log.push(browser.i18n.getMessage('logEntryPrecheckNeutralRemoved') || 'Erased neutral characters (numbers, symbols).');
