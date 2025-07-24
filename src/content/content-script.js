@@ -293,21 +293,24 @@ class PageTranslationJob {
         this.#initializeObservers();
         this.#startMutationObserver();
 
-        const allSearchRoots = findAllSearchRoots(document.body);
-        const elementsToObserve = findTranslatableElements(this.settings, allSearchRoots);
+        // 优化：使用requestIdleCallback延迟元素查找，避免阻塞主线程
+        requestIdleCallback(() => {
+            const allSearchRoots = findAllSearchRoots(document.body);
+            const elementsToObserve = findTranslatableElements(this.settings, allSearchRoots);
 
-        console.log(`[Foxlate] Found ${elementsToObserve.length} initial elements to observe across ${allSearchRoots.length} roots.`);
-        if (elementsToObserve.length > 0) {
-            this.#observeElements(elementsToObserve);
-            this.state = 'translating'; // 正式进入翻译中状态
-        } else {
-            console.warn("[Foxlate] No translatable elements found to observe initially.");
-            this.state = 'translated'; // 没有需要翻译的元素，任务直接完成
-            browser.runtime.sendMessage({
-                type: 'TRANSLATION_STATUS_UPDATE',
-                payload: { status: 'translated', tabId: this.tabId }
-            }).catch(e => logError('start (sending translated status)', e));
-        }
+            console.log(`[Foxlate] Found ${elementsToObserve.length} initial elements to observe across ${allSearchRoots.length} roots.`);
+            if (elementsToObserve.length > 0) {
+                this.#observeElements(elementsToObserve);
+                this.state = 'translating'; // 正式进入翻译中状态
+            } else {
+                console.warn("[Foxlate] No translatable elements found to observe initially.");
+                this.state = 'translated'; // 没有需要翻译的元素，任务直接完成
+                browser.runtime.sendMessage({
+                    type: 'TRANSLATION_STATUS_UPDATE',
+                    payload: { status: 'translated', tabId: this.tabId }
+                }).catch(e => logError('start (sending translated status)', e));
+            }
+        }, { timeout: 2000 });
     }
 
     async revert() {
@@ -418,11 +421,13 @@ class PageTranslationJob {
 
         // 元素已由 findTranslatableElements 预先过滤。
         // 我们可以直接翻译它们，无需再次检查CSS选择器。
-        intersectingElements.forEach(element => {
-            this.intersectionObserver.unobserve(element);
-            // 直接委托给 translateElement，它将处理所有启动逻辑
-            translateElement(element, this.settings);
-        });
+        // 优化：使用requestIdleCallback批量处理翻译请求
+        requestIdleCallback(() => {
+            intersectingElements.forEach(element => {
+                // 直接委托给 translateElement，它将处理所有启动逻辑
+                translateElement(element, this.settings);
+            });
+        }, { timeout: 1000 });
     }
 
     checkCompletion() {
