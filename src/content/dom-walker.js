@@ -40,26 +40,36 @@ const BLOCK_CHILD_SELECTORS = Array.from(BLOCK_LEVEL_TAGS).map(tag => tag.toLowe
  */
 export class DOMWalker {
 
+    /**
+     * (已优化) 检查元素在视觉上是否对用户可见。
+     * 此函数通过一个分层的、成本递增的检查策略来优化性能：
+     * 1. (最快) 检查基本的 CSS 样式属性，这些操作不会触发浏览器重排。
+     * 2. (次快) 检查 `offsetParent` 属性，这是一个无需重排的 DOM 属性，可以快速排除被隐藏容器包裹的元素。
+     * 3. (最慢) 最后才访问 `offsetWidth`/`offsetHeight`，这会强制浏览器进行重排（reflow/layout），是成本最高的操作。
+     * @param {HTMLElement} element - 要检查的元素。
+     * @param {function(HTMLElement): CSSStyleDeclaration} getCachedStyle - 用于获取缓存样式的函数。
+     * @returns {boolean} 如果元素可见，则返回 true。
+     */
     static #isElementVisible(element, getCachedStyle) {
-        // 优化：首先检查最常见的不可见情况
+        // 步骤 1: 快速的、无重排的样式检查
         const style = getCachedStyle(element);
-        if (style.display === 'none') {
+        if (style.display === 'none' || style.visibility === 'hidden' || parseFloat(style.opacity) === 0) {
             return false;
         }
-        
-        // 优化：检查visibility属性，避免获取布局信息
-        if (style.visibility === 'hidden') {
-            return false;
+
+        // 步骤 2: 快速的、无重排的 DOM 属性检查，以避免不必要的布局计算。
+        // `offsetParent` 为 null 通常意味着元素不可见（例如，在 `display:none` 的容器内）。
+        // 我们需要处理那些 `offsetParent` 为 null 但元素仍然可见的例外情况。
+        if (element.offsetParent === null) {
+            const tagName = element.tagName.toUpperCase();
+            // 例外：根元素 (HTML, BODY) 和固定/粘性定位的元素，它们的 offsetParent 可能为 null 但它们是可见的。
+            // 对于所有其他情况，offsetParent 为 null 意味着元素是隐藏的。
+            if (tagName !== 'HTML' && tagName !== 'BODY' && style.position !== 'fixed' && style.position !== 'sticky') {
+                return false;
+            }
         }
-        
-        // 优化：检查opacity属性，避免获取布局信息
-        const opacity = parseFloat(style.opacity);
-        if (opacity === 0) {
-            return false;
-        }
-        
-        // 优化：只有在必要时才获取布局信息
-        // 使用offsetWidth/offsetHeight比getBoundingClientRect()更快
+
+        // 步骤 3: 最后的、成本最高的检查，它会强制浏览器进行重排。
         return element.offsetWidth > 0 || element.offsetHeight > 0;
     }
 
@@ -176,7 +186,14 @@ export class DOMWalker {
 
         const ensureSeparator = () => {
             const lastSegment = segments[segments.length - 1] || '';
-            if (segments.length > 0 && !/\s$/.test(lastSegment)) {
+            if (segments.length === 0 || lastSegment.length === 0) {
+                return;
+            }
+            // (优化) 检查最后一个字符是否为空白。
+            // 在此上下文中，尾随空白只可能是由文本节点规范化产生的 ' ' 或由 <br> 产生的 '\n'。
+            // 直接比较字符比使用正则表达式 `/\s$/` 更快，同时保持了逻辑的完整性。
+            const lastChar = lastSegment[lastSegment.length - 1];
+            if (lastChar !== ' ' && lastChar !== '\n') {
                 segments.push('\n');
             }
         };
