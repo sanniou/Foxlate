@@ -3,6 +3,7 @@ import { shouldTranslate } from '../common/precheck.js';
 import { DisplayManager } from './display-manager.js';
 import { SettingsManager } from '../common/settings-manager.js';
 import { DOMWalker } from './dom-walker.js';
+import { SKIPPED_TAGS } from '../common/constants.js';
 
 /**
  * 集中式错误记录器，用于内容脚本。
@@ -194,10 +195,19 @@ function findTranslatableElements(effectiveSettings, rootNodes = [document.body]
         const wrapOrphans = () => {
             if (consecutiveOrphans.length === 0) return;
 
-            // 仅当孤立节点序列中包含有意义的内容（不只是空白）时才进行包裹。
-            const hasSignificantContent = consecutiveOrphans.some(node =>
-                node.nodeType !== Node.TEXT_NODE || node.textContent.trim() !== ''
-            );
+            // (新) 增强版的内容显著性检查。
+            // 一个节点序列只有在满足以下条件时才被认为是“重要的”并被包裹：
+            // - 包含至少一个包含非空白字符的文本节点。
+            // - 或包含至少一个不是被跳过类型（如<script>, <hr>）且自身包含非空白文本的元素节点。
+            const hasSignificantContent = consecutiveOrphans.some(node => {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    return node.textContent.trim() !== '';
+                }
+                if (node.nodeType === Node.ELEMENT_NODE) {
+                    return !SKIPPED_TAGS.has(node.tagName.toUpperCase()) && node.textContent.trim() !== '';
+                }
+                return false; // 忽略注释等其他节点类型
+            });
 
             if (hasSignificantContent) {
                 const wrapperElement = document.createElement('foxlate-wrapper');
@@ -217,6 +227,14 @@ function findTranslatableElements(effectiveSettings, rootNodes = [document.body]
 
         // 遍历父节点的所有直接子节点。
         for (const child of Array.from(parent.childNodes)) {
+            // (新) 关键修复：如果子节点本身就是一个由我们生成的包裹器，
+            // 那么它就是一个明确的“边界”。我们应该立即处理之前收集的任何孤立节点，
+            // 然后跳过这个包裹器，以防止递归包裹。
+            if (child.nodeType === Node.ELEMENT_NODE && child.dataset.foxlateGenerated === 'true') {
+                wrapOrphans(); // 处理在它之前的所有孤立节点
+                continue;      // 跳过这个包裹器本身
+            }
+
             // (新) 重新定义“边界”节点。一个节点如果满足以下任一条件，它就不是孤立的：
             // 1. 它本身匹配翻译选择器。
             // 2. 它已经被翻译或正在被翻译。

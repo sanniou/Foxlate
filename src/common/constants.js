@@ -10,6 +10,14 @@ export const SUPPORTED_LANGUAGES = {
     'RU': 'langRU'
 };
 
+// --- DOMWalker Tag Definitions ---
+// Tags that should be completely skipped during DOM traversal.
+export const SKIPPED_TAGS = new Set([
+    'SCRIPT', 'STYLE', 'NOSCRIPT', 'TEXTAREA', 'INPUT',
+    'IFRAME', 'CANVAS', 'VIDEO', 'AUDIO', 'SVG',
+    'SLOT', 'HR' // SLOT and HR do not contain translatable content.
+]);
+
 export const SUPPORTED_ENGINES = {
     'google': 'googleTranslate',
     'deeplx': 'deeplx',

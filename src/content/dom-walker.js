@@ -1,5 +1,6 @@
 // --- 标签定义 ---
 // 通过将标签按职责分类并组合，可以提高可读性和可维护性。
+import { SKIPPED_TAGS } from '../common/constants.js';
 
 // 纯粹的结构性块级标签，其内容将被处理，但标签本身不会被保留。
 const STRUCTURAL_BLOCK_TAGS = new Set([
@@ -17,12 +18,6 @@ const PRESERVABLE_BLOCK_TAGS = new Set([
     'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'BLOCKQUOTE', 'PRE',
     'TABLE', 'TR', 'TH', 'TD', 'FIGURE', 'FIGCAPTION', 'ADDRESS', 'HR',
     'UL', 'OL', 'DL', 'DT', 'DD' // 推荐新增
-]);
-
-// 定义在遍历时应完全跳过的标签。
-const SKIPPED_TAGS = new Set([
-    'SCRIPT', 'STYLE', 'NOSCRIPT', 'TEXTAREA', 'INPUT',
-    'IFRAME', 'CANVAS', 'VIDEO', 'AUDIO', 'SVG' // 推荐新增
 ]);
 
 // 通过组合基本集合来构建最终的标签集。
