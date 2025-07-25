@@ -3,7 +3,7 @@
 
 // 纯粹的结构性块级标签，其内容将被处理，但标签本身不会被保留。
 const STRUCTURAL_BLOCK_TAGS = new Set([
-    'DIV', 'SECTION', 'ARTICLE', 'HEADER', 'FOOTER', 'ASIDE', 'NAV'
+    'DIV', 'SECTION', 'ARTICLE', 'HEADER', 'FOOTER', 'ASIDE', 'NAV', 'FORM'
 ]);
 
 // 需要保留格式的内联标签。
@@ -31,6 +31,9 @@ const PRESERVABLE_TAGS = new Set([...PRESERVABLE_INLINE_TAGS, ...PRESERVABLE_BLO
 // 2. 所有属于块级布局的标签（结构性 + 可保留的块级）。
 const BLOCK_LEVEL_TAGS = new Set([...STRUCTURAL_BLOCK_TAGS, ...PRESERVABLE_BLOCK_TAGS]);
 
+// --- 常量定义 ---
+const BLOCK_TEXT_LENGTH_THRESHOLD = 60; // 用于判断文本是否为块级的长度阈值
+const BLOCK_CHILD_SELECTORS = Array.from(BLOCK_LEVEL_TAGS).map(tag => tag.toLowerCase()).join(', ');
 
 /**
  * A utility class for traversing a container element's DOM.
@@ -83,8 +86,7 @@ export class DOMWalker {
         }
 
         // 2. 启发式分析作为后备方案
-        const blockChildSelectors = 'p, div, h1, h2, h3, h4, h5, h6, li, tr, td, th, blockquote, pre, section, article, header, footer, nav, aside, form, hr, table';
-        if (element.querySelector(blockChildSelectors) || (element.textContent || '').trim().length > 80) {
+        if (element.querySelector(BLOCK_CHILD_SELECTORS) || (element.textContent || '').trim().length > BLOCK_TEXT_LENGTH_THRESHOLD) {
             return 'block';
         }
 
