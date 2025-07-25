@@ -116,39 +116,40 @@ export class DOMWalker {
     static create(rootElement, config = {}) {
         // --- 性能优化：快速预检查 ---
         // 在进行昂贵的DOM遍历之前，先执行一些快速检查，以提前排除不合格的元素。
+        // 检查顺序经过优化，从最快（成本最低）的检查到最慢的检查，以实现“快速失败”。
 
-        // (新) 检查 aria-hidden 属性。如果元素或其任何祖先对辅助技术是隐藏的，
-        // 那么它在语义上就是不可见的，因此不应该被翻译。
+        // 1. 检查 contenteditable 属性。这是最快的检查之一，可以立即排除所有可编辑区域。
+        // isContentEditable 是一个继承属性，所以这个检查也覆盖了父元素可编辑的情况。
+        if (rootElement.isContentEditable) {
+            return null;
+        }
+
+        // 2. 检查此元素是否为由 'append' 策略添加的翻译容器。
+        // 这同样是一个快速的 dataset 访问，可以防止对已翻译内容进行重复翻译。
+        if (rootElement.dataset.foxlateAppendedText === 'true') {
+            return null;
+        }
+
+        // 3. 检查 aria-hidden 属性。如果元素或其任何祖先对辅助技术是隐藏的，
+        // 那么它在语义上就是不可见的，因此不应该被翻译。这是一个中等成本的 DOM 遍历检查。
         if (rootElement.closest('[aria-hidden="true"]')) {
             return null;
         }
 
-        // (新) 检查此元素或其父元素是否匹配排除选择器，并添加了错误处理。
+        // 4. 检查此元素或其父元素是否匹配用户定义的排除选择器。
         if (config.exclude) {
             try {
                 if (rootElement.closest(config.exclude)) {
                     return null;
                 }
             } catch (e) {
-                // 如果选择器无效，记录错误并忽略该规则，而不是使整个脚本崩溃。
+                // 如果选择器无效，记录错误并忽略该规则，而不是使整个脚本崩溃
                 console.error(`[Foxlate] Invalid exclude selector in configuration: "${config.exclude}". Translation will proceed.`, e);
             }
         }
 
-        // (新) 检查 contenteditable 属性。如果元素是可编辑的，则不应翻译，以避免干扰用户输入。
-        // isContentEditable 是一个继承属性，所以这个检查也覆盖了父元素可编辑的情况。
-        if (rootElement.isContentEditable) {
-            return null;
-        }
-
-        // (新) 检查此元素是否为由 'append' 策略添加的翻译容器。
-        // 如果是，则直接跳过，以防止重复翻译。
-        if (rootElement.dataset.foxlateAppendedText === 'true') {
-            return null;
-        }
-
-        // 1. 检查内容：如果元素（及其后代）根本不包含任何文本，则无需处理。
-        //    这是一个非常快速且有效的检查。
+        // 5. 检查内容：如果元素（及其后代）根本不包含任何有意义的文本，则无需处理。
+        //    textContent 的成本可变，但它是一个非常有效的过滤器，可以避免对空容器进行最昂贵的可见性检查。
         if (!rootElement.textContent.trim()) {
             return null;
         }
@@ -163,8 +164,8 @@ export class DOMWalker {
             return style;
         };
 
-        // 2. 检查可见性：如果元素的渲染尺寸为0，则它对用户不可见，无需翻译。
-        //    这可以捕获 `display: none` 或其他导致元素不占用空间的样式。
+        // 6. 检查可见性：这是成本最高的检查，因为它需要计算元素的布局和样式。
+        //    因此，它被放在最后，只有在所有其他检查都通过后才执行。
         if (!DOMWalker.#isElementVisible(rootElement, getCachedStyle)) {
             return null;
         }
