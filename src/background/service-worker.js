@@ -64,11 +64,6 @@ async function ensureScriptsInjected(tabId, frameId, filesToInject) {
             await browser.scripting.executeScript({ target: { tabId, frameIds: [frameId] }, files: jsToInject });
         }
 
-        // 注入 tabId 的特殊逻辑，仅在主框架和注入核心脚本时执行。
-        // 这一步可以重复执行，没有副作用。
-        if (frameId === 0 && jsToInject.includes("content/content-script.js")) {
-            await browser.scripting.executeScript({ target: { tabId, frameIds: [frameId] }, func: (tabId) => { window.__foxlate_tabId = tabId; }, args: [tabId] });
-        }
         return true;
     } catch (error) {
         logError(`ensureScriptsInjected for tab ${tabId}, frame ${frameId}`, new Error(`Failed to inject scripts. This can happen on special pages (e.g., chrome://). Error: ${error.message}`));
