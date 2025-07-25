@@ -3,7 +3,7 @@ import * as Constants from './constants.js';
 import { DEFAULT_STRATEGY_MAP } from '../content/subtitle/strategy-manifest.js';
 
 export class SettingsManager {
-    // --- Private Static State ---
+    // --- Private Static State ---  
     static #validatedSettingsCache = null;
 
     // --- Static Initialization Block ---
@@ -13,9 +13,11 @@ export class SettingsManager {
         browser.storage.onChanged.addListener((changes, area) => {
             if (area === 'sync' && changes.settings) {
                 this.#invalidateCache();
+                this.#effectiveSettingsCache.clear(); //设置变更时清除缓存
             }
         });
 
+        this.#defaultPrecheckRules = this.generateDefaultPrecheckRules();
     }
 
     // --- Public Static Methods ---
@@ -35,32 +37,11 @@ export class SettingsManager {
         return Array.from(combined).join(', ');
     }
 
-    /**
-     * Deep clones an object, correctly handling RegExp instances.
-     * @param {any} obj - The object to clone.
-     * @returns {any} The cloned object.
-     */
-    static deepClone(obj) {
-        if (obj === null || typeof obj !== 'object') {
-            return obj;
-        }
+    static #effectiveSettingsCache = new Map();
 
-        if (obj instanceof RegExp) {
-            return new RegExp(obj.source, obj.flags); // RegExp 可以被在同一个上下文中克隆
-        }
+    //缓存默认预检规则
+    static #defaultPrecheckRules = null;
 
-        if (Array.isArray(obj)) {
-            return obj.map(item => this.deepClone(item));
-        }
-
-        const clonedObj = {};
-        for (const key in obj) {
-            if (Object.prototype.hasOwnProperty.call(obj, key)) {
-                clonedObj[key] = this.deepClone(obj[key]);
-            }
-        }
-        return clonedObj;
-    }
 
     /**
      * (私有) 使设置缓存失效，当设置更改时调用。
@@ -77,7 +58,7 @@ export class SettingsManager {
 
     static precompileRules(rules) {
         if (!rules) return {};
-        const compiledRules = this.deepClone(rules);
+        const compiledRules = structuredClone(rules);
         for (const category in compiledRules) {
             if (Array.isArray(compiledRules[category])) {
                 compiledRules[category].forEach(rule => {
@@ -101,7 +82,7 @@ export class SettingsManager {
 
 
     static generateDefaultPrecheckRules() {
-        const defaultRules = this.deepClone(Constants.DEFAULT_PRECHECK_RULES);
+        const defaultRules = structuredClone(Constants.DEFAULT_PRECHECK_RULES);
         if (defaultRules.general) {
             defaultRules.general.forEach(rule => {
                 rule.name = browser.i18n.getMessage(rule.nameKey) || rule.name;
@@ -130,7 +111,7 @@ export class SettingsManager {
 
     static async getValidatedSettings() {
         if (this.#validatedSettingsCache) {
-            return this.deepClone(this.#validatedSettingsCache); // 使用 deepClone 返回安全副本
+            return structuredClone(this.#validatedSettingsCache); // 使用 structuredClone 返回安全副本
         }
 
         const { settings: storedSettings } = await browser.storage.sync.get('settings');
@@ -172,7 +153,7 @@ export class SettingsManager {
         // 以避免在跨上下文传递消息时序列化 RegExp 对象。
         // validatedSettings.precheckRules = this.precompileRules(validatedSettings.precheckRules);
 
-        this.#validatedSettingsCache = this.deepClone(validatedSettings); // 缓存未编译但已验证的设置
+        this.#validatedSettingsCache = structuredClone(validatedSettings); // 缓存未编译但已验证的设置
         return validatedSettings;
     }
 
@@ -183,7 +164,12 @@ export class SettingsManager {
      */
 
     static async getEffectiveSettings(hostname) {
+        if (this.#effectiveSettingsCache.has(hostname)) {
+            return structuredClone(this.#effectiveSettingsCache.get(hostname));
+        }
+
         const settings = await this.getValidatedSettings();
+
         const domainRules = settings.domainRules || {};
         let domainRule = {};
         let ruleSource = 'default';
@@ -257,18 +243,23 @@ export class SettingsManager {
         if (domainRule.precheckRules) {
             effectiveSettings.precheckRules = domainRule.precheckRules;
         }
+        else {
+            effectiveSettings.precheckRules = this.#defaultPrecheckRules;
+        }
+
+        const compiledSettings = this.precompileRules(effectiveSettings.precheckRules);
+        effectiveSettings.precheckRules = compiledSettings;
+
+        this.#effectiveSettingsCache.set(hostname, structuredClone(effectiveSettings));
         return effectiveSettings;
     }
 
     /**
      * 将提供的设置对象保存到存储中。
      * @param {object} settings - 要保存的设置对象。
-     * @returns {Promise<void>} 一个 Promise，在设置保存时解析。
      */
-
-
     static async saveSettings(settings) {
-        const settingsToSave = this.deepClone(settings);
+        const settingsToSave = structuredClone(settings);
         delete settingsToSave.source;
 
         if (settingsToSave.precheckRules) {
@@ -282,5 +273,12 @@ export class SettingsManager {
         }
 
         await browser.storage.sync.set({ settings: settingsToSave });
+    }
+
+    /**
+     * 清除 effectiveSettingsCache
+     */
+    static clearCache() {
+        this.#effectiveSettingsCache.clear();
     }
 }
