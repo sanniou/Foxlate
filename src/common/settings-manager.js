@@ -6,18 +6,26 @@ export class SettingsManager {
     // --- Private Static State ---  
     static #validatedSettingsCache = null;
 
+    static #effectiveSettingsCache = new Map();
+
+    //缓存默认预检规则
+    static #defaultPrecheckRules = null;
+
     // --- Static Initialization Block ---
     // 静态初始化块，在类加载时执行一次，设置初始值。
     static {
         // Listen for changes in storage and invalidate the cache accordingly.
         browser.storage.onChanged.addListener((changes, area) => {
+            // 使用类名直接访问静态成员，可以完全避免 `this` 上下文可能引发的混淆或错误，
+            // 尤其是在事件监听器的回调函数和静态块中。
             if (area === 'sync' && changes.settings) {
-                this.#invalidateCache();
-                this.#effectiveSettingsCache.clear(); //设置变更时清除缓存
+                SettingsManager.#invalidateCache();
+                SettingsManager.#effectiveSettingsCache.clear(); //设置变更时清除缓存
             }
         });
 
-        this.#defaultPrecheckRules = this.generateDefaultPrecheckRules();
+        // 直接使用类名进行初始化，以确保在任何环境下都能正确工作。
+        SettingsManager.#defaultPrecheckRules = SettingsManager.generateDefaultPrecheckRules();
     }
 
     // --- Public Static Methods ---
@@ -30,24 +38,19 @@ export class SettingsManager {
      * @returns {string} 一个干净、无重复的合并后选择器字符串。
      */
     static #mergeSelectors(baseSelectors, additionalSelectors) {
-        const base = baseSelectors.split(',').map(s => s.trim()).filter(Boolean);
-        const additional = additionalSelectors.split(',').map(s => s.trim()).filter(Boolean);
+        const base = (baseSelectors || '').split(',').map(s => s.trim()).filter(Boolean);
+        const additional = (additionalSelectors || '').split(',').map(s => s.trim()).filter(Boolean);
         // 使用 Set 自动处理重复项
         const combined = new Set([...base, ...additional]);
         return Array.from(combined).join(', ');
     }
-
-    static #effectiveSettingsCache = new Map();
-
-    //缓存默认预检规则
-    static #defaultPrecheckRules = null;
 
 
     /**
      * (私有) 使设置缓存失效，当设置更改时调用。
      */
     static #invalidateCache() {
-        this.#validatedSettingsCache = null;
+        SettingsManager.#validatedSettingsCache = null;
     }
 
     /**
@@ -110,15 +113,15 @@ export class SettingsManager {
      */
 
     static async getValidatedSettings() {
-        if (this.#validatedSettingsCache) {
-            return structuredClone(this.#validatedSettingsCache); // 使用 structuredClone 返回安全副本
+        if (SettingsManager.#validatedSettingsCache) {
+            return structuredClone(SettingsManager.#validatedSettingsCache); // 使用 structuredClone 返回安全副本
         }
 
         const { settings: storedSettings } = await browser.storage.sync.get('settings');
-        const defaultSettings = this.deepClone(Constants.DEFAULT_SETTINGS);
-        defaultSettings.precheckRules = this.generateDefaultPrecheckRules();
+        const defaultSettings = structuredClone(Constants.DEFAULT_SETTINGS);
+        defaultSettings.precheckRules = SettingsManager.generateDefaultPrecheckRules();
 
-        let settingsToValidate = storedSettings || defaultSettings;
+        const settingsToValidate = storedSettings || defaultSettings;
 
         const validatedSettings = { ...defaultSettings, ...settingsToValidate };
 
@@ -136,12 +139,6 @@ export class SettingsManager {
             ? settingsToValidate.precheckRules
             : defaultSettings.precheckRules;
 
-        for (const key in defaultSettings) {
-            if (!Object.prototype.hasOwnProperty.call(validatedSettings, key)) {
-                validatedSettings[key] = defaultSettings[key];
-            }
-        }
-
         if (validatedSettings.aiEngines && Array.isArray(validatedSettings.aiEngines)) {
             validatedSettings.aiEngines.forEach(engine => {
                 if (engine.wordCountThreshold === undefined) engine.wordCountThreshold = 1;
@@ -153,8 +150,67 @@ export class SettingsManager {
         // 以避免在跨上下文传递消息时序列化 RegExp 对象。
         // validatedSettings.precheckRules = this.precompileRules(validatedSettings.precheckRules);
 
-        this.#validatedSettingsCache = structuredClone(validatedSettings); // 缓存未编译但已验证的设置
+        SettingsManager.#validatedSettingsCache = structuredClone(validatedSettings); // 缓存未编译但已验证的设置
         return validatedSettings;
+    }
+
+    /**
+     * @private
+     * 根据全局设置、域名规则和默认策略，计算最终生效的字幕设置。
+     * @param {string} hostname - 当前页面的主机名。
+     * @param {object} domainRule - 匹配到的域名规则。
+     * @returns {object} 最终的字幕设置对象。
+     */
+    static #calculateEffectiveSubtitleSettings(hostname, domainRule) {
+        if (domainRule.subtitleSettings) {
+            // 情况 1: 用户为此域名定义了字幕设置。与默认值合并以确保所有属性都存在。
+            return {
+                enabled: false, strategy: 'none', displayMode: 'off', ...domainRule.subtitleSettings
+            };
+        } else if (DEFAULT_STRATEGY_MAP.has(hostname)) {
+            // 情况 2: 没有用户规则，但存在默认策略。默认启用注入。
+            return {
+                enabled: true,
+                strategy: DEFAULT_STRATEGY_MAP.get(hostname),
+                displayMode: 'off' // 默认隐藏，用户可以在弹出窗口中启用它
+            };
+        } else {
+            // 情况 3: 没有用户规则，也没有默认策略。
+            return { enabled: false, strategy: 'none', displayMode: 'off' };
+        }
+    }
+
+    /**
+     * @private
+     * 根据全局设置和域名规则，计算最终生效的 CSS 选择器。
+     * @param {object} globalSelector - 全局的选择器设置。
+     * @param {object} ruleSelector - 域名规则中的选择器设置。
+     * @param {boolean} override - 是否覆盖而不是合并选择器。
+     * @returns {object} 最终的选择器对象 { inline, block, exclude }。
+     */
+    static #calculateEffectiveSelectorSettings(globalSelector, ruleSelector, override) {
+        const defaultSelector = globalSelector || { inline: '', block: '', exclude: '' };
+
+        let finalInlineSelector = defaultSelector.inline || '';
+        let finalBlockSelector = defaultSelector.block || '';
+        let finalExcludeSelector = defaultSelector.exclude || '';
+
+        if (ruleSelector) {
+            const ruleInline = ruleSelector.inline || '';
+            const ruleBlock = ruleSelector.block || '';
+            const ruleExclude = ruleSelector.exclude || '';
+            if (override) {
+                finalInlineSelector = ruleInline;
+                finalBlockSelector = ruleBlock;
+                finalExcludeSelector = ruleExclude;
+            } else {
+                finalInlineSelector = SettingsManager.#mergeSelectors(finalInlineSelector, ruleInline);
+                finalBlockSelector = SettingsManager.#mergeSelectors(finalBlockSelector, ruleBlock);
+                finalExcludeSelector = SettingsManager.#mergeSelectors(finalExcludeSelector, ruleExclude);
+            }
+        }
+
+        return { inline: finalInlineSelector, block: finalBlockSelector, exclude: finalExcludeSelector };
     }
 
     /**
@@ -164,11 +220,11 @@ export class SettingsManager {
      */
 
     static async getEffectiveSettings(hostname) {
-        if (this.#effectiveSettingsCache.has(hostname)) {
-            return structuredClone(this.#effectiveSettingsCache.get(hostname));
+        if (SettingsManager.#effectiveSettingsCache.has(hostname)) {
+            return structuredClone(SettingsManager.#effectiveSettingsCache.get(hostname));
         }
 
-        const settings = await this.getValidatedSettings();
+        const settings = await SettingsManager.getValidatedSettings();
 
         const domainRules = settings.domainRules || {};
         let domainRule = {};
@@ -191,52 +247,14 @@ export class SettingsManager {
         // Start with global settings as the base and merge the domain rule
         const effectiveSettings = { ...settings, ...domainRule, source: ruleSource };
 
-        // --- Subtitle Logic ---
-        if (domainRule.subtitleSettings) {
-            // Case 1: User has defined subtitle settings for this domain. Merge with defaults to ensure all properties exist.
-            effectiveSettings.subtitleSettings = {
-                enabled: false, strategy: 'none', displayMode: 'off', ...domainRule.subtitleSettings
-            };
-        } else if (DEFAULT_STRATEGY_MAP.has(hostname)) {
-            // Case 2: No user rule, but a default strategy exists. Enable by default for injection.
-            effectiveSettings.subtitleSettings = {
-                enabled: true,
-                strategy: DEFAULT_STRATEGY_MAP.get(hostname),
-                displayMode: 'off' // Hide by default, user can enable it in popup
-            };
-        } else {
-            // Case 3: No user rule and no default strategy.
-            effectiveSettings.subtitleSettings = { enabled: false, strategy: 'none', displayMode: 'off' };
-        }
+        // --- 字幕和选择器逻辑 (已重构) ---
+        effectiveSettings.subtitleSettings = SettingsManager.#calculateEffectiveSubtitleSettings(hostname, domainRule);
 
-        const defaultSelector = settings.translationSelector?.default || { inline: '', block: '', exclude: '' };
-        const ruleSelector = domainRule.cssSelector;
-        const override = domainRule.cssSelectorOverride || false;
-
-        let finalInlineSelector = defaultSelector.inline || '';
-        let finalBlockSelector = defaultSelector.block || '';
-        let finalExcludeSelector = defaultSelector.exclude || '';
-
-        if (ruleSelector) {
-            const ruleInline = ruleSelector.inline || '';
-            const ruleBlock = ruleSelector.block || '';
-            const ruleExclude = ruleSelector.exclude || '';
-            if (override) {
-                finalInlineSelector = ruleInline;
-                finalBlockSelector = ruleBlock;
-                finalExcludeSelector = ruleExclude;
-            } else {
-                finalInlineSelector = this.#mergeSelectors(finalInlineSelector, ruleInline);
-                finalBlockSelector = this.#mergeSelectors(finalBlockSelector, ruleBlock);
-                finalExcludeSelector = this.#mergeSelectors(finalExcludeSelector, ruleExclude);
-            }
-        }
-
-        effectiveSettings.translationSelector = {
-            inline: finalInlineSelector,
-            block: finalBlockSelector,
-            exclude: finalExcludeSelector,
-        };
+        effectiveSettings.translationSelector = SettingsManager.#calculateEffectiveSelectorSettings(
+            settings.translationSelector?.default,
+            domainRule.cssSelector,
+            domainRule.cssSelectorOverride || false
+        );
 
         // 如果存在特定于域的预检查规则，则使用它们，否则使用全局规则。
         // 注意：编译步骤已从此函数中移除，应由调用者处理。
@@ -244,13 +262,13 @@ export class SettingsManager {
             effectiveSettings.precheckRules = domainRule.precheckRules;
         }
         else {
-            effectiveSettings.precheckRules = this.#defaultPrecheckRules;
+            effectiveSettings.precheckRules = SettingsManager.#defaultPrecheckRules;
         }
 
-        const compiledSettings = this.precompileRules(effectiveSettings.precheckRules);
+        const compiledSettings = SettingsManager.precompileRules(effectiveSettings.precheckRules);
         effectiveSettings.precheckRules = compiledSettings;
 
-        this.#effectiveSettingsCache.set(hostname, structuredClone(effectiveSettings));
+        SettingsManager.#effectiveSettingsCache.set(hostname, structuredClone(effectiveSettings));
         return effectiveSettings;
     }
 
@@ -279,6 +297,6 @@ export class SettingsManager {
      * 清除 effectiveSettingsCache
      */
     static clearCache() {
-        this.#effectiveSettingsCache.clear();
+        SettingsManager.#effectiveSettingsCache.clear();
     }
 }

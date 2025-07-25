@@ -489,9 +489,9 @@ const messageHandlers = {
                 try {
                     const hostname = new URL(sender.tab.url).hostname;
                     if (status === 'translated' || status === 'loading') {
-                        await registerSessionTranslation(tabId, hostname);
+                        await TabStateManager.registerTabForAutoTranslation(tabId, hostname);
                     } else if (status === 'original') {
-                        await unregisterSessionTranslation(tabId);
+                        await TabStateManager.unregisterTabForAutoTranslation(tabId);
                     }
                 } catch (e) {
                     logError('TRANSLATION_STATUS_UPDATE (session management)', e);
