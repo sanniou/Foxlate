@@ -176,6 +176,7 @@ export class DOMWalker {
         }
 
         const segments = []; // 这将是带 <t_id> 标签的文本
+        const plainTextSegments = []; // (新) 这将是纯文本内容
         const nodeMap = {};
         let tagIndex = 0;
 
@@ -190,6 +191,7 @@ export class DOMWalker {
             const lastChar = lastSegment[lastSegment.length - 1];
             if (lastChar !== ' ' && lastChar !== '\n') {
                 segments.push('\n');
+                plainTextSegments.push('\n'); // 保持同步
             }
         };
 
@@ -207,8 +209,10 @@ export class DOMWalker {
                     const lastSegment = segments[segments.length - 1] || '';
                     if (/\s$/.test(lastSegment) && /^\s/.test(text)) {
                         segments.push(text.trimStart());
+                        plainTextSegments.push(text.trimStart());
                     } else {
                         segments.push(text);
+                        plainTextSegments.push(text);
                     }
                 } else if (child.nodeType === Node.ELEMENT_NODE) {
                     // (新) 在遍历期间检查元素是否匹配排除规则。
@@ -240,6 +244,7 @@ export class DOMWalker {
                     // (新) 将 <br> 标签显式地转换成一个换行符，以保留其格式。
                     if (tagName === 'BR') {
                         segments.push('\n');
+                        plainTextSegments.push('\n');
                         continue;
                     }
 
@@ -283,6 +288,7 @@ export class DOMWalker {
 
                         // 乐观地添加起始标签，如果子节点为空则后续移除。
                         segments.push(`<${tagId}>`);
+                        // 注意：plainTextSegments 不会添加标签
                         const openingTagIndex = segments.length; // 记录索引
 
                         // 将此元素自身的格式化上下文传递给递归调用。
@@ -320,16 +326,20 @@ export class DOMWalker {
         const rootPreservesWhitespace = ['pre', 'pre-wrap', 'pre-line'].includes(rootStyle.whiteSpace);
         walk(rootElement, rootPreservesWhitespace);
 
+        // (新) 从两个数组中分别生成最终文本
         const sourceText = segments.join('').trim();
+        const plainText = plainTextSegments.join('').trim();
 
-        if (!sourceText) return null;
+        // (新) 使用纯文本来判断是否有有效内容
+        if (!plainText) return null;
 
         // (新) 调用混合决策系统来确定追加类型
         const appendType = DOMWalker.#determineAppendType(rootElement, config, getCachedStyle);
 
         // 返回带标签的源文本和用于重建的节点映射表
         return {
-            sourceText: sourceText,
+            sourceText,
+            plainText, // 新增
             translationUnit: {
                 nodeMap,
                 appendType // 存储确定的追加类型

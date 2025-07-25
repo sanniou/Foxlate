@@ -566,16 +566,17 @@ function translateElement(element, effectiveSettings) {
     if (!domWalkerResult) {
         return; // 没有可翻译的内容
     }
-    const { sourceText, translationUnit } = domWalkerResult;
+    // (新) 解构出 sourceText, plainText 和 translationUnit
+    const { sourceText, plainText, translationUnit } = domWalkerResult;
 
-    // 2. 提取文本内容
-    const textToTranslate = sourceText.trim();
-
-    // 3. (优化) 前置检查 - 在实际翻译时才执行预检查
-    const { result: shouldTranslateResult } = shouldTranslate(textToTranslate, effectiveSettings);
+    // 3. (优化) 使用纯文本进行预检查
+    const { result: shouldTranslateResult } = shouldTranslate(plainText, effectiveSettings);
     if (!shouldTranslateResult) {
         return; // 不翻译，跳过
     }
+
+    // 4. (新) 使用带标签的 sourceText 进行翻译，以保留格式
+    const textToTranslate = sourceText;
 
     // --- 启动翻译的核心逻辑 ---
     // 只有在确定要翻译后，才更新状态和计数器
