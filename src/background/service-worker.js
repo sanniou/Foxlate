@@ -4,6 +4,7 @@ import { SettingsManager } from '../common/settings-manager.js';
 import { shouldTranslate } from '../common/precheck.js';
 import { TranslatorManager } from '../background/translator-manager.js';
 import * as Constants from '../common/constants.js';
+import TabStateManager from './tab-state-manager.js';
 import { AITranslator } from '../background/translators/ai-translator.js';
 import { SUBTITLE_STRATEGIES, SUBTITLE_MANAGER_SCRIPT, DEFAULT_STRATEGY_MAP } from '../content/subtitle/strategy-manifest.js';
 const CSS_FILES = ["content/style.css"];
@@ -35,34 +36,6 @@ function logError(context, error) {
     }
 }
 
-/**
- * Registers a hostname for automatic translation within a specific tab for the current session.
- * @param {number} tabId The ID of the tab.
- * @param {string} hostname The hostname to register for the tab.
- */
-async function registerSessionTranslation(tabId, hostname) {
-    if (!tabId || !hostname) return;
-    const { sessionTabTranslations = {} } = await browser.storage.session.get('sessionTabTranslations');
-    if (sessionTabTranslations[tabId] !== hostname) {
-        sessionTabTranslations[tabId] = hostname;
-        await browser.storage.session.set({ sessionTabTranslations });
-        console.log(`[Foxlate Session] Registered ${hostname} for auto-translation in tab ${tabId}.`);
-    }
-}
-
-/**
- * UnRegisters a tab from session-based automatic translation.
- * @param {number} tabId The ID of the tab to unregister.
- */
-async function unregisterSessionTranslation(tabId) {
-    if (!tabId) return;
-    const { sessionTabTranslations = {} } = await browser.storage.session.get('sessionTabTranslations');
-    if (sessionTabTranslations[tabId]) {
-        delete sessionTabTranslations[tabId];
-        await browser.storage.session.set({ sessionTabTranslations });
-        console.log(`[Foxlate Session] Unregistered auto-translation for tab ${tabId}.`);
-    }
-}
 /**
  * 确保指定的资源（CSS 和 JS）被注入到标签页的特定框架中。
  * 此函数使用 `browser.storage.session` 来跟踪已注入的资源，以避免重复注入。
@@ -605,7 +578,7 @@ browser.contextMenus.onClicked.addListener((info, tab) => {
     }
 });
 
-browser.storage.onChanged.addListener((changes, area) => {
+browser.storage.onChanged.addListener(async (changes, area) => {
     if (area === 'sync' && changes.settings) {
         const oldValue = changes.settings.oldValue;
         const newValue = changes.settings.newValue;
@@ -627,28 +600,34 @@ browser.storage.onChanged.addListener((changes, area) => {
                 // 使用 JSON.stringify 进行深比较，适用于对象和数组
                 if (JSON.stringify(oldValue[key]) !== JSON.stringify(newValue[key])) {
                     needsReTranslation = true;
-                    console.log(`[Foxlate] Critical setting '${key}' changed. Page re-translation required.`);
+                    if (__DEBUG__) {
+                        console.log(`[Foxlate] Critical setting '${key}' changed. Page re-translation required.`);
+                    }
                     break;
                 }
             }
         }
 
         const messageType = needsReTranslation ? 'RELOAD_TRANSLATION_JOB' : 'SETTINGS_UPDATED';
-        console.log(`[Service Worker] Settings changed. Notifying content scripts with '${messageType}'.`);
+        if (__DEBUG__) {
+            console.log(`[Service Worker] Settings changed. Notifying content scripts with '${messageType}'.`);
+        }
 
-        // Notify all active tabs
-        browser.tabs.query({}).then(tabs => {
-            for (const tab of tabs) {
-                if (tab.id) {
-                    browser.tabs.sendMessage(tab.id, { type: messageType }).catch(e => {
-                        // Ignore errors, as content script might not be injected in all tabs
-                        if (!e.message.includes("Receiving end does not exist")) {
-                            logError('storage.onChanged (notify tab)', e);
-                        }
-                    });
-                }
+        // (优化) 只通知那些当前有活动翻译的标签页
+        const activeTabIds = await TabStateManager.getActiveTabIds();
+        if (activeTabIds.length > 0) {
+            if (__DEBUG__) {
+                console.log(`[Service Worker] Sending update to ${activeTabIds.length} active tabs:`, activeTabIds);
             }
-        });
+            for (const tabId of activeTabIds) {
+                browser.tabs.sendMessage(tabId, { type: messageType }).catch(e => {
+                    // Ignore errors, as content script might not be injected or tab might be closed.
+                    if (!e.message.includes("Receiving end does not exist")) {
+                        logError('storage.onChanged (notify tab)', e);
+                    }
+                });
+            }
+        }
 
         // Also, update any service-worker-specific variables that depend on settings
         TranslatorManager.updateConcurrencyLimit();
@@ -657,7 +636,9 @@ browser.storage.onChanged.addListener((changes, area) => {
 });
 
 browser.runtime.onMessage.addListener((request, sender) => {
-    console.log(`[Service Worker] Received message: ${JSON.stringify(request)}`);
+    if (__DEBUG__) {
+        console.log(`[Service Worker] Received message: ${JSON.stringify(request)}`);
+    }
     const handler = messageHandlers[request.type];
     if (handler) {
         // Return the promise from the handler directly. The polyfill handles the asynchronicity.
@@ -699,8 +680,7 @@ async function handleNavigation(details) {
         try {
             const hostname = new URL(url).hostname;
             const effectiveRule = await SettingsManager.getEffectiveSettings(hostname);
-            const { sessionTabTranslations = {} } = await browser.storage.session.get('sessionTabTranslations');
-            const isSessionTranslate = sessionTabTranslations[tabId] === hostname;
+            const isSessionTranslate = await TabStateManager.isTabRegisteredForAutoTranslation(tabId, hostname);
 
             if (effectiveRule.autoTranslate === 'always' || isSessionTranslate) {
                 console.log(`[Auto-Translate] Rule matched for '${hostname}'. Initiating translation for tab ${tabId}.`);
@@ -725,45 +705,20 @@ async function handleNavigation(details) {
 browser.webNavigation.onCompleted.addListener(handleNavigation, { url: [{ schemes: ["http", "https"] }] });
 browser.webNavigation.onHistoryStateUpdated.addListener(handleNavigation, { url: [{ schemes: ["http", "https"] }] });
 
-browser.tabs.onRemoved.addListener(async (tabId) => {
-    try {
-        // Get all session data at once
-        const sessionData = await browser.storage.session.get(['tabTranslationStates', 'sessionTabTranslations']);
-        const { tabTranslationStates = {}, sessionTabTranslations = {} } = sessionData;
-        let needsUpdate = false;
-
-        // Clean up translation state
-        if (tabTranslationStates[tabId]) {
-            delete tabTranslationStates[tabId];
-            needsUpdate = true;
-            console.log(`[Session Cleanup] Cleaned up translation state for closed tab ${tabId}.`);
-        }
-
-        // Clean up session auto-translation rule
-        if (sessionTabTranslations[tabId]) {
-            delete sessionTabTranslations[tabId];
-            needsUpdate = true;
-            console.log(`[Session Cleanup] Cleaned up session auto-translation rule for closed tab ${tabId}.`);
-        }
-
-        // Write back to storage only if something changed
-        if (needsUpdate) {
-            await browser.storage.session.set({ tabTranslationStates, sessionTabTranslations });
-        }
-
-    } catch (error) {
-        logError('tabs.onRemoved listener', error);
-    }
-});
-
+/**
+ * (已重构) 设置标签页的徽章和状态。
+ * 此函数现在将状态持久化委托给 TabStateManager，并只负责更新 UI（徽章）。
+ * @param {number} tabId
+ * @param {string} state - 'loading', 'translated', 或 'original'
+ */
 async function setBadgeAndState(tabId, state) {
-    // 从会话存储中获取当前所有标签页的状态
-    const { tabTranslationStates = {} } = await browser.storage.session.get('tabTranslationStates');
+    // 1. 将状态持久化委托给管理器。
+    await TabStateManager.setTabStatus(tabId, state);
+
+    // 2. 处理 UI（徽章）更新。
     if (state === 'original' || !state) {
-        delete tabTranslationStates[tabId];
         await browser.action.setBadgeText({ tabId, text: '' });
     } else {
-        tabTranslationStates[tabId] = state;
         let badgeText = '';
         let badgeColor = '';
         switch (state) {
@@ -783,5 +738,4 @@ async function setBadgeAndState(tabId, state) {
             await browser.action.setBadgeBackgroundColor({ tabId, color: badgeColor });
         }
     }
-    await browser.storage.session.set({ tabTranslationStates });
 }

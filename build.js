@@ -250,6 +250,9 @@ const buildOptions = {
         manifestPlugin,
         staticAssetsManager,
     ],
+    define: {
+        '__DEBUG__': isWatchMode, // 注入一个全局常量用于调试日志
+    },
 };
 
 async function run() {

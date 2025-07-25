@@ -780,7 +780,9 @@ const messageHandlers = {
 };
 
 async function handleMessage(request, sender) {
-    console.trace(`[Content Script] Received message from sender:`, request);
+    if (__DEBUG__) {
+        console.trace(`[Content Script] Received message from sender:`, request);
+    }
     const handler = messageHandlers[request.type];
 
     if (!handler) {
