@@ -205,7 +205,6 @@ function findTranslatableElements(effectiveSettings, rootNodes = [document.body]
             if (hasSignificantContent) {
                 const wrapperElement = document.createElement('foxlate-wrapper');
                 wrapperElement.dataset.foxlateGenerated = 'true';
-
                 // 将包裹元素插入到第一个孤立节点之前。
                 parent.insertBefore(wrapperElement, consecutiveOrphans[0]);
 
@@ -383,6 +382,20 @@ class PageTranslationJob {
                 }
             }
             console.log(`[Foxlate] Reverted ${revertedCount} translated elements.`);
+
+            // (新) 补充清理：查找并还原所有可能被遗漏的、由脚本生成的包裹器。
+            // 这种情况可能在以下场景发生：
+            // 1. 包裹器被创建，但在进入视口并被翻译之前，用户就点击了“显示原文”。
+            // 2. 包裹器进入视口，但其内容未通过后续的翻译预检查，导致它从未被注册到 DisplayManager 中。
+            // 此操作确保了无论何种情况，所有对 DOM 的修改都能被完全撤销。
+            const leftoverWrappers = document.body.querySelectorAll('foxlate-wrapper[data-foxlate-generated="true"]');
+            if (leftoverWrappers.length > 0) {
+                console.log(`[Foxlate] Cleaning up ${leftoverWrappers.length} leftover generated wrappers.`);
+                leftoverWrappers.forEach(wrapper => {
+                    // 检查父节点是否存在，以避免在已分离的节点上操作
+                    if (wrapper.parentNode) wrapper.replaceWith(...wrapper.childNodes);
+                });
+            }
 
         } catch (error) {
             logError('revert (DOM cleanup)', error);
