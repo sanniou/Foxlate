@@ -160,24 +160,20 @@ function findTranslatableElements(effectiveSettings, rootNodes = [document.body]
         root.querySelectorAll(allSelectors).forEach(el => allCandidates.add(el));
     }
 
+    // (新) 优化：如果根据选择器没有找到任何候选元素，则提前返回，
+    // 避免执行后续更复杂的（且不必要的）孤立节点和父节点分析。
+    if (allCandidates.size === 0) {
+        return [];
+    }
+
     const finalCandidates = new Set();
     const potentialMixedParents = new Set();
 
-    // 新增辅助函数：检查一个元素是否包含任何已匹配的后代
-    const containsMatchedDescendant = (ancestorElement) => {
-        for (const candidate of allCandidates) {
-            // 如果 candidate 是 ancestorElement 的后代，且不是 ancestorElement 本身
-            if (ancestorElement.contains(candidate) && ancestorElement !== candidate) {
-                return true;
-            }
-        }
-        return false;
-    };
-
     // --- 步骤 1: 识别叶子节点和潜在的混合内容父节点 ---
     for (const el of allCandidates) {
-        // 检查 'el' 是否包含任何其他已匹配的候选元素作为后代
-        if (!containsMatchedDescendant(el)) {
+        // 检查当前元素 'el' 是否包含任何其他也匹配选择器的子元素。
+        // 使用原生 querySelector 性能远高于在 allCandidates 中循环。
+        if (!el.querySelector(allSelectors)) {
             // 如果没有，它就是一个“叶子”节点，直接添加到最终候选列表中。
             finalCandidates.add(el);
         } else {
@@ -186,7 +182,6 @@ function findTranslatableElements(effectiveSettings, rootNodes = [document.body]
         }
     }
 
-    // --- 步骤 2: 从混合内容父节点中“拯救”孤立的节点 ---
     // 这一步是关键，用于处理像 `<div>Some text <i>and italic</i> <p>More text</p></div>` 这样的结构，
     // 其中 "Some text <i>and italic</i>" 会被旧逻辑遗漏。
     for (const parent of potentialMixedParents) {
@@ -243,7 +238,7 @@ function findTranslatableElements(effectiveSettings, rootNodes = [document.body]
             const isBoundary = child.nodeType === Node.ELEMENT_NODE && (
                 allCandidates.has(child) || // 子节点本身匹配选择器
                 child.dataset.translationId || // 子节点已翻译
-                containsMatchedDescendant(child) // 子节点包含一个匹配的后代
+                child.querySelector(allSelectors) // (优化) 子节点包含一个匹配的后代
             );
 
             if (isBoundary) {
