@@ -278,6 +278,8 @@ class PageTranslationJob {
 
         this.mutationQueue = new Set();
         this.idleCallbackId = null;
+        this.mutationDebounceTimerId = null; // 用于动态内容处理的防抖计时器
+        this.DEBOUNCE_DELAY = 300; // 毫秒
         this.intersectionObserver = null;
         this.mutationObserver = null;
         this.activeTranslations = 0; // 只跟踪当前在途的翻译任务数量
@@ -416,6 +418,13 @@ class PageTranslationJob {
     #stopObservers() {
         if (this.intersectionObserver) this.intersectionObserver.disconnect();
         if (this.mutationObserver) this.mutationObserver.disconnect();
+        // (新) 清理所有挂起的计时器和回调，确保在停止时不会有残留的异步任务。
+        if (this.mutationDebounceTimerId) {
+            clearTimeout(this.mutationDebounceTimerId);
+        }
+        if (this.idleCallbackId) {
+            cancelIdleCallback(this.idleCallbackId);
+        }
         this.intersectionObserver = null;
         this.mutationObserver = null;
         console.log("[Foxlate] Observers stopped.");
@@ -494,8 +503,16 @@ class PageTranslationJob {
             }
         }
 
-        if (hasNewNodes && !this.idleCallbackId) {
-            this.idleCallbackId = requestIdleCallback(() => this.#processMutationQueue(), { timeout: 1000 });
+        if (hasNewNodes) {
+            // (新) 使用防抖机制来处理动态内容。
+            // 这可以防止在无限滚动等场景下，因 DOM 频繁变动而导致的高频处理，
+            // 确保只在 DOM 变化暂停一小段时间后才执行处理，从而提升页面流畅性。
+            clearTimeout(this.mutationDebounceTimerId);
+            this.mutationDebounceTimerId = setTimeout(() => {
+                // 使用 requestIdleCallback 进一步优化，确保处理在浏览器空闲时进行。
+                // 这结合了防抖和空闲回调的优点。
+                this.idleCallbackId = requestIdleCallback(() => this.#processMutationQueue(), { timeout: 1000 });
+            }, this.DEBOUNCE_DELAY);
         }
     }
 
