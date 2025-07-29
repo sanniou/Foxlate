@@ -619,6 +619,10 @@
     "message": "[预检查] 规则 \"$1\" ($2) 作为橡皮擦使用，移除了匹配部分。",
     "description": "Log entry when a pre-check rule is used as an eraser. Placeholders: [ruleName, ruleMode]"
   },
+  "logEntryPrecheckEraserUsedCombined": {
+    "message": "使用合并后的黑名单规则擦除了内容。",
+    "description": "当多个预检查黑名单规则被合并并用作橡皮擦时的日志条目。"
+  },
   "logEntryPrecheckNeutralRemoved": {
     "message": "[预检查] 中性字符（数字、空格、标点、符号）已被移除。",
     "description": "Log entry when neutral characters are removed during pre-check."

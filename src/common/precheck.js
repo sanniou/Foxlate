@@ -2,10 +2,12 @@ import browser from '../lib/browser-polyfill.js';
 /**
  * Determines if a text string should be translated based on pre-check rules.
  * This version expects rules to have a `compiledRegex` property for performance.
+ * (已优化) 此版本通过将多个擦除规则合并为单个正则表达式来优化性能，
+ * 从而显著减少对长文本的字符串操作次数。
  * @param {string} text - The text to check.
  * @param {object} settings - A valid settings object containing precheckRules and targetLanguage.
- * @returns {{result: boolean, reason: string}} An object containing the translation decision and a reason if not translated.
- * @param {boolean} [enableLog=false] - 是否启用详细日志记录。默认为 false
+ * @param {boolean} [enableLog=false] - 是否启用详细日志记录。默认为 false。
+ * @returns {{result: boolean, reason: string, log?: string[]}} 包含翻译决策和原因（如果未翻译）的对象。
  */
 export function shouldTranslate(text, settings, enableLog = false) {
     let log; // 仅在需要时初始化，进行微小优化
@@ -39,31 +41,36 @@ export function shouldTranslate(text, settings, enableLog = false) {
         }
     }
 
-    // --- Step 2: Mixed Content Analysis (Subtraction Model) ---
-    // We "erase" parts of the string that we know shouldn't be translated.
-    // If nothing is left, we skip the translation.
-    let remainingText = text;
-
-    // 2a: Remove all known terms (from all blacklist rules, not just full-string).
+    // --- 步骤 2: 构建合并的擦除器正则表达式 (新) ---
+    const blacklistRegexStrings = [];
     if (rules) {
         for (const category in rules) {
             for (const rule of rules[category]) {
-                if (rule.enabled && rule.mode === 'blacklist' && rule.compiledRegex) {
-                    const textBefore = remainingText;
-                    remainingText = remainingText.replace(rule.compiledRegex, '');
-                    // Reset lastIndex for global regexes to ensure correct behavior in subsequent uses.
-                    rule.compiledRegex.lastIndex = 0;
-                    if (textBefore !== remainingText) {
-                        if (enableLog) {
-                            log.push(browser.i18n.getMessage('logEntryPrecheckEraserUsed', [rule.name, 'blacklist']) || `Erased content using rule: ${rule.name}`);
-                        }
-                    }
+                // 只收集启用的、非全字符串匹配的黑名单规则。
+                const isFullStringMatchRule = rule.regex.startsWith('^') && rule.regex.endsWith('$');
+                if (rule.enabled && rule.mode === 'blacklist' && !isFullStringMatchRule) {
+                    // 将每个表达式包裹在非捕获组 `(?:...)` 中，以防止 `|` 运算符的优先级问题，
+                    // 并避免创建不必要的捕获组。
+                    blacklistRegexStrings.push(`(?:${rule.regex})`);
                 }
             }
         }
     }
 
-    // 2b: Remove target language characters.
+    // --- 步骤 3: 混合内容分析 (优化的减法模型) ---
+    let remainingText = text;
+
+    // 3a: 使用合并后的正则表达式一次性擦除所有已知的黑名单术语。
+    if (blacklistRegexStrings.length > 0) {
+        const combinedBlacklistRegex = new RegExp(blacklistRegexStrings.join('|'), 'gu');
+        const textBefore = remainingText;
+        remainingText = remainingText.replace(combinedBlacklistRegex, '');
+        if (enableLog && textBefore !== remainingText) {
+            log.push(browser.i18n.getMessage('logEntryPrecheckEraserUsedCombined') || 'Erased content using combined blacklist rules.');
+        }
+    }
+
+    // 3b: 擦除目标语言字符。
     if (rules && targetLang && rules[targetLang]) {
         const langWhitelistRule = rules[targetLang].find(r => r.enabled && r.mode === 'whitelist');
         if (langWhitelistRule && langWhitelistRule.compiledRegex) {
@@ -78,7 +85,7 @@ export function shouldTranslate(text, settings, enableLog = false) {
         }
     }
 
-    // 2c: Remove neutral characters (digits, spaces, punctuation, symbols).
+    // 3c: 擦除中性字符 (数字、空格、标点、符号)。
     const textBeforeNeutral = remainingText;
     // (优化) 增加 \p{M} (Marks) 来移除像 emoji 变体选择符 (U+FE0F) 这类非打印字符，
     // 这可以更可靠地识别仅由符号、标记和空白组成的字符串。
@@ -88,7 +95,7 @@ export function shouldTranslate(text, settings, enableLog = false) {
         log.push(browser.i18n.getMessage('logEntryPrecheckNeutralRemoved') || 'Erased neutral characters (numbers, symbols).');
     }
 
-    // --- Step 3: Final Decision ---
+    // --- 步骤 4: 最终决策 ---
     if (enableLog) {
         log.push(browser.i18n.getMessage('logEntryPrecheckFinalCheck', [remainingText]) || `Final check on remaining text: "${remainingText}"`);
     }

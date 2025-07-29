@@ -609,6 +609,10 @@
     "message": "[Pre-check] Rule \"$1\" ($2) was used as an eraser, removing matched parts.",
     "description": "Log entry when a pre-check rule is used as an eraser. Placeholders: [ruleName, ruleMode]"
   },
+  "logEntryPrecheckEraserUsedCombined": {
+    "message": "Erased content using combined blacklist rules.",
+    "description": "Log entry when multiple pre-check blacklist rules are combined and used as an eraser."
+  },
   "logEntryPrecheckNeutralRemoved": {
     "message": "[Pre-check] Neutral characters (digits, spaces, punctuation, symbols) were removed.",
     "description": "Log entry when neutral characters are removed during pre-check."
