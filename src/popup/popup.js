@@ -103,9 +103,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // The 'source' property is now reliably provided by getEffectiveSettings.
         currentRuleSource = finalRule.source;
 
-        // Populate UI elements using the effective rule (finalRule)
-        const globalSettings = await browser.runtime.sendMessage({ type: 'GET_VALIDATED_SETTINGS' });
-        const allSupportedEngines = { ...Constants.SUPPORTED_ENGINES, ...(globalSettings.aiEngines || []).reduce((acc, eng) => ({...acc, [`ai:${eng.id}`]: eng.name}), {}) };
+        // (优化) 移除对 GET_VALIDATED_SETTINGS 的冗余调用。
+        // getEffectiveSettings 返回的结果 (finalRule) 已经包含了完整的全局设置，
+        // 包括 aiEngines 列表。通过消除这次不必要的跨进程通信，可以加快弹窗的加载速度。
+        const allSupportedEngines = { ...Constants.SUPPORTED_ENGINES, ...(finalRule.aiEngines || []).reduce((acc, eng) => ({...acc, [`ai:${eng.id}`]: eng.name}), {}) };
+
+        // 使用生效的规则 (finalRule) 填充UI元素
         populateSelect(elements.engineSelect, allSupportedEngines, finalRule.translatorEngine);
         populateSelect(elements.sourceLanguageSelect, Constants.SUPPORTED_LANGUAGES, finalRule.sourceLanguage);
         const targetLangs = { ...Constants.SUPPORTED_LANGUAGES };
