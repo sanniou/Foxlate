@@ -96,31 +96,29 @@ function injectCSSIntoRoot(root, host) {
  * @returns {(Document|DocumentFragment|Element)[]} 一个包含所有搜索根的数组。
  */
 function findAllSearchRoots(rootNode) {
-    const roots = [];
-
-    if (!rootNode) {
-        return roots;
-    }
-
-    roots.push(rootNode);
-
-    // 使用querySelectorAll查找所有可能有shadowRoot的元素
-    // 这比TreeWalker更高效，因为我们只需要检查特定的元素
-    const hostElements = rootNode.querySelectorAll('*');
-
-    for (const element of hostElements) {
-        if (element.shadowRoot) {
+    if (!rootNode) return [];
+    
+    const roots = [rootNode];
+    // (优化) 使用 TreeWalker API 代替 querySelectorAll('*')。
+    // TreeWalker 是一个高效的、低内存占用的 DOM 遍历迭代器，它避免了
+    // 创建一个包含所有子节点的巨大 NodeList，从而在复杂的 DOM 结构中
+    // 显著提升性能。
+    const walker = document.createTreeWalker(
+        rootNode,
+        NodeFilter.SHOW_ELEMENT, // 只访问元素节点
+        null,
+        false
+    );
+    
+    let currentNode;
+    while (currentNode = walker.nextNode()) {
+        if (currentNode.shadowRoot) {
             // 找到了一个宿主元素和它的 shadowRoot
-            const host = element;
-            const shadow = element.shadowRoot;
-
-            // 调用注入函数
-            injectCSSIntoRoot(shadow, host);
-            // 只有当元素有 shadowRoot 时，我们才进行递归
-            roots.push(...findAllSearchRoots(element.shadowRoot));
+            injectCSSIntoRoot(currentNode.shadowRoot, currentNode);
+            // 对新发现的 shadowRoot 进行递归搜索
+            roots.push(...findAllSearchRoots(currentNode.shadowRoot));
         }
     }
-    
     return roots;
 }
 
