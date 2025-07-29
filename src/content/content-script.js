@@ -262,7 +262,6 @@ function findTranslatableElements(effectiveSettings, rootNodes = [document.body]
 // --- State Management Class ---
 
 let currentPageJob = null;
-let mutationObserver = null;
 let currentSelectionTranslationId = null;
 
 
