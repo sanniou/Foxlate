@@ -41,17 +41,22 @@ export function shouldTranslate(text, settings, enableLog = false) {
         }
     }
 
-    // --- 步骤 2: 构建合并的擦除器正则表达式 (新) ---
-    const blacklistRegexStrings = [];
+    // --- 步骤 2: 按标志对黑名单规则进行分组 (新) ---
+    // (修复) 此方法解决了之前将所有规则合并为一个忽略各规则独立标志（如 'i'）的正则表达式的问题。
+    // 通过按标志分组，我们可以为每个组创建具有正确标志的合并正则表达式，从而确保大小写敏感性等行为符合预期。
+    const rulesByFlags = new Map();
     if (rules) {
         for (const category in rules) {
             for (const rule of rules[category]) {
                 // 只收集启用的、非全字符串匹配的黑名单规则。
                 const isFullStringMatchRule = rule.regex.startsWith('^') && rule.regex.endsWith('$');
                 if (rule.enabled && rule.mode === 'blacklist' && !isFullStringMatchRule) {
-                    // 将每个表达式包裹在非捕获组 `(?:...)` 中，以防止 `|` 运算符的优先级问题，
-                    // 并避免创建不必要的捕获组。
-                    blacklistRegexStrings.push(`(?:${rule.regex})`);
+                    const flags = rule.flags || '';
+                    if (!rulesByFlags.has(flags)) {
+                        rulesByFlags.set(flags, []);
+                    }
+                    // 将每个表达式包裹在非捕获组 `(?:...)` 中，以防止 `|` 运算符的优先级问题。
+                    rulesByFlags.get(flags).push(`(?:${rule.regex})`);
                 }
             }
         }
@@ -60,11 +65,15 @@ export function shouldTranslate(text, settings, enableLog = false) {
     // --- 步骤 3: 混合内容分析 (优化的减法模型) ---
     let remainingText = text;
 
-    // 3a: 使用合并后的正则表达式一次性擦除所有已知的黑名单术语。
-    if (blacklistRegexStrings.length > 0) {
-        const combinedBlacklistRegex = new RegExp(blacklistRegexStrings.join('|'), 'gu');
+    // 3a: 对每个标志组应用合并后的正则表达式。
+    if (rulesByFlags.size > 0) {
         const textBefore = remainingText;
-        remainingText = remainingText.replace(combinedBlacklistRegex, '');
+        for (const [flags, patterns] of rulesByFlags.entries()) {
+            // 确保 'g' 标志总是存在，并合并用户定义的标志。
+            const combinedFlags = [...new Set('g' + flags)].join('');
+            const combinedRegex = new RegExp(patterns.join('|'), combinedFlags);
+            remainingText = remainingText.replace(combinedRegex, '');
+        }
         if (enableLog && textBefore !== remainingText) {
             log.push(browser.i18n.getMessage('logEntryPrecheckEraserUsedCombined') || 'Erased content using combined blacklist rules.');
         }
