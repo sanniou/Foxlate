@@ -503,6 +503,14 @@ class PageTranslationJob {
 
         if (hasNewNodes) {
             // (新) 使用防抖机制来处理动态内容。
+            // (优化) 在设置新的防抖计时器之前，统一取消所有已挂起的处理任务，
+            // 包括上一个防抖计时器和任何已安排但尚未执行的空闲回调。
+            // 这可以确保只有一个处理流程在等待执行，防止在某些边缘情况下（例如，
+            // 在空闲回调等待期间发生新的突变）出现重复或不必要的处理。
+            if (this.idleCallbackId) {
+                cancelIdleCallback(this.idleCallbackId);
+                this.idleCallbackId = null;
+            }
             // 这可以防止在无限滚动等场景下，因 DOM 频繁变动而导致的高频处理，
             // 确保只在 DOM 变化暂停一小段时间后才执行处理，从而提升页面流畅性。
             clearTimeout(this.mutationDebounceTimerId);
