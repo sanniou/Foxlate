@@ -49,8 +49,7 @@ class ReplaceStrategy {
                 if (data && data.translatedText && data.translationUnit?.nodeMap) {
                     try {
                         const fragment = reconstructDOM(data.translatedText, data.translationUnit.nodeMap);
-                        element.innerHTML = '';
-                        element.appendChild(fragment);
+                        element.replaceChildren(fragment); // (优化) 使用 replaceChildren 一次性替换所有子节点，比 innerHTML='' + appendChild 更高效、更现代。
                     } catch (e) {
                         console.error("[Replace Strategy] 重建DOM失败，回退到纯文本替换。", e);
                         // 如果重建失败，执行安全的回退方案

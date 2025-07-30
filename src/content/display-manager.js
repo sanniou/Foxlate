@@ -67,6 +67,9 @@ export class DisplayManager {
         // 1. 从状态或元素中安全地获取显示模式
         const stateData = this.elementStates.get(elementOrObject);
         const displayMode = stateData?.strategy || elementOrObject?.dataset?.translationStrategy;
+        // (优化) 在 dataset 被清理前，提前获取 elementId。
+        // 这是修复内存泄漏的关键，确保我们总能从 elementRegistry 中移除条目。
+        const elementId = (elementOrObject instanceof HTMLElement) ? elementOrObject.dataset?.translationId : null;
 
         // 2. 获取并调用策略的还原方法
         const strategy = this.getStrategy(displayMode);
@@ -91,9 +94,9 @@ export class DisplayManager {
             this.activeEphemeralTargets.delete(displayMode);
         }
 
-        // 在方法结束前，清理注册表
-        if (elementOrObject instanceof HTMLElement && elementOrObject.dataset?.translationId) {
-            this.elementRegistry.delete(elementOrObject.dataset.translationId);
+        // (优化) 在方法结束前，使用之前获取的 elementId 清理注册表
+        if (elementId) {
+            this.elementRegistry.delete(elementId);
         }
 
         // (新) 如果元素是由脚本生成的包裹器，则用其内容替换它（“解包”）。

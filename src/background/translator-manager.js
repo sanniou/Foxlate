@@ -17,6 +17,8 @@ export class TranslatorManager {
   static #activeTasks = new Map();
   static #taskIdCounter = 0;
   // --- 静态配置 ---
+  static #SAVE_CACHE_DEBOUNCE_DELAY = 2000; // 2秒的防抖延迟
+  static #saveCacheDebounceTimer = null;
   static #MAX_CONCURRENT_REQUESTS = 5;
   static #maxCacheSize = 5000; // 默认缓存大小，可以被用户设置覆盖
   static #STORAGE_KEY = 'translationCache';
@@ -69,6 +71,21 @@ export class TranslatorManager {
       } catch (e) {
           console.error("[TranslatorManager] Failed to save cache to storage.", e);
       }
+  }
+
+  /**
+   * (新) 使用防抖机制将缓存写入持久化存储。
+   * 这可以防止在短时间内进行大量翻译时（例如，页面加载）频繁地写入存储，
+   * 将多次写入操作合并为一次，从而显著提高性能。
+   */
+  static #debouncedSaveCache() {
+      if (this.#saveCacheDebounceTimer) {
+          clearTimeout(this.#saveCacheDebounceTimer);
+      }
+      this.#saveCacheDebounceTimer = setTimeout(() => {
+          this.#saveCacheToStorage();
+          this.#saveCacheDebounceTimer = null; // 清理计时器ID
+      }, this.#SAVE_CACHE_DEBOUNCE_DELAY);
   }
 
   static #setCache(key, value) {
@@ -225,7 +242,8 @@ export class TranslatorManager {
           if (translatedResult) {
               this.#setCache(cacheKey, translatedResult);
           }
-          await this.#saveCacheToStorage(); // 保存更新后的缓存
+          // (优化) 不再每次都立即写入存储，而是使用防抖函数来批量处理。
+          this.#debouncedSaveCache();
           const finalResult = this.#postProcess(translatedResult);
           return { text: finalResult, translated: true, log: log };
       } catch (error) {

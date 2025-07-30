@@ -58,17 +58,14 @@ class AppendStrategy {
                 }
 
                 const appendedElement = this.#createAppendWrapper(appendType);
-                // 检查是否存在格式保留翻译所需的数据
-                if (data.translationUnit?.nodeMap) {
-                    try {
-                        const fragment = reconstructDOM(data.translatedText, data.translationUnit.nodeMap);
-                        appendedElement.appendChild(fragment);
-                    } catch (e) {
-                        console.error("[Append Strategy] 重建DOM失败，回退到纯文本追加。", e);
-                        appendedElement.innerHTML = escapeHtml(data.translatedText).replace(/\n/g, '<br>');
-                    }
-                } else {
-                    // 如果没有nodeMap，说明是简单文本，执行纯文本追加
+                try {
+                    // (优化) 统一使用 reconstructDOM。该函数可以同时处理带标签的文本和纯文本，
+                    // 内部会安全地创建文本节点并处理换行符，无需在此处进行区分。
+                    // 如果 reconstructDOM 失败（例如，由于翻译引擎破坏了标签），则执行安全的回退方案。
+                    const fragment = reconstructDOM(data.translatedText, data.translationUnit?.nodeMap || {});
+                    appendedElement.appendChild(fragment);
+                } catch (e) {
+                    console.error("[Append Strategy] 重建DOM失败，回退到纯文本追加。", e);
                     appendedElement.innerHTML = escapeHtml(data.translatedText).replace(/\n/g, '<br>');
                 }
                 element.appendChild(appendedElement);
