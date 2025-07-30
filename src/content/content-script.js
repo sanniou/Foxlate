@@ -487,6 +487,20 @@ class PageTranslationJob {
     }
     #handleMutation(mutations) {
         let hasNewNodes = false;
+        // (优化) 创建一个仅在本次函数调用中有效的本地缓存。
+        // 在单次 MutationObserver 回调中，同一个节点可能出现在多个 mutation 记录里。
+        // 这个缓存可以避免在同一次处理中对同一个节点重复调用高成本的 getComputedStyle。
+        // 使用 Map 而不是 WeakMap，因为它的生命周期很短，不会造成内存泄漏。
+        const localStyleCache = new Map();
+        const getStyle = (element) => {
+            if (localStyleCache.has(element)) {
+                return localStyleCache.get(element);
+            }
+            const style = window.getComputedStyle(element);
+            localStyleCache.set(element, style);
+            return style;
+        };
+
         for (const mutation of mutations) {
             if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
                 for (const node of mutation.addedNodes) {
@@ -498,11 +512,18 @@ class PageTranslationJob {
                     // (新) 修复：正确跳过由脚本自身生成的包裹元素。
                     if (node.dataset.foxlateGenerated === 'true') continue;
 
-                    // 优化：检查节点是否可见，避免处理隐藏元素
-                    if (node.offsetParent === null && node.offsetWidth === 0 && node.offsetHeight === 0) {
-                        // 进一步检查是否真的不可见
-                        const style = window.getComputedStyle(node);
-                        if (style.display === 'none' || style.visibility === 'hidden') {
+                    // (优化) 使用与 DOMWalker 中相同的、分层且高效的可见性检查模式。
+                    // 这是一个快速的预过滤，只执行无重排（reflow）的检查，以避免在处理高频DOM变化时
+                    // 引入性能瓶颈。最终的、更昂贵的可见性检查将在 DOMWalker.create 中进行。
+                    const style = getStyle(node);
+                    if (style.display === 'none' || style.visibility === 'hidden') {
+                        continue;
+                    }
+                    // `offsetParent` 为 null 通常意味着元素是不可见的。
+                    if (node.offsetParent === null) {
+                        // 但我们需要处理那些 `offsetParent` 为 null 但元素仍然可见的例外情况，
+                        // 例如固定/粘性定位的元素。
+                        if (style.position !== 'fixed' && style.position !== 'sticky') {
                             continue;
                         }
                     }
