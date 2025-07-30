@@ -251,7 +251,7 @@ const buildOptions = {
         staticAssetsManager,
     ],
     define: {
-        '__DEBUG__': isWatchMode, // 注入一个全局常量用于调试日志
+        '__DEBUG__': String(isWatchMode), // 注入一个全局常量用于调试日志
     },
 };
 
