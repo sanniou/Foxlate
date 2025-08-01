@@ -1067,3 +1067,162 @@ button.m3-icon-button.danger { /* Specificity for danger color */
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* === AI Engine Sync Management Styles === */
+
+/* MD3 Outlined Button Style */
+.m3-button.outlined {
+    background-color: transparent;
+    color: var(--md-sys-color-primary);
+    border: 1px solid var(--md-sys-color-outline);
+    padding: 9px 23px; /* Adjusted for border */
+}
+
+.m3-button.outlined:hover {
+    background-color: var(--md-sys-state-hover-on-surface);
+    border-color: var(--md-sys-color-primary);
+}
+
+/* Warning Section Styles */
+.warning-section {
+    margin: 16px 0;
+    padding: 0;
+}
+
+.warning-message {
+    background-color: var(--md-sys-color-error-container);
+    color: var(--md-sys-color-on-error-container);
+    border: 1px solid var(--md-sys-color-error);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: var(--md-sys-typescale-body-medium-font-size);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+/* Enhanced AI Engine List Styles */
+.ai-engine-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    margin-bottom: 12px;
+    background-color: var(--md-sys-color-surface-container-low);
+    border-radius: 12px;
+    border: 1px solid var(--md-sys-color-outline-variant);
+    transition: all 0.2s ease;
+}
+
+.ai-engine-list li:hover {
+    background-color: var(--md-sys-color-surface-container);
+    border-color: var(--md-sys-color-outline);
+}
+
+.engine-info {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+}
+
+.engine-name {
+    font-weight: 500;
+    font-size: var(--md-sys-typescale-body-large-font-size);
+    color: var(--md-sys-color-on-surface);
+}
+
+/* Sync Status Badge Styles */
+.sync-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--md-sys-typescale-body-small-font-size);
+    font-weight: 500;
+    padding: 4px 8px;
+    border-radius: 16px;
+    width: fit-content;
+}
+
+.sync-status.synced {
+    background-color: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
+}
+
+.sync-status.local {
+    background-color: var(--md-sys-color-secondary-container);
+    color: var(--md-sys-color-on-secondary-container);
+}
+
+.sync-status.syncing {
+    background-color: var(--md-sys-color-surface-container-high);
+    color: var(--md-sys-color-on-surface);
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* Action Buttons Container */
+.actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+/* MD3 Text Button Style for Retry Sync Button */
+.retry-sync-btn {
+    background-color: transparent;
+    color: var(--md-sys-color-primary);
+    padding: 6px 8px; /* Match text button padding */
+    border: none; /* Remove border to match text button style */
+}
+
+.retry-sync-btn:hover {
+    background-color: var(--md-sys-state-hover-on-surface);
+    border-color: transparent; /* Remove border color to match text button style */
+}
+
+.retry-sync-btn:active {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+/* Button Group Enhancements */
+.button-group {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--md-sys-color-outline-variant);
+}
+
+/* Responsive Design for Mobile */
+@media (max-width: 768px) {
+    .ai-engine-list li {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+
+    .engine-info {
+        text-align: center;
+    }
+
+    .actions {
+        justify-content: center;
+    }
+
+    .button-group {
+        flex-direction: column;
+    }
+
+    .button-group button {
+        width: 100%;
+    }
+}

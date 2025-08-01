@@ -798,5 +798,53 @@
   "popupSubtitlesHint": {
     "message": "仅在支持的视频页面生效",
     "description": "字幕翻译开关的提示文字。"
+  },
+  "syncStatusSynced": {
+    "message": "已同步",
+    "description": "AI引擎已同步到云端的状态"
+  },
+  "syncStatusLocal": {
+    "message": "仅本地",
+    "description": "AI引擎仅保存在本地的状态"
+  },
+  "syncStatusSyncing": {
+    "message": "同步中...",
+    "description": "AI引擎正在同步的状态"
+  },
+  "syncStatusUnknown": {
+    "message": "未知状态",
+    "description": "AI引擎同步状态未知"
+  },
+  "retrySync": {
+    "message": "重试同步",
+    "description": "重试同步本地AI引擎的按钮"
+  },
+  "retryAllSync": {
+    "message": "重试全部同步",
+    "description": "重试同步所有本地AI引擎的按钮"
+  },
+  "retrySyncSuccess": {
+    "message": "引擎同步成功",
+    "description": "引擎重试同步成功时的提示"
+  },
+  "retrySyncFailed": {
+    "message": "重试同步失败",
+    "description": "引擎重试同步失败时的提示"
+  },
+  "noLocalEngines": {
+    "message": "没有本地引擎需要同步",
+    "description": "没有本地引擎需要同步时的提示"
+  },
+  "batchSyncResult": {
+    "message": "同步完成：$1$ 成功，$2$ 失败",
+    "description": "批量同步结果，显示成功和失败的数量"
+  },
+  "defaultEngineNotFound": {
+    "message": "默认翻译引擎不存在，请选择其他默认引擎",
+    "description": "默认翻译引擎不存在时的警告信息"
+  },
+  "noEnginesInImport": {
+    "message": "导入数据中未找到引擎",
+    "description": "导入数据中没有找到引擎时的错误信息"
   }
 }

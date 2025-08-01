@@ -792,5 +792,53 @@
   "popupSubtitlesHint": {
     "message": "Works only on supported video pages",
     "description": "Hint text for the subtitle translation toggle."
+  },
+  "syncStatusSynced": {
+    "message": "Synced",
+    "description": "Status indicating the AI engine is synced to cloud"
+  },
+  "syncStatusLocal": {
+    "message": "Local Only",
+    "description": "Status indicating the AI engine is only stored locally"
+  },
+  "syncStatusSyncing": {
+    "message": "Syncing...",
+    "description": "Status indicating the AI engine is currently syncing"
+  },
+  "syncStatusUnknown": {
+    "message": "Unknown",
+    "description": "Status indicating unknown sync state"
+  },
+  "retrySync": {
+    "message": "Retry Sync",
+    "description": "Button to retry syncing a local AI engine"
+  },
+  "retryAllSync": {
+    "message": "Retry All Sync",
+    "description": "Button to retry syncing all local AI engines"
+  },
+  "retrySyncSuccess": {
+    "message": "Engine synced successfully",
+    "description": "Message shown when engine sync retry succeeds"
+  },
+  "retrySyncFailed": {
+    "message": "Retry sync failed",
+    "description": "Message shown when engine sync retry fails"
+  },
+  "noLocalEngines": {
+    "message": "No local engines to sync",
+    "description": "Message shown when there are no local engines to sync"
+  },
+  "batchSyncResult": {
+    "message": "Sync completed: $1$ succeeded, $2$ failed",
+    "description": "Message showing batch sync results with success and failure counts"
+  },
+  "defaultEngineNotFound": {
+    "message": "Default translation engine not found. Please select a different default engine.",
+    "description": "Warning message when default translation engine is not found"
+  },
+  "noEnginesInImport": {
+    "message": "No engines found in import data",
+    "description": "Error message when no engines found in import data"
   }
 }
