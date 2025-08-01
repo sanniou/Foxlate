@@ -61,7 +61,7 @@ export const DEFAULT_SETTINGS = {
             inline: 'h1, h2, h3, h4, h5, h6, label, button, [role="tab"], [role="link"]',
             // 用于段落、文章等主要内容。译文将保留原有换行。
             block: 'p, div, li, td, th, blockquote, pre, dd, dt, caption, figcaption, article, section',
-            exclude: 'pre, code, kbd, samp' // 新增：全局排除选择器
+            exclude: 'pre, kbd, samp' // 新增：全局排除选择器
         }
     },
     aiEngines: [],
