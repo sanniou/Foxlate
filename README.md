@@ -2,6 +2,8 @@
 
 <p>
   <a href="https://addons.mozilla.org/zh-CN/firefox/addon/foxlate/" title="在 Mozilla Add-ons 上获取"><img src="https://img.shields.io/badge/dynamic/json?label=Firefox%20Add-on&query=current_version.version&url=https%3A%2F%2Faddons.mozilla.org%2Fapi%2Fv5%2Faddons%2Faddon%2Ffoxlate%2F&color=orange&logo=firefox-browser" alt="Firefox Add-on"></a>
+  <img src="https://img.shields.io/badge/Chrome-即将推出-lightgrey?logo=google-chrome" alt="Chrome - 即将推出">
+  <img src="https://img.shields.io/badge/Edge-即将推出-lightgrey?logo=microsoft-edge" alt="Edge - 即将推出">
 </p>
 
 一个功能强大的浏览器扩展，旨在提供无缝的网页内容翻译体验。支持多种翻译服务，并提供灵活的配置选项，让您轻松翻译选定的文本或管理翻译设置。
