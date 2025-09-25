@@ -305,6 +305,29 @@
     margin: 0;
 }
 
+.foxlate-summary-dialog-close-btn {
+    /* MD3 风格的 IconButton */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--md-sys-color-on-surface-variant, #49454F);
+    transition: background-color 0.2s ease-out;
+    flex-shrink: 0;
+}
+
+.foxlate-summary-dialog-close-btn:hover {
+    background-color: rgba(var(--md-sys-color-on-surface-variant-rgb, 73, 69, 79), 0.08);
+}
+.foxlate-summary-dialog-close-btn svg {
+    fill: currentColor;
+}
+
 .foxlate-summary-dialog-content {
     overflow-y: auto; /* 当内容超出时显示滚动条 */
     line-height: 1.6;
@@ -312,18 +335,114 @@
 }
 
 /* (新) 为 Markdown 渲染的内容添加基本样式 */
-.foxlate-summary-content ul,
-.foxlate-summary-content ol {
+.foxlate-summary-dialog-content ul,
+.foxlate-summary-dialog-content ol {
     padding-left: 20px;
 }
 
-.foxlate-summary-content li {
+.foxlate-summary-dialog-content li {
     margin-bottom: 8px;
 }
 
-.foxlate-summary-content code {
-    background-color: var(--md-sys-color-surface-container, #F3EDF7);
+.foxlate-summary-dialog-content code {
+    background-color: var(--md-sys-color-surface-variant, #E7E0EC);
     padding: 2px 4px;
     border-radius: 4px;
     font-family: "Roboto Mono", monospace;
+}
+
+/* --- (新) 对话界面样式 --- */
+.foxlate-summary-dialog-conversation {
+    flex-grow: 1; /* 占据剩余空间 */
+    overflow-y: auto;
+    padding: 0 4px; /* 左右留出一点空间给滚动条 */
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.foxlate-summary-message {
+    max-width: 85%;
+    padding: 10px 16px;
+    border-radius: 20px;
+    line-height: 1.5;
+    word-wrap: break-word;
+}
+
+.foxlate-summary-message.ai {
+    background-color: var(--md-sys-color-surface-container, #F3EDF7);
+    align-self: flex-start;
+    border-bottom-left-radius: 4px; /* 模仿聊天气泡 */
+}
+
+.foxlate-summary-message.user {
+    background-color: var(--md-sys-color-primary-container, #EADDFF);
+    color: var(--md-sys-color-on-primary-container, #21005D);
+    align-self: flex-end;
+    border-bottom-right-radius: 4px; /* 模仿聊天气泡 */
+}
+
+.foxlate-summary-message.loading {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.foxlate-summary-message.loading::before {
+    content: '';
+    display: inline-block;
+    width: 1.2em;
+    height: 1.2em;
+    border-radius: 50%;
+    border: 2px solid var(--md-sys-color-primary, #6750A4);
+    border-top-color: transparent;
+    animation: foxlate-spin 0.75s linear infinite;
+}
+
+
+.foxlate-summary-dialog-footer {
+    flex-shrink: 0;
+    padding-top: 16px;
+    display: flex;
+    align-items: flex-end; /* 确保发送按钮和文本框底部对齐 */
+    gap: 8px;
+}
+
+.foxlate-summary-dialog-input {
+    flex-grow: 1;
+    border: 1px solid var(--md-sys-color-outline, #79747E);
+    border-radius: 16px;
+    padding: 12px 16px;
+    font-size: 16px;
+    font-family: inherit;
+    background-color: transparent;
+    color: var(--md-sys-color-on-surface, #1C1B1F);
+    resize: none; /* 禁止用户手动调整大小 */
+    max-height: 150px; /* 限制最大高度 */
+    overflow-y: auto;
+    transition: border-color 0.2s ease-out, box-shadow 0.2s ease-out;
+}
+
+.foxlate-summary-dialog-input:focus {
+    outline: none;
+    border-color: var(--md-sys-color-primary, #6750A4);
+    box-shadow: 0 0 0 1px var(--md-sys-color-primary, #6750A4);
+}
+
+.foxlate-summary-dialog-send-btn {
+    /* 复用关闭按钮的 IconButton 样式 */
+    background-color: var(--md-sys-color-primary, #6750A4);
+    color: var(--md-sys-color-on-primary, #FFFFFF);
+}
+
+.foxlate-summary-dialog-send-btn:hover {
+    background-color: var(--md-sys-color-primary-container, #EADDFF);
+    color: var(--md-sys-color-on-primary-container, #21005D);
+}
+
+.foxlate-summary-dialog-send-btn:disabled {
+    background-color: var(--md-sys-color-surface-disabled, rgba(28, 27, 31, 0.12));
+    color: var(--md-sys-color-on-surface-disabled, rgba(28, 27, 31, 0.38));
+    cursor: not-allowed;
 }

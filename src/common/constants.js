@@ -69,6 +69,11 @@ export const DEFAULT_SETTINGS = {
     parallelRequests: 5, // Number of parallel translation requests
 };
 
+export const AI_PROMPTS = {
+    summarize: "You are a text summarization expert. Please summarize the following text into concise, easy-to-understand bullet points. The summary must be in {targetLang}.",
+    converse: "You are a helpful AI assistant. Please answer the user's question concisely and accurately. The answer must be in {targetLang}."
+};
+
 export const DISPLAY_MODES = {
     'replace': {
         optionsKey: 'replaceOriginal',

@@ -265,12 +265,16 @@ function findTranslatableElements(effectiveSettings, rootNodes = [document.body]
  */
 class SummaryManager {
     constructor(settings) {
-        this.settings = settings.summarySettings;
+        // (已修复) 直接使用传入的有效设置对象，而不是不存在的 summarySettings 子对象。
+        // summarySettings 属性现在直接从顶层设置中获取。
+        this.settings = settings;
+        this.summarySettings = settings.summarySettings || {}; // 为 summarySettings 提供一个后备空对象
         this.mainBodyElement = null;
         this.fab = null;
         this.dialog = null;
 
         this.state = 'idle'; // 'idle', 'loading', 'summarized'
+        this.conversationHistory = []; // (新) 存储对话历史
         this.isDialogVisible = false;
         this.wasDialogVisibleBeforeDrag = false;
 
@@ -280,19 +284,22 @@ class SummaryManager {
         // 绑定 this，以便在事件监听器中正确使用
         this.handleFabClick = this.handleFabClick.bind(this);
         this.handleDragStart = this.handleDragStart.bind(this);
+        this.handleSendMessage = this.handleSendMessage.bind(this);
+        this.handleKeyDown = this.handleKeyDown.bind(this);
+        this.handleDialogClose = this.handleDialogClose.bind(this);
     }
 
     /**
      * 初始化总结功能。
      */
     initialize() {
-        if (!this.settings?.enabled || !this.settings.mainBodySelector) {
+        if (!this.summarySettings?.enabled || !this.summarySettings.mainBodySelector) {
             return; // 功能未启用或未配置
         }
 
-        this.mainBodyElement = document.querySelector(this.settings.mainBodySelector);
+        this.mainBodyElement = document.querySelector(this.summarySettings.mainBodySelector);
         if (!this.mainBodyElement) {
-            console.warn(`[Foxlate Summary] Main body element not found with selector: "${this.settings.mainBodySelector}"`);
+            console.warn(`[Foxlate Summary] Main body element not found with selector: "${this.summarySettings.mainBodySelector}"`);
             return;
         }
 
@@ -351,7 +358,7 @@ class SummaryManager {
     async fetchSummary() {
         if (!this.dialog) this.createDialog();
 
-        const contentArea = this.dialog.querySelector('.foxlate-summary-dialog-content');
+        this.addMessageToConversation('...', 'loading');
 
         try {
             const textToSummarize = this.mainBodyElement.innerText;
@@ -359,20 +366,22 @@ class SummaryManager {
                 type: 'SUMMARIZE_CONTENT',
                 payload: {
                     text: textToSummarize,
-                    aiModel: this.settings.aiModel,
-                    targetLang: this.settings.targetLanguage // 使用规则的目标语言
+                    aiModel: this.summarySettings.aiModel,
+                    targetLang: this.settings.targetLanguage // (已修复) 从顶层设置获取目标语言
                 }
             });
 
             if (response.success) {
-                // 使用 marked.js 解析 Markdown
-                contentArea.innerHTML = marked.parse(response.summary);
+                // (新) 将成功的总结作为对话的开端
+                this.conversationHistory.push({ role: 'assistant', content: response.summary });
+                this.updateLastMessage(response.summary, 'ai');
             } else {
-                contentArea.textContent = browser.i18n.getMessage('summaryErrorText') + response.error;
+                const errorMessage = browser.i18n.getMessage('summaryErrorText') + response.error;
+                this.updateLastMessage(errorMessage, 'ai', true);
             }
         } catch (error) {
             logError('fetchSummary', error);
-            contentArea.textContent = browser.i18n.getMessage('summaryErrorText') + error.message;
+            this.updateLastMessage(browser.i18n.getMessage('summaryErrorText') + error.message, 'ai', true);
         }
     }
 
@@ -382,10 +391,43 @@ class SummaryManager {
         this.dialog.innerHTML = `
             <div class="foxlate-summary-dialog-header">
                 <h3 class="foxlate-summary-dialog-title">${browser.i18n.getMessage('summaryModalTitle')}</h3>
+                <button class="foxlate-summary-dialog-close-btn" aria-label="Close">
+                    <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                </button>
             </div>
-            <div class="foxlate-summary-dialog-content"></div>
+            <div class="foxlate-summary-dialog-conversation">
+                <!-- 消息将在这里动态添加 -->
+            </div>
+            <div class="foxlate-summary-dialog-footer">
+                <textarea class="foxlate-summary-dialog-input" placeholder="${browser.i18n.getMessage('summaryInputPlaceholder')}" rows="1"></textarea>
+                <button class="foxlate-summary-dialog-send-btn foxlate-summary-dialog-close-btn" aria-label="Send">
+                    <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                </button>
+            </div>
         `;
         document.body.appendChild(this.dialog);
+
+        // 绑定事件
+        this.dialog.querySelector('.foxlate-summary-dialog-close-btn').addEventListener('click', this.handleDialogClose);
+        this.dialog.querySelector('.foxlate-summary-dialog-send-btn').addEventListener('click', this.handleSendMessage);
+        this.dialog.querySelector('.foxlate-summary-dialog-input').addEventListener('keydown', (e) => {
+            // 按下 Enter 发送，Shift+Enter 换行
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this.handleSendMessage();
+            }
+        });
+
+        // 自动调整 textarea 高度
+        const textarea = this.dialog.querySelector('.foxlate-summary-dialog-input');
+        textarea.addEventListener('input', () => {
+            textarea.style.height = 'auto';
+            textarea.style.height = `${textarea.scrollHeight}px`;
+        });
+    }
+
+    handleDialogClose() {
+        this.hideDialog();
     }
 
     toggleDialog() {
@@ -401,12 +443,20 @@ class SummaryManager {
         this.positionDialog();
         this.dialog.classList.add('visible');
         this.isDialogVisible = true;
+        document.addEventListener('keydown', this.handleKeyDown);
+        // 对话框显示时，让输入框自动获得焦点
+        setTimeout(() => this.dialog.querySelector('.foxlate-summary-dialog-input')?.focus(), 150); // 延迟以等待动画
     }
 
     hideDialog() {
         if (!this.dialog) return;
         this.dialog.classList.remove('visible');
         this.isDialogVisible = false;
+        document.removeEventListener('keydown', this.handleKeyDown);
+    }
+
+    handleKeyDown(e) {
+        if (e.key === 'Escape') this.hideDialog();
     }
 
     positionDialog() {
@@ -452,6 +502,86 @@ class SummaryManager {
 
         this.dialog.style.top = `${bestPosition.top}px`;
         this.dialog.style.left = `${bestPosition.left}px`;
+    }
+
+    addMessageToConversation(content, role, isError = false) {
+        const conversationArea = this.dialog.querySelector('.foxlate-summary-dialog-conversation');
+        const messageEl = document.createElement('div');
+        messageEl.className = `foxlate-summary-message ${role}`;
+        if (isError) messageEl.classList.add('error');
+
+        if (role === 'loading') {
+            messageEl.textContent = content;
+        } else {
+            // 使用 marked 解析 Markdown
+            messageEl.innerHTML = marked.parse(content);
+        }
+
+        conversationArea.appendChild(messageEl);
+        // 自动滚动到底部
+        conversationArea.scrollTop = conversationArea.scrollHeight;
+        return messageEl;
+    }
+
+    updateLastMessage(content, role, isError = false) {
+        const conversationArea = this.dialog.querySelector('.foxlate-summary-dialog-conversation');
+        const lastMessage = conversationArea.lastElementChild;
+        if (lastMessage && lastMessage.classList.contains('loading')) {
+            lastMessage.className = `foxlate-summary-message ${role}`;
+            if (isError) lastMessage.classList.add('error');
+            lastMessage.innerHTML = marked.parse(content);
+            conversationArea.scrollTop = conversationArea.scrollHeight;
+        } else {
+            // 如果最后一条不是 loading，则直接添加新消息
+            this.addMessageToConversation(content, role, isError);
+        }
+    }
+
+    async handleSendMessage() {
+        const inputEl = this.dialog.querySelector('.foxlate-summary-dialog-input');
+        const sendBtn = this.dialog.querySelector('.foxlate-summary-dialog-send-btn');
+        const query = inputEl.value.trim();
+
+        if (!query || this.state === 'loading') return;
+
+        // (新) 将用户消息添加到历史记录和UI
+        this.conversationHistory.push({ role: 'user', content: query });
+        this.addMessageToConversation(query, 'user');
+        inputEl.value = '';
+        inputEl.style.height = 'auto'; // 重置高度
+        inputEl.focus();
+
+        this.state = 'loading';
+        sendBtn.disabled = true;
+        this.addMessageToConversation('...', 'loading');
+
+        try {
+            const response = await browser.runtime.sendMessage({
+                type: 'CONVERSE_WITH_AI', // 新的消息类型，用于通用对话
+                payload: {
+                    history: this.conversationHistory, // (已修改) 发送完整的历史记录
+                    aiModel: this.summarySettings.aiModel, // 对话使用的 AI 模型来自总结设置
+                    targetLang: this.settings.targetLanguage // (已修复) 对话的目标语言也应遵循全局或域名规则
+                }
+            });
+
+            if (response.success) {
+                // (新) 将AI的回复添加到历史记录
+                this.conversationHistory.push({ role: 'assistant', content: response.reply });
+                this.updateLastMessage(response.reply, 'ai');
+            } else {
+                const errorMessage = browser.i18n.getMessage('summaryErrorText') + (response.error || 'Unknown error');
+                this.updateLastMessage(errorMessage, 'ai', true);
+            }
+        } catch (error) {
+            logError('handleSendMessage', error);
+            const errorMessage = browser.i18n.getMessage('summaryErrorText') + error.message;
+            this.updateLastMessage(errorMessage, 'ai', true);
+        } finally {
+            // 无论成功或失败，都恢复状态
+            this.state = 'summarized'; // 恢复到可交互状态
+            sendBtn.disabled = false;
+        }
     }
 
     handleDragStart(e) {
@@ -541,6 +671,7 @@ class SummaryManager {
         this.fab = null;
         this.dialog = null;
         this.visibilityObserver = null;
+        document.removeEventListener('keydown', this.handleKeyDown);
     }
 }
 
@@ -1234,6 +1365,7 @@ async function handleMessage(request, sender) {
  */
 async function initializeSummaryFeature() {
     summaryManager?.destroy(); // 如果已存在，先销毁
+    summaryManager = null; // 确保旧实例被垃圾回收
     const settings = await getEffectiveSettings();
     summaryManager = new SummaryManager(settings);
     summaryManager.initialize();

@@ -308,18 +308,18 @@ const messageHandlers = {
     },
 
     async TRANSLATE_BATCH(request) {
-        const { texts, targetLanguage, translatorEngine } = request.payload;
+        const { texts, targetLanguage, translatorEngine, hostname } = request.payload;
         if (!Array.isArray(texts)) {
             throw new Error("Invalid payload: 'texts' must be an array.");
         }
 
         // 如果调用方没有提供语言或引擎，则从全局设置中获取作为后备。
-        // 这使得该处理器对新旧调用方式都兼容。
+        // (已修复) 使用 getEffectiveSettings(hostname) 来获取正确的、针对特定域的设置。
         let finalTargetLang = targetLanguage;
         let finalEngine = translatorEngine;
 
         if (!finalTargetLang || !finalEngine) {
-            const settings = await SettingsManager.getValidatedSettings();
+            const settings = await SettingsManager.getEffectiveSettings(hostname);
             finalTargetLang = finalTargetLang || settings.targetLanguage;
             finalEngine = finalEngine || settings.translatorEngine;
         }
@@ -353,14 +353,14 @@ const messageHandlers = {
 
             // 2. 构造专门用于总结的系统提示词
             // 这个提示词指示 AI 以目标语言生成要点式总结。
-            const summaryPrompt = `You are a text summarization expert. Please summarize the following text into concise, easy-to-understand bullet points. The summary must be in ${targetLang}.`;
+            const summaryPromptTemplate = Constants.AI_PROMPTS.summarize;
 
             // 3. 创建一个临时的 AITranslator 实例来执行任务
             const summarizer = new AITranslator();
 
-            // 4. 调用其 translate 方法，但传入的是总结提示词
-            // 我们将 aiConfig 中的 customPrompt 临时替换为我们的总结提示词。
-            const summaryConfig = { ...aiConfig, customPrompt: summaryPrompt };
+            // 4. 调用其 translate 方法，但传入的是总结提示词模板
+            // 我们将 aiConfig 中的 customPrompt 临时替换为我们的总结提示词模板。
+            const summaryConfig = { ...aiConfig, customPrompt: summaryPromptTemplate };
 
             // sourceLang 在这里不重要，设为 'auto'
             const result = await summarizer.translate(text, targetLang, 'auto', summaryConfig);
@@ -372,6 +372,47 @@ const messageHandlers = {
             return { success: true, summary: result.text };
         } catch (error) {
             logError('SUMMARIZE_CONTENT', error);
+            return { success: false, error: error.message };
+        }
+    },
+
+    // (新) 处理与 AI 的通用对话请求
+    async CONVERSE_WITH_AI(request) {
+        const { history, aiModel, targetLang } = request.payload;
+
+        if (!history || history.length === 0 || !aiModel) {
+            return { success: false, error: "History or AI model not provided for conversation." };
+        }
+
+        try {
+            // 1. 获取 AI 引擎配置
+            const settings = await SettingsManager.getValidatedSettings();
+            const engineId = aiModel.startsWith('ai:') ? aiModel.substring(3) : aiModel;
+            const aiConfig = settings.aiEngines.find(e => e.id === engineId);
+
+            if (!aiConfig) {
+                throw new Error(`AI engine configuration not found for ID: ${engineId}`);
+            }
+
+            // 2. 构造专门用于对话的系统提示词
+            // 这个提示词指示 AI 以目标语言回答问题。
+            // 注意：这里我们覆盖了用户在设置中定义的 customPrompt，因为这是一个特定任务。
+            // 更好的做法可能是让用户为不同任务配置不同提示词，但目前保持简单。
+            const conversationPromptTemplate = Constants.AI_PROMPTS.converse;
+
+            // 3. 创建一个临时的 AITranslator 实例来执行任务
+            const converser = new AITranslator();
+
+            // 4. 调用其 translate 方法，但传入的是对话提示词模板
+            const conversationConfig = { ...aiConfig, customPrompt: conversationPromptTemplate };
+
+            // sourceLang 在这里不重要，设为 'auto'
+            const result = await converser.translate(history, targetLang, 'auto', conversationConfig);
+
+            // 返回的字段名为 'reply' 以匹配 content-script 的期望
+            return { success: true, reply: result.text };
+        } catch (error) {
+            logError('CONVERSE_WITH_AI', error);
             return { success: false, error: error.message };
         }
     },

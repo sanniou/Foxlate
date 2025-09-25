@@ -33,19 +33,27 @@ export class AITranslator extends BaseTranslator {
       .replace('{targetLang}', targetLang)
       .replace('{sourceLang}', sourceLang);
 
+    // (新) 根据输入类型构建消息
+    let userMessages;
+    if (Array.isArray(text)) {
+        // 如果输入是数组（对话历史），直接使用
+        userMessages = text;
+    } else {
+        // 如果输入是字符串（简单翻译或总结），包装成标准的用户消息
+        userMessages = [{ role: 'user', content: text }];
+    }
+
     try {
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
+          'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
           model: model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: text },
-          ],
+          // (已修改) 将系统提示和用户消息（或历史记录）合并
+          messages: [{ role: 'system', content: systemPrompt }, ...userMessages],
           temperature: 0.1, // Lower temperature for more deterministic translations
         }),
         signal, // 将 AbortSignal 传递给 fetch
