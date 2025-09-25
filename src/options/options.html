@@ -173,23 +173,12 @@
             <h2 i18n-text="ruleManagement">Rule Management</h2>
             <div class="form-group">
                 <div class="m3-form-field filled">
-                    <textarea id="defaultInlineSelector" rows="3" i18n-placeholder="selectorPlaceholderGlobal" placeholder=" "></textarea>
-                    <label for="defaultInlineSelector" i18n-text="inlineSelectorLabel">Inline Selector (Single Line)</label>
-                    <div class="error-message" id="defaultInlineSelectorError"></div>
+                    <textarea id="defaultContentSelector" rows="4" i18n-placeholder="selectorPlaceholderGlobal" placeholder=" "></textarea>
+                    <label for="defaultContentSelector" i18n-text="contentSelectorLabel">Content Selectors</label>
+                    <div class="error-message" id="defaultContentSelectorError"></div>
                 </div>
                 <div class="m3-helper-text">
-                    <small i18n-text="inlineSelectorDescription">For short texts like titles, buttons, and labels. Translations will be merged into a single line.</small>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <div class="m3-form-field filled">
-                    <textarea id="defaultBlockSelector" rows="3" i18n-placeholder="selectorPlaceholderGlobal" placeholder=" "></textarea>
-                    <label for="defaultBlockSelector" i18n-text="blockSelectorLabel">Block Selector (Preserve Newlines)</label>
-                    <div class="error-message" id="defaultBlockSelectorError"></div>
-                </div>
-                <div class="m3-helper-text">
-                    <small i18n-text="blockSelectorDescription">For main content like paragraphs and articles. Translations will preserve original newlines.</small>
+                    <small i18n-text="contentSelectorDescription">Specify CSS selectors for elements to be translated. The extension will automatically determine if the translation should be displayed as inline or block based on the element's style.</small>
                 </div>
             </div>
 
@@ -447,14 +436,9 @@
                 </div>
                 <div class="form-section-box">
                     <div class="m3-form-field filled">
-                        <textarea id="ruleInlineSelector" rows="2" i18n-placeholder="selectorPlaceholderGlobal" placeholder=" "></textarea>
-                        <label for="ruleInlineSelector" i18n-text="inlineSelectorLabel">Inline Selector (Single Line)</label>
-                        <div class="error-message" id="ruleInlineSelectorError"></div>
-                    </div>
-                    <div class="m3-form-field filled">
-                        <textarea id="ruleBlockSelector" rows="2" i18n-placeholder="selectorPlaceholderGlobal" placeholder=" "></textarea>
-                        <label for="ruleBlockSelector" i18n-text="blockSelectorLabel">Block Selector (Preserve Newlines)</label>
-                        <div class="error-message" id="ruleBlockSelectorError"></div>
+                        <textarea id="ruleContentSelector" rows="3" i18n-placeholder="selectorPlaceholderGlobal" placeholder=" "></textarea>
+                        <label for="ruleContentSelector" i18n-text="contentSelectorLabel">Content Selectors</label>
+                        <div class="error-message" id="ruleContentSelectorError"></div>
                     </div>
                     <div class="m3-form-field filled">
                         <textarea id="ruleExcludeSelector" rows="2" i18n-placeholder="selectorPlaceholderGlobal" placeholder=" "></textarea>

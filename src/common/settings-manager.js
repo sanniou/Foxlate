@@ -189,28 +189,26 @@ export class SettingsManager {
      * @returns {object} 最终的选择器对象 { inline, block, exclude }。
      */
     static #calculateEffectiveSelectorSettings(globalSelector, ruleSelector, override) {
-        const defaultSelector = globalSelector || { inline: '', block: '', exclude: '' };
+        // 默认选择器现在只包含 content 和 exclude
+        const defaultSelector = globalSelector || { content: '', exclude: '' };
 
-        let finalInlineSelector = defaultSelector.inline || '';
-        let finalBlockSelector = defaultSelector.block || '';
+        let finalContentSelector = defaultSelector.content || '';
         let finalExcludeSelector = defaultSelector.exclude || '';
 
         if (ruleSelector) {
-            const ruleInline = ruleSelector.inline || '';
-            const ruleBlock = ruleSelector.block || '';
+            // 域名规则的选择器也只包含 content 和 exclude
+            const ruleContent = ruleSelector.content || '';
             const ruleExclude = ruleSelector.exclude || '';
             if (override) {
-                finalInlineSelector = ruleInline;
-                finalBlockSelector = ruleBlock;
+                finalContentSelector = ruleContent;
                 finalExcludeSelector = ruleExclude;
             } else {
-                finalInlineSelector = SettingsManager.#mergeSelectors(finalInlineSelector, ruleInline);
-                finalBlockSelector = SettingsManager.#mergeSelectors(finalBlockSelector, ruleBlock);
+                finalContentSelector = SettingsManager.#mergeSelectors(finalContentSelector, ruleContent);
                 finalExcludeSelector = SettingsManager.#mergeSelectors(finalExcludeSelector, ruleExclude);
             }
         }
 
-        return { inline: finalInlineSelector, block: finalBlockSelector, exclude: finalExcludeSelector };
+        return { content: finalContentSelector, exclude: finalExcludeSelector };
     }
 
     /**

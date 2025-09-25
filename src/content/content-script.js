@@ -130,12 +130,10 @@ function findAllSearchRoots(rootNode) {
  * @returns {HTMLElement[]} 一个包含最适合翻译的容器元素的数组。
  */
 function findTranslatableElements(effectiveSettings, rootNodes = [document.body]) {
-    const inlineSelector = effectiveSettings?.translationSelector?.inline?.trim();
-    const blockSelector = effectiveSettings?.translationSelector?.block?.trim();
+    const contentSelector = effectiveSettings?.translationSelector?.content?.trim();
 
-    // 如果没有配置选择器，则不进行任何操作。
-    const allSelectors = [inlineSelector, blockSelector].filter(Boolean).join(', ');
-    if (!allSelectors) {
+    // 如果没有配置内容选择器，则不进行任何操作。
+    if (!contentSelector) {
         return [];
     }
 
@@ -150,12 +148,12 @@ function findTranslatableElements(effectiveSettings, rootNodes = [document.body]
         // 如果根节点本身匹配，也将其加入候选列表。
         // 注意：Shadow Root 本身没有 tagName，不能直接 matches，但它的 host 元素可能匹配。
         // 为简化逻辑，我们主要关注其内部的查询。
-        if (root.nodeType === Node.ELEMENT_NODE && root.matches(allSelectors)) {
+        if (root.nodeType === Node.ELEMENT_NODE && root.matches(contentSelector)) {
             allCandidates.add(root);
         }
         // 查询根节点下的所有匹配项。
         // Element 和 DocumentFragment 都支持 querySelectorAll。
-        root.querySelectorAll(allSelectors).forEach(el => allCandidates.add(el));
+        root.querySelectorAll(contentSelector).forEach(el => allCandidates.add(el));
     }
 
     // (新) 优化：如果根据选择器没有找到任何候选元素，则提前返回，
@@ -171,7 +169,7 @@ function findTranslatableElements(effectiveSettings, rootNodes = [document.body]
     for (const el of allCandidates) {
         // 检查当前元素 'el' 是否包含任何其他也匹配选择器的子元素。
         // 使用原生 querySelector 性能远高于在 allCandidates 中循环。
-        if (!el.querySelector(allSelectors)) {
+        if (!el.querySelector(contentSelector)) {
             // 如果没有，它就是一个“叶子”节点，直接添加到最终候选列表中。
             finalCandidates.add(el);
         } else {
@@ -235,7 +233,7 @@ function findTranslatableElements(effectiveSettings, rootNodes = [document.body]
             const isBoundary = child.nodeType === Node.ELEMENT_NODE && (
                 allCandidates.has(child) || // 子节点本身匹配选择器
                 child.dataset.translationId || // 子节点已翻译
-                child.querySelector(allSelectors) // (优化) 子节点包含一个匹配的后代
+                child.querySelector(contentSelector) // (优化) 子节点包含一个匹配的后代
             );
 
             if (isBoundary) {

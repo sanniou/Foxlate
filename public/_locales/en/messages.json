@@ -79,21 +79,13 @@
     "message": "Target Language:",
     "description": "Label for the target language input."
   },
-  "inlineSelectorLabel": {
-    "message": "Inline Selector (Single Line)",
-    "description": "Label for the inline CSS selector textarea."
+  "contentSelectorLabel": {
+    "message": "Content Selectors",
+    "description": "Label for the content CSS selector textarea."
   },
-  "inlineSelectorDescription": {
-    "message": "For short texts like titles, buttons, and labels. Translations will be merged into a single line.",
-    "description": "Helper text for the inline CSS selector."
-  },
-  "blockSelectorLabel": {
-    "message": "Block Selector (Preserve Newlines)",
-    "description": "Label for the block CSS selector textarea."
-  },
-  "blockSelectorDescription": {
-    "message": "For main content like paragraphs and articles. Translations will preserve original newlines.",
-    "description": "Helper text for the block CSS selector."
+  "contentSelectorDescription": {
+    "message": "Specify CSS selectors for elements to be translated. The extension will automatically determine if the translation should be displayed as inline or block based on the element's style.",
+    "description": "Helper text for the content CSS selector."
   },
   "excludeSelectorsLabel": {
     "message": "Exclude Selectors",

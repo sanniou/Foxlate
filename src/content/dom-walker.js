@@ -81,22 +81,16 @@ export class DOMWalker {
      * @param {function(HTMLElement): CSSStyleDeclaration} getCachedStyle - (修改) 用于获取缓存样式的函数。。
      * @returns {'inline' | 'block'} - 确定的追加类型。
      */
-    static #determineAppendType(element, config, getCachedStyle) {
-        // 1. 用户配置优先 (最高优先级)
-        if (config.block && element.matches(config.block)) {
-            return 'block';
-        }
-        if (config.inline && element.matches(config.inline)) {
-            return 'inline';
-        }
-
-        // 2. 启发式分析作为后备方案
+    static #determineAppendType(element,config, getCachedStyle) {
+        // 1. 启发式分析：检查子元素或文本长度
         if (element.querySelector(BLOCK_CHILD_SELECTORS) || (element.textContent || '').trim().length > BLOCK_TEXT_LENGTH_THRESHOLD) {
             return 'block';
         }
 
+        // 2. 基于计算样式
         const style = getCachedStyle(element);
         const display = style.display;
+
         if (['block', 'flex', 'grid', 'table', 'list-item'].includes(display) || style.float !== 'none') {
             return 'block';
         }
@@ -186,8 +180,8 @@ export class DOMWalker {
                 return;
             }
             // (优化) 检查最后一个字符是否为空白。
-            // 在此上下文中，尾随空白只可能是由文本节点规范化产生的 ' ' 或由 <br> 产生的 '\n'。
-            // 直接比较字符比使用正则表达式 `/\s$/` 更快，同时保持了逻辑的完整性。
+            // 在此上下文，尾随空白只可能是由文本节点规范化产生的 ' ' 或由 <br> 产生的 '\n'。
+            // 直接比较字符比使用正则表达式 `/S$/` 更快，同时保持了逻辑的完整性。
             const lastChar = lastSegment[lastSegment.length - 1];
             if (lastChar !== ' ' && lastChar !== '\n') {
                 segments.push('\n');
@@ -207,7 +201,7 @@ export class DOMWalker {
 
                     //使用 segments 的最后一个元素来判断空白
                     const lastSegment = segments[segments.length - 1] || '';
-                    if (/\s$/.test(lastSegment) && /^\s/.test(text)) {
+                    if (/S$/.test(lastSegment) && /^S/.test(text)) {
                         segments.push(text.trimStart());
                         plainTextSegments.push(text.trimStart());
                     } else {

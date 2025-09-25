@@ -25,8 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
         resetSettingsBtn: document.getElementById('reset-settings-btn'),
         statusMessage: document.getElementById('statusMessage'),
         targetLanguage: document.getElementById('targetLanguage'),
-        defaultInlineSelector: document.getElementById('defaultInlineSelector'),
-        defaultBlockSelector: document.getElementById('defaultBlockSelector'),
+        defaultContentSelector: document.getElementById('defaultContentSelector'),
         defaultExcludeSelector: document.getElementById('defaultExcludeSelector'),
         deeplxApiUrl: document.getElementById('deeplxApiUrl'),
         // AI Engine Modal Elements
@@ -66,8 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ruleTargetLanguageSelect: document.getElementById('ruleTargetLanguage'),
         ruleSourceLanguageSelect: document.getElementById('ruleSourceLanguage'),
         ruleDisplayModeSelect: document.getElementById('ruleDisplayMode'),
-        ruleInlineSelectorTextarea: document.getElementById('ruleInlineSelector'),
-        ruleBlockSelectorTextarea: document.getElementById('ruleBlockSelector'),
+        ruleContentSelector: document.getElementById('ruleContentSelector'),
         ruleExcludeSelectorTextarea: document.getElementById('ruleExcludeSelector'),
         ruleCssSelectorOverrideCheckbox: document.getElementById('ruleCssSelectorOverride'),
         cancelDomainRuleBtn: document.getElementById('cancelDomainRuleBtn'),
@@ -261,8 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
         settings.deeplxApiUrl = elements.deeplxApiUrl.value;
         settings.translationSelector = {
             default: {
-                inline: elements.defaultInlineSelector.value,
-                block: elements.defaultBlockSelector.value,
+                content: elements.defaultContentSelector.value,
                 exclude: elements.defaultExcludeSelector.value
             }
         };
@@ -392,8 +389,9 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.translatorEngine.value = currentSettings.translatorEngine;
             elements.targetLanguage.value = currentSettings.targetLanguage;
             const defaultSelector = currentSettings.translationSelector.default || {};
-            elements.defaultInlineSelector.value = defaultSelector.inline || '';
-            elements.defaultBlockSelector.value = defaultSelector.block || '';
+            const inline = defaultSelector.inline || '';
+            const block = defaultSelector.block || '';
+            elements.defaultContentSelector.value = defaultSelector.content || [inline, block].filter(Boolean).join(', ');
             elements.defaultExcludeSelector.value = defaultSelector.exclude || '';
             elements.deeplxApiUrl.value = currentSettings.deeplxApiUrl;
             elements.displayModeSelect.value = currentSettings.displayMode;
@@ -425,11 +423,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const hasInvalidRegex = !!document.querySelector('.rule-item .m3-form-field.is-invalid');
 
         // (新) 独立验证所有选择器以显示所有错误，而不是因短路而停止。
-        const isInlineValid = validateCssSelectorInput(elements.defaultInlineSelector);
-        const isBlockValid = validateCssSelectorInput(elements.defaultBlockSelector);
+        const isContentValid = validateCssSelectorInput(elements.defaultContentSelector);
         const isExcludeValid = validateCssSelectorInput(elements.defaultExcludeSelector);
 
-        if (hasInvalidRegex || !isInlineValid || !isBlockValid || !isExcludeValid) {
+        if (hasInvalidRegex || !isContentValid || !isExcludeValid) {
             // --- 3a. 处理验证错误，CSS 将自动触发抖动动画 ---
             elements.saveSettingsBtn.dataset.state = 'error';
             const firstInvalidField = document.querySelector('.settings-section .m3-form-field.is-invalid');
@@ -744,13 +741,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const saveDomainRule = async () => {
         // --- 1. 统一验证 ---
-        // 独立运行所有验证器，以确保所有错误消息都会显示，而不是因短路而停止。
         const isDomainValid = domainRuleValidator.validate();
-        const isInlineValid = validateCssSelectorInput(elements.ruleInlineSelectorTextarea);
-        const isBlockValid = validateCssSelectorInput(elements.ruleBlockSelectorTextarea);
+        const isContentValid = validateCssSelectorInput(elements.ruleContentSelector);
         const isExcludeValid = validateCssSelectorInput(elements.ruleExcludeSelectorTextarea);
 
-        if (!isDomainValid || !isInlineValid || !isBlockValid || !isExcludeValid) {
+        if (!isDomainValid || !isContentValid || !isExcludeValid) {
             // 如果验证失败，则抖动弹窗内的第一个无效字段以提示用户。
             const firstInvalidField = elements.domainRuleModal.querySelector('.m3-form-field.is-invalid');
             if (firstInvalidField) {
@@ -761,11 +756,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            // --- 2. 构造规则对象，为提高效率排除默认值 ---
+            // --- 2. 构造规则对象 ---
             const newDomain = elements.ruleDomainInput.value.trim();
             const originalDomain = elements.editingDomainInput.value;
             const rule = {};
-            // The default for applyToSubdomains is true, so only save the value if it's false.
+            
             if (!elements.ruleApplyToSubdomainsCheckbox.checked) {
                 rule.applyToSubdomains = false;
             }
@@ -778,51 +773,47 @@ document.addEventListener('DOMContentLoaded', () => {
             if (elements.ruleTargetLanguageSelect.value !== 'default') {
                 rule.targetLanguage = elements.ruleTargetLanguageSelect.value;
             }
-            if (elements.ruleSourceLanguageSelect.value !== 'default') { // 新增
+            if (elements.ruleSourceLanguageSelect.value !== 'default') {
                 rule.sourceLanguage = elements.ruleSourceLanguageSelect.value;
             }
             if (elements.ruleDisplayModeSelect.value !== 'default') {
                 rule.displayMode = elements.ruleDisplayModeSelect.value;
             }
-            const inlineSelector = elements.ruleInlineSelectorTextarea.value.trim();
-            const blockSelector = elements.ruleBlockSelectorTextarea.value.trim();
+
+            const contentSelector = elements.ruleContentSelector.value.trim();
             const excludeSelector = elements.ruleExcludeSelectorTextarea.value.trim();
 
             rule.cssSelectorOverride = elements.ruleCssSelectorOverrideCheckbox.checked;
-            // 仅当至少一个选择器有值时，才保存 cssSelector 对象。
-            if (inlineSelector || blockSelector || excludeSelector) {
+
+            if (contentSelector || excludeSelector) {
                 rule.cssSelector = {
-                    inline: inlineSelector,
-                    block: blockSelector,
+                    content: contentSelector,
                     exclude: excludeSelector
                 };
             } else {
-                // 如果两者都为空，则不保存 cssSelector 属性。
-                // 这样，除非勾选了覆盖，否则它将继承全局规则。
                 delete rule.cssSelector;
             }
+
             // --- 保存字幕设置 ---
-            // 改进：在禁用时保留现有设置，以改善用户体验。
             const enabled = elements.ruleEnableSubtitleCheckbox.checked;
             const existingRule = domainRules[originalDomain] || {};
             const existingSubtitleSettings = existingRule.subtitleSettings || {};
 
             if (enabled) {
                 rule.subtitleSettings = {
-                    ...existingSubtitleSettings, // 保留任何其他潜在的未知设置
+                    ...existingSubtitleSettings,
                     enabled: true,
                     strategy: elements.ruleSubtitleStrategySelect.value,
                     displayMode: elements.ruleSubtitleDisplayMode.value
                 };
             } else {
-                // 如果之前有设置，则在其基础上禁用。否则，创建一个新的已禁用设置。
                 rule.subtitleSettings = {
                     ...existingSubtitleSettings,
                     enabled: false
                 };
             }
 
-            // --- 3. 直接读、改、写存储，实现原子化保存 ---
+            // --- 3. 直接读、改、写存储 ---
             const settings = await SettingsManager.getValidatedSettings();
             if (originalDomain && originalDomain !== newDomain) {
                 delete settings.domainRules[originalDomain];
@@ -1013,19 +1004,13 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.ruleTargetLanguageSelect.value = ruleData.targetLanguage || 'default';
         elements.ruleSourceLanguageSelect.value = ruleData.sourceLanguage || 'default';
         elements.ruleDisplayModeSelect.value = ruleData.displayMode || 'default';
-        // 兼容处理旧的字符串格式和新的对象格式
-        const selector = ruleData.cssSelector;
-        if (typeof selector === 'string') {
-            // 旧格式：假定它是块级选择器
-            elements.ruleInlineSelectorTextarea.value = '';
-            elements.ruleBlockSelectorTextarea.value = selector;
-        } else {
-            // 新格式（或未定义）
-            const selectorObj = selector || {};
-            elements.ruleInlineSelectorTextarea.value = selectorObj.inline || '';
-            elements.ruleBlockSelectorTextarea.value = selectorObj.block || '';
-            elements.ruleExcludeSelectorTextarea.value = selectorObj.exclude || '';
-        }
+        
+        // Backward compatibility for selectors
+        const selector = ruleData.cssSelector || {};
+        const contentValue = selector.content || [selector.inline, selector.block].filter(Boolean).join(', ');
+        elements.ruleContentSelector.value = contentValue;
+        elements.ruleExcludeSelectorTextarea.value = selector.exclude || '';
+
         // Default to false if not specified
         elements.ruleCssSelectorOverrideCheckbox.checked = ruleData.cssSelectorOverride || false;
 
@@ -1308,7 +1293,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const target = e.target;
 
         // --- Settings that trigger save button ---
-        if (target.matches('#defaultInlineSelector, #defaultBlockSelector, #defaultExcludeSelector, #deeplxApiUrl, #cacheSizeInput')) {
+        if (target.matches('#defaultContentSelector, #defaultExcludeSelector, #deeplxApiUrl, #cacheSizeInput')) {
             return updateSaveButtonState();
         }
 
