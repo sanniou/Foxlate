@@ -73,6 +73,11 @@ document.addEventListener('DOMContentLoaded', () => {
         ruleSubtitleSettingsGroup: document.getElementById('ruleSubtitleSettingsGroup'),
         ruleSubtitleStrategySelect: document.getElementById('ruleSubtitleStrategy'),
         ruleSubtitleDisplayMode: document.getElementById('ruleSubtitleDisplayMode'),
+        // (新) 内容总结元素
+        ruleMainBodySelector: document.getElementById('ruleMainBodySelector'),
+        ruleEnableSummary: document.getElementById('ruleEnableSummary'),
+        ruleSummarySettingsGroup: document.getElementById('ruleSummarySettingsGroup'),
+        ruleSummaryAiModel: document.getElementById('ruleSummaryAiModel'),
         displayModeSelect: document.getElementById('displayModeSelect'),
         saveSettingsBtn: document.getElementById('saveSettingsBtn'),
         domainRuleModal: document.getElementById('domainRuleModal'),
@@ -747,8 +752,26 @@ document.addEventListener('DOMContentLoaded', () => {
         const isDomainValid = domainRuleValidator.validate();
         const isContentValid = validateCssSelectorInput(elements.ruleContentSelector);
         const isExcludeValid = validateCssSelectorInput(elements.ruleExcludeSelectorTextarea);
+        const isMainBodyValid = validateCssSelectorInput(elements.ruleMainBodySelector);
 
-        if (!isDomainValid || !isContentValid || !isExcludeValid) {
+        // (新) 验证内容总结设置
+        let isSummarySettingsValid = true;
+        if (elements.ruleEnableSummary.checked) {
+            if (!elements.ruleMainBodySelector.value.trim()) {
+                const field = elements.ruleMainBodySelector.closest('.m3-form-field');
+                field.classList.add('is-invalid');
+                field.querySelector('.error-message').textContent = browser.i18n.getMessage('errorMainBodySelectorRequired');
+                isSummarySettingsValid = false;
+            }
+            if (!elements.ruleSummaryAiModel.value) {
+                const field = elements.ruleSummaryAiModel.closest('.m3-form-field');
+                field.classList.add('is-invalid');
+                field.querySelector('.error-message').textContent = browser.i18n.getMessage('errorSummaryModelRequired');
+                isSummarySettingsValid = false;
+            }
+        }
+
+        if (!isDomainValid || !isContentValid || !isExcludeValid || !isMainBodyValid || !isSummarySettingsValid) {
             // 如果验证失败，则抖动弹窗内的第一个无效字段以提示用户。
             const firstInvalidField = elements.domainRuleModal.querySelector('.m3-form-field.is-invalid');
             if (firstInvalidField) {
@@ -782,6 +805,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (elements.ruleDisplayModeSelect.value !== 'default') {
                 rule.displayMode = elements.ruleDisplayModeSelect.value;
             }
+
+        // --- 保存内容总结设置 ---
+        const summaryEnabled = elements.ruleEnableSummary.checked;
+        if (summaryEnabled) {
+            rule.summarySettings = {
+                enabled: true,
+                mainBodySelector: elements.ruleMainBodySelector.value.trim(),
+                aiModel: elements.ruleSummaryAiModel.value
+            };
+        }
 
             const contentSelector = elements.ruleContentSelector.value.trim();
             const excludeSelector = elements.ruleExcludeSelectorTextarea.value.trim();
@@ -1028,11 +1061,20 @@ document.addEventListener('DOMContentLoaded', () => {
         // 根据复选框状态控制字幕设置组的可见性
         elements.ruleSubtitleSettingsGroup.style.display = elements.ruleEnableSubtitleCheckbox.checked ? 'block' : 'none';
 
+        // 加载内容总结设置
+        const summarySettings = ruleData.summarySettings || {};
+        elements.ruleEnableSummary.checked = summarySettings.enabled || false;
+        elements.ruleMainBodySelector.value = summarySettings.mainBodySelector || '';
+        elements.ruleSummaryAiModel.value = summarySettings.aiModel || '';
+
+        // 根据复选框状态控制总结设置组的可见性
+        elements.ruleSummarySettingsGroup.style.display = elements.ruleEnableSummary.checked ? 'block' : 'none';
 
         // Ensure all select labels are correctly positioned after populating values.
         elements.domainRuleModal.querySelectorAll('.m3-form-field.filled select').forEach(initializeSelectLabel);
         // 使用验证器清除任何先前的验证状态
         domainRuleValidator.clearAllErrors();
+        validateCssSelectorInput(elements.ruleMainBodySelector); // 同时清除选择器错误
     };
 
     const closeDomainRuleModal = () => {
@@ -1372,6 +1414,16 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // --- 内容总结设置变化 ---
+        if (target.closest('#domainRuleModal') && target.matches('#ruleEnableSummary')) {
+            const isChecked = target.checked;
+            elements.ruleSummarySettingsGroup.style.display = isChecked ? 'block' : 'none';
+            if (isChecked) {
+                elements.ruleSummarySettingsGroup.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+            return;
+        }
+
         // --- Import file change ---
         if (target.id === 'import-input') {
             importSettings(e);
@@ -1584,8 +1636,9 @@ document.addEventListener('DOMContentLoaded', () => {
      * @param {object} [options={}] - 配置选项。
      * @param {boolean} [options.includeDefault=false] - 是否包含“使用默认设置”选项。
      * @param {string|null} [options.excludeId=null] - 要从列表中排除的 AI 引擎的 ID。
+     * @param {boolean} [options.onlyAi=false] - (新) 是否只显示 AI 引擎。
      */
-    const populateEngineSelect = (selectElement, { includeDefault = false, excludeId = null } = {}) => {
+    const populateEngineSelect = (selectElement, { includeDefault = false, excludeId = null, onlyAi = false } = {}) => {
         if (!selectElement) return;
         const currentValue = selectElement.value; // 保留当前值
         selectElement.innerHTML = '';
@@ -1599,11 +1652,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // 添加内置引擎
-        for (const key in Constants.SUPPORTED_ENGINES) {
-            const option = document.createElement('option');
-            option.value = key;
-            option.textContent = browser.i18n.getMessage(Constants.SUPPORTED_ENGINES[key]);
-            selectElement.appendChild(option);
+        if (!onlyAi) {
+            for (const key in Constants.SUPPORTED_ENGINES) {
+                const option = document.createElement('option');
+                option.value = key;
+                option.textContent = browser.i18n.getMessage(Constants.SUPPORTED_ENGINES[key]);
+                selectElement.appendChild(option);
+            }
         }
 
         // 添加用户配置的 AI 引擎
@@ -1633,6 +1688,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // Populate Translator Engine dropdown
         populateEngineSelect(elements.ruleTranslatorEngineSelect, { includeDefault: true });
 
+        // (新) 填充内容总结的 AI 模型下拉菜单
+        // 这个菜单只应包含 AI 引擎
+        const summaryAiSelect = elements.ruleSummaryAiModel;
+        summaryAiSelect.innerHTML = ''; // 清空
+        // 我们将只在 populateEngineSelect 中过滤出 AI 引擎
+        populateEngineSelect(summaryAiSelect, { includeDefault: false, onlyAi: true });
 
 
         // Populate Target Language dropdown

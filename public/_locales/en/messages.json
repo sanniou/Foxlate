@@ -335,13 +335,27 @@
     "message": "Import Settings",
     "description": "Button text to import settings."
   },
-  "saveSettingsSuccess": { "message": "Settings saved successfully!" },
-  "saveSettingsError": { "message": "Failed to save settings." },
-  "addRuleSuccess": { "message": "Domain rule added." },
-  "addRuleErrorNoDomain": { "message": "Please enter a domain." },
-  "removeRule": { "message": "Remove" },
-  "removeRuleSuccess": { "message": "Domain rule removed." },
-  "exportSuccess": { "message": "Settings exported successfully!" },
+  "saveSettingsSuccess": {
+    "message": "Settings saved successfully!"
+  },
+  "saveSettingsError": {
+    "message": "Failed to save settings."
+  },
+  "addRuleSuccess": {
+    "message": "Domain rule added."
+  },
+  "addRuleErrorNoDomain": {
+    "message": "Please enter a domain."
+  },
+  "removeRule": {
+    "message": "Remove"
+  },
+  "removeRuleSuccess": {
+    "message": "Domain rule removed."
+  },
+  "exportSuccess": {
+    "message": "Settings exported successfully!"
+  },
   "importSuccess": {
     "message": "Settings imported successfully! UI has been updated."
   },
@@ -368,11 +382,21 @@
     "message": "Settings have been reset to default.",
     "description": "Status message after successfully resetting settings."
   },
-  "testing": { "message": "Testing..." },
-  "testOriginal": { "message": "Original" },
-  "testTranslated": { "message": "Translated" },
-  "testError": { "message": "Error" },
-  "aiApiKeyPlaceholder": { "message": "Enter your OpenAI-compatible API Key" },
+  "testing": {
+    "message": "Testing..."
+  },
+  "testOriginal": {
+    "message": "Original"
+  },
+  "testTranslated": {
+    "message": "Translated"
+  },
+  "testError": {
+    "message": "Error"
+  },
+  "aiApiKeyPlaceholder": {
+    "message": "Enter your OpenAI-compatible API Key"
+  },
   "aiApiUrlPlaceholder": {
     "message": "e.g., https://api.openai.com/v1/chat/completions"
   },
@@ -400,21 +424,39 @@
     "message": "AI Model Name is not configured in settings. Please set it up.",
     "description": "Error message when the AI Model Name is missing."
   },
-  "aiModelNamePlaceholder": { "message": "e.g., gpt-3.5-turbo" },
+  "aiModelNamePlaceholder": {
+    "message": "e.g., gpt-3.5-turbo"
+  },
   "deeplxApiUrlPlaceholder": {
     "message": "e.g., https://api.deeplx.com/translate"
   },
   "googleApiKeyPlaceholder": {
     "message": "Enter your Google Cloud Translation API Key"
   },
-  "domainPlaceholder": { "message": "e.g., example.com" },
-  "popupTitle": { "message": "Foxlate" },
-  "popupSourceLanguage": { "message": "Source Language:" },
-  "popupTargetLanguage": { "message": "Target Language:" },
-  "popupTranslationService": { "message": "Translation Service:" },
-  "popupTranslatePage": { "message": "Translate This Page" },
-  "popupAlwaysTranslate": { "message": "Always translate this site" },
-  "popupSettings": { "message": "⚙️ Settings" },
+  "domainPlaceholder": {
+    "message": "e.g., example.com"
+  },
+  "popupTitle": {
+    "message": "Foxlate"
+  },
+  "popupSourceLanguage": {
+    "message": "Source Language:"
+  },
+  "popupTargetLanguage": {
+    "message": "Target Language:"
+  },
+  "popupTranslationService": {
+    "message": "Translation Service:"
+  },
+  "popupTranslatePage": {
+    "message": "Translate This Page"
+  },
+  "popupAlwaysTranslate": {
+    "message": "Always translate this site"
+  },
+  "popupSettings": {
+    "message": "⚙️ Settings"
+  },
   "contextMenuTitle": {
     "message": "Translate '%s' with Foxlate",
     "description": "Context menu item for translating selected text. %s is the placeholder for the selected text."
@@ -423,7 +465,9 @@
     "message": "Using default settings",
     "description": "Text in popup indicating that default rules are active."
   },
-  "popupAbout": { "message": "About" },
+  "popupAbout": {
+    "message": "About"
+  },
   "popupDisplayMode": {
     "message": "Display Mode:",
     "description": "Label for the display mode dropdown in the popup."
@@ -440,15 +484,33 @@
     "message": "Hover",
     "description": "Hover mode option in the popup."
   },
-  "langAuto": { "message": "Auto-Detect" },
-  "langEN": { "message": "English" },
-  "langZH": { "message": "Chinese (Simplified)" },
-  "langJA": { "message": "Japanese" },
-  "langKO": { "message": "Korean" },
-  "langFR": { "message": "French" },
-  "langDE": { "message": "German" },
-  "langES": { "message": "Spanish" },
-  "langRU": { "message": "Russian" },
+  "langAuto": {
+    "message": "Auto-Detect"
+  },
+  "langEN": {
+    "message": "English"
+  },
+  "langZH": {
+    "message": "Chinese (Simplified)"
+  },
+  "langJA": {
+    "message": "Japanese"
+  },
+  "langKO": {
+    "message": "Korean"
+  },
+  "langFR": {
+    "message": "French"
+  },
+  "langDE": {
+    "message": "German"
+  },
+  "langES": {
+    "message": "Spanish"
+  },
+  "langRU": {
+    "message": "Russian"
+  },
   "precheckRulesTitle": {
     "message": "Translation Pre-check Rules",
     "description": "Title for the Pre-check Rules section."
@@ -744,6 +806,34 @@
   "subtitleSettingsTitle": {
     "message": "Subtitle Settings",
     "description": "Title for the Subtitle Settings section in the domain rule modal."
+  },
+  "summarySettingsTitle": {
+    "message": "Content Summary Settings",
+    "description": "Title for the Content Summary Settings section in the domain rule modal."
+  },
+  "mainBodySelectorLabel": {
+    "message": "Main Body Selector",
+    "description": "Label for the main body CSS selector textarea."
+  },
+  "mainBodySelectorDescription": {
+    "message": "Specify a selector for the main content area of the page (e.g., an article body). This will be used for the content summary feature.",
+    "description": "Helper text for the main body CSS selector."
+  },
+  "enableContentSummary": {
+    "message": "Enable Content Summary",
+    "description": "Label for the switch to enable the content summary feature."
+  },
+  "summaryAiModelLabel": {
+    "message": "Summary AI Model",
+    "description": "Label for the AI model selection for content summary."
+  },
+  "errorMainBodySelectorRequired": {
+    "message": "Main Body Selector is required when summary is enabled.",
+    "description": "Validation error message."
+  },
+  "errorSummaryModelRequired": {
+    "message": "Summary AI Model is required when summary is enabled.",
+    "description": "Validation error message."
   },
   "enableSubtitleTranslation": {
     "message": "Enable Subtitle Translation",

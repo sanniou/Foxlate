@@ -333,6 +333,48 @@ const messageHandlers = {
         return { success: true, translatedTexts };
     },
 
+    // (新) 处理内容总结请求
+    async SUMMARIZE_CONTENT(request) {
+        const { text, aiModel, targetLang } = request.payload;
+
+        if (!text || !aiModel) {
+            return { success: false, error: "Text or AI model not provided for summarization." };
+        }
+
+        try {
+            // 1. 获取 AI 引擎配置
+            const settings = await SettingsManager.getValidatedSettings();
+            const engineId = aiModel.startsWith('ai:') ? aiModel.substring(3) : aiModel;
+            const aiConfig = settings.aiEngines.find(e => e.id === engineId);
+
+            if (!aiConfig) {
+                throw new Error(`AI engine configuration not found for ID: ${engineId}`);
+            }
+
+            // 2. 构造专门用于总结的系统提示词
+            // 这个提示词指示 AI 以目标语言生成要点式总结。
+            const summaryPrompt = `You are a text summarization expert. Please summarize the following text into concise, easy-to-understand bullet points. The summary must be in ${targetLang}.`;
+
+            // 3. 创建一个临时的 AITranslator 实例来执行任务
+            const summarizer = new AITranslator();
+
+            // 4. 调用其 translate 方法，但传入的是总结提示词
+            // 我们将 aiConfig 中的 customPrompt 临时替换为我们的总结提示词。
+            const summaryConfig = { ...aiConfig, customPrompt: summaryPrompt };
+
+            // sourceLang 在这里不重要，设为 'auto'
+            const result = await summarizer.translate(text, targetLang, 'auto', summaryConfig);
+
+            if (result.error) {
+                throw new Error(result.error);
+            }
+
+            return { success: true, summary: result.text };
+        } catch (error) {
+            logError('SUMMARIZE_CONTENT', error);
+            return { success: false, error: error.message };
+        }
+    },
 
     async TEST_CONNECTION(request) {
         const { engine, settings, text } = request.payload;

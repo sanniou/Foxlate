@@ -488,6 +488,35 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Content Summary Settings Section -->
+                <hr class="divider">
+                <h4 i18n-text="summarySettingsTitle">Content Summary Settings</h4>
+
+                <div class="m3-form-field filled">
+                    <textarea id="ruleMainBodySelector" rows="2" i18n-placeholder="selectorPlaceholderGlobal" placeholder=" "></textarea>
+                    <label for="ruleMainBodySelector" i18n-text="mainBodySelectorLabel">Main Body Selector</label>
+                    <div class="error-message" id="ruleMainBodySelectorError"></div>
+                </div>
+                <div class="m3-helper-text">
+                    <small i18n-text="mainBodySelectorDescription">Specify a selector for the main content area of the page (e.g., an article body). This will be used for the content summary feature.</small>
+                </div>
+
+                <div class="m3-switch">
+                    <input type="checkbox" id="ruleEnableSummary" name="ruleEnableSummary">
+                    <label for="ruleEnableSummary" class="switch-track">
+                        <span class="switch-thumb"></span>
+                    </label>
+                    <label for="ruleEnableSummary" class="switch-label" i18n-text="enableContentSummary">Enable Content Summary</label>
+                </div>
+
+                <div id="ruleSummarySettingsGroup" style="display: none;">
+                    <div class="m3-form-field filled">
+                        <select id="ruleSummaryAiModel"></select>
+                        <label for="ruleSummaryAiModel" i18n-text="summaryAiModelLabel">Summary AI Model</label>
+                        <div class="error-message" id="ruleSummaryAiModelError"></div>
+                    </div>
+                </div>
             </div>
             <div class="button-group modal-actions">
                 <button id="cancelDomainRuleBtn" class="m3-button text" i18n-text="cancel">Cancel</button>

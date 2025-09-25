@@ -339,40 +339,20 @@
     "message": "导入设置",
     "description": "导入设置的按钮文本。"
   },
-  "saveSettingsSuccess": {
-    "message": "设置已成功保存！"
-  },
-  "saveSettingsError": {
-    "message": "保存设置失败。"
-  },
-  "addRuleSuccess": {
-    "message": "域名规则已添加。"
-  },
-  "addRuleErrorNoDomain": {
-    "message": "请输入一个域名。"
-  },
-  "removeRule": {
-    "message": "移除"
-  },
-  "removeRuleSuccess": {
-    "message": "域名规则已移除。"
-  },
+  "saveSettingsSuccess": { "message": "设置已成功保存！" },
+  "saveSettingsError": { "message": "保存设置失败。" },
+  "addRuleSuccess": { "message": "域名规则已添加。" },
+  "addRuleErrorNoDomain": { "message": "请输入一个域名。" },
+  "removeRule": { "message": "移除" },
+  "removeRuleSuccess": { "message": "域名规则已移除。" },
   "removeAiEngine": {
     "message": "移除",
     "description": "移除 AI 引擎配置的按钮文本。"
   },
-  "exportSuccess": {
-    "message": "设置已成功导出！"
-  },
-  "importSuccess": {
-    "message": "设置已成功导入！界面已更新。"
-  },
-  "importError": {
-    "message": "导入设置失败。文件可能已损坏或格式无效。"
-  },
-  "testing": {
-    "message": "测试中..."
-  },
+  "exportSuccess": { "message": "设置已成功导出！" },
+  "importSuccess": { "message": "设置已成功导入！界面已更新。" },
+  "importError": { "message": "导入设置失败。文件可能已损坏或格式无效。" },
+  "testing": { "message": "测试中..." },
   "invalidRegexWarning": {
     "message": "部分预检查规则包含无效的正则表达式。请在保存前修正它们。",
     "description": "Warning message when pre-check rules have invalid regexes."
@@ -389,33 +369,25 @@
     "message": "设置已重置为默认值。",
     "description": "Status message after successfully resetting settings."
   },
-  "testOriginal": {
-    "message": "原文"
-  },
-  "testTranslated": {
-    "message": "译文"
-  },
-  "testError": {
-    "message": "错误"
-  },
-  "aiApiKeyPlaceholder": {
-    "message": "请输入您的 OpenAI 兼容 API 密钥"
-  },
+  "testOriginal": { "message": "原文" },
+  "testTranslated": { "message": "译文" },
+  "testError": { "message": "错误" },
+  "aiApiKeyPlaceholder": { "message": "请输入您的 OpenAI 兼容 API 密钥" },
   "aiApiUrlPlaceholder": {
     "message": "例如：https://api.openai.com/v1/chat/completions"
   },
   "aiCustomPrompt": {
-    "message": "自定义提示词:",
-    "description": "AI 引擎的自定义提示词文本区域的标签。"
-  },
-  "aiShortTextThreshold": {
-    "message": "短文本切换阈值",
-    "description": "为短文本切换到不同引擎的单词数量阈值标签。"
-  },
-  "aiShortTextEngine": {
-    "message": "短文本翻译引擎",
-    "description": "用于翻译短文本的备用翻译引擎标签。"
-  },
+        "message": "自定义提示词:",
+        "description": "AI 引擎的自定义提示词文本区域的标签。"
+    },
+    "aiShortTextThreshold": {
+        "message": "短文本切换阈值",
+        "description": "为短文本切换到不同引擎的单词数量阈值标签。"
+    },
+    "aiShortTextEngine": {
+        "message": "短文本翻译引擎",
+        "description": "用于翻译短文本的备用翻译引擎标签。"
+    },
   "aiCustomPromptPlaceholder": {
     "message": "你是一个翻译助手。请将用户的文本从 {sourceLang} 翻译成 {targetLang}。只输出翻译后的文本。变量 {sourceLang} 和 {targetLang} 会被替换为语言代码（如 EN, ZH）。",
     "description": "自定义提示词文本区域的占位符。"
@@ -428,30 +400,16 @@
     "message": "AI 模型名称未在设置中配置，请前往设置。",
     "description": "当 AI 模型名称缺失时的错误信息。"
   },
-  "aiModelNamePlaceholder": {
-    "message": "例如：gpt-3.5-turbo"
-  },
+  "aiModelNamePlaceholder": { "message": "例如：gpt-3.5-turbo" },
   "deeplxApiUrlPlaceholder": {
     "message": "例如：https://api.deeplx.com/translate"
   },
-  "googleApiKeyPlaceholder": {
-    "message": "请输入您的谷歌云翻译 API 密钥"
-  },
-  "domainPlaceholder": {
-    "message": "例如：example.com"
-  },
-  "popupTitle": {
-    "message": "Foxlate"
-  },
-  "popupSourceLanguage": {
-    "message": "原始语言："
-  },
-  "popupTargetLanguage": {
-    "message": "目标语言："
-  },
-  "popupTranslationService": {
-    "message": "翻译服务："
-  },
+  "googleApiKeyPlaceholder": { "message": "请输入您的谷歌云翻译 API 密钥" },
+  "domainPlaceholder": { "message": "例如：example.com" },
+  "popupTitle": { "message": "Foxlate" },
+  "popupSourceLanguage": { "message": "原始语言：" },
+  "popupTargetLanguage": { "message": "目标语言：" },
+  "popupTranslationService": { "message": "翻译服务：" },
   "popupTranslatePage": {
     "message": "翻译此页",
     "description": "翻译当前页面的按钮文本。"
@@ -472,18 +430,10 @@
     "message": "停止翻译",
     "description": "停止当前页面翻译的按钮文本。"
   },
-  "popupTranslating": {
-    "message": "正在翻译..."
-  },
-  "popupAlwaysTranslate": {
-    "message": "总是翻译此网站"
-  },
-  "popupSettings": {
-    "message": "⚙️ 设置"
-  },
-  "popupAbout": {
-    "message": "关于"
-  },
+  "popupTranslating": { "message": "正在翻译..." },
+  "popupAlwaysTranslate": { "message": "总是翻译此网站" },
+  "popupSettings": { "message": "⚙️ 设置" },
+  "popupAbout": { "message": "关于" },
   "popupDisplayMode": {
     "message": "显示模式:",
     "description": "Popup 中显示模式下拉菜单的标签。"
@@ -500,33 +450,15 @@
     "message": "悬停模式",
     "description": "Popup 中的悬停模式选项。"
   },
-  "langAuto": {
-    "message": "自动检测"
-  },
-  "langEN": {
-    "message": "英语"
-  },
-  "langZH": {
-    "message": "简体中文"
-  },
-  "langJA": {
-    "message": "日语"
-  },
-  "langKO": {
-    "message": "韩语"
-  },
-  "langFR": {
-    "message": "法语"
-  },
-  "langDE": {
-    "message": "德语"
-  },
-  "langES": {
-    "message": "西班牙语"
-  },
-  "langRU": {
-    "message": "俄语"
-  },
+  "langAuto": { "message": "自动检测" },
+  "langEN": { "message": "英语" },
+  "langZH": { "message": "简体中文" },
+  "langJA": { "message": "日语" },
+  "langKO": { "message": "韩语" },
+  "langFR": { "message": "法语" },
+  "langDE": { "message": "德语" },
+  "langES": { "message": "西班牙语" },
+  "langRU": { "message": "俄语" },
   "precheckRulesTitle": {
     "message": "翻译预检查规则",
     "description": "Title for the Pre-check Rules section."
@@ -846,6 +778,22 @@
   "errorSummaryModelRequired": {
     "message": "启用内容总结时，必须选择一个总结 AI 模型。",
     "description": "验证错误信息。"
+  },
+  "summarizeButtonText": {
+    "message": "总结",
+    "description": "“总结”按钮的文本。"
+  },
+  "summaryModalTitle": {
+    "message": "内容总结",
+    "description": "内容总结弹窗的标题。"
+  },
+  "summaryLoadingText": {
+    "message": "正在生成总结，请稍候...",
+    "description": "等待总结时显示的加载文本。"
+  },
+  "summaryErrorText": {
+    "message": "生成总结失败：",
+    "description": "总结失败时的错误文本前缀。"
   },
   "enableSubtitleTranslation": {
     "message": "启用字幕翻译",

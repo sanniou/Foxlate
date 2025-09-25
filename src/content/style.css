@@ -196,3 +196,83 @@
     vertical-align: -0.1em; /* 内联元素微调依然需要 */
     margin-left: 6px;
 }
+
+/* --- (新) 内容总结模态窗口样式 --- */
+
+.foxlate-summary-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.32); /* MD3 Scrim */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2147483647; /* 最高层级 */
+    opacity: 0;
+    transition: opacity 0.2s ease-out;
+}
+
+.foxlate-summary-modal-content {
+    background-color: var(--md-sys-color-surface-container-high, #F3EDF7);
+    color: var(--md-sys-color-on-surface, #1C1B1F);
+    border-radius: 28px; /* MD3 Dialogs a.k.a. Basic Dialog */
+    padding: 24px;
+    width: 90%;
+    max-width: 560px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 12px 6px rgba(0,0,0,0.15), 0 4px 8px -4px rgba(0,0,0,0.3); /* Elevation 3 */
+    transform: scale(0.95);
+    opacity: 0;
+    transition: transform 0.2s ease-out, opacity 0.2s ease-out;
+}
+
+/* 当模态窗口可见时，触发动画 */
+.foxlate-summary-modal:has(.foxlate-summary-modal-content) {
+    opacity: 1;
+}
+.foxlate-summary-modal:has(.foxlate-summary-modal-content) .foxlate-summary-modal-content {
+    transform: scale(1);
+    opacity: 1;
+}
+
+.foxlate-summary-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 16px;
+    flex-shrink: 0; /* 防止头部在内容过多时被压缩 */
+}
+
+.foxlate-summary-title {
+    font-size: var(--md-sys-typescale-headline-small-font-size, 24px);
+    font-weight: 400;
+    line-height: var(--md-sys-typescale-headline-small-line-height, 32px);
+    margin: 0;
+    color: var(--md-sys-color-on-surface, #1C1B1F);
+}
+
+.foxlate-summary-close-btn {
+    background: none;
+    border: none;
+    font-size: 28px;
+    line-height: 1;
+    cursor: pointer;
+    color: var(--md-sys-color-on-surface-variant, #49454F);
+    padding: 4px;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+}
+
+.foxlate-summary-close-btn:hover {
+    background-color: rgba(var(--md-sys-color-on-surface-rgb, 28, 27, 31), 0.08);
+}
+
+.foxlate-summary-content {
+    overflow-y: auto; /* 当内容超出时显示滚动条 */
+    line-height: 1.6;
+    font-size: 16px;
+}

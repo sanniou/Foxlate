@@ -256,8 +256,149 @@ function findTranslatableElements(effectiveSettings, rootNodes = [document.body]
     );
 }
 
+// --- (新) Summary Manager ---
+
+/**
+ * 管理内容总结功能的类。
+ * 负责创建“总结”按钮、处理点击事件、显示总结弹窗和与后台通信。
+ */
+class SummaryManager {
+    constructor(settings) {
+        this.settings = settings.summarySettings;
+        this.mainBodyElement = null;
+        this.summaryButton = null;
+        this.modal = null;
+    }
+
+    /**
+     * 初始化总结功能。
+     */
+    initialize() {
+        if (!this.settings?.enabled || !this.settings.mainBodySelector) {
+            return; // 功能未启用或未配置
+        }
+
+        this.mainBodyElement = document.querySelector(this.settings.mainBodySelector);
+        if (!this.mainBodyElement) {
+            console.warn(`[Foxlate Summary] Main body element not found with selector: "${this.settings.mainBodySelector}"`);
+            return;
+        }
+
+        this.#createAndInjectButton();
+    }
+
+    /**
+     * 创建并注入“总结”按钮。
+     * @private
+     */
+    #createAndInjectButton() {
+        this.summaryButton = document.createElement('button');
+        this.summaryButton.id = 'foxlate-summary-button';
+        this.summaryButton.className = 'm3-button filled-tonal';
+        this.summaryButton.textContent = browser.i18n.getMessage('summarizeButtonText');
+
+        // 为了绝对定位按钮，父元素需要一个非 static 的 position
+        if (window.getComputedStyle(this.mainBodyElement).position === 'static') {
+            this.mainBodyElement.style.position = 'relative';
+        }
+
+        // 按钮样式
+        Object.assign(this.summaryButton.style, {
+            position: 'absolute',
+            top: '16px',
+            right: '16px',
+            zIndex: '9998', // 确保在大多数页面内容之上
+            opacity: '0.8',
+            transition: 'opacity 0.2s ease-in-out'
+        });
+
+        this.summaryButton.onmouseover = () => { this.summaryButton.style.opacity = '1'; };
+        this.summaryButton.onmouseout = () => { this.summaryButton.style.opacity = '0.8'; };
+
+        this.mainBodyElement.appendChild(this.summaryButton);
+
+        this.summaryButton.addEventListener('click', this.#handleSummaryClick.bind(this));
+    }
+
+    /**
+     * 处理总结按钮的点击事件。
+     * @private
+     */
+    async #handleSummaryClick() {
+        this.#createModal();
+        document.body.appendChild(this.modal);
+
+        const contentArea = this.modal.querySelector('.foxlate-summary-content');
+        contentArea.textContent = browser.i18n.getMessage('summaryLoadingText');
+
+        try {
+            const textToSummarize = this.mainBodyElement.innerText;
+            const response = await browser.runtime.sendMessage({
+                type: 'SUMMARIZE_CONTENT',
+                payload: {
+                    text: textToSummarize,
+                    aiModel: this.settings.aiModel,
+                    targetLang: this.settings.targetLanguage // 使用规则的目标语言
+                }
+            });
+
+            if (response.success) {
+                contentArea.innerHTML = response.summary.replace(/\n/g, '<br>');
+            } else {
+                contentArea.textContent = browser.i18n.getMessage('summaryErrorText') + response.error;
+            }
+        } catch (error) {
+            logError('handleSummaryClick', error);
+            contentArea.textContent = browser.i18n.getMessage('summaryErrorText') + error.message;
+        }
+    }
+
+    /**
+     * 创建总结内容的模态窗口。
+     * @private
+     */
+    #createModal() {
+        if (this.modal) return;
+
+        this.modal = document.createElement('div');
+        this.modal.className = 'foxlate-summary-modal';
+        this.modal.innerHTML = `
+            <div class="foxlate-summary-modal-content">
+                <div class="foxlate-summary-header">
+                    <h3 class="foxlate-summary-title">${browser.i18n.getMessage('summaryModalTitle')}</h3>
+                    <button class="foxlate-summary-close-btn">&times;</button>
+                </div>
+                <div class="foxlate-summary-content"></div>
+            </div>
+        `;
+
+        const closeModal = () => {
+            if (this.modal && this.modal.parentNode) {
+                this.modal.parentNode.removeChild(this.modal);
+                this.modal = null;
+            }
+        };
+
+        this.modal.querySelector('.foxlate-summary-close-btn').addEventListener('click', closeModal);
+        this.modal.addEventListener('click', (e) => {
+            if (e.target === this.modal) {
+                closeModal();
+            }
+        });
+    }
+
+    /**
+     * 销毁并清理所有UI元素和事件监听器。
+     */
+    destroy() {
+        this.summaryButton?.remove();
+        this.modal?.remove();
+    }
+}
+
 // --- State Management Class ---
 
+let summaryManager = null; // (新) 将总结管理器移至全局作用域
 let currentPageJob = null;
 let currentSelectionTranslationId = null;
 
@@ -733,6 +874,9 @@ const messageHandlers = {
         if (window.subtitleManager && typeof window.subtitleManager.updateSettings === 'function') {
             window.subtitleManager.updateSettings(newSettings);
         }
+        // (新) 重新初始化总结功能以应用新设置
+        await initializeSummaryFeature();
+
         return { success: true };
     },
 
@@ -747,6 +891,9 @@ const messageHandlers = {
             const newSettings = await getEffectiveSettings();
             currentPageJob = new PageTranslationJob(tabId, newSettings);
             await currentPageJob.start();
+
+            // (新) 重新初始化总结功能，因为它也依赖于设置
+            await initializeSummaryFeature();
         }
         return { success: true };
     },
@@ -869,6 +1016,15 @@ async function handleMessage(request, sender) {
     }
 }
 
+/**
+ * (新) 根据当前页面的设置，独立初始化内容总结功能。
+ */
+async function initializeSummaryFeature() {
+    summaryManager?.destroy(); // 如果已存在，先销毁
+    const settings = await getEffectiveSettings();
+    summaryManager = new SummaryManager(settings);
+    summaryManager.initialize();
+}
 // --- Initialization ---
 
 /**
@@ -883,6 +1039,9 @@ function initializeContentScript() {
     }
     window.foxlateContentScriptInitialized = true;
     console.log("[Foxlate] Initializing content script...");
+
+    // (新) 独立初始化总结功能
+    initializeSummaryFeature();
 
     browser.runtime.onMessage.addListener(handleMessage);
     window.getEffectiveSettings = getEffectiveSettings;
