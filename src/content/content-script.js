@@ -750,21 +750,28 @@ class SummaryManager {
         };
 
         let bestPosition = { top: positions.bottom, left: positions.hCenter };
+        let transformOrigin = 'center top'; // 默认的变换原点，对应下方位置
 
         // 优先在下方或上方显示
         if (space.bottom >= dialogRect.height) {
             bestPosition = { top: positions.bottom, left: positions.hCenter };
         } else if (space.top >= dialogRect.height) {
             bestPosition = { top: positions.top, left: positions.hCenter };
+            transformOrigin = 'center bottom';
         } else if (space.right >= dialogRect.width) { // 其次是右侧
             bestPosition = { top: positions.vCenter, left: fabRect.right + gap };
+            transformOrigin = 'left center';
         } else if (space.left >= dialogRect.width) { // 最后是左侧
             bestPosition = { top: positions.vCenter, left: fabRect.left - dialogRect.width - gap };
+            transformOrigin = 'right center';
         }
 
         // 边界检查，确保对话框不会超出视口
         bestPosition.top = Math.max(gap, Math.min(bestPosition.top, window.innerHeight - dialogRect.height - gap));
         bestPosition.left = Math.max(gap, Math.min(bestPosition.left, window.innerWidth - dialogRect.width - gap));
+
+        // (新) 在应用位置和使其可见之前，设置变换原点
+        this.dialog.style.transformOrigin = transformOrigin;
 
         this.dialog.style.top = `${bestPosition.top}px`;
         this.dialog.style.left = `${bestPosition.left}px`;
