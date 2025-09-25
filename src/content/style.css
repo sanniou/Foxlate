@@ -197,6 +197,51 @@
     margin-left: 6px;
 }
 
+/* --- (新) 内容总结浮动操作按钮 (FAB) 样式 --- */
+.foxlate-summary-fab {
+    /* MD3 Extended FAB 基础样式 */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    height: 56px;
+    padding: 0 20px;
+    border-radius: 16px;
+    background-color: var(--md-sys-color-primary-container, #EADDFF);
+    color: var(--md-sys-color-on-primary-container, #21005D);
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.3), 0 1px 3px 1px rgba(0, 0, 0, 0.15); /* Elevation 1 */
+    transition: all 0.2s ease-out;
+    font-family: "Roboto", "Segoe UI", sans-serif;
+
+    /* 定位：粘性定位，停留在右上角 */
+    position: sticky;
+    top: 16px; /* 距离视口顶部的距离 */
+    float: right; /* 确保它在右侧 */
+    margin: 16px; /* 与周围内容保持间距 */
+    z-index: 9998;
+}
+
+.foxlate-summary-fab:hover {
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.3), 0 2px 6px 2px rgba(0, 0, 0, 0.15); /* Elevation 2 */
+    background-color: var(--md-sys-color-primary-container-hover, #E3D8F7); /* 自定义悬停颜色 */
+}
+
+.foxlate-summary-fab .fab-icon {
+    display: flex;
+    align-items: center;
+}
+
+.foxlate-summary-fab .fab-icon svg {
+    fill: currentColor;
+}
+
+.foxlate-summary-fab .fab-label {
+    font-size: var(--md-sys-typescale-label-large-font-size, 14px);
+    font-weight: var(--md-sys-typescale-label-large-font-weight, 500);
+}
+
 /* --- (新) 内容总结模态窗口样式 --- */
 
 .foxlate-summary-modal {

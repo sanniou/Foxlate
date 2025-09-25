@@ -292,28 +292,20 @@ class SummaryManager {
      * @private
      */
     #createAndInjectButton() {
+        // (已重构) 使用 Extended FAB (浮动操作按钮) 风格
         this.summaryButton = document.createElement('button');
-        this.summaryButton.id = 'foxlate-summary-button';
-        this.summaryButton.className = 'm3-button filled-tonal';
-        this.summaryButton.textContent = browser.i18n.getMessage('summarizeButtonText');
+        this.summaryButton.className = 'foxlate-summary-fab'; // 使用自定义类以便于样式化
+        this.summaryButton.innerHTML = `
+            <span class="fab-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M11.25 3.5H12.75V5H11.25V3.5ZM12 19C11.35 19 10.8 18.8 10.35 18.35C9.9 17.9 9.7 17.35 9.7 16.7C9.7 16.05 9.9 15.5 10.35 15.05C10.8 14.6 11.35 14.4 12 14.4C12.65 14.4 13.2 14.6 13.65 15.05C14.1 15.5 14.3 16.05 14.3 16.7C14.3 17.35 14.1 17.9 13.65 18.35C13.2 18.8 12.65 19 12 19ZM5 12.75V11.25H3.5V12.75H5ZM19 12C19 11.35 18.8 10.8 18.35 10.35C17.9 9.9 17.35 9.7 16.7 9.7C16.05 9.7 15.5 9.9 15.05 10.35C14.6 10.8 14.4 11.35 14.4 12C14.4 12.65 14.6 13.2 15.05 13.65C15.5 14.1 16.05 14.3 16.7 14.3C17.35 14.3 17.9 14.1 18.35 13.65C18.8 13.2 19 12.65 19 12ZM20.5 12.75V11.25H19V12.75H20.5ZM11.25 20.5V19H12.75V20.5H11.25ZM7.05 7.05L6 6L7.05 4.95L8.1 6L7.05 7.05ZM15.9 18.1L14.85 17.05L15.9 16L17 17.05L15.9 18.1ZM15.9 8.1L17 7.05L15.9 6L14.85 7.05L15.9 8.1Z"/></svg>
+            </span>
+            <span class="fab-label">${browser.i18n.getMessage('summarizeButtonText')}</span>
+        `;
 
         // 为了绝对定位按钮，父元素需要一个非 static 的 position
         if (window.getComputedStyle(this.mainBodyElement).position === 'static') {
             this.mainBodyElement.style.position = 'relative';
         }
-
-        // 按钮样式
-        Object.assign(this.summaryButton.style, {
-            position: 'absolute',
-            top: '16px',
-            right: '16px',
-            zIndex: '9998', // 确保在大多数页面内容之上
-            opacity: '0.8',
-            transition: 'opacity 0.2s ease-in-out'
-        });
-
-        this.summaryButton.onmouseover = () => { this.summaryButton.style.opacity = '1'; };
-        this.summaryButton.onmouseout = () => { this.summaryButton.style.opacity = '0.8'; };
 
         this.mainBodyElement.appendChild(this.summaryButton);
 
