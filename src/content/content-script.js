@@ -287,6 +287,9 @@ class SummaryManager {
         this.handleSendMessage = this.handleSendMessage.bind(this);
         this.handleKeyDown = this.handleKeyDown.bind(this);
         this.handleDialogClose = this.handleDialogClose.bind(this);
+        this.handleCopyConversation = this.handleCopyConversation.bind(this);
+        this.handleRefreshConversation = this.handleRefreshConversation.bind(this);
+        this.handleRegenerateMessage = this.handleRegenerateMessage.bind(this);
     }
 
     /**
@@ -373,6 +376,7 @@ class SummaryManager {
 
             if (response.success) {
                 // (新) 将成功的总结作为对话的开端
+                this.conversationHistory = []; // 清空历史
                 this.conversationHistory.push({ role: 'assistant', content: response.summary });
                 this.updateLastMessage(response.summary, 'ai');
             } else {
@@ -391,16 +395,21 @@ class SummaryManager {
         this.dialog.innerHTML = `
             <div class="foxlate-summary-dialog-header">
                 <h3 class="foxlate-summary-dialog-title">${browser.i18n.getMessage('summaryModalTitle')}</h3>
-                <button class="foxlate-summary-dialog-close-btn" aria-label="Close">
-                    <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-                </button>
+                <div class="foxlate-summary-dialog-actions">
+                    <button class="foxlate-summary-dialog-refresh-btn foxlate-summary-dialog-icon-btn" aria-label="Refresh Conversation">
+                        <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+                    </button>
+                    <button class="foxlate-summary-dialog-copy-btn foxlate-summary-dialog-icon-btn" aria-label="Copy All">
+                        <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                    </button>
+                </div>
             </div>
             <div class="foxlate-summary-dialog-conversation">
                 <!-- 消息将在这里动态添加 -->
             </div>
             <div class="foxlate-summary-dialog-footer">
                 <textarea class="foxlate-summary-dialog-input" placeholder="${browser.i18n.getMessage('summaryInputPlaceholder')}" rows="1"></textarea>
-                <button class="foxlate-summary-dialog-send-btn foxlate-summary-dialog-close-btn" aria-label="Send">
+                <button class="foxlate-summary-dialog-send-btn foxlate-summary-dialog-icon-btn" aria-label="Send">
                     <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
                 </button>
             </div>
@@ -408,7 +417,8 @@ class SummaryManager {
         document.body.appendChild(this.dialog);
 
         // 绑定事件
-        this.dialog.querySelector('.foxlate-summary-dialog-close-btn').addEventListener('click', this.handleDialogClose);
+        this.dialog.querySelector('.foxlate-summary-dialog-refresh-btn').addEventListener('click', this.handleRefreshConversation);
+        this.dialog.querySelector('.foxlate-summary-dialog-copy-btn').addEventListener('click', this.handleCopyConversation);
         this.dialog.querySelector('.foxlate-summary-dialog-send-btn').addEventListener('click', this.handleSendMessage);
         this.dialog.querySelector('.foxlate-summary-dialog-input').addEventListener('keydown', (e) => {
             // 按下 Enter 发送，Shift+Enter 换行
@@ -424,10 +434,102 @@ class SummaryManager {
             textarea.style.height = 'auto';
             textarea.style.height = `${textarea.scrollHeight}px`;
         });
+
+        // (新) 使用事件委托处理所有消息动作
+        const conversationArea = this.dialog.querySelector('.foxlate-summary-dialog-conversation');
+        conversationArea.addEventListener('click', (e) => {
+            const copyBtn = e.target.closest('.foxlate-msg-action-copy');
+            const regenerateBtn = e.target.closest('.foxlate-msg-action-regenerate');
+
+            if (copyBtn) {
+                const messageEl = copyBtn.closest('.foxlate-summary-message');
+                const content = messageEl.querySelector('.message-content')?.innerText || '';
+                navigator.clipboard.writeText(content).catch(err => logError('copy single message', err));
+                return;
+            }
+
+            if (regenerateBtn) {
+                const messageEl = regenerateBtn.closest('.foxlate-summary-message');
+                const index = parseInt(messageEl.dataset.messageIndex, 10);
+                if (!isNaN(index)) {
+                    this.handleRegenerateMessage(index);
+                }
+                return;
+            }
+        });
     }
 
     handleDialogClose() {
         this.hideDialog();
+    }
+
+    async handleRefreshConversation() {
+        const conversationArea = this.dialog.querySelector('.foxlate-summary-dialog-conversation');
+        conversationArea.innerHTML = ''; // 清空UI
+        this.conversationHistory = []; // 清空历史
+        this.state = 'loading';
+        await this.fetchSummary();
+        this.state = 'summarized';
+    }
+
+    handleCopyConversation() {
+        const textToCopy = this.conversationHistory.map(msg => {
+            const prefix = msg.role === 'user' ? 'User:' : 'AI:';
+            return `${prefix}\n${msg.content}`;
+        }).join('\n\n');
+
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            // (可选) 提供一个复制成功的视觉反馈
+            const copyBtn = this.dialog.querySelector('.foxlate-summary-dialog-copy-btn');
+            const originalIcon = copyBtn.innerHTML;
+            copyBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>`;
+            setTimeout(() => {
+                copyBtn.innerHTML = originalIcon;
+            }, 1500);
+        }).catch(err => logError('handleCopyConversation', err));
+    }
+
+    async handleRegenerateMessage(index) {
+        if (this.state === 'loading' || index >= this.conversationHistory.length) return;
+
+        const messageToRegenerate = this.dialog.querySelector(`[data-message-index="${index}"]`);
+        if (!messageToRegenerate) return;
+
+        // (已修复) 将整条消息置为加载状态，而不是只在按钮上加动画
+        messageToRegenerate.innerHTML = ''; // 清空旧内容
+        messageToRegenerate.classList.add('loading');
+        messageToRegenerate.textContent = '...'; // 显示加载提示
+
+        this.state = 'loading';
+
+        // 截取到当前消息之前的历史作为上下文
+        const contextHistory = this.conversationHistory.slice(0, index);
+
+        try {
+            const response = await browser.runtime.sendMessage({
+                type: 'CONVERSE_WITH_AI',
+                payload: {
+                    history: contextHistory,
+                    aiModel: this.summarySettings.aiModel,
+                    targetLang: this.settings.targetLanguage
+                }
+            });
+
+            if (response.success) {
+                // (已修复) 更新历史记录，然后调用 updateMessageAtIndex 更新UI
+                this.conversationHistory[index] = { role: 'assistant', content: response.reply };
+                this.updateMessageAtIndex(index, response.reply);
+            } else {
+                // (已修复) 即使失败，也调用 updateMessageAtIndex 来显示错误信息
+                this.updateMessageAtIndex(index, browser.i18n.getMessage('summaryErrorText') + (response.error || 'Unknown error'), true);
+            }
+        } catch (error) {
+            // (已修复) 捕获异常时，同样调用 updateMessageAtIndex 显示错误
+            this.updateMessageAtIndex(index, browser.i18n.getMessage('summaryErrorText') + error.message, true);
+        } finally {
+            // (已修复) 恢复全局状态。UI状态由 updateMessageAtIndex 负责
+            this.state = 'summarized';
+        }
     }
 
     toggleDialog() {
@@ -508,13 +610,30 @@ class SummaryManager {
         const conversationArea = this.dialog.querySelector('.foxlate-summary-dialog-conversation');
         const messageEl = document.createElement('div');
         messageEl.className = `foxlate-summary-message ${role}`;
+        // (新) 为消息元素添加索引，以便进行精确操作
+        const messageIndex = this.conversationHistory.length - 1;
+        messageEl.dataset.messageIndex = messageIndex;
         if (isError) messageEl.classList.add('error');
 
         if (role === 'loading') {
             messageEl.textContent = content;
         } else {
-            // 使用 marked 解析 Markdown
-            messageEl.innerHTML = marked.parse(content);
+            // (已修改) 为内容和动作创建独立的内部容器
+            const contentHTML = `<div class="message-content">${marked.parse(content)}</div>`;
+            let actionsHTML = '';
+            if (role === 'ai') {
+                actionsHTML = `
+                    <div class="foxlate-summary-message-actions">
+                        <button class="foxlate-msg-action-regenerate foxlate-summary-dialog-icon-btn" aria-label="Regenerate">
+                            <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 24 24" width="20"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+                        </button>
+                        <button class="foxlate-msg-action-copy foxlate-summary-dialog-icon-btn" aria-label="Copy">
+                            <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 24 24" width="20"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                        </button>
+                    </div>
+                `;
+            }
+            messageEl.innerHTML = contentHTML + actionsHTML;
         }
 
         conversationArea.appendChild(messageEl);
@@ -528,12 +647,59 @@ class SummaryManager {
         const lastMessage = conversationArea.lastElementChild;
         if (lastMessage && lastMessage.classList.contains('loading')) {
             lastMessage.className = `foxlate-summary-message ${role}`;
+            // (新) 更新消息元素的索引
+            const messageIndex = this.conversationHistory.length - 1;
+            lastMessage.dataset.messageIndex = messageIndex;
             if (isError) lastMessage.classList.add('error');
-            lastMessage.innerHTML = marked.parse(content);
+
+            const contentHTML = `<div class="message-content">${marked.parse(content)}</div>`;
+            let actionsHTML = '';
+            if (role === 'ai') {
+                actionsHTML = `
+                    <div class="foxlate-summary-message-actions">
+                        <button class="foxlate-msg-action-regenerate foxlate-summary-dialog-icon-btn" aria-label="Regenerate">
+                            <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 24 24" width="20"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+                        </button>
+                        <button class="foxlate-msg-action-copy foxlate-summary-dialog-icon-btn" aria-label="Copy">
+                            <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 24 24" width="20"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                        </button>
+                    </div>
+                `;
+            }
+            lastMessage.innerHTML = contentHTML + actionsHTML;
+
             conversationArea.scrollTop = conversationArea.scrollHeight;
         } else {
             // 如果最后一条不是 loading，则直接添加新消息
             this.addMessageToConversation(content, role, isError);
+        }
+    }
+
+    updateMessageAtIndex(index, newContent, isError = false) {
+        const messageEl = this.dialog.querySelector(`[data-message-index="${index}"]`);
+        if (!messageEl) return;
+
+        messageEl.className = `foxlate-summary-message ai`; // 重置类名
+        if (isError) messageEl.classList.add('error');
+
+        const contentHTML = `<div class="message-content">${marked.parse(newContent)}</div>`;
+        const actionsHTML = `
+            <div class="foxlate-summary-message-actions">
+                <button class="foxlate-msg-action-regenerate foxlate-summary-dialog-icon-btn" aria-label="Regenerate">
+                    <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 24 24" width="20"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+                </button>
+                <button class="foxlate-msg-action-copy foxlate-summary-dialog-icon-btn" aria-label="Copy">
+                    <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 24 24" width="20"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                </button>
+            </div>
+        `;
+        messageEl.innerHTML = contentHTML + actionsHTML;
+
+        // 确保滚动条在需要时可见
+        const conversationArea = this.dialog.querySelector('.foxlate-summary-dialog-conversation');
+        // 如果消息在视口之外，则滚动到该消息
+        if (messageEl.offsetTop < conversationArea.scrollTop || messageEl.offsetTop + messageEl.offsetHeight > conversationArea.scrollTop + conversationArea.clientHeight) {
+            messageEl.scrollIntoView({ behavior: 'smooth', block: 'end' });
         }
     }
 
