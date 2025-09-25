@@ -197,94 +197,100 @@
     margin-left: 6px;
 }
 
-/* --- (新) 内容总结浮动操作按钮 (FAB) 样式 --- */
+/* --- (重构) 内容总结浮动操作按钮 (FAB) --- */
 .foxlate-summary-fab {
-    /* MD3 Extended FAB 基础样式 */
-    display: inline-flex;
+    position: fixed;
+    z-index: 2147483646; /* 比对话框低一级 */
+    display: flex;
     align-items: center;
     justify-content: center;
-    gap: 12px;
+    /* MD3 标准 FAB 尺寸 */
     height: 56px;
-    padding: 0 20px;
+    width: 56px;
     border-radius: 16px;
     background-color: var(--md-sys-color-primary-container, #EADDFF);
     color: var(--md-sys-color-on-primary-container, #21005D);
     border: none;
-    cursor: pointer;
     box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.3), 0 1px 3px 1px rgba(0, 0, 0, 0.15); /* Elevation 1 */
-    transition: all 0.2s ease-out;
+    transition: box-shadow 0.2s ease-out, background-color 0.2s ease-out, width 0.25s ease-in-out;
     font-family: "Roboto", "Segoe UI", sans-serif;
-
-    /* 定位：粘性定位，停留在右上角 */
-    position: sticky;
-    top: 16px; /* 距离视口顶部的距离 */
-    float: right; /* 确保它在右侧 */
-    margin: 16px; /* 与周围内容保持间距 */
-    z-index: 9998;
+    cursor: grab;
+    overflow: hidden; /* 隐藏扩展时的文本 */
+    white-space: nowrap; /* 防止文本换行 */
 }
 
 .foxlate-summary-fab:hover {
     box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.3), 0 2px 6px 2px rgba(0, 0, 0, 0.15); /* Elevation 2 */
-    background-color: var(--md-sys-color-primary-container-hover, #E3D8F7); /* 自定义悬停颜色 */
 }
 
-.foxlate-summary-fab .fab-icon {
-    display: flex;
+.foxlate-summary-fab:active {
+    cursor: grabbing;
+}
+
+/* FAB 扩展为 Extended FAB 的样式 (用于显示加载状态) */
+.foxlate-summary-fab.extended {
+    width: auto; /* 宽度由内容决定 */
+    padding: 0 16px 0 12px; /* 左侧图标12px，右侧文本16px */
+    gap: 8px;
+}
+
+.foxlate-summary-fab .icon {
+    flex-shrink: 0; /* 防止图标被压缩 */
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
     align-items: center;
+    justify-content: center;
 }
 
-.foxlate-summary-fab .fab-icon svg {
+.foxlate-summary-fab .icon svg {
     fill: currentColor;
 }
 
-.foxlate-summary-fab .fab-label {
-    font-size: var(--md-sys-typescale-label-large-font-size, 14px);
-    font-weight: var(--md-sys-typescale-label-large-font-weight, 500);
+/* 加载动画，复用已有的 foxlate-spin */
+.foxlate-summary-fab .icon.loading {
+    -webkit-mask-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3e%3cpath fill='currentColor' d='M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z'/%3e%3c/svg%3e");
+    mask-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3e%3cpath fill='currentColor' d='M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z'/%3e%3c/svg%3e");
+    background-color: currentColor;
+    animation: foxlate-spin 0.75s linear infinite;
+}
+.foxlate-summary-fab .icon.loading svg {
+    display: none; /* 隐藏原始图标 */
 }
 
-/* --- (新) 内容总结模态窗口样式 --- */
+.foxlate-summary-fab .label {
+    font-size: 14px;
+    font-weight: 500;
+}
 
-.foxlate-summary-modal {
+/* --- (重构) 内容总结对话框 (Dialog) --- */
+.foxlate-summary-dialog {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.32); /* MD3 Scrim */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 2147483647; /* 最高层级 */
+    z-index: 2147483647; /* 最高层级，高于FAB */
+    visibility: hidden; /* 使用 visibility 和 opacity 控制显隐以支持动画 */
     opacity: 0;
-    transition: opacity 0.2s ease-out;
-}
-
-.foxlate-summary-modal-content {
+    transition: opacity 0.15s ease-out, visibility 0s linear 0.15s;
+    /* 基础样式，由JS动态设置位置 */
     background-color: var(--md-sys-color-surface-container-high, #F3EDF7);
     color: var(--md-sys-color-on-surface, #1C1B1F);
     border-radius: 28px; /* MD3 Dialogs a.k.a. Basic Dialog */
     padding: 24px;
-    width: 90%;
+    width: clamp(320px, 90vw, 560px); /* 响应式宽度 */
     max-width: 560px;
     max-height: 80vh;
     display: flex;
     flex-direction: column;
     box-shadow: 0 8px 12px 6px rgba(0,0,0,0.15), 0 4px 8px -4px rgba(0,0,0,0.3); /* Elevation 3 */
-    transform: scale(0.95);
-    opacity: 0;
-    transition: transform 0.2s ease-out, opacity 0.2s ease-out;
+    overflow: hidden; /* 防止内容溢出，由内部元素滚动 */
 }
 
-/* 当模态窗口可见时，触发动画 */
-.foxlate-summary-modal:has(.foxlate-summary-modal-content) {
+.foxlate-summary-dialog.visible {
+    visibility: visible;
     opacity: 1;
-}
-.foxlate-summary-modal:has(.foxlate-summary-modal-content) .foxlate-summary-modal-content {
-    transform: scale(1);
-    opacity: 1;
+    transition: opacity 0.15s ease-out;
 }
 
-.foxlate-summary-header {
+.foxlate-summary-dialog-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -292,32 +298,32 @@
     flex-shrink: 0; /* 防止头部在内容过多时被压缩 */
 }
 
-.foxlate-summary-title {
+.foxlate-summary-dialog-title {
     font-size: var(--md-sys-typescale-headline-small-font-size, 24px);
     font-weight: 400;
     line-height: var(--md-sys-typescale-headline-small-line-height, 32px);
     margin: 0;
-    color: var(--md-sys-color-on-surface, #1C1B1F);
 }
 
-.foxlate-summary-close-btn {
-    background: none;
-    border: none;
-    font-size: 28px;
-    line-height: 1;
-    cursor: pointer;
-    color: var(--md-sys-color-on-surface-variant, #49454F);
-    padding: 4px;
-    border-radius: 50%;
-    transition: background-color 0.2s;
-}
-
-.foxlate-summary-close-btn:hover {
-    background-color: rgba(var(--md-sys-color-on-surface-rgb, 28, 27, 31), 0.08);
-}
-
-.foxlate-summary-content {
+.foxlate-summary-dialog-content {
     overflow-y: auto; /* 当内容超出时显示滚动条 */
     line-height: 1.6;
     font-size: 16px;
+}
+
+/* (新) 为 Markdown 渲染的内容添加基本样式 */
+.foxlate-summary-content ul,
+.foxlate-summary-content ol {
+    padding-left: 20px;
+}
+
+.foxlate-summary-content li {
+    margin-bottom: 8px;
+}
+
+.foxlate-summary-content code {
+    background-color: var(--md-sys-color-surface-container, #F3EDF7);
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-family: "Roboto Mono", monospace;
 }

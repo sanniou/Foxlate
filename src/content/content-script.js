@@ -1,5 +1,6 @@
 import browser from '../lib/browser-polyfill.js';
 import { shouldTranslate } from '../common/precheck.js';
+import { marked } from '../lib/marked.esm.js';
 import { DisplayManager } from './display-manager.js';
 import { SettingsManager } from '../common/settings-manager.js';
 import { DOMWalker } from './dom-walker.js';
@@ -97,7 +98,7 @@ function injectCSSIntoRoot(root, host) {
  */
 function findAllSearchRoots(rootNode) {
     if (!rootNode) return [];
-    
+
     const roots = [rootNode];
     // (优化) 使用 TreeWalker API 代替 querySelectorAll('*')。
     // TreeWalker 是一个高效的、低内存占用的 DOM 遍历迭代器，它避免了
@@ -109,7 +110,7 @@ function findAllSearchRoots(rootNode) {
         null,
         false
     );
-    
+
     let currentNode;
     while (currentNode = walker.nextNode()) {
         if (currentNode.shadowRoot) {
@@ -259,15 +260,26 @@ function findTranslatableElements(effectiveSettings, rootNodes = [document.body]
 // --- (新) Summary Manager ---
 
 /**
- * 管理内容总结功能的类。
- * 负责创建“总结”按钮、处理点击事件、显示总结弹窗和与后台通信。
+ * (重构) 管理内容总结功能的类，遵循 MD3 设计模式。
+ * 负责创建浮动操作按钮 (FAB)、处理拖动、显示总结对话框，并与后台通信。
  */
 class SummaryManager {
     constructor(settings) {
         this.settings = settings.summarySettings;
         this.mainBodyElement = null;
-        this.summaryButton = null;
-        this.modal = null;
+        this.fab = null;
+        this.dialog = null;
+
+        this.state = 'idle'; // 'idle', 'loading', 'summarized'
+        this.isDialogVisible = false;
+        this.wasDialogVisibleBeforeDrag = false;
+
+        // 用于在页面滚动/缩放时保持UI同步
+        this.visibilityObserver = null;
+
+        // 绑定 this，以便在事件监听器中正确使用
+        this.handleFabClick = this.handleFabClick.bind(this);
+        this.handleDragStart = this.handleDragStart.bind(this);
     }
 
     /**
@@ -284,44 +296,62 @@ class SummaryManager {
             return;
         }
 
-        this.#createAndInjectButton();
+        this.createFab();
+        this.positionFab();
+        this.setupVisibilityObserver();
     }
 
-    /**
-     * 创建并注入“总结”按钮。
-     * @private
-     */
-    #createAndInjectButton() {
-        // (已重构) 使用 Extended FAB (浮动操作按钮) 风格
-        this.summaryButton = document.createElement('button');
-        this.summaryButton.className = 'foxlate-summary-fab'; // 使用自定义类以便于样式化
-        this.summaryButton.innerHTML = `
-            <span class="fab-icon">
+    createFab() {
+        this.fab = document.createElement('button');
+        this.fab.className = 'foxlate-summary-fab';
+        this.fab.innerHTML = `
+            <span class="icon">
                 <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M11.25 3.5H12.75V5H11.25V3.5ZM12 19C11.35 19 10.8 18.8 10.35 18.35C9.9 17.9 9.7 17.35 9.7 16.7C9.7 16.05 9.9 15.5 10.35 15.05C10.8 14.6 11.35 14.4 12 14.4C12.65 14.4 13.2 14.6 13.65 15.05C14.1 15.5 14.3 16.05 14.3 16.7C14.3 17.35 14.1 17.9 13.65 18.35C13.2 18.8 12.65 19 12 19ZM5 12.75V11.25H3.5V12.75H5ZM19 12C19 11.35 18.8 10.8 18.35 10.35C17.9 9.9 17.35 9.7 16.7 9.7C16.05 9.7 15.5 9.9 15.05 10.35C14.6 10.8 14.4 11.35 14.4 12C14.4 12.65 14.6 13.2 15.05 13.65C15.5 14.1 16.05 14.3 16.7 14.3C17.35 14.3 17.9 14.1 18.35 13.65C18.8 13.2 19 12.65 19 12ZM20.5 12.75V11.25H19V12.75H20.5ZM11.25 20.5V19H12.75V20.5H11.25ZM7.05 7.05L6 6L7.05 4.95L8.1 6L7.05 7.05ZM15.9 18.1L14.85 17.05L15.9 16L17 17.05L15.9 18.1ZM15.9 8.1L17 7.05L15.9 6L14.85 7.05L15.9 8.1Z"/></svg>
             </span>
-            <span class="fab-label">${browser.i18n.getMessage('summarizeButtonText')}</span>
+            <span class="label">${browser.i18n.getMessage('summarizeButtonText')}</span>
         `;
 
-        // 为了绝对定位按钮，父元素需要一个非 static 的 position
-        if (window.getComputedStyle(this.mainBodyElement).position === 'static') {
-            this.mainBodyElement.style.position = 'relative';
-        }
+        document.body.appendChild(this.fab);
 
-        this.mainBodyElement.appendChild(this.summaryButton);
-
-        this.summaryButton.addEventListener('click', this.#handleSummaryClick.bind(this));
+        this.fab.addEventListener('mousedown', this.handleDragStart);
     }
 
-    /**
-     * 处理总结按钮的点击事件。
-     * @private
-     */
-    async #handleSummaryClick() {
-        this.#createModal();
-        document.body.appendChild(this.modal);
+    positionFab() {
+        const mainRect = this.mainBodyElement.getBoundingClientRect();
+        const fabRect = this.fab.getBoundingClientRect();
+        const offset = { x: 16, y: 16 };
 
-        const contentArea = this.modal.querySelector('.foxlate-summary-content');
-        contentArea.textContent = browser.i18n.getMessage('summaryLoadingText');
+        let top = window.scrollY + mainRect.top + offset.y;
+        let left = window.scrollX + mainRect.right - fabRect.width + offset.x;
+
+        // 边界检查
+        top = Math.max(0, Math.min(top, window.innerHeight - fabRect.height));
+        left = Math.max(0, Math.min(left, window.innerWidth - fabRect.width));
+
+        this.fab.style.top = `${top}px`;
+        this.fab.style.left = `${left}px`;
+    }
+
+    async handleFabClick() {
+        if (this.state === 'loading') return;
+
+        if (this.state === 'idle') {
+            this.state = 'loading';
+            this.setFabLoadingState(true);
+            await this.fetchSummary();
+            this.setFabLoadingState(false);
+            this.state = 'summarized';
+            // 首次获取内容后，自动显示对话框
+            this.showDialog();
+        } else if (this.state === 'summarized') {
+            this.toggleDialog();
+        }
+    }
+
+    async fetchSummary() {
+        if (!this.dialog) this.createDialog();
+
+        const contentArea = this.dialog.querySelector('.foxlate-summary-dialog-content');
 
         try {
             const textToSummarize = this.mainBodyElement.innerText;
@@ -335,57 +365,248 @@ class SummaryManager {
             });
 
             if (response.success) {
-                contentArea.innerHTML = response.summary.replace(/\n/g, '<br>');
+                // 使用 marked.js 解析 Markdown
+                contentArea.innerHTML = marked.parse(response.summary);
             } else {
                 contentArea.textContent = browser.i18n.getMessage('summaryErrorText') + response.error;
             }
         } catch (error) {
-            logError('handleSummaryClick', error);
+            logError('fetchSummary', error);
             contentArea.textContent = browser.i18n.getMessage('summaryErrorText') + error.message;
         }
     }
 
-    /**
-     * 创建总结内容的模态窗口。
-     * @private
-     */
-    #createModal() {
-        if (this.modal) return;
-
-        this.modal = document.createElement('div');
-        this.modal.className = 'foxlate-summary-modal';
-        this.modal.innerHTML = `
-            <div class="foxlate-summary-modal-content">
-                <div class="foxlate-summary-header">
-                    <h3 class="foxlate-summary-title">${browser.i18n.getMessage('summaryModalTitle')}</h3>
-                    <button class="foxlate-summary-close-btn">&times;</button>
-                </div>
-                <div class="foxlate-summary-content"></div>
+    createDialog() {
+        this.dialog = document.createElement('div');
+        this.dialog.className = 'foxlate-summary-dialog';
+        this.dialog.innerHTML = `
+            <div class="foxlate-summary-dialog-header">
+                <h3 class="foxlate-summary-dialog-title">${browser.i18n.getMessage('summaryModalTitle')}</h3>
             </div>
+            <div class="foxlate-summary-dialog-content"></div>
         `;
+        document.body.appendChild(this.dialog);
+    }
 
-        const closeModal = () => {
-            if (this.modal && this.modal.parentNode) {
-                this.modal.parentNode.removeChild(this.modal);
-                this.modal = null;
+    toggleDialog() {
+        if (this.isDialogVisible) {
+            this.hideDialog();
+        } else {
+            this.showDialog();
+        }
+    }
+
+    showDialog() {
+        if (!this.dialog) return;
+        this.positionDialog();
+        this.dialog.classList.add('visible');
+        this.isDialogVisible = true;
+    }
+
+    hideDialog() {
+        if (!this.dialog) return;
+        this.dialog.classList.remove('visible');
+        this.isDialogVisible = false;
+    }
+
+    positionDialog() {
+        if (!this.fab || !this.dialog) return;
+
+        const fabRect = this.fab.getBoundingClientRect();
+        const dialogRect = this.dialog.getBoundingClientRect();
+        const gap = 12; // FAB 和对话框之间的间距
+
+        const positions = {
+            top: fabRect.top - dialogRect.height - gap,
+            bottom: fabRect.bottom + gap,
+            left: fabRect.left,
+            right: fabRect.right - dialogRect.width,
+            hCenter: fabRect.left + (fabRect.width / 2) - (dialogRect.width / 2),
+            vCenter: fabRect.top + (fabRect.height / 2) - (dialogRect.height / 2),
+        };
+
+        // 检查可用空间
+        const space = {
+            top: fabRect.top - gap,
+            bottom: window.innerHeight - fabRect.bottom - gap,
+            left: fabRect.left - gap,
+            right: window.innerWidth - fabRect.right - gap,
+        };
+
+        let bestPosition = { top: positions.bottom, left: positions.hCenter };
+
+        // 优先在下方或上方显示
+        if (space.bottom >= dialogRect.height) {
+            bestPosition = { top: positions.bottom, left: positions.hCenter };
+        } else if (space.top >= dialogRect.height) {
+            bestPosition = { top: positions.top, left: positions.hCenter };
+        } else if (space.right >= dialogRect.width) { // 其次是右侧
+            bestPosition = { top: positions.vCenter, left: fabRect.right + gap };
+        } else if (space.left >= dialogRect.width) { // 最后是左侧
+            bestPosition = { top: positions.vCenter, left: fabRect.left - dialogRect.width - gap };
+        }
+
+        // 边界检查，确保对话框不会超出视口
+        bestPosition.top = Math.max(gap, Math.min(bestPosition.top, window.innerHeight - dialogRect.height - gap));
+        bestPosition.left = Math.max(gap, Math.min(bestPosition.left, window.innerWidth - dialogRect.width - gap));
+
+        this.dialog.style.top = `${bestPosition.top}px`;
+        this.dialog.style.left = `${bestPosition.left}px`;
+    }
+
+    handleDragStart(e) {
+        // 只响应主按钮点击，并防止在点击时选中文本
+        if (e.button !== 0) return;
+        e.preventDefault();
+
+        const startX = e.clientX;
+        const startY = e.clientY;
+        const fabStartRect = this.fab.getBoundingClientRect();
+        let isDragging = false; // 拖动状态标志
+
+        const handleDragMove = (moveEvent) => {
+            moveEvent.preventDefault();
+            const dx = moveEvent.clientX - startX;
+            const dy = moveEvent.clientY - startY;
+
+            // 仅当移动超过阈值时，才真正开始拖动
+            if (!isDragging && Math.hypot(dx, dy) > 5) {
+                isDragging = true;
+                // 在拖动开始时，记录对话框的原始可见状态并隐藏它
+                this.wasDialogVisibleBeforeDrag = this.isDialogVisible;
+                if (this.isDialogVisible) {
+                    this.hideDialog();
+                }
+            }
+
+            if (!isDragging) return;
+
+            let newLeft = fabStartRect.left + dx;
+            let newTop = fabStartRect.top + dy;
+
+            // 边界检查
+            newLeft = Math.max(0, Math.min(newLeft, window.innerWidth - fabStartRect.width));
+            newTop = Math.max(0, Math.min(newTop, window.innerHeight - fabStartRect.height));
+
+            this.fab.style.left = `${newLeft}px`;
+            this.fab.style.top = `${newTop}px`;
+        };
+
+        const handleDragEnd = (endEvent) => {
+            document.removeEventListener('mousemove', handleDragMove);
+            document.removeEventListener('mouseup', handleDragEnd);
+
+            if (!isDragging) {
+                // 如果从未进入拖动状态，则视为一次纯粹的点击
+                this.handleFabClick();
+            } else if (this.wasDialogVisibleBeforeDrag) { // 如果是拖动，则根据拖动前的状态恢复对话框
+                // 拖动结束后，如果之前是可见的，则重新显示
+                this.showDialog();
             }
         };
 
-        this.modal.querySelector('.foxlate-summary-close-btn').addEventListener('click', closeModal);
-        this.modal.addEventListener('click', (e) => {
-            if (e.target === this.modal) {
-                closeModal();
-            }
-        });
+        document.addEventListener('mousemove', handleDragMove);
+        document.addEventListener('mouseup', handleDragEnd);
     }
 
-    /**
-     * 销毁并清理所有UI元素和事件监听器。
-     */
-    destroy() {
-        this.summaryButton?.remove();
-        this.modal?.remove();
+    setFabLoadingState(isLoading) {
+        const icon = this.fab.querySelector('.icon');
+        if (isLoading) {
+            this.fab.classList.add('extended');
+            icon.classList.add('loading');
+        } else {
+            this.fab.classList.remove('extended');
+            icon.classList.remove('loading');
+        }
     }
+
+    setupVisibilityObserver() {
+        if (!this.fab) return;
+        this.visibilityObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (!entry.isIntersecting && this.isDialogVisible) {
+                    this.hideDialog();
+                }
+            });
+        }, { threshold: 0.1 });
+        this.visibilityObserver.observe(this.fab);
+    }
+
+    destroy() {
+        this.fab?.remove();
+        this.dialog?.remove();
+        if (this.visibilityObserver) {
+            this.visibilityObserver.disconnect();
+        }
+        this.fab = null;
+        this.dialog = null;
+        this.visibilityObserver = null;
+    }
+}
+
+
+/**
+ * 使一个元素可拖动。
+ * @param {HTMLElement} element - 要使其可拖动的元素。
+ * @param {string|null} handleSelector - 用于拖动的句柄的选择器。如果为 null，则整个元素都可拖动。
+ * @private
+ */
+function makeDraggable(element, handleSelector = null) {
+    let offsetX = 0, offsetY = 0;
+    const handle = handleSelector ? element.querySelector(handleSelector) : element;
+
+    if (!handle) return;
+    // CSS 中已设置 cursor: move
+
+    const dragMouseDown = (e) => {
+        // 拖动开始时，如果对话框可见，则临时隐藏
+        if (this.modal && this.modal.style.display !== 'none') {
+            this.modal.style.display = 'none';
+        }
+        e.preventDefault();
+        // 1. 计算鼠标指针在元素内部的初始偏移量
+        offsetX = e.clientX - element.getBoundingClientRect().left;
+        offsetY = e.clientY - element.getBoundingClientRect().top;
+
+        document.onmouseup = closeDragElement;
+        document.onmousemove = elementDrag;
+    };
+
+    const elementDrag = (e) => {
+        e.preventDefault();
+
+        // 2. 直接用当前鼠标位置减去初始偏移量，得到元素的新位置
+        let newTop = e.clientY - offsetY;
+        let newLeft = e.clientX - offsetX;
+
+        // 边界检查，防止拖出视口
+        newTop = Math.max(0, Math.min(newTop, window.innerHeight - element.clientHeight));
+        newLeft = Math.max(0, Math.min(newLeft, window.innerWidth - element.clientWidth));
+
+        element.style.top = newTop + "px";
+        element.style.left = newLeft + "px";
+    };
+
+    const closeDragElement = () => {
+        // 3. 清理事件监听器
+        document.onmouseup = null;
+        document.onmousemove = null;
+
+        // 拖动结束后，如果对话框存在，则重新定位并显示它
+        if (this.modal) {
+            this.positionModal();
+            this.modal.style.display = 'block';
+        }
+    };
+
+    handle.onmousedown = dragMouseDown;
+}
+
+/**
+ * 销毁并清理所有UI元素和事件监听器。
+ */
+function destroy() {
+    this.container?.remove(); // 只需移除父容器
 }
 
 // --- State Management Class ---
