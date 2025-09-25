@@ -10,17 +10,29 @@ export class SettingsManager {
 
     //缓存默认预检规则
     static #defaultPrecheckRules = null;
+    
+    // --- (新) 事件监听器 ---
+    static #listeners = new Map();
 
     // --- Static Initialization Block ---
     // 静态初始化块，在类加载时执行一次，设置初始值。
     static {
         // Listen for changes in storage and invalidate the cache accordingly.
-        browser.storage.onChanged.addListener((changes, area) => {
+        browser.storage.onChanged.addListener(async (changes, area) => {
             // 使用类名直接访问静态成员，可以完全避免 `this` 上下文可能引发的混淆或错误，
             // 尤其是在事件监听器的回调函数和静态块中。
             if (area === 'sync' && changes.settings) {
                 SettingsManager.#invalidateCache();
                 SettingsManager.#effectiveSettingsCache.clear(); //设置变更时清除缓存
+                
+                // (新) 触发 settingsChanged 事件，通知所有订阅者
+                // 我们传递新的设置值，如果新值不存在（例如，在清除设置时），
+                // 则重新获取经过验证的设置。
+                const newSettings = changes.settings.newValue 
+                    ? await SettingsManager.getValidatedSettings()
+                    : SettingsManager.generateDefaultSettings();
+
+                SettingsManager.#emit('settingsChanged', newSettings);
             }
         });
 
@@ -30,6 +42,46 @@ export class SettingsManager {
 
     // --- Public Static Methods ---
 
+
+    /**
+     * (新) 注册一个事件监听器。
+     * @param {string} eventName - 事件名称 (例如, 'settingsChanged').
+     * @param {Function} callback - 当事件触发时调用的回调函数。
+     */
+    static on(eventName, callback) {
+        if (!SettingsManager.#listeners.has(eventName)) {
+            SettingsManager.#listeners.set(eventName, []);
+        }
+        SettingsManager.#listeners.get(eventName).push(callback);
+    }
+
+    /**
+     * (新) 注销一个事件监听器。
+     * @param {string} eventName - 事件名称。
+     * @param {Function} callback - 要移除的回调函数。
+     */
+    static off(eventName, callback) {
+        if (SettingsManager.#listeners.has(eventName)) {
+            const callbacks = SettingsManager.#listeners.get(eventName);
+            const index = callbacks.indexOf(callback);
+            if (index > -1) {
+                callbacks.splice(index, 1);
+            }
+        }
+    }
+
+    /**
+     * (新) 触发一个事件。
+     * @private
+     * @param {string} eventName - 事件名称。
+     * @param {*} data - 传递给回调函数的数据。
+     */
+    static #emit(eventName, data) {
+        if (SettingsManager.#listeners.has(eventName)) {
+            SettingsManager.#listeners.get(eventName).forEach(callback => callback(data));
+        }
+    }
+    
     /**
      * @private
      * (新) 智能地合并两个逗号分隔的选择器字符串，同时移除重复项和多余的空格。
@@ -108,6 +160,16 @@ export class SettingsManager {
     }
 
     /**
+     * (新) 生成一个完整的默认设置对象，包括动态生成的预检规则。
+     * @returns {object} 默认设置对象。
+     */
+    static generateDefaultSettings() {
+        const defaultSettings = structuredClone(Constants.DEFAULT_SETTINGS);
+        defaultSettings.precheckRules = SettingsManager.generateDefaultPrecheckRules();
+        return defaultSettings;
+    }
+
+    /**
      * 从存储中检索设置，验证它们，预编译规则，并缓存结果。
      * @returns {Promise<object>} 一个 Promise，解析为已验证和编译的设置对象。
      */
@@ -118,8 +180,7 @@ export class SettingsManager {
         }
 
         const { settings: storedSettings } = await browser.storage.sync.get('settings');
-        const defaultSettings = structuredClone(Constants.DEFAULT_SETTINGS);
-        defaultSettings.precheckRules = SettingsManager.generateDefaultPrecheckRules();
+        const defaultSettings = SettingsManager.generateDefaultSettings();
 
         const settingsToValidate = storedSettings || defaultSettings;
 
@@ -289,6 +350,11 @@ export class SettingsManager {
         }
 
         await browser.storage.sync.set({ settings: settingsToSave });
+        // 注意：保存后我们不需要在这里手动触发事件。
+        // browser.storage.onChanged 监听器会捕获这个变化，
+        // 并成为触发 'settingsChanged' 事件的唯一来源。
+        // 这确保了无论设置从哪里被修改（options, popup, background），
+        // 数据流都是一致的。
     }
 
     /**

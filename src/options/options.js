@@ -285,6 +285,42 @@ document.addEventListener('DOMContentLoaded', () => {
         updateSaveButtonState(); // 这将使 hasChanges 为 false，从而隐藏 FAB
     };
 
+    /**
+     * (新) 使用给定的设置对象更新整个UI。
+     * 这是响应 SettingsManager 事件的统一入口点。
+     * @param {object} newSettings - 最新的、经过验证的设置对象。
+     */
+    const updateUIWithSettings = (newSettings) => {
+        console.log('[Options] Settings changed, updating UI.', newSettings);
+
+        // 1. 更新本地内存状态
+        aiEngines = JSON.parse(JSON.stringify(newSettings.aiEngines || []));
+        domainRules = JSON.parse(JSON.stringify(newSettings.domainRules || {}));
+        precheckRules = JSON.parse(JSON.stringify(newSettings.precheckRules || {}));
+
+        // 2. 更新主表单字段
+        populateEngineSelect(elements.translatorEngine); // 重新填充以防 AI 引擎列表变化
+        elements.translatorEngine.value = newSettings.translatorEngine;
+        elements.targetLanguage.value = newSettings.targetLanguage;
+        const defaultSelector = newSettings.translationSelector.default || {};
+        elements.defaultContentSelector.value = defaultSelector.content || '';
+        elements.defaultExcludeSelector.value = defaultSelector.exclude || '';
+        elements.deeplxApiUrl.value = newSettings.deeplxApiUrl;
+        elements.displayModeSelect.value = newSettings.displayMode;
+        elements.cacheSizeInput.value = newSettings.cacheSize ?? Constants.DEFAULT_SETTINGS.cacheSize;
+
+        // 3. 重新渲染动态列表
+        updateApiFieldsVisibility();
+        renderDomainRules();
+        renderPrecheckRulesUI();
+        renderAiEngineList(); // AI 引擎列表也需要重新渲染
+
+        // 4. 更新快照并重置保存按钮状态
+        // 这是关键一步：UI 更新后，新的状态成为基准，因此未保存的更改消失。
+        initialSettingsSnapshot = JSON.stringify(getSettingsFromUI());
+        updateSaveButtonState();
+    };
+
     let precheckRules = {};
     let aiEngines = []; // Array to hold AI engine configurations
     let aiEnginesSyncStatus = new Map(); // Track sync status for each engine: 'synced', 'local', 'syncing'
@@ -364,50 +400,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Core Logic Functions ---
     const loadSettings = async () => {
         try {
-            const currentSettings = await SettingsManager.getValidatedSettings();
+            // 初始加载时，获取一次设置并更新UI
+            const initialSettings = await SettingsManager.getValidatedSettings();
+            updateUIWithSettings(initialSettings);
 
-            // Load AI Engines and populate the dropdown BEFORE setting the value
-            aiEngines = JSON.parse(JSON.stringify(currentSettings.aiEngines)); // Deep copy
-
-        // Initialize sync status for existing engines and load local engines
-        aiEnginesSyncStatus.clear();
-        aiEngines.forEach(engine => {
-            // Assume existing engines are synced unless marked otherwise
-            aiEnginesSyncStatus.set(engine.id, engine.syncStatus || 'synced');
-        });
-
-        // Load and merge local engines
-        await loadAndMergeLocalEngines();
-
-        // Check default engine availability
-        setTimeout(() => {
+            // AI 引擎的本地/同步状态管理逻辑仍然需要保留
+            await loadAndMergeLocalEngines();
             checkDefaultEngineAvailability();
-        }, 100);
-            populateEngineSelect(elements.translatorEngine); // Populate the main dropdown
 
-            // Now that all <option> elements exist, set the selected value.
-            elements.translatorEngine.value = currentSettings.translatorEngine;
-            elements.targetLanguage.value = currentSettings.targetLanguage;
-            const defaultSelector = currentSettings.translationSelector.default || {};
-            const inline = defaultSelector.inline || '';
-            const block = defaultSelector.block || '';
-            elements.defaultContentSelector.value = defaultSelector.content || [inline, block].filter(Boolean).join(', ');
-            elements.defaultExcludeSelector.value = defaultSelector.exclude || '';
-            elements.deeplxApiUrl.value = currentSettings.deeplxApiUrl;
-            elements.displayModeSelect.value = currentSettings.displayMode;
-
-            elements.cacheSizeInput.value = currentSettings.cacheSize ?? Constants.DEFAULT_SETTINGS.cacheSize;
-            domainRules = JSON.parse(JSON.stringify(currentSettings.domainRules)); // Deep copy
-
-            precheckRules = JSON.parse(JSON.stringify(currentSettings.precheckRules));
-
-            updateApiFieldsVisibility();
-            renderDomainRules();
-            renderPrecheckRulesUI();
             await updateCacheInfo();
-            // 创建初始快照并确保保存按钮被隐藏
-            initialSettingsSnapshot = JSON.stringify(getSettingsFromUI());
-            updateSaveButtonState();
         } catch (error) {
             console.error("Failed to load and validate settings:", error);
             showStatusMessage(browser.i18n.getMessage('loadSettingsError'), true);
@@ -444,8 +445,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             // --- 3b. 保存设置 ---
-            await browser.storage.sync.set({ settings: settingsToSave });
-            initialSettingsSnapshot = JSON.stringify(settingsToSave); // 更新快照
+            // (已修改) 不再直接操作 storage，而是通过 SettingsManager
+            await SettingsManager.saveSettings(settingsToSave);
+            // 保存成功后，onChanged 事件会被触发，
+            // 我们的事件监听器会调用 updateUIWithSettings，
+            // 其中包含了更新快照的逻辑，所以这里的代码可以移除。
+            // initialSettingsSnapshot = JSON.stringify(settingsToSave);
 
             // --- 4. 处理成功 UI，CSS 将自动显示对勾图标和颜色 ---
             elements.saveSettingsBtn.dataset.state = 'success';
@@ -467,14 +472,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const confirmationMessage = browser.i18n.getMessage('resetSettingsConfirm') || 'Are you sure you want to reset all settings to their default values? This action cannot be undone.';
         if (window.confirm(confirmationMessage)) {
             try {
-                const defaultSettings = JSON.parse(JSON.stringify(Constants.DEFAULT_SETTINGS));
-                // Dynamically generate the default precheck rules with i18n names
-                defaultSettings.precheckRules = SettingsManager.generateDefaultPrecheckRules();
-
-                await browser.storage.sync.set({ settings: defaultSettings });
+                // (已修改) 使用 SettingsManager 生成默认设置并保存
+                const defaultSettings = SettingsManager.generateDefaultSettings();
+                await SettingsManager.saveSettings(defaultSettings);
 
                 // After resetting, reload the settings, which will apply defaults and reset UI.
-                await loadSettings();
+                // 不再需要手动 loadSettings，onChanged 事件会处理UI更新
+                // await loadSettings();
                 showStatusMessage(browser.i18n.getMessage('resetSettingsSuccess'));
             } catch (error) {
                 console.error('Error resetting settings:', error);
@@ -716,12 +720,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const settings = await SettingsManager.getValidatedSettings();
                 if (settings.domainRules[domainToRemove]) {
                     delete settings.domainRules[domainToRemove];
-                    await browser.storage.sync.set({ settings });
-                    // 更新本地状态并重新渲染UI
-                    domainRules = settings.domainRules;
-                    renderDomainRules();
+                    await SettingsManager.saveSettings(settings);
+                    // (已移除) UI 更新将由 'settingsChanged' 事件触发
+                    // domainRules = settings.domainRules;
+                    // renderDomainRules();
                     showStatusMessage(browser.i18n.getMessage('removeRuleSuccess'));
-                    updateSnapshotAndHideSaveButton();
+                    // (已移除) 快照更新将由 'settingsChanged' 事件触发
+                    // updateSnapshotAndHideSaveButton();
                 }
             } catch (error) {
                 console.error("Failed to remove domain rule:", error);
@@ -819,14 +824,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 delete settings.domainRules[originalDomain];
             }
             settings.domainRules[newDomain] = rule;
-            await browser.storage.sync.set({ settings });
+            await SettingsManager.saveSettings(settings);
 
             // --- 4. 更新本地状态并刷新UI ---
-            domainRules = settings.domainRules;
+            // (已移除) UI 更新将由 'settingsChanged' 事件触发
+            // domainRules = settings.domainRules;
             closeDomainRuleModal();
-            renderDomainRules();
+            // renderDomainRules();
             showStatusMessage(browser.i18n.getMessage('saveRuleSuccess') || 'Rule saved successfully.');
-            updateSnapshotAndHideSaveButton();
+            // (已移除) 快照更新将由 'settingsChanged' 事件触发
+            // updateSnapshotAndHideSaveButton();
         } catch (error) {
             console.error("Failed to save domain rule:", error);
             showStatusMessage("Failed to save domain rule.", true);
@@ -855,10 +862,10 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.onload = async (e) => {
             try {
                 const settings = JSON.parse(e.target.result);
-                await browser.storage.sync.set({ settings });
-                // loadSettings will call markAsSaved()
+                await SettingsManager.saveSettings(settings);
                 showStatusMessage(browser.i18n.getMessage('importSuccess'));
-                await loadSettings();
+                // (已移除) UI 更新将由 'settingsChanged' 事件触发
+                // await loadSettings();
             } catch (error) {
                 showStatusMessage(browser.i18n.getMessage('importError'), true);
                 console.error(error);
@@ -1453,7 +1460,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // 4. 更新UI
             hideAiEngineForm();
             showStatusMessage(browser.i18n.getMessage('saveAiEngineSuccess'));
-            updateSnapshotAndHideSaveButton();
+            // (已移除) 快照更新将由 'settingsChanged' 事件触发
+            // updateSnapshotAndHideSaveButton();
         } catch (error) {
             console.error("Failed to save AI engine:", error);
             showStatusMessage("Failed to save AI engine.", true);
@@ -1508,8 +1516,8 @@ document.addEventListener('DOMContentLoaded', () => {
             settings.aiEngines.push(engine);
         }
 
-        // This will throw if sync fails
-        await browser.storage.sync.set({ settings });
+        // (已修改) 使用 SettingsManager 保存
+        await SettingsManager.saveSettings(settings);
     };
 
     // Save engine to local storage as backup
@@ -1694,8 +1702,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     settings.translatorEngine = settings.aiEngines.length > 0 ? `ai:${settings.aiEngines[0].id}` : 'google';
                     hideDefaultEngineWarning(); // Hide warning if we fixed the default engine issue
                 }
-
-                await browser.storage.sync.set({ settings });
+                // (已修改) 使用 SettingsManager 保存
+                await SettingsManager.saveSettings(settings);
 
                 // 2. Remove from local storage backup
                 try {
@@ -1708,23 +1716,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 // 3. Update local state and sync status
-                aiEngines = aiEngines.filter(e => e.id !== id);
-                aiEnginesSyncStatus.delete(id);
+                // (已移除) UI 更新将由 'settingsChanged' 事件触发
+                // aiEngines = aiEngines.filter(e => e.id !== id);
+                // aiEnginesSyncStatus.delete(id);
 
                 // 4. Update UI
-                renderAiEngineList();
-                populateEngineSelect(elements.translatorEngine);
-                if (wasSelected && elements.translatorEngine) {
-                    elements.translatorEngine.value = settings.translatorEngine;
-                }
+                // (已移除) UI 更新将由 'settingsChanged' 事件触发
+                // renderAiEngineList();
+                // populateEngineSelect(elements.translatorEngine);
+                // if (wasSelected && elements.translatorEngine) {
+                //     elements.translatorEngine.value = settings.translatorEngine;
+                // }
 
                 // 5. Check if default engine is still valid
-                setTimeout(() => {
-                    checkDefaultEngineAvailability();
-                }, 100);
+                // (已移除) UI 更新将由 'settingsChanged' 事件触发
 
                 showStatusMessage(browser.i18n.getMessage('removeAiEngineSuccess'));
-                updateSnapshotAndHideSaveButton();
+                // (已移除) 快照更新将由 'settingsChanged' 事件触发
+                // updateSnapshotAndHideSaveButton();
             } catch (error) {
                 console.error("Failed to remove AI engine:", error);
                 showStatusMessage("Failed to remove AI engine.", true);
@@ -2175,6 +2184,10 @@ document.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('change', handleGlobalChange);
         document.addEventListener('focusin', handleGlobalFocusIn);
         document.addEventListener('keydown', handleKeyDown); // Existing global listener
+
+        // (新) 订阅设置变更事件
+        SettingsManager.on('settingsChanged', updateUIWithSettings);
+
         // --- Before Unload Listener ---
         window.addEventListener('beforeunload', (e) => {
             const currentSettingsString = JSON.stringify(getSettingsFromUI());
