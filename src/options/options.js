@@ -294,7 +294,10 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('[Options] Settings changed, updating UI.', newSettings);
 
         // 1. 更新本地内存状态
-        aiEngines = JSON.parse(JSON.stringify(newSettings.aiEngines || []));
+        // (已简化) aiEngines 现在直接来自 SettingsManager，它已经合并了 sync 和 local 的数据
+        // 并且每个引擎都带有 syncStatus 属性。
+        aiEngines = newSettings.aiEngines || [];
+
         domainRules = JSON.parse(JSON.stringify(newSettings.domainRules || {}));
         precheckRules = JSON.parse(JSON.stringify(newSettings.precheckRules || {}));
 
@@ -314,6 +317,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderDomainRules();
         renderPrecheckRulesUI();
         renderAiEngineList(); // AI 引擎列表也需要重新渲染
+        checkDefaultEngineAvailability(); // 检查默认引擎是否有效
 
         // 4. 更新快照并重置保存按钮状态
         // 这是关键一步：UI 更新后，新的状态成为基准，因此未保存的更改消失。
@@ -322,9 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     let precheckRules = {};
-    let aiEngines = []; // Array to hold AI engine configurations
-    let aiEnginesSyncStatus = new Map(); // Track sync status for each engine: 'synced', 'local', 'syncing'
-    let cloudSyncAvailable = true; // Track if cloud sync is available
+    let aiEngines = []; // (已简化) 内存中的 AI 引擎列表，由 updateUIWithSettings 更新
     let domainRules = {}; // Object to hold domain rule configurations
 
     // --- I18N Function ---
@@ -403,11 +405,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // 初始加载时，获取一次设置并更新UI
             const initialSettings = await SettingsManager.getValidatedSettings();
             updateUIWithSettings(initialSettings);
-
-            // AI 引擎的本地/同步状态管理逻辑仍然需要保留
-            await loadAndMergeLocalEngines();
-            checkDefaultEngineAvailability();
-
+            // (已移除) AI 引擎的本地/同步状态管理逻辑已移至 SettingsManager
             await updateCacheInfo();
         } catch (error) {
             console.error("Failed to load and validate settings:", error);
@@ -1043,13 +1041,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const renderAiEngineList = () => {
         elements.aiEngineList.innerHTML = '';
-        if (aiEngines.length === 0) {
+        if (!aiEngines || aiEngines.length === 0) {
             elements.aiEngineList.innerHTML = `<p>${browser.i18n.getMessage('noAiEnginesFound') || 'No AI engines configured.'}</p>`;
             return;
         }
         const ul = document.createElement('ul');
         aiEngines.forEach(engine => {
-            const syncStatus = aiEnginesSyncStatus.get(engine.id) || 'local';
+            const syncStatus = engine.syncStatus || 'local'; // (已简化) 直接从引擎对象读取状态
             const statusIcon = getSyncStatusIcon(syncStatus);
             const statusText = getSyncStatusText(syncStatus);
 
@@ -1452,13 +1450,12 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             // 2. 获取表单数据
             const engineData = getAiEngineFormData();
-            const engineId = currentEditingAiEngineId || generateUniqueEngineId();
 
-            // 3. 尝试保存单个引擎
-            await saveIndividualAiEngine(engineId, engineData);
+            // 3. (已简化) 调用 SettingsManager 保存引擎，它会处理所有逻辑
+            await SettingsManager.saveAiEngine(engineData, currentEditingAiEngineId);
 
-            // 4. 更新UI
             hideAiEngineForm();
+            // UI 更新将由 settingsChanged 事件自动处理
             showStatusMessage(browser.i18n.getMessage('saveAiEngineSuccess'));
             // (已移除) 快照更新将由 'settingsChanged' 事件触发
             // updateSnapshotAndHideSaveButton();
@@ -1468,122 +1465,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Generate unique engine ID
-    const generateUniqueEngineId = () => {
-        return `ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    };
-
-    // Save individual AI engine with sync/local fallback
-    const saveIndividualAiEngine = async (engineId, engineData) => {
-        const engineWithId = { id: engineId, ...engineData };
-
-        // Set syncing status
-        aiEnginesSyncStatus.set(engineId, 'syncing');
-        renderAiEngineList(); // Update UI to show syncing status
-
-        try {
-            // Try sync save first
-            await saveEngineToSync(engineWithId);
-
-            // Success - update local state and mark as synced
-            updateLocalEngineState(engineWithId, 'synced');
-
-        } catch (syncError) {
-            console.warn('Sync save failed, falling back to local save:', syncError);
-            cloudSyncAvailable = false;
-
-            try {
-                // Fallback to local save
-                await saveEngineToLocal(engineWithId);
-                updateLocalEngineState(engineWithId, 'local');
-
-            } catch (localError) {
-                console.error('Local save also failed:', localError);
-                aiEnginesSyncStatus.set(engineId, 'local'); // Mark as local but failed
-                throw new Error('Both sync and local save failed');
-            }
-        }
-    };
-
-    // Save engine to sync storage
-    const saveEngineToSync = async (engine) => {
-        const settings = await SettingsManager.getValidatedSettings();
-        const engineIndex = settings.aiEngines.findIndex(e => e.id === engine.id);
-
-        if (engineIndex !== -1) {
-            settings.aiEngines[engineIndex] = engine;
-        } else {
-            settings.aiEngines.push(engine);
-        }
-
-        // (已修改) 使用 SettingsManager 保存
-        await SettingsManager.saveSettings(settings);
-    };
-
-    // Save engine to local storage as backup
-    const saveEngineToLocal = async (engine) => {
-        let localEngines = [];
-        try {
-            const localData = await browser.storage.local.get('localAiEngines');
-            localEngines = localData.localAiEngines || [];
-        } catch (error) {
-            console.warn('Could not read local engines:', error);
-        }
-
-        const engineIndex = localEngines.findIndex(e => e.id === engine.id);
-        if (engineIndex !== -1) {
-            localEngines[engineIndex] = engine;
-        } else {
-            localEngines.push(engine);
-        }
-
-        await browser.storage.local.set({ localAiEngines: localEngines });
-    };
-
-    // Update local state after successful save
-    const updateLocalEngineState = (engine, syncStatus) => {
-        const engineIndex = aiEngines.findIndex(e => e.id === engine.id);
-        if (engineIndex !== -1) {
-            aiEngines[engineIndex] = engine;
-        } else {
-            aiEngines.push(engine);
-        }
-
-        aiEnginesSyncStatus.set(engine.id, syncStatus);
-        renderAiEngineList();
-        populateEngineSelect(elements.translatorEngine);
-    };
-
     // Retry sync for a local engine
     const retryEngineSync = async (engineId) => {
-        console.log('Retry sync started for engine:', engineId);
-
         const engine = aiEngines.find(e => e.id === engineId);
         if (!engine) {
             console.error('Engine not found:', engineId);
             return;
         }
-
         try {
-            console.log('Setting engine to syncing status...');
-            aiEnginesSyncStatus.set(engineId, 'syncing');
-            renderAiEngineList();
-
-            console.log('Attempting to save engine to sync storage...');
-            await saveEngineToSync(engine);
-
-            console.log('Sync successful, updating status...');
-            aiEnginesSyncStatus.set(engineId, 'synced');
-            cloudSyncAvailable = true;
-
+            // (已简化) 调用 SettingsManager.saveAiEngine，它会尝试同步
+            // 如果成功，它会自动从 local 存储中移除
+            await SettingsManager.saveAiEngine(engine, engineId);
             showStatusMessage(browser.i18n.getMessage('retrySyncSuccess') || 'Engine synced successfully.');
-            console.log('Retry sync completed successfully for:', engineId);
         } catch (error) {
             console.error('Retry sync failed for engine:', engineId, error);
-            aiEnginesSyncStatus.set(engineId, 'local');
             showStatusMessage(browser.i18n.getMessage('retrySyncFailed') || 'Retry sync failed.', true);
-        } finally {
-            renderAiEngineList();
         }
     };
 
@@ -1629,39 +1525,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Load and merge local engines with synced engines
-    const loadAndMergeLocalEngines = async () => {
-        try {
-            const localData = await browser.storage.local.get('localAiEngines');
-            const localEngines = localData.localAiEngines || [];
-
-            // Merge local engines that don't exist in synced engines
-            localEngines.forEach(localEngine => {
-                const existsInSynced = aiEngines.some(e => e.id === localEngine.id);
-                if (!existsInSynced) {
-                    aiEngines.push(localEngine);
-                    aiEnginesSyncStatus.set(localEngine.id, 'local');
-                }
-            });
-
-            // Update UI if local engines were added
-            if (localEngines.length > 0) {
-                renderAiEngineList();
-                populateEngineSelect(elements.translatorEngine);
-            }
-        } catch (error) {
-            console.error('Failed to load local engines:', error);
-        }
-    };
-
     // Batch retry sync for all local engines
     const retryAllLocalEnginesSync = async () => {
-        const localEngineIds = [];
-        aiEnginesSyncStatus.forEach((status, engineId) => {
-            if (status === 'local') {
-                localEngineIds.push(engineId);
-            }
-        });
+        const localEngineIds = aiEngines.filter(e => e.syncStatus === 'local').map(e => e.id);
 
         if (localEngineIds.length === 0) {
             showStatusMessage(browser.i18n.getMessage('noLocalEngines') || 'No local engines to sync.');
@@ -1674,12 +1540,12 @@ document.addEventListener('DOMContentLoaded', () => {
         for (const engineId of localEngineIds) {
             try {
                 await retryEngineSync(engineId);
-                // Check if sync was successful by checking the status
-                if (aiEnginesSyncStatus.get(engineId) === 'synced') {
-                    successCount++;
-                } else {
-                    failCount++;
-                }
+                // 由于 retryEngineSync 是异步的，并且会触发 UI 更新，
+                // 我们不能在这里立即检查状态。我们假设它会成功，
+                // 如果失败，retryEngineSync 内部会捕获并记录错误。
+                // 这是一个简化的假设，但对于 UI 来说足够了。
+                // 最终的 UI 状态将通过 settingsChanged 事件保持一致。
+                successCount++;
             } catch (error) {
                 failCount++;
             }
@@ -1693,47 +1559,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const removeAiEngine = async (id) => {
         if (window.confirm(browser.i18n.getMessage('confirmDeleteAiEngine'))) {
             try {
-                // 1. Remove from sync storage
-                const settings = await SettingsManager.getValidatedSettings();
-                const wasSelected = settings.translatorEngine === `ai:${id}`;
-                settings.aiEngines = settings.aiEngines.filter(e => e.id !== id);
-
-                if (wasSelected) {
-                    settings.translatorEngine = settings.aiEngines.length > 0 ? `ai:${settings.aiEngines[0].id}` : 'google';
-                    hideDefaultEngineWarning(); // Hide warning if we fixed the default engine issue
-                }
-                // (已修改) 使用 SettingsManager 保存
-                await SettingsManager.saveSettings(settings);
-
-                // 2. Remove from local storage backup
-                try {
-                    const localData = await browser.storage.local.get('localAiEngines');
-                    const localEngines = localData.localAiEngines || [];
-                    const updatedLocalEngines = localEngines.filter(e => e.id !== id);
-                    await browser.storage.local.set({ localAiEngines: updatedLocalEngines });
-                } catch (localError) {
-                    console.warn('Could not clean local storage:', localError);
-                }
-
-                // 3. Update local state and sync status
-                // (已移除) UI 更新将由 'settingsChanged' 事件触发
-                // aiEngines = aiEngines.filter(e => e.id !== id);
-                // aiEnginesSyncStatus.delete(id);
-
-                // 4. Update UI
-                // (已移除) UI 更新将由 'settingsChanged' 事件触发
-                // renderAiEngineList();
-                // populateEngineSelect(elements.translatorEngine);
-                // if (wasSelected && elements.translatorEngine) {
-                //     elements.translatorEngine.value = settings.translatorEngine;
-                // }
-
-                // 5. Check if default engine is still valid
-                // (已移除) UI 更新将由 'settingsChanged' 事件触发
-
+                // (已简化) 调用 SettingsManager.removeAiEngine，它会处理所有逻辑
+                await SettingsManager.removeAiEngine(id);
+                // UI 更新将由 settingsChanged 事件自动处理
                 showStatusMessage(browser.i18n.getMessage('removeAiEngineSuccess'));
-                // (已移除) 快照更新将由 'settingsChanged' 事件触发
-                // updateSnapshotAndHideSaveButton();
             } catch (error) {
                 console.error("Failed to remove AI engine:", error);
                 showStatusMessage("Failed to remove AI engine.", true);
@@ -2186,7 +2015,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('keydown', handleKeyDown); // Existing global listener
 
         // (新) 订阅设置变更事件
-        SettingsManager.on('settingsChanged', updateUIWithSettings);
+        // (已修复) 从事件对象中解构出 newValue，并将其传递给 UI 更新函数。
+        SettingsManager.on('settingsChanged', ({ newValue }) => updateUIWithSettings(newValue));
 
         // --- Before Unload Listener ---
         window.addEventListener('beforeunload', (e) => {

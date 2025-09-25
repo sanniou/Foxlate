@@ -1,5 +1,6 @@
 import browser from '../lib/browser-polyfill.js';
 import * as Constants from '../common/constants.js';
+import { SettingsManager } from '../common/settings-manager.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     const elements = {
@@ -209,11 +210,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!currentHostname) {
             console.warn("[Popup] Cannot save rule change, no active hostname.");
             return;
+        } 
+        const settings = await SettingsManager.getValidatedSettings();
+        const domainToUpdate = (currentRuleSource === 'default') ? currentHostname : currentRuleSource;
+        let rule = settings.domainRules[domainToUpdate] || {};
+
+        if (key === 'subtitleDisplayMode') {
+            if (!rule.subtitleSettings) rule.subtitleSettings = {};
+            rule.subtitleSettings.enabled = true;
+            rule.subtitleSettings.displayMode = value;
+        } else {
+            rule[key] = value;
         }
-        await browser.runtime.sendMessage({
-            type: 'SAVE_RULE_CHANGE',
-            payload: { hostname: currentHostname, ruleSource: currentRuleSource, key, value }
-        });
+        settings.domainRules[domainToUpdate] = rule;
+
+        await SettingsManager.saveSettings(settings);
         // The settings will be reloaded automatically via the SETTINGS_UPDATED event listener.
     };
 
@@ -261,9 +272,12 @@ document.addEventListener('DOMContentLoaded', () => {
         await loadAndApplySettings();
 
         browser.runtime.onMessage.addListener((request) => {
-            if (request.type === 'SETTINGS_UPDATED') {
-               console.log("[Popup] Received settings update. Reloading.");
+            // (已修改) 监听来自 service-worker 的设置更新广播
+            if (request.type === 'SETTINGS_UPDATED' || request.type === 'RELOAD_TRANSLATION_JOB') {
+                console.log(`[Popup] Received '${request.type}' message. Reloading settings and UI.`);
                 loadAndApplySettings();
+                // 也可以选择性地更新按钮状态，以提供更即时的反馈
+                updateButtonStateFromContentScript();
             }
        });
 

@@ -12,3 +12,11 @@ export function escapeHtml(unsafe = '') {
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
 }
+
+/**
+ * 生成一个唯一的 AI 引擎 ID。
+ * @returns {string} 唯一的 ID。
+ */
+export function generateUniqueEngineId() {
+    return `ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}

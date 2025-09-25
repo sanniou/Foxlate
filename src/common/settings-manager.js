@@ -1,5 +1,6 @@
 import browser from '../lib/browser-polyfill.js';
 import * as Constants from './constants.js';
+import { generateUniqueEngineId } from './utils.js';
 import { DEFAULT_STRATEGY_MAP } from '../content/subtitle/strategy-manifest.js';
 
 export class SettingsManager {
@@ -10,7 +11,7 @@ export class SettingsManager {
 
     //缓存默认预检规则
     static #defaultPrecheckRules = null;
-    
+
     // --- (新) 事件监听器 ---
     static #listeners = new Map();
 
@@ -21,23 +22,30 @@ export class SettingsManager {
         browser.storage.onChanged.addListener(async (changes, area) => {
             // 使用类名直接访问静态成员，可以完全避免 `this` 上下文可能引发的混淆或错误，
             // 尤其是在事件监听器的回调函数和静态块中。
-            if (area === 'sync' && changes.settings) {
-                SettingsManager.#invalidateCache();
-                SettingsManager.#effectiveSettingsCache.clear(); //设置变更时清除缓存
-                
-                // (新) 触发 settingsChanged 事件，通知所有订阅者
-                // 我们传递新的设置值，如果新值不存在（例如，在清除设置时），
-                // 则重新获取经过验证的设置。
-                const newSettings = changes.settings.newValue 
-                    ? await SettingsManager.getValidatedSettings()
-                    : SettingsManager.generateDefaultSettings();
-
-                SettingsManager.#emit('settingsChanged', newSettings);
+            if ((area === 'sync' && changes.settings) || (area === 'local' && changes.localAiEngines)) {
+                // (已修改) 直接传递新旧值
+                await SettingsManager.notifySettingsChanged(changes.settings?.newValue, changes.settings?.oldValue);
             }
         });
 
         // 直接使用类名进行初始化，以确保在任何环境下都能正确工作。
         SettingsManager.#defaultPrecheckRules = SettingsManager.generateDefaultPrecheckRules();
+    }
+
+    /**
+     * (新) 通知所有订阅者设置已更改。
+     * 会使缓存失效，然后获取最新设置并发出事件。
+     */
+    static async notifySettingsChanged(newValue, oldValue) {
+        SettingsManager.#invalidateCache();
+        SettingsManager.#effectiveSettingsCache.clear(); // (已修复) 确保在任何设置变更时都清除域名规则缓存
+        // 如果 newValue 未定义 (例如，在清除设置时)，则重新获取。
+        // getValidatedSettings 内部有缓存，所以如果缓存有效，这里不会有额外开销。
+        const finalNewValue = newValue ? await SettingsManager.getValidatedSettings() : SettingsManager.generateDefaultSettings();
+        SettingsManager.#emit('settingsChanged', {
+            newValue: finalNewValue,
+            oldValue: oldValue
+        });
     }
 
     // --- Public Static Methods ---
@@ -81,7 +89,7 @@ export class SettingsManager {
             SettingsManager.#listeners.get(eventName).forEach(callback => callback(data));
         }
     }
-    
+
     /**
      * @private
      * (新) 智能地合并两个逗号分隔的选择器字符串，同时移除重复项和多余的空格。
@@ -179,12 +187,32 @@ export class SettingsManager {
             return structuredClone(SettingsManager.#validatedSettingsCache); // 使用 structuredClone 返回安全副本
         }
 
-        const { settings: storedSettings } = await browser.storage.sync.get('settings');
+        // 并行获取 sync 和 local 的数据
+        const [syncData, localData] = await Promise.all([
+            browser.storage.sync.get('settings'),
+            browser.storage.local.get('localAiEngines')
+        ]);
+
+        const { settings: storedSettings } = syncData;
+        const localAiEngines = localData.localAiEngines || [];
+
         const defaultSettings = SettingsManager.generateDefaultSettings();
 
         const settingsToValidate = storedSettings || defaultSettings;
 
         const validatedSettings = { ...defaultSettings, ...settingsToValidate };
+
+        // --- (新) 合并 AI 引擎 ---
+        const syncedEngines = validatedSettings.aiEngines || [];
+        syncedEngines.forEach(engine => engine.syncStatus = 'synced');
+
+        const localEnginesWithStatus = localAiEngines.map(engine => ({ ...engine, syncStatus: 'local' }));
+
+        // 合并，并确保 local 中的引擎不会覆盖 sync 中的同 ID 引擎
+        const syncedEngineIds = new Set(syncedEngines.map(e => e.id));
+        const uniqueLocalEngines = localEnginesWithStatus.filter(e => !syncedEngineIds.has(e.id));
+
+        validatedSettings.aiEngines = [...syncedEngines, ...uniqueLocalEngines];
 
         // Deep merge for translationSelector
         const storedDefaultSelector = settingsToValidate.translationSelector?.default;
@@ -199,13 +227,6 @@ export class SettingsManager {
         validatedSettings.precheckRules = settingsToValidate.precheckRules && Object.keys(settingsToValidate.precheckRules).length > 0
             ? settingsToValidate.precheckRules
             : defaultSettings.precheckRules;
-
-        if (validatedSettings.aiEngines && Array.isArray(validatedSettings.aiEngines)) {
-            validatedSettings.aiEngines.forEach(engine => {
-                if (engine.wordCountThreshold === undefined) engine.wordCountThreshold = 1;
-                if (engine.fallbackEngine === undefined) engine.fallbackEngine = 'default';
-            });
-        }
 
         // 移除预编译步骤。编译应该在消费端（content-script 或 background script）进行，
         // 以避免在跨上下文传递消息时序列化 RegExp 对象。
@@ -336,9 +357,35 @@ export class SettingsManager {
      * @param {object} settings - 要保存的设置对象。
      */
     static async saveSettings(settings) {
-        const settingsToSave = structuredClone(settings);
-        delete settingsToSave.source;
+        // (新) 在修改前获取当前设置，作为 oldValue
+        const oldSettings = await this.getValidatedSettings();
 
+        // 1. 准备要保存到 sync 的主设置对象
+        const settingsToSave = structuredClone(settings);
+        delete settingsToSave.source; // 移除运行时状态
+
+        // 2. 从主对象中分离出 AI 引擎
+        const allEngines = settingsToSave.aiEngines || [];
+        delete settingsToSave.aiEngines;
+
+        // 3. 根据 syncStatus 分离同步引擎和本地引擎
+        let enginesToSync = [];
+        let enginesToSaveLocally = [];
+
+        allEngines.forEach(engine => {
+            const cleanEngine = { ...engine };
+            delete cleanEngine.syncStatus; // 从存储中移除 syncStatus
+            if (engine.syncStatus === 'local') {
+                enginesToSaveLocally.push(cleanEngine);
+            } else {
+                enginesToSync.push(cleanEngine);
+            }
+        });
+
+        // 4. 将同步引擎列表放回主设置对象
+        settingsToSave.aiEngines = enginesToSync;
+
+        // 5. 清理 precheckRules 中的 compiledRegex
         if (settingsToSave.precheckRules) {
             for (const category in settingsToSave.precheckRules) {
                 if (Array.isArray(settingsToSave.precheckRules[category])) {
@@ -349,14 +396,70 @@ export class SettingsManager {
             }
         }
 
-        await browser.storage.sync.set({ settings: settingsToSave });
-        // 注意：保存后我们不需要在这里手动触发事件。
-        // browser.storage.onChanged 监听器会捕获这个变化，
-        // 并成为触发 'settingsChanged' 事件的唯一来源。
-        // 这确保了无论设置从哪里被修改（options, popup, background），
-        // 数据流都是一致的。
+        // 6. 尝试保存到 sync，如果失败则回退
+        try {
+            await browser.storage.sync.set({ settings: settingsToSave });
+        } catch (e) {
+            if (e.message.includes('QUOTA_BYTES')) {
+                console.warn('[SettingsManager] Sync storage quota exceeded. Moving all AI engines to local storage and retrying.');
+                // 将所有待同步的引擎移至本地列表
+                enginesToSaveLocally.push(...enginesToSync);
+                // 清空同步列表
+                settingsToSave.aiEngines = [];
+                // 再次尝试保存，这次只保存不含AI引擎的主设置到sync
+                await browser.storage.sync.set({ settings: settingsToSave });
+            } else {
+                // 如果是其他错误，则直接抛出
+                throw e;
+            }
+        }
+
+        // 7. 保存本地引擎
+        await browser.storage.local.set({ localAiEngines: enginesToSaveLocally });
+
+        // 8. 手动触发通知
+        // (已修复) 将新旧设置传递给通知函数
+        await SettingsManager.notifySettingsChanged(settingsToSave, oldSettings);
+    }
+    /**
+         * (新) 保存单个 AI 引擎。此方法现在是 saveSettings 的一个简单封装。
+         * @param {object} engineData - 要保存的引擎数据，可以不包含 id。
+         * @param {string|null} existingId - 如果是编辑，则为现有引擎的 ID。
+         */
+    static async saveAiEngine(engineData, existingId = null) {
+        const engineId = existingId || generateUniqueEngineId();
+        const engineToSave = { id: engineId, ...engineData };
+
+        const settings = await this.getValidatedSettings();
+        const engineIndex = settings.aiEngines.findIndex(e => e.id === engineId);
+
+        if (engineIndex > -1) {
+            // 更新现有引擎，并乐观地将其状态设置为 'synced' 以尝试同步
+            settings.aiEngines[engineIndex] = { ...settings.aiEngines[engineIndex], ...engineToSave, syncStatus: 'synced' };
+        } else {
+            // 添加新引擎，并乐观地设置为 'synced'
+            settings.aiEngines.push({ ...engineToSave, syncStatus: 'synced' });
+        }
+
+        // 委托给统一的 saveSettings 方法处理所有保存逻辑
+        await this.saveSettings(settings);
     }
 
+    /**
+     * (新) 移除一个 AI 引擎。
+     * @param {string} engineId - 要移除的引擎 ID。
+     */
+    static async removeAiEngine(engineId) {
+        const settings = await this.getValidatedSettings();
+        settings.aiEngines = settings.aiEngines.filter(e => e.id !== engineId);
+
+        if (settings.translatorEngine === `ai:${engineId}`) {
+            const firstAiEngine = settings.aiEngines.find(e => e.syncStatus === 'synced');
+            settings.translatorEngine = firstAiEngine ? `ai:${firstAiEngine.id}` : 'google';
+        }
+
+        await this.saveSettings(settings);
+    }
     /**
      * 清除 effectiveSettingsCache
      */

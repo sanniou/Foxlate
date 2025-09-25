@@ -353,45 +353,6 @@ const messageHandlers = {
         }
     },
 
-    async SAVE_RULE_CHANGE(request) {
-        const { hostname, ruleSource, key, value } = request.payload;
-        const settings = await SettingsManager.getValidatedSettings();
-
-        const domainToUpdate = (ruleSource === 'default') ? hostname : ruleSource;
-        let rule = settings.domainRules[domainToUpdate];
-
-        // 如果我们正在为一个没有规则的域名创建一个新规则...
-        if (!rule) {
-            rule = {};
-            // ...并且该域名有一个默认的字幕策略...
-            if (DEFAULT_STRATEGY_MAP.has(hostname)) {
-                // ...那么在创建新规则时，预先填充字幕设置。
-                // 这可以确保当用户首次更改字幕设置（如显示模式）时，
-                // `enabled` 和 `strategy` 字段被正确地预设为 true 和对应的策略。
-                rule.subtitleSettings = {
-                    enabled: true,
-                    strategy: DEFAULT_STRATEGY_MAP.get(hostname),
-                    displayMode: 'off' // 从默认的“关闭”状态开始
-                };
-            }
-        }
-
-        // 为嵌套的字幕设置提供特殊处理
-        if (key === 'subtitleDisplayMode') {
-            // 确保 subtitleSettings 对象存在
-            if (!rule.subtitleSettings) rule.subtitleSettings = {};
-            // 如果用户正在与字幕控件交互，我们可以安全地假设他们希望启用该功能。
-            rule.subtitleSettings.enabled = true;
-            rule.subtitleSettings.displayMode = value;
-        } else {
-            rule[key] = value;
-        }
-        settings.domainRules[domainToUpdate] = rule;
-
-        await browser.storage.sync.set({ settings });
-        return { success: true };
-    },
-
     async GET_EFFECTIVE_SETTINGS(request) {
         const { hostname } = request.payload;
         return SettingsManager.getEffectiveSettings(hostname);
@@ -573,63 +534,6 @@ browser.contextMenus.onClicked.addListener((info, tab) => {
     }
 });
 
-browser.storage.onChanged.addListener(async (changes, area) => {
-    if (area === 'sync' && changes.settings) {
-        const oldValue = changes.settings.oldValue;
-        const newValue = changes.settings.newValue;
-
-        // 定义哪些设置的更改需要完全重新翻译页面
-        const criticalKeys = [
-            'targetLanguage',
-            'translatorEngine',
-            'precheckRules',
-            'translationSelector',
-            'deeplxApiUrl', // 影响 deeplx 引擎
-            'aiEngines'     // 影响 AI 引擎
-        ];
-
-        let needsReTranslation = false;
-        // 仅当新旧值都存在时才进行比较
-        if (oldValue && newValue) {
-            for (const key of criticalKeys) {
-                // 使用 JSON.stringify 进行深比较，适用于对象和数组
-                if (JSON.stringify(oldValue[key]) !== JSON.stringify(newValue[key])) {
-                    needsReTranslation = true;
-                    if (__DEBUG__) {
-                        console.log(`[Foxlate] Critical setting '${key}' changed. Page re-translation required.`);
-                    }
-                    break;
-                }
-            }
-        }
-
-        const messageType = needsReTranslation ? 'RELOAD_TRANSLATION_JOB' : 'SETTINGS_UPDATED';
-        if (__DEBUG__) {
-            console.log(`[Service Worker] Settings changed. Notifying content scripts with '${messageType}'.`);
-        }
-
-        // (优化) 只通知那些当前有活动翻译的标签页
-        const activeTabIds = await TabStateManager.getActiveTabIds();
-        if (activeTabIds.length > 0) {
-            if (__DEBUG__) {
-                console.log(`[Service Worker] Sending update to ${activeTabIds.length} active tabs:`, activeTabIds);
-            }
-            for (const tabId of activeTabIds) {
-                browser.tabs.sendMessage(tabId, { type: messageType }).catch(e => {
-                    // Ignore errors, as content script might not be injected or tab might be closed.
-                    if (!e.message.includes("Receiving end does not exist")) {
-                        logError('storage.onChanged (notify tab)', e);
-                    }
-                });
-            }
-        }
-
-        // Also, update any service-worker-specific variables that depend on settings
-        TranslatorManager.updateConcurrencyLimit();
-        TranslatorManager.updateCacheSize();
-    }
-});
-
 browser.runtime.onMessage.addListener((request, sender) => {
     if (__DEBUG__) {
         console.log(`[Service Worker] Received message: ${JSON.stringify(request)}`);
@@ -734,3 +638,59 @@ async function setBadgeAndState(tabId, state) {
         }
     }
 }
+
+// --- (新) 统一的设置变更监听器 ---
+SettingsManager.on('settingsChanged', async ({ newValue, oldValue }) => {
+    // 定义哪些设置的更改需要完全重新翻译页面
+    const criticalKeys = [
+        'targetLanguage',
+        'translatorEngine',
+        'precheckRules',
+        'translationSelector',
+        'deeplxApiUrl', // 影响 deeplx 引擎
+        'aiEngines'     // 影响 AI 引擎
+    ];
+
+    let needsReTranslation = false;
+    // 仅当新旧值都存在时才进行比较
+    if (oldValue && newValue) {
+        for (const key of criticalKeys) {
+            // 使用 JSON.stringify 进行深比较，适用于对象和数组
+            if (JSON.stringify(oldValue[key]) !== JSON.stringify(newValue[key])) {
+                needsReTranslation = true;
+                if (__DEBUG__) {
+                    console.log(`[Foxlate] Critical setting '${key}' changed. Page re-translation required.`);
+                }
+                break;
+            }
+        }
+    } else {
+        // 如果没有旧值（例如，首次安装或重置后），则假定需要重新翻译
+        needsReTranslation = true;
+    }
+
+    const messageType = needsReTranslation ? 'RELOAD_TRANSLATION_JOB' : 'SETTINGS_UPDATED';
+    if (__DEBUG__) {
+        console.log(`[Service Worker] Settings changed. Notifying content scripts with '${messageType}'.`);
+    }
+
+    // (优化) 只通知那些当前有活动翻译的标签页
+    const activeTabIds = await TabStateManager.getActiveTabIds();
+    for (const tabId of activeTabIds) {
+        browser.tabs.sendMessage(tabId, { type: messageType }).catch(e => {
+            if (!e.message.includes("Receiving end does not exist")) {
+                logError('settingsChanged listener (notify tab)', e);
+            }
+        });
+    }
+
+    // (新) 同时，向扩展的其余部分（如 popup）广播一个通用更新消息。
+    // 这确保了即使弹窗是打开的，它也能收到设置更新的通知。
+    browser.runtime.sendMessage({ type: messageType, payload: { newValue, oldValue } }).catch(e => {
+        // 忽略错误，因为可能没有其他监听器（例如，弹窗未打开）。
+    });
+
+    // 更新依赖于设置的后台服务
+    TranslatorManager.updateConcurrencyLimit();
+    TranslatorManager.updateCacheSize();
+});
