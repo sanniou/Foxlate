@@ -440,21 +440,41 @@ class SummaryManager {
         conversationArea.addEventListener('click', (e) => {
             const copyBtn = e.target.closest('.foxlate-msg-action-copy');
             const regenerateBtn = e.target.closest('.foxlate-msg-action-regenerate');
+            const editBtn = e.target.closest('.foxlate-msg-action-edit');
+            const saveEditBtn = e.target.closest('.foxlate-msg-action-save');
+            const cancelEditBtn = e.target.closest('.foxlate-msg-action-cancel');
 
             if (copyBtn) {
                 const messageEl = copyBtn.closest('.foxlate-summary-message');
                 const content = messageEl.querySelector('.message-content')?.innerText || '';
                 navigator.clipboard.writeText(content).catch(err => logError('copy single message', err));
-                return;
-            }
-
-            if (regenerateBtn) {
+            } else if (regenerateBtn) {
                 const messageEl = regenerateBtn.closest('.foxlate-summary-message');
                 const index = parseInt(messageEl.dataset.messageIndex, 10);
                 if (!isNaN(index)) {
                     this.handleRegenerateMessage(index);
                 }
-                return;
+            } else if (editBtn) {
+                const messageEl = editBtn.closest('.foxlate-summary-message');
+                const index = parseInt(messageEl.dataset.messageIndex, 10);
+                if (!isNaN(index)) {
+                    this.enterEditMode(index);
+                }
+            } else if (saveEditBtn) {
+                const messageEl = saveEditBtn.closest('.foxlate-summary-message');
+                const index = parseInt(messageEl.dataset.messageIndex, 10);
+                const textarea = messageEl.querySelector('textarea');
+                if (!isNaN(index) && textarea) {
+                    this.saveEdit(index, textarea.value);
+                }
+            } else if (cancelEditBtn) {
+                const messageEl = cancelEditBtn.closest('.foxlate-summary-message');
+                const index = parseInt(messageEl.dataset.messageIndex, 10);
+                if (!isNaN(index)) {
+                    // 恢复原始UI
+                    const originalContent = this.conversationHistory[index].content;
+                    this.updateMessageAtIndex(index, originalContent);
+                }
             }
         });
     }
@@ -530,6 +550,93 @@ class SummaryManager {
             // (已修复) 恢复全局状态。UI状态由 updateMessageAtIndex 负责
             this.state = 'summarized';
         }
+    }
+
+    enterEditMode(index) {
+        const messageEl = this.dialog.querySelector(`[data-message-index="${index}"]`);
+        if (!messageEl || this.conversationHistory[index].role !== 'user') return;
+
+        const originalContent = this.conversationHistory[index].content;
+
+        messageEl.innerHTML = `
+            <div class="foxlate-summary-message-edit-area">
+                <textarea rows="3">${originalContent}</textarea>
+                <div class="foxlate-summary-message-actions" style="opacity:1; visibility:visible; position:relative; justify-content:flex-end;">
+                    <button class="foxlate-msg-action-cancel foxlate-summary-dialog-icon-btn" aria-label="Cancel">
+                        <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 24 24" width="20"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                    </button>
+                    <button class="foxlate-msg-action-save foxlate-summary-dialog-icon-btn" aria-label="Save">
+                        <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 24 24" width="20"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                    </button>
+                </div>
+            </div>
+        `;
+
+        const textarea = messageEl.querySelector('textarea');
+        textarea.focus();
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length); // 光标移到末尾
+        // 自动调整高度
+        textarea.style.height = 'auto';
+        textarea.style.height = `${textarea.scrollHeight}px`;
+        textarea.addEventListener('input', () => {
+            textarea.style.height = 'auto';
+            textarea.style.height = `${textarea.scrollHeight}px`;
+        });
+    }
+
+    async saveEdit(index, newContent) {
+        if (this.state === 'loading') return;
+
+        // 1. 截断历史记录和UI
+        this.conversationHistory = this.conversationHistory.slice(0, index + 1);
+        const conversationArea = this.dialog.querySelector('.foxlate-summary-dialog-conversation');
+        const messages = conversationArea.querySelectorAll('.foxlate-summary-message');
+        messages.forEach(msg => {
+            const msgIndex = parseInt(msg.dataset.messageIndex, 10);
+            if (msgIndex > index) {
+                msg.remove();
+            }
+        });
+
+        // 2. 更新当前消息的内容和UI
+        this.conversationHistory[index].content = newContent;
+        this.updateMessageAtIndex(index, newContent);
+
+        // 3. 触发新的AI响应
+        this.state = 'loading';
+        this.dialog.querySelector('.foxlate-summary-dialog-send-btn').disabled = true;
+        this.addMessageToConversation('...', 'loading');
+
+        // 复用 handleSendMessage 的内部逻辑，但不添加用户消息
+        await this.getAiResponseForHistory(this.conversationHistory);
+    }
+
+    /**
+     * (新) 根据消息角色生成对应的操作按钮HTML。
+     * @param {string} role - 'user' 或 'ai'。
+     * @returns {string} HTML字符串。
+     * @private
+     */
+    #getActionsHTML(role) {
+        if (role === 'ai') {
+            return `
+                <div class="foxlate-summary-message-actions">
+                    <button class="foxlate-msg-action-regenerate foxlate-summary-dialog-icon-btn" aria-label="Regenerate">
+                        <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 24 24" width="20"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+                    </button>
+                    <button class="foxlate-msg-action-copy foxlate-summary-dialog-icon-btn" aria-label="Copy">
+                        <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 24 24" width="20"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                    </button>
+                </div>`;
+        } else if (role === 'user') {
+            return `
+                <div class="foxlate-summary-message-actions">
+                    <button class="foxlate-msg-action-edit foxlate-summary-dialog-icon-btn" aria-label="Edit">
+                        <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 24 24" width="20"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                    </button>
+                </div>`;
+        }
+        return '';
     }
 
     toggleDialog() {
@@ -620,19 +727,7 @@ class SummaryManager {
         } else {
             // (已修改) 为内容和动作创建独立的内部容器
             const contentHTML = `<div class="message-content">${marked.parse(content)}</div>`;
-            let actionsHTML = '';
-            if (role === 'ai') {
-                actionsHTML = `
-                    <div class="foxlate-summary-message-actions">
-                        <button class="foxlate-msg-action-regenerate foxlate-summary-dialog-icon-btn" aria-label="Regenerate">
-                            <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 24 24" width="20"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
-                        </button>
-                        <button class="foxlate-msg-action-copy foxlate-summary-dialog-icon-btn" aria-label="Copy">
-                            <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 24 24" width="20"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-                        </button>
-                    </div>
-                `;
-            }
+            const actionsHTML = this.#getActionsHTML(role);
             messageEl.innerHTML = contentHTML + actionsHTML;
         }
 
@@ -653,19 +748,7 @@ class SummaryManager {
             if (isError) lastMessage.classList.add('error');
 
             const contentHTML = `<div class="message-content">${marked.parse(content)}</div>`;
-            let actionsHTML = '';
-            if (role === 'ai') {
-                actionsHTML = `
-                    <div class="foxlate-summary-message-actions">
-                        <button class="foxlate-msg-action-regenerate foxlate-summary-dialog-icon-btn" aria-label="Regenerate">
-                            <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 24 24" width="20"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
-                        </button>
-                        <button class="foxlate-msg-action-copy foxlate-summary-dialog-icon-btn" aria-label="Copy">
-                            <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 24 24" width="20"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-                        </button>
-                    </div>
-                `;
-            }
+            const actionsHTML = this.#getActionsHTML(role);
             lastMessage.innerHTML = contentHTML + actionsHTML;
 
             conversationArea.scrollTop = conversationArea.scrollHeight;
@@ -678,21 +761,13 @@ class SummaryManager {
     updateMessageAtIndex(index, newContent, isError = false) {
         const messageEl = this.dialog.querySelector(`[data-message-index="${index}"]`);
         if (!messageEl) return;
-
-        messageEl.className = `foxlate-summary-message ai`; // 重置类名
+        
+        const role = this.conversationHistory[index]?.role || 'ai';
+        messageEl.className = `foxlate-summary-message ${role}`; // 重置类名
         if (isError) messageEl.classList.add('error');
 
         const contentHTML = `<div class="message-content">${marked.parse(newContent)}</div>`;
-        const actionsHTML = `
-            <div class="foxlate-summary-message-actions">
-                <button class="foxlate-msg-action-regenerate foxlate-summary-dialog-icon-btn" aria-label="Regenerate">
-                    <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 24 24" width="20"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
-                </button>
-                <button class="foxlate-msg-action-copy foxlate-summary-dialog-icon-btn" aria-label="Copy">
-                    <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 24 24" width="20"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-                </button>
-            </div>
-        `;
+        const actionsHTML = this.#getActionsHTML(role);
         messageEl.innerHTML = contentHTML + actionsHTML;
 
         // 确保滚动条在需要时可见
@@ -722,10 +797,27 @@ class SummaryManager {
         this.addMessageToConversation('...', 'loading');
 
         try {
+            await this.getAiResponseForHistory(this.conversationHistory);
+        } catch (error) {
+            // 错误已在 getAiResponseForHistory 中处理
+        } finally {
+            // 无论成功或失败，都恢复状态
+            this.state = 'summarized'; // 恢复到可交互状态
+            sendBtn.disabled = false;
+        }
+    }
+
+    /**
+     * (新) 封装的通用方法，用于为给定的历史记录获取AI响应并更新UI
+     * @param {Array} history - 要发送给AI的对话历史
+     */
+    async getAiResponseForHistory(history) {
+        const sendBtn = this.dialog.querySelector('.foxlate-summary-dialog-send-btn');
+        try {
             const response = await browser.runtime.sendMessage({
                 type: 'CONVERSE_WITH_AI', // 新的消息类型，用于通用对话
                 payload: {
-                    history: this.conversationHistory, // (已修改) 发送完整的历史记录
+                    history: history, // (已修改) 发送完整的历史记录
                     aiModel: this.summarySettings.aiModel, // 对话使用的 AI 模型来自总结设置
                     targetLang: this.settings.targetLanguage // (已修复) 对话的目标语言也应遵循全局或域名规则
                 }
@@ -743,10 +835,6 @@ class SummaryManager {
             logError('handleSendMessage', error);
             const errorMessage = browser.i18n.getMessage('summaryErrorText') + error.message;
             this.updateLastMessage(errorMessage, 'ai', true);
-        } finally {
-            // 无论成功或失败，都恢复状态
-            this.state = 'summarized'; // 恢复到可交互状态
-            sendBtn.disabled = false;
         }
     }
 

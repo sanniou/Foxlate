@@ -399,6 +399,13 @@
     border-bottom-right-radius: 4px; /* 模仿聊天气泡 */
 }
 
+/* (新) 用户消息的动作按钮需要不同的定位 */
+.foxlate-summary-message.user .foxlate-summary-message-actions {
+    /* 将按钮放在左侧，以区别于 AI 消息 */
+    left: 8px;
+    right: auto;
+}
+
 .foxlate-summary-message.loading {
     align-self: flex-start;
     display: inline-flex;
@@ -438,6 +445,26 @@
     opacity: 1;
     visibility: visible;
     transition: opacity 0.15s ease-out;
+}
+
+/* (新) 编辑模式下的样式 */
+.foxlate-summary-message-edit-area {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.foxlate-summary-message-edit-area textarea {
+    /* 复用主输入框的样式，但背景透明 */
+    border: none;
+    border-bottom: 1px solid var(--md-sys-color-outline, #79747E);
+    border-radius: 8px;
+    padding: 6px 8px;
+    font-size: 14px;
+    font-family: inherit;
+    background-color: transparent;
+    color: var(--md-sys-color-on-primary-container, #21005D);
+    resize: none;
 }
 
 .foxlate-summary-dialog-footer {
