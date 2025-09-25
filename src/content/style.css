@@ -390,6 +390,8 @@
     background-color: var(--md-sys-color-surface-container, #F3EDF7);
     align-self: flex-start;
     border-bottom-left-radius: 4px; /* 模仿聊天气泡 */
+    /* (新) 确保AI消息气泡有足够的最小高度来容纳操作按钮 */
+    min-height: 40px;
 }
 
 .foxlate-summary-message.user {
@@ -445,6 +447,22 @@
     opacity: 1;
     visibility: visible;
     transition: opacity 0.15s ease-out;
+}
+
+/* (新) 历史版本导航控件 */
+.foxlate-msg-history-nav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 4px;
+    background-color: rgba(var(--md-sys-color-on-surface-rgb, 28, 27, 31), 0.05);
+    border-radius: 12px;
+}
+
+.foxlate-msg-history-nav span {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--md-sys-color-on-surface-variant, #49454F);
 }
 
 /* (新) 编辑模式下的样式 */
@@ -508,6 +526,12 @@
 .foxlate-summary-dialog-send-btn:hover {
     background-color: var(--md-sys-color-primary-container, #EADDFF);
     color: var(--md-sys-color-on-primary-container, #21005D);
+}
+
+.foxlate-summary-dialog-icon-btn:disabled {
+    background-color: transparent;
+    color: var(--md-sys-color-on-surface-disabled, rgba(28, 27, 31, 0.38));
+    cursor: not-allowed;
 }
 
 .foxlate-summary-dialog-send-btn:disabled {

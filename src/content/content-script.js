@@ -377,7 +377,11 @@ class SummaryManager {
             if (response.success) {
                 // (新) 将成功的总结作为对话的开端
                 this.conversationHistory = []; // 清空历史
-                this.conversationHistory.push({ role: 'assistant', content: response.summary });
+                this.conversationHistory.push({
+                    role: 'assistant',
+                    contents: [response.summary],
+                    activeContentIndex: 0
+                });
                 this.updateLastMessage(response.summary, 'ai');
             } else {
                 const errorMessage = browser.i18n.getMessage('summaryErrorText') + response.error;
@@ -443,6 +447,8 @@ class SummaryManager {
             const editBtn = e.target.closest('.foxlate-msg-action-edit');
             const saveEditBtn = e.target.closest('.foxlate-msg-action-save');
             const cancelEditBtn = e.target.closest('.foxlate-msg-action-cancel');
+            const prevBtn = e.target.closest('.foxlate-msg-action-prev');
+            const nextBtn = e.target.closest('.foxlate-msg-action-next');
 
             if (copyBtn) {
                 const messageEl = copyBtn.closest('.foxlate-summary-message');
@@ -475,6 +481,18 @@ class SummaryManager {
                     const originalContent = this.conversationHistory[index].content;
                     this.updateMessageAtIndex(index, originalContent);
                 }
+            } else if (prevBtn) {
+                const messageEl = prevBtn.closest('.foxlate-summary-message');
+                const index = parseInt(messageEl.dataset.messageIndex, 10);
+                if (!isNaN(index)) {
+                    this.navigateHistory(index, -1);
+                }
+            } else if (nextBtn) {
+                const messageEl = nextBtn.closest('.foxlate-summary-message');
+                const index = parseInt(messageEl.dataset.messageIndex, 10);
+                if (!isNaN(index)) {
+                    this.navigateHistory(index, 1);
+                }
             }
         });
     }
@@ -495,7 +513,9 @@ class SummaryManager {
     handleCopyConversation() {
         const textToCopy = this.conversationHistory.map(msg => {
             const prefix = msg.role === 'user' ? 'User:' : 'AI:';
-            return `${prefix}\n${msg.content}`;
+            // (已修改) 从新的数据结构中获取当前激活的内容
+            const content = msg.role === 'user' ? msg.content : msg.contents[msg.activeContentIndex];
+            return `${prefix}\n${content}`;
         }).join('\n\n');
 
         navigator.clipboard.writeText(textToCopy).then(() => {
@@ -515,15 +535,14 @@ class SummaryManager {
         const messageToRegenerate = this.dialog.querySelector(`[data-message-index="${index}"]`);
         if (!messageToRegenerate) return;
 
-        // (已修复) 将整条消息置为加载状态，而不是只在按钮上加动画
-        messageToRegenerate.innerHTML = ''; // 清空旧内容
-        messageToRegenerate.classList.add('loading');
-        messageToRegenerate.textContent = '...'; // 显示加载提示
-
-        this.state = 'loading';
-
         // 截取到当前消息之前的历史作为上下文
         const contextHistory = this.conversationHistory.slice(0, index);
+
+        // (已修改) 在重新生成时，只让被操作的消息进入加载状态
+        this.state = 'loading';
+        messageToRegenerate.innerHTML = '';
+        messageToRegenerate.classList.add('loading');
+        messageToRegenerate.textContent = '...';
 
         try {
             const response = await browser.runtime.sendMessage({
@@ -536,18 +555,25 @@ class SummaryManager {
             });
 
             if (response.success) {
-                // (已修复) 更新历史记录，然后调用 updateMessageAtIndex 更新UI
-                this.conversationHistory[index] = { role: 'assistant', content: response.reply };
-                this.updateMessageAtIndex(index, response.reply);
+                // (已修改) 将新回复添加到版本历史中
+                const message = this.conversationHistory[index];
+                message.contents.push(response.reply);
+                message.activeContentIndex = message.contents.length - 1;
+                this.updateMessageAtIndex(index);
             } else {
-                // (已修复) 即使失败，也调用 updateMessageAtIndex 来显示错误信息
-                this.updateMessageAtIndex(index, browser.i18n.getMessage('summaryErrorText') + (response.error || 'Unknown error'), true);
+                // (已修复) 如果重新生成失败，将错误信息作为新版本添加，并更新UI
+                const message = this.conversationHistory[index];
+                const errorMessage = browser.i18n.getMessage('summaryErrorText') + (response.error || 'Unknown error');
+                message.contents.push(errorMessage);
+                message.activeContentIndex = message.contents.length - 1;
+                this.updateMessageAtIndex(index, true);
             }
         } catch (error) {
-            // (已修复) 捕获异常时，同样调用 updateMessageAtIndex 显示错误
-            this.updateMessageAtIndex(index, browser.i18n.getMessage('summaryErrorText') + error.message, true);
+            const errorMessage = browser.i18n.getMessage('summaryErrorText') + error.message;
+            this.conversationHistory[index].contents.push(errorMessage);
+            this.conversationHistory[index].activeContentIndex++;
+            this.updateMessageAtIndex(index, true);
         } finally {
-            // (已修复) 恢复全局状态。UI状态由 updateMessageAtIndex 负责
             this.state = 'summarized';
         }
     }
@@ -611,16 +637,47 @@ class SummaryManager {
         await this.getAiResponseForHistory(this.conversationHistory);
     }
 
+    navigateHistory(index, direction) {
+        const message = this.conversationHistory[index];
+        if (!message || message.role !== 'assistant') return;
+
+        const newIndex = message.activeContentIndex + direction;
+        if (newIndex >= 0 && newIndex < message.contents.length) {
+            message.activeContentIndex = newIndex;
+            this.updateMessageAtIndex(index);
+        }
+    }
+
     /**
      * (新) 根据消息角色生成对应的操作按钮HTML。
      * @param {string} role - 'user' 或 'ai'。
      * @returns {string} HTML字符串。
      * @private
      */
-    #getActionsHTML(role) {
+    #getActionsHTML(role, message) {
         if (role === 'ai') {
+            let historyNavHTML = '';
+            // (新) 如果有多个版本，则渲染历史导航控件
+            if (message && message.contents && message.contents.length > 1) {
+                const currentIndex = message.activeContentIndex;
+                const total = message.contents.length;
+                const prevDisabled = currentIndex === 0 ? 'disabled' : '';
+                const nextDisabled = currentIndex === total - 1 ? 'disabled' : '';
+                historyNavHTML = `
+                    <div class="foxlate-msg-history-nav">
+                        <button class="foxlate-msg-action-prev foxlate-summary-dialog-icon-btn" aria-label="Previous" ${prevDisabled}>
+                            <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 24 24" width="20"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+                        </button>
+                        <span>${currentIndex + 1}/${total}</span>
+                        <button class="foxlate-msg-action-next foxlate-summary-dialog-icon-btn" aria-label="Next" ${nextDisabled}>
+                            <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 24 24" width="20"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+                        </button>
+                    </div>
+                `;
+            }
             return `
                 <div class="foxlate-summary-message-actions">
+                    ${historyNavHTML}
                     <button class="foxlate-msg-action-regenerate foxlate-summary-dialog-icon-btn" aria-label="Regenerate">
                         <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 24 24" width="20"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
                     </button>
@@ -727,7 +784,7 @@ class SummaryManager {
         } else {
             // (已修改) 为内容和动作创建独立的内部容器
             const contentHTML = `<div class="message-content">${marked.parse(content)}</div>`;
-            const actionsHTML = this.#getActionsHTML(role);
+            const actionsHTML = this.#getActionsHTML(role, this.conversationHistory[messageIndex]);
             messageEl.innerHTML = contentHTML + actionsHTML;
         }
 
@@ -748,7 +805,7 @@ class SummaryManager {
             if (isError) lastMessage.classList.add('error');
 
             const contentHTML = `<div class="message-content">${marked.parse(content)}</div>`;
-            const actionsHTML = this.#getActionsHTML(role);
+            const actionsHTML = this.#getActionsHTML(role, this.conversationHistory[messageIndex]);
             lastMessage.innerHTML = contentHTML + actionsHTML;
 
             conversationArea.scrollTop = conversationArea.scrollHeight;
@@ -758,16 +815,24 @@ class SummaryManager {
         }
     }
 
-    updateMessageAtIndex(index, newContent, isError = false) {
+    updateMessageAtIndex(index, isError = false) {
         const messageEl = this.dialog.querySelector(`[data-message-index="${index}"]`);
         if (!messageEl) return;
         
-        const role = this.conversationHistory[index]?.role || 'ai';
-        messageEl.className = `foxlate-summary-message ${role}`; // 重置类名
+        const message = this.conversationHistory[index];
+        if (!message) return;
+
+        // (已修复) 将数据模型的 'assistant' 角色映射到视图所需的 'ai' 角色
+        const dataRole = message.role;
+        const displayRole = dataRole === 'assistant' ? 'ai' : dataRole;
+
+        messageEl.className = `foxlate-summary-message ${displayRole}`; // 使用正确的视图角色重置类名
         if (isError) messageEl.classList.add('error');
 
-        const contentHTML = `<div class="message-content">${marked.parse(newContent)}</div>`;
-        const actionsHTML = this.#getActionsHTML(role);
+        const contentToRender = dataRole === 'user' ? message.content : message.contents[message.activeContentIndex];
+        const contentHTML = `<div class="message-content">${marked.parse(contentToRender)}</div>`;
+        // (已修复) 将正确的视图角色传递给辅助函数
+        const actionsHTML = this.#getActionsHTML(displayRole, message);
         messageEl.innerHTML = contentHTML + actionsHTML;
 
         // 确保滚动条在需要时可见
@@ -825,7 +890,11 @@ class SummaryManager {
 
             if (response.success) {
                 // (新) 将AI的回复添加到历史记录
-                this.conversationHistory.push({ role: 'assistant', content: response.reply });
+                this.conversationHistory.push({
+                    role: 'assistant',
+                    contents: [response.reply],
+                    activeContentIndex: 0
+                });
                 this.updateLastMessage(response.reply, 'ai');
             } else {
                 const errorMessage = browser.i18n.getMessage('summaryErrorText') + (response.error || 'Unknown error');
