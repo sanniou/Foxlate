@@ -843,6 +843,10 @@
     "message": "启用内容总结时，必须指定主体内容选择器。",
     "description": "验证错误信息。"
   },
+  "toggleSummary": {
+    "message": "切换内容总结",
+    "description": "内容总结浮动操作按钮的 ARIA 标签。"
+  },
   "errorSummaryModelRequired": {
     "message": "启用内容总结时，必须选择一个总结 AI 模型。",
     "description": "验证错误信息。"

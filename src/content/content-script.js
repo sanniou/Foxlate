@@ -488,8 +488,7 @@ class SummaryManager {
                 const index = parseInt(messageEl.dataset.messageIndex, 10);
                 if (!isNaN(index)) {
                     // 恢复原始UI
-                    const originalContent = this.conversationHistory[index].content;
-                    this.updateMessageAtIndex(index, originalContent);
+                    this.updateMessageAtIndex(index);
                 }
             } else if (prevBtn) {
                 const messageEl = prevBtn.closest('.foxlate-summary-message');
@@ -719,12 +718,53 @@ class SummaryManager {
         return '';
     }
 
+    /**
+     * (重构) 展开对话框，根据可用空间自动选择生长方向。
+     */
     expand() {
         if (!this.summaryContainer || this.isExpanded) return;
-        this.summaryContainer.classList.add('expanded');
+
+        // 1. 获取所需尺寸信息
+        const fabRect = this.summaryContainer.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        const gap = 16; // 与屏幕边缘的最小间距
+
+        // 从 CSS 中获取对话框的大致尺寸（使用 clamp 的最小值作为估算）
+        const dialogMinWidth = 320;
+        const dialogMaxHeight = viewportHeight * 0.8;
+
+        // 2. 判断 FAB 在屏幕的哪个象限
+        const isRightHalf = fabRect.left + fabRect.width / 2 > viewportWidth / 2;
+        const isBottomHalf = fabRect.top + fabRect.height / 2 > viewportHeight / 2;
+
+        // 3. 决定生长方向
+        let expansionClass = 'expanded-br'; // 默认向右下 (bottom-right)
+        if (isBottomHalf && isRightHalf) {
+            expansionClass = 'expanded-tl'; // 左上 (top-left)
+        } else if (isBottomHalf) {
+            expansionClass = 'expanded-tr'; // 右上 (top-right)
+        } else if (isRightHalf) {
+            expansionClass = 'expanded-bl'; // 左下 (bottom-left)
+        }
+
+        // 4. 移除所有可能的旧方向类，并添加新的方向类
+        this.summaryContainer.classList.remove(
+            'expanded-br',
+            'expanded-bl',
+            'expanded-tr',
+            'expanded-tl'
+        );
+        this.summaryContainer.classList.add(expansionClass);
+
+        // 5. 添加 'expanded' 主类来触发动画
+        // 使用 requestAnimationFrame 确保方向类先生效，再触发动画
+        requestAnimationFrame(() => {
+            this.summaryContainer.classList.add('expanded');
+        });
+
         this.isExpanded = true;
         document.addEventListener('keydown', this.handleKeyDown);
-        // 对话框显示时，让输入框自动获得焦点
         setTimeout(() => this.summaryContainer.querySelector('.foxlate-summary-dialog-input')?.focus(), 300); // 延迟以等待动画
     }
 
@@ -792,7 +832,7 @@ class SummaryManager {
         }
     }
 
-    updateMessageAtIndex(index, isError = false) {
+    updateMessageAtIndex(index, isError = false) { // (已优化) 为 isError 添加了明确的默认值
         const messageEl = this.summaryContainer.querySelector(`[data-message-index="${index}"]`);
         if (!messageEl) return;
         
@@ -956,71 +996,6 @@ class SummaryManager {
         this.visibilityObserver = null;
         document.removeEventListener('keydown', this.handleKeyDown);
     }
-}
-
-
-/**
- * 使一个元素可拖动。
- * @param {HTMLElement} element - 要使其可拖动的元素。
- * @param {string|null} handleSelector - 用于拖动的句柄的选择器。如果为 null，则整个元素都可拖动。
- * @private
- */
-function makeDraggable(element, handleSelector = null) {
-    let offsetX = 0, offsetY = 0;
-    const handle = handleSelector ? element.querySelector(handleSelector) : element;
-
-    if (!handle) return;
-    // CSS 中已设置 cursor: move
-
-    const dragMouseDown = (e) => {
-        // 拖动开始时，如果对话框可见，则临时隐藏
-        if (this.modal && this.modal.style.display !== 'none') {
-            this.modal.style.display = 'none';
-        }
-        e.preventDefault();
-        // 1. 计算鼠标指针在元素内部的初始偏移量
-        offsetX = e.clientX - element.getBoundingClientRect().left;
-        offsetY = e.clientY - element.getBoundingClientRect().top;
-
-        document.onmouseup = closeDragElement;
-        document.onmousemove = elementDrag;
-    };
-
-    const elementDrag = (e) => {
-        e.preventDefault();
-
-        // 2. 直接用当前鼠标位置减去初始偏移量，得到元素的新位置
-        let newTop = e.clientY - offsetY;
-        let newLeft = e.clientX - offsetX;
-
-        // 边界检查，防止拖出视口
-        newTop = Math.max(0, Math.min(newTop, window.innerHeight - element.clientHeight));
-        newLeft = Math.max(0, Math.min(newLeft, window.innerWidth - element.clientWidth));
-
-        element.style.top = newTop + "px";
-        element.style.left = newLeft + "px";
-    };
-
-    const closeDragElement = () => {
-        // 3. 清理事件监听器
-        document.onmouseup = null;
-        document.onmousemove = null;
-
-        // 拖动结束后，如果对话框存在，则重新定位并显示它
-        if (this.modal) {
-            this.positionModal();
-            this.modal.style.display = 'block';
-        }
-    };
-
-    handle.onmousedown = dragMouseDown;
-}
-
-/**
- * 销毁并清理所有UI元素和事件监听器。
- */
-function destroy() {
-    this.container?.remove(); // 只需移除父容器
 }
 
 // --- State Management Class ---

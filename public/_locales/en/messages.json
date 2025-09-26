@@ -831,6 +831,10 @@
     "message": "Main Body Selector is required when summary is enabled.",
     "description": "Validation error message."
   },
+  "toggleSummary": {
+    "message": "Toggle Summary",
+    "description": "ARIA label for the summary floating action button."
+  },
   "errorSummaryModelRequired": {
     "message": "Summary AI Model is required when summary is enabled.",
     "description": "Validation error message."

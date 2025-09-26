@@ -156,7 +156,8 @@
     transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
                 height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
                 border-radius 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                box-shadow 0.2s ease-out,
+                transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), /* (已修复) 为位置变化添加过渡动画 */
+                box-shadow 0.2s ease-out, 
                 background-color 0.2s ease-out;
 
     /* Flexbox 用于内部布局 */
@@ -177,6 +178,58 @@
     box-shadow: 0 8px 12px 6px rgba(0,0,0,0.15), 0 4px 8px -4px rgba(0,0,0,0.3); /* Elevation 3 */
     background-color: var(--md-sys-color-surface-container-high, #F3EDF7);
     cursor: default; /* 展开后恢复默认光标 */
+}
+
+/* --- (新) 动态生长方向 --- */
+
+/* 默认：向右下方生长 (从左上角) */
+.foxlate-summary-container.expanded-br {
+    transform-origin: top left;
+}
+.foxlate-summary-container.expanded-br .foxlate-summary-fab {
+    top: 0;
+    left: 0;
+}
+
+/* 向左下方生长 (从右上角) */
+.foxlate-summary-container.expanded-bl {
+    transform-origin: top right;
+}
+.foxlate-summary-container.expanded-bl.expanded {
+    /* 将容器向左移动 (对话框宽度 - FAB宽度) */
+    transform: translateX(calc(-100% + 56px));
+}
+.foxlate-summary-container.expanded-bl .foxlate-summary-fab {
+    top: 0;
+    right: 0;
+    left: auto; /* 覆盖默认的 left: 0 */
+}
+
+/* 向右上方生长 (从左下角) */
+.foxlate-summary-container.expanded-tr {
+    transform-origin: bottom left;
+}
+.foxlate-summary-container.expanded-tr.expanded {
+    transform: translateY(calc(-100% + 56px));
+}
+.foxlate-summary-container.expanded-tr .foxlate-summary-fab {
+    top: auto;
+    bottom: 0;
+    left: 0;
+}
+
+/* 向左上方生长 (从右下角) */
+.foxlate-summary-container.expanded-tl {
+    transform-origin: bottom right;
+}
+.foxlate-summary-container.expanded-tl.expanded {
+    transform: translate(calc(-100% + 56px), calc(-100% + 56px));
+}
+.foxlate-summary-container.expanded-tl .foxlate-summary-fab {
+    top: auto;
+    bottom: 0;
+    right: 0;
+    left: auto;
 }
 
 /* (新) 当对话框展开时，为头部增加左内边距，为 FAB 腾出空间 */
@@ -205,8 +258,6 @@
 /* --- 内部 FAB 按钮 --- */
 .foxlate-summary-fab {
     position: absolute;
-    top: 0;
-    left: 0;
     width: 56px;
     height: 56px;
     border-radius: 50%;
