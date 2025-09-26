@@ -20,9 +20,30 @@ class SummaryModule {
             this.summaryButton = new SummaryButton();
             this.summaryDialog = new SummaryDialog(this.handleSendMessage.bind(this), this.handleAction.bind(this));
             this.setupEventListeners();
+            this.positionInitialButton(); // 修复：初始化按钮位置
         } else {
             window.addEventListener('DOMContentLoaded', () => this.init());
         }
+    }
+
+    // 修复：新增方法，用于根据 mainBody 定位按钮初始位置
+    positionInitialButton() {
+        const mainBodySelector = this.settings.summarySettings?.mainBodySelector;
+        let targetElement = document.body; // 默认 fallback 到 body
+
+        if (mainBodySelector) {
+            const foundElement = document.querySelector(mainBodySelector);
+            if (foundElement) {
+                targetElement = foundElement;
+            }
+        }
+
+        const targetRect = targetElement.getBoundingClientRect();
+        // 将按钮定位在目标元素右上角，并向内偏移
+        const initialX = window.scrollX + targetRect.right - 60;
+        const initialY = window.scrollY + targetRect.top + 20;
+
+        this.summaryButton.setPosition(initialX, initialY);
     }
 
     setupEventListeners() {
@@ -207,7 +228,7 @@ class SummaryButton {
         this.element.className = 'foxlate-summary-button';
         this.element.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M11.25 3.5H12.75V5H11.25V3.5ZM12 19C11.35 19 10.8 18.8 10.35 18.35C9.9 17.9 9.7 17.35 9.7 16.7C9.7 16.05 9.9 15.5 10.35 15.05C10.8 14.6 11.35 14.4 12 14.4C12.65 14.4 13.2 14.6 13.65 15.05C14.1 15.5 14.3 16.05 14.3 16.7C14.3 17.35 14.1 17.9 13.65 18.35C13.2 18.8 12.65 19 12 19ZM5 12.75V11.25H3.5V12.75H5ZM19 12C19 11.35 18.8 10.8 18.35 10.35C17.9 9.9 17.35 9.7 16.7 9.7C16.05 9.7 15.5 9.9 15.05 10.35C14.6 10.8 14.4 11.35 14.4 12C14.4 12.65 14.6 13.2 15.05 13.65C15.5 14.1 16.05 14.3 16.7 14.3C17.35 14.3 17.9 14.1 18.35 13.65C18.8 13.2 19 12.65 19 12ZM20.5 12.75V11.25H19V12.75H20.5ZM11.25 20.5V19H12.75V20.5H11.25ZM7.05 7.05L6 6L7.05 4.95L8.1 6L7.05 7.05ZM15.9 18.1L14.85 17.05L15.9 16L17 17.05L15.9 18.1ZM15.9 8.1L17 7.05L15.9 6L14.85 7.05L15.9 8.1Z"/></svg>`;
         document.body.appendChild(this.element);
-        this.setPosition(window.innerWidth - 80, window.innerHeight / 2);
+        // 修复：移除这里的硬编码位置，由 SummaryModule 控制
     }
     setPosition(x, y) {
         const rect = this.element.getBoundingClientRect();
@@ -355,15 +376,46 @@ class SummaryDialog {
     show(buttonRect) {
         this.isOpen = true;
         this.element.style.visibility = 'visible';
-        const { top, left, width, height } = buttonRect;
-        const winWidth = window.innerWidth, winHeight = window.innerHeight;
-        const originX = (winWidth - left - width) > left ? 'left' : 'right';
-        const originY = (winHeight - top - height) > top ? 'top' : 'bottom';
-        this.element.style.transformOrigin = `${originY} ${originX}`;
-        this.element.style.top = originY === 'top' ? `${top + height + 8}px` : '';
-        this.element.style.bottom = originY === 'bottom' ? `${winHeight - top + 8}px` : '';
-        this.element.style.left = originX === 'left' ? `${left}px` : '';
-        this.element.style.right = originX === 'right' ? `${winWidth - left - width}px` : '';
+
+        // --- 修复后的四象限最优解算法 ---
+        const DIALOG_ESTIMATED_WIDTH = 400;
+        const DIALOG_ESTIMATED_HEIGHT = 450;
+        const MARGIN = 16;
+
+        const { top, left, right, bottom } = buttonRect;
+        const winWidth = window.innerWidth;
+        const winHeight = window.innerHeight;
+
+        const spaceRight = winWidth - left - MARGIN; // 按钮左侧到屏幕右侧的距离
+        const spaceLeft = right - MARGIN; // 按钮右侧到屏幕左侧的距离
+        const spaceBottom = winHeight - bottom - MARGIN;
+        const spaceTop = top - MARGIN;
+
+        const quadrants = [
+            { name: 'bottomRight', score: Math.min(DIALOG_ESTIMATED_WIDTH, spaceRight) * Math.min(DIALOG_ESTIMATED_HEIGHT, spaceBottom), origin: 'top left', top: `${bottom + 8}px`, left: `${left}px` },
+            { name: 'bottomLeft',  score: Math.min(DIALOG_ESTIMATED_WIDTH, spaceLeft)  * Math.min(DIALOG_ESTIMATED_HEIGHT, spaceBottom), origin: 'top right', top: `${bottom + 8}px`, right: `${winWidth - right}px` },
+            { name: 'topRight',    score: Math.min(DIALOG_ESTIMATED_WIDTH, spaceRight) * Math.min(DIALOG_ESTIMATED_HEIGHT, spaceTop),    origin: 'bottom left', bottom: `${winHeight - top + 8}px`, left: `${left}px` },
+            { name: 'topLeft',     score: Math.min(DIALOG_ESTIMATED_WIDTH, spaceLeft)  * Math.min(DIALOG_ESTIMATED_HEIGHT, spaceTop),    origin: 'bottom right', bottom: `${winHeight - top + 8}px`, right: `${winWidth - right}px` }
+        ];
+
+        let bestQuadrant = quadrants[0];
+        for (let i = 1; i < quadrants.length; i++) {
+            if (quadrants[i].score > bestQuadrant.score) {
+                bestQuadrant = quadrants[i];
+            }
+        }
+
+        this.element.style.transformOrigin = bestQuadrant.origin;
+        this.element.style.top = bestQuadrant.top || '';
+        this.element.style.left = bestQuadrant.left || '';
+        this.element.style.bottom = bestQuadrant.bottom || '';
+        this.element.style.right = bestQuadrant.right || '';
+
+        if (!bestQuadrant.top) this.element.style.removeProperty('top');
+        if (!bestQuadrant.left) this.element.style.removeProperty('left');
+        if (!bestQuadrant.bottom) this.element.style.removeProperty('bottom');
+        if (!bestQuadrant.right) this.element.style.removeProperty('right');
+
         this.element.classList.add('visible');
         this.textarea.focus();
     }
