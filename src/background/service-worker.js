@@ -7,7 +7,7 @@ import * as Constants from '../common/constants.js';
 import TabStateManager from './tab-state-manager.js';
 import { AITranslator } from '../background/translators/ai-translator.js';
 import { SUBTITLE_STRATEGIES, SUBTITLE_MANAGER_SCRIPT, DEFAULT_STRATEGY_MAP } from '../content/subtitle/strategy-manifest.js';
-const CSS_FILES = ["content/style.css"];
+const CSS_FILES = ["content/style.css", "content/summary/summary.css"];
 
 const CORE_SCRIPT_FILES = ["content/content-script.js"];
 
