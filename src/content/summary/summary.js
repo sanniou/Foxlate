@@ -194,6 +194,7 @@ class SummaryModule {
                 break;
             case 'reroll':
                 this.conversationHistory = this.conversationHistory.slice(0, index + 1);
+                this.summaryDialog._fullRerenderNeeded = true; // 标记需要完全重新渲染
                 await this.getAIResponse(true);
                 break;
             case 'edit':
@@ -202,11 +203,19 @@ class SummaryModule {
             case 'save-edit':
                 this.conversationHistory = this.conversationHistory.slice(0, index);
                 this.conversationHistory.push({ role: 'user', content: payload });
+                this.summaryDialog._fullRerenderNeeded = true; // 标记需要完全重新渲染
                 this.summaryDialog.renderConversation(this.conversationHistory);
+                // 移除 is-editing 类
+                const savedMessageEl = this.summaryDialog.conversationArea.querySelector(`[data-index="${index}"]`);
+                if (savedMessageEl) savedMessageEl.classList.remove('is-editing');
                 await this.getAIResponse();
                 break;
             case 'cancel-edit':
+                this.summaryDialog._fullRerenderNeeded = true; // 强制完全重新渲染
                 this.summaryDialog.renderConversation(this.conversationHistory);
+                // 移除 is-editing 类
+                const cancelledMessageEl = this.summaryDialog.conversationArea.querySelector(`[data-index="${index}"]`);
+                if (cancelledMessageEl) cancelledMessageEl.classList.remove('is-editing');
                 break;
             case 'history-prev':
             case 'history-next':
@@ -215,6 +224,7 @@ class SummaryModule {
                     const newIndex = message.activeContentIndex + direction;
                     if (newIndex >= 0 && newIndex < message.contents.length) {
                         message.activeContentIndex = newIndex;
+                        this.summaryDialog._fullRerenderNeeded = true; // 强制完全重新渲染
                         this.summaryDialog.renderConversation(this.conversationHistory);
                     }
                 }
@@ -279,6 +289,8 @@ class SummaryDialog {
         this.actionHandler = actionHandler;
         this.refreshHandler = refreshHandler;
         this.inferSuggestionsHandler = inferSuggestionsHandler; // Store the handler
+        this._renderedMessageCount = 0; // 新增：已渲染消息数量
+        this._fullRerenderNeeded = false; // 新增：是否需要完全重新渲染的标志
         this.create();
     }
 
@@ -351,14 +363,35 @@ class SummaryDialog {
 
     renderConversation(history, isLoading = false) {
         if (!this.conversationArea) return;
-        this.conversationArea.innerHTML = '';
-        history.forEach((message, index) => this.renderMessage(message, index));
-        if (isLoading) {
-            const loadingEl = document.createElement('div');
-            loadingEl.className = 'foxlate-summary-message assistant loading';
-            loadingEl.innerHTML = `<div class="loading-indicator"></div>`;
-            this.conversationArea.appendChild(loadingEl);
+
+        // 检查是否需要完全重新渲染（例如，历史被截断或首次渲染）
+        if (history.length < this._renderedMessageCount || this._fullRerenderNeeded) {
+            this.conversationArea.innerHTML = '';
+            this._renderedMessageCount = 0;
+            this._fullRerenderNeeded = false; // 重置标志
         }
+
+        // 增量渲染新消息
+        for (let i = this._renderedMessageCount; i < history.length; i++) {
+            this.renderMessage(history[i], i);
+        }
+        this._renderedMessageCount = history.length;
+
+        // 处理加载指示器
+        const existingLoadingEl = this.conversationArea.querySelector('.foxlate-summary-message.assistant.loading');
+        if (isLoading) {
+            if (!existingLoadingEl) {
+                const loadingEl = document.createElement('div');
+                loadingEl.className = 'foxlate-summary-message assistant loading';
+                loadingEl.innerHTML = `<div class="loading-indicator"></div>`;
+                this.conversationArea.appendChild(loadingEl);
+            }
+        } else {
+            if (existingLoadingEl) {
+                existingLoadingEl.remove();
+            }
+        }
+
         this.conversationArea.scrollTop = this.conversationArea.scrollHeight;
     }
 
@@ -392,6 +425,9 @@ class SummaryDialog {
     enterEditMode(index, content) {
         const messageEl = this.conversationArea.querySelector(`[data-index="${index}"]`);
         if (!messageEl) return;
+
+        messageEl.classList.add('is-editing'); // 添加 is-editing 类
+
         messageEl.innerHTML = `
             <div class="message-edit-area">
                 <textarea rows="3">${content}</textarea>
@@ -405,6 +441,33 @@ class SummaryDialog {
         textarea.focus();
         textarea.style.height = 'auto';
         textarea.style.height = `${textarea.scrollHeight}px`;
+
+        // 添加事件监听器
+        textarea.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && e.ctrlKey) {
+                e.preventDefault();
+                // 触发 save-edit action
+                this.actionHandler('save-edit', index, textarea.value);
+            }
+        });
+
+        textarea.addEventListener('input', () => {
+            textarea.style.height = 'auto';
+            textarea.style.height = `${textarea.scrollHeight}px`;
+        });
+
+        // 重新绑定 cancel-edit 和 save-edit 按钮的事件
+        // 由于 innerHTML 替换了内容，原有的事件监听器会失效，需要重新绑定
+        const saveButton = messageEl.querySelector('[data-action="save-edit"]');
+        const cancelButton = messageEl.querySelector('[data-action="cancel-edit"]');
+
+        saveButton.addEventListener('click', () => {
+            this.actionHandler('save-edit', index, textarea.value);
+        });
+
+        cancelButton.addEventListener('click', () => {
+            this.actionHandler('cancel-edit', index, null); // null 表示不传递内容，因为 cancel 只是恢复显示
+        });
     }
 
     setLoading(isLoading) {
