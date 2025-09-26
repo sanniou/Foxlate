@@ -227,13 +227,6 @@
     cursor: grabbing;
 }
 
-/* FAB 扩展为 Extended FAB 的样式 (用于显示加载状态) */
-.foxlate-summary-fab.extended {
-    width: auto; /* 宽度由内容决定 */
-    padding: 0 16px 0 12px; /* 左侧图标12px，右侧文本16px */
-    gap: 8px;
-}
-
 .foxlate-summary-fab .icon {
     flex-shrink: 0; /* 防止图标被压缩 */
     width: 24px;
@@ -248,16 +241,6 @@
 }
 
 /* 加载动画，复用已有的 foxlate-spin */
-.foxlate-summary-fab .icon.loading {
-    -webkit-mask-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3e%3cpath fill='currentColor' d='M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z'/%3e%3c/svg%3e");
-    mask-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3e%3cpath fill='currentColor' d='M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z'/%3e%3c/svg%3e");
-    background-color: currentColor;
-    animation: foxlate-spin 0.75s linear infinite;
-}
-.foxlate-summary-fab .icon.loading svg {
-    display: none; /* 隐藏原始图标 */
-}
-
 .foxlate-summary-fab .label {
     font-size: 14px;
     font-weight: 500;
@@ -389,16 +372,17 @@
     font-size: 14px; /* (已修改) 减小消息字体大小 */
     line-height: 1.5;
     word-wrap: break-word;
-    /* (新) 为绝对定位的动作按钮提供容器 */
-    position: relative;
+    /* (新) 使用 Flexbox 来控制内部对齐，替代绝对定位 */
+    display: flex;
+    flex-direction: column;
 }
 
 .foxlate-summary-message.ai {
     background-color: var(--md-sys-color-surface-container, #F3EDF7);
     align-self: flex-start;
     border-bottom-left-radius: 4px; /* 模仿聊天气泡 */
-    /* (新) 确保AI消息气泡有足够的最小高度来容纳操作按钮 */
-    min-height: 40px;
+    /* (新) 让操作按钮默认靠右对齐 */
+    align-items: flex-end;
 }
 
 .foxlate-summary-message.user {
@@ -406,13 +390,8 @@
     color: var(--md-sys-color-on-primary-container, #21005D);
     align-self: flex-end;
     border-bottom-right-radius: 4px; /* 模仿聊天气泡 */
-}
-
-/* (新) 用户消息的动作按钮需要不同的定位 */
-.foxlate-summary-message.user .foxlate-summary-message-actions {
-    /* 将按钮放在左侧，以区别于 AI 消息 */
-    left: 8px;
-    right: auto;
+    /* (新) 让操作按钮靠左对齐 */
+    align-items: flex-start;
 }
 
 .foxlate-summary-message.loading {
@@ -435,10 +414,9 @@
 
 /* (新) 单条消息的操作按钮容器 */
 .foxlate-summary-message-actions {
-    position: absolute;
-    bottom: 4px;
-    right: 8px;
     display: flex;
+    /* (新) 使用负外边距使其与文本最后一行在视觉上重叠 */
+    margin-top: -12px;
     gap: 4px;
     /* 默认隐藏，悬停时显示 */
     opacity: 0;

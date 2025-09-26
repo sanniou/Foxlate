@@ -293,6 +293,20 @@ class SummaryManager {
     }
 
     /**
+     * (新) 设置对话框底部输入区域的加载状态。
+     * @param {boolean} isLoading - 是否正在加载。
+     * @private
+     */
+    #setLoadingState(isLoading) {
+        if (!this.dialog) return;
+        const inputEl = this.dialog.querySelector('.foxlate-summary-dialog-input');
+        const sendBtn = this.dialog.querySelector('.foxlate-summary-dialog-send-btn');
+
+        if (inputEl) inputEl.disabled = isLoading;
+        if (sendBtn) sendBtn.disabled = isLoading;
+    }
+
+    /**
      * 初始化总结功能。
      */
     initialize() {
@@ -307,6 +321,7 @@ class SummaryManager {
         }
 
         this.createFab();
+        this.createDialog();
         this.positionFab();
         this.setupVisibilityObserver();
     }
@@ -343,24 +358,26 @@ class SummaryManager {
     }
 
     async handleFabClick() {
-        if (this.state === 'loading') return;
+        // 如果对话框已经可见，则隐藏它。
+        if (this.isDialogVisible) {
+            this.hideDialog();
+            return;
+        }
 
+        // 立即显示对话框。
+        this.showDialog();
+
+        // 如果是首次打开（空闲状态），则获取初始摘要。
+        // fetchSummary 内部会处理加载状态的显示。
         if (this.state === 'idle') {
             this.state = 'loading';
-            this.setFabLoadingState(true);
             await this.fetchSummary();
-            this.setFabLoadingState(false);
             this.state = 'summarized';
-            // 首次获取内容后，自动显示对话框
-            this.showDialog();
-        } else if (this.state === 'summarized') {
-            this.toggleDialog();
         }
     }
 
     async fetchSummary() {
-        if (!this.dialog) this.createDialog();
-
+        this.#setLoadingState(true);
         this.addMessageToConversation('...', 'loading');
 
         try {
@@ -390,6 +407,8 @@ class SummaryManager {
         } catch (error) {
             logError('fetchSummary', error);
             this.updateLastMessage(browser.i18n.getMessage('summaryErrorText') + error.message, 'ai', true);
+        } finally {
+            this.#setLoadingState(false);
         }
     }
 
@@ -541,6 +560,7 @@ class SummaryManager {
         // (已修改) 在重新生成时，只让被操作的消息进入加载状态
         this.state = 'loading';
         messageToRegenerate.innerHTML = '';
+        this.#setLoadingState(true);
         messageToRegenerate.classList.add('loading');
         messageToRegenerate.textContent = '...';
 
@@ -569,12 +589,15 @@ class SummaryManager {
                 this.updateMessageAtIndex(index, true);
             }
         } catch (error) {
+            const message = this.conversationHistory[index];
             const errorMessage = browser.i18n.getMessage('summaryErrorText') + error.message;
-            this.conversationHistory[index].contents.push(errorMessage);
-            this.conversationHistory[index].activeContentIndex++;
+            message.contents.push(errorMessage);
+            // (已修复) 修复了潜在的索引错误，直接设置为最后一个元素的索引
+            message.activeContentIndex = message.contents.length - 1;
             this.updateMessageAtIndex(index, true);
         } finally {
             this.state = 'summarized';
+            this.#setLoadingState(false);
         }
     }
 
@@ -630,11 +653,20 @@ class SummaryManager {
 
         // 3. 触发新的AI响应
         this.state = 'loading';
-        this.dialog.querySelector('.foxlate-summary-dialog-send-btn').disabled = true;
+        this.#setLoadingState(true);
         this.addMessageToConversation('...', 'loading');
 
-        // 复用 handleSendMessage 的内部逻辑，但不添加用户消息
-        await this.getAiResponseForHistory(this.conversationHistory);
+        try {
+            // 复用 handleSendMessage 的内部逻辑，但不添加用户消息
+            await this.getAiResponseForHistory(this.conversationHistory);
+        } catch (error) {
+            // 错误已在 getAiResponseForHistory 中处理和显示，这里只需记录
+            logError('saveEdit -> getAiResponseForHistory', error);
+        } finally {
+            // (已修复) 无论成功或失败，都恢复状态
+            this.state = 'summarized';
+            this.#setLoadingState(false);
+        }
     }
 
     navigateHistory(index, direction) {
@@ -865,7 +897,7 @@ class SummaryManager {
         inputEl.focus();
 
         this.state = 'loading';
-        sendBtn.disabled = true;
+        this.#setLoadingState(true);
         this.addMessageToConversation('...', 'loading');
 
         try {
@@ -875,7 +907,7 @@ class SummaryManager {
         } finally {
             // 无论成功或失败，都恢复状态
             this.state = 'summarized'; // 恢复到可交互状态
-            sendBtn.disabled = false;
+            this.#setLoadingState(false);
         }
     }
 
@@ -884,7 +916,6 @@ class SummaryManager {
      * @param {Array} history - 要发送给AI的对话历史
      */
     async getAiResponseForHistory(history) {
-        const sendBtn = this.dialog.querySelector('.foxlate-summary-dialog-send-btn');
         try {
             const response = await browser.runtime.sendMessage({
                 type: 'CONVERSE_WITH_AI', // 新的消息类型，用于通用对话
@@ -967,17 +998,6 @@ class SummaryManager {
 
         document.addEventListener('mousemove', handleDragMove);
         document.addEventListener('mouseup', handleDragEnd);
-    }
-
-    setFabLoadingState(isLoading) {
-        const icon = this.fab.querySelector('.icon');
-        if (isLoading) {
-            this.fab.classList.add('extended');
-            icon.classList.add('loading');
-        } else {
-            this.fab.classList.remove('extended');
-            icon.classList.remove('loading');
-        }
     }
 
     setupVisibilityObserver() {
