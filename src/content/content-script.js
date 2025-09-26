@@ -268,15 +268,13 @@ class SummaryManager {
         // (已修复) 直接使用传入的有效设置对象，而不是不存在的 summarySettings 子对象。
         // summarySettings 属性现在直接从顶层设置中获取。
         this.settings = settings;
-        this.summarySettings = settings.summarySettings || {}; // 为 summarySettings 提供一个后备空对象
+        this.summarySettings = settings.summarySettings || {};
         this.mainBodyElement = null;
-        this.fab = null;
-        this.dialog = null;
+        this.summaryContainer = null; // (新) 合并 FAB 和 Dialog
 
         this.state = 'idle'; // 'idle', 'loading', 'summarized'
         this.conversationHistory = []; // (新) 存储对话历史
-        this.isDialogVisible = false;
-        this.wasDialogVisibleBeforeDrag = false;
+        this.isExpanded = false; // (新) 跟踪展开/折叠状态
 
         // 用于在页面滚动/缩放时保持UI同步
         this.visibilityObserver = null;
@@ -284,7 +282,7 @@ class SummaryManager {
         // 绑定 this，以便在事件监听器中正确使用
         this.handleFabClick = this.handleFabClick.bind(this);
         this.handleDragStart = this.handleDragStart.bind(this);
-        this.handleSendMessage = this.handleSendMessage.bind(this);
+        this.handleSendMessage = this.handleSendMessage.bind(this); // 保持不变
         this.handleKeyDown = this.handleKeyDown.bind(this);
         this.handleDialogClose = this.handleDialogClose.bind(this);
         this.handleCopyConversation = this.handleCopyConversation.bind(this);
@@ -298,11 +296,11 @@ class SummaryManager {
      * @private
      */
     #setLoadingState(isLoading) {
-        if (!this.dialog) return;
-        const inputEl = this.dialog.querySelector('.foxlate-summary-dialog-input');
-        const sendBtn = this.dialog.querySelector('.foxlate-summary-dialog-send-btn');
+        if (!this.summaryContainer) return;
+        const inputEl = this.summaryContainer.querySelector('.foxlate-summary-dialog-input');
+        const sendBtn = this.summaryContainer.querySelector('.foxlate-summary-dialog-send-btn');
 
-        if (inputEl) inputEl.disabled = isLoading;
+        if (inputEl) inputEl.disabled = isLoading; // 保持不变
         if (sendBtn) sendBtn.disabled = isLoading;
     }
 
@@ -320,52 +318,36 @@ class SummaryManager {
             return;
         }
 
-        this.createFab();
-        this.createDialog();
-        this.positionFab();
+        this.createSummaryContainer();
+        this.positionContainer();
         this.setupVisibilityObserver();
     }
 
-    createFab() {
-        this.fab = document.createElement('button');
-        this.fab.className = 'foxlate-summary-fab';
-        this.fab.innerHTML = `
-            <span class="icon">
-                <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M11.25 3.5H12.75V5H11.25V3.5ZM12 19C11.35 19 10.8 18.8 10.35 18.35C9.9 17.9 9.7 17.35 9.7 16.7C9.7 16.05 9.9 15.5 10.35 15.05C10.8 14.6 11.35 14.4 12 14.4C12.65 14.4 13.2 14.6 13.65 15.05C14.1 15.5 14.3 16.05 14.3 16.7C14.3 17.35 14.1 17.9 13.65 18.35C13.2 18.8 12.65 19 12 19ZM5 12.75V11.25H3.5V12.75H5ZM19 12C19 11.35 18.8 10.8 18.35 10.35C17.9 9.9 17.35 9.7 16.7 9.7C16.05 9.7 15.5 9.9 15.05 10.35C14.6 10.8 14.4 11.35 14.4 12C14.4 12.65 14.6 13.2 15.05 13.65C15.5 14.1 16.05 14.3 16.7 14.3C17.35 14.3 17.9 14.1 18.35 13.65C18.8 13.2 19 12.65 19 12ZM20.5 12.75V11.25H19V12.75H20.5ZM11.25 20.5V19H12.75V20.5H11.25ZM7.05 7.05L6 6L7.05 4.95L8.1 6L7.05 7.05ZM15.9 18.1L14.85 17.05L15.9 16L17 17.05L15.9 18.1ZM15.9 8.1L17 7.05L15.9 6L14.85 7.05L15.9 8.1Z"/></svg>
-            </span>
-            <span class="label">${browser.i18n.getMessage('summarizeButtonText')}</span>
-        `;
-
-        document.body.appendChild(this.fab);
-
-        this.fab.addEventListener('mousedown', this.handleDragStart);
-    }
-
-    positionFab() {
+    positionContainer() {
+        if (!this.summaryContainer) return;
         const mainRect = this.mainBodyElement.getBoundingClientRect();
-        const fabRect = this.fab.getBoundingClientRect();
+        const fabRect = this.summaryContainer.getBoundingClientRect();
         const offset = { x: 16, y: 16 };
 
         let top = window.scrollY + mainRect.top + offset.y;
         let left = window.scrollX + mainRect.right - fabRect.width + offset.x;
 
-        // 边界检查
         top = Math.max(0, Math.min(top, window.innerHeight - fabRect.height));
         left = Math.max(0, Math.min(left, window.innerWidth - fabRect.width));
 
-        this.fab.style.top = `${top}px`;
-        this.fab.style.left = `${left}px`;
+        this.summaryContainer.style.top = `${top}px`;
+        this.summaryContainer.style.left = `${left}px`;
     }
 
     async handleFabClick() {
-        // 如果对话框已经可见，则隐藏它。
-        if (this.isDialogVisible) {
-            this.hideDialog();
+        // 如果已展开，则折叠
+        if (this.isExpanded) {
+            this.collapse();
             return;
         }
 
-        // 立即显示对话框。
-        this.showDialog();
+        // 否则，展开
+        this.expand();
 
         // 如果是首次打开（空闲状态），则获取初始摘要。
         // fetchSummary 内部会处理加载状态的显示。
@@ -377,7 +359,7 @@ class SummaryManager {
     }
 
     async fetchSummary() {
-        this.#setLoadingState(true);
+        this.#setLoadingState(true); // 禁用输入框
         this.addMessageToConversation('...', 'loading');
 
         try {
@@ -412,11 +394,11 @@ class SummaryManager {
         }
     }
 
-    createDialog() {
-        this.dialog = document.createElement('div');
-        this.dialog.className = 'foxlate-summary-dialog';
-        this.dialog.innerHTML = `
-            <div class="foxlate-summary-dialog-header">
+    createSummaryContainer() {
+        this.summaryContainer = document.createElement('div');
+        this.summaryContainer.className = 'foxlate-summary-container'; // (新) 新的根容器类名
+        this.summaryContainer.innerHTML = `
+            <div class="foxlate-summary-header">
                 <h3 class="foxlate-summary-dialog-title">${browser.i18n.getMessage('summaryModalTitle')}</h3>
                 <div class="foxlate-summary-dialog-actions">
                     <button class="foxlate-summary-dialog-refresh-btn foxlate-summary-dialog-icon-btn" aria-label="Refresh Conversation">
@@ -427,23 +409,32 @@ class SummaryManager {
                     </button>
                 </div>
             </div>
-            <div class="foxlate-summary-dialog-conversation">
+            <div class="foxlate-summary-conversation">
                 <!-- 消息将在这里动态添加 -->
             </div>
-            <div class="foxlate-summary-dialog-footer">
+            <div class="foxlate-summary-footer">
                 <textarea class="foxlate-summary-dialog-input" placeholder="${browser.i18n.getMessage('summaryInputPlaceholder')}" rows="1"></textarea>
                 <button class="foxlate-summary-dialog-send-btn foxlate-summary-dialog-icon-btn" aria-label="Send">
                     <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
                 </button>
             </div>
+            <button class="foxlate-summary-fab" aria-label="Toggle Summary">
+                <span class="fab-icon-summarize">
+                    <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M11.25 3.5H12.75V5H11.25V3.5ZM12 19C11.35 19 10.8 18.8 10.35 18.35C9.9 17.9 9.7 17.35 9.7 16.7C9.7 16.05 9.9 15.5 10.35 15.05C10.8 14.6 11.35 14.4 12 14.4C12.65 14.4 13.2 14.6 13.65 15.05C14.1 15.5 14.3 16.05 14.3 16.7C14.3 17.35 14.1 17.9 13.65 18.35C13.2 18.8 12.65 19 12 19ZM5 12.75V11.25H3.5V12.75H5ZM19 12C19 11.35 18.8 10.8 18.35 10.35C17.9 9.9 17.35 9.7 16.7 9.7C16.05 9.7 15.5 9.9 15.05 10.35C14.6 10.8 14.4 11.35 14.4 12C14.4 12.65 14.6 13.2 15.05 13.65C15.5 14.1 16.05 14.3 16.7 14.3C17.35 14.3 17.9 14.1 18.35 13.65C18.8 13.2 19 12.65 19 12ZM20.5 12.75V11.25H19V12.75H20.5ZM11.25 20.5V19H12.75V20.5H11.25ZM7.05 7.05L6 6L7.05 4.95L8.1 6L7.05 7.05ZM15.9 18.1L14.85 17.05L15.9 16L17 17.05L15.9 18.1ZM15.9 8.1L17 7.05L15.9 6L14.85 7.05L15.9 8.1Z"/></svg>
+                </span>
+                <span class="fab-icon-close">
+                    <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                </span>
+            </button>
         `;
-        document.body.appendChild(this.dialog);
+        document.body.appendChild(this.summaryContainer);
 
         // 绑定事件
-        this.dialog.querySelector('.foxlate-summary-dialog-refresh-btn').addEventListener('click', this.handleRefreshConversation);
-        this.dialog.querySelector('.foxlate-summary-dialog-copy-btn').addEventListener('click', this.handleCopyConversation);
-        this.dialog.querySelector('.foxlate-summary-dialog-send-btn').addEventListener('click', this.handleSendMessage);
-        this.dialog.querySelector('.foxlate-summary-dialog-input').addEventListener('keydown', (e) => {
+        this.summaryContainer.querySelector('.foxlate-summary-fab').addEventListener('mousedown', this.handleDragStart);
+        this.summaryContainer.querySelector('.foxlate-summary-dialog-refresh-btn').addEventListener('click', this.handleRefreshConversation);
+        this.summaryContainer.querySelector('.foxlate-summary-dialog-copy-btn').addEventListener('click', this.handleCopyConversation);
+        this.summaryContainer.querySelector('.foxlate-summary-dialog-send-btn').addEventListener('click', this.handleSendMessage);
+        this.summaryContainer.querySelector('.foxlate-summary-dialog-input').addEventListener('keydown', (e) => {
             // 按下 Enter 发送，Shift+Enter 换行
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -452,14 +443,14 @@ class SummaryManager {
         });
 
         // 自动调整 textarea 高度
-        const textarea = this.dialog.querySelector('.foxlate-summary-dialog-input');
+        const textarea = this.summaryContainer.querySelector('.foxlate-summary-dialog-input');
         textarea.addEventListener('input', () => {
             textarea.style.height = 'auto';
             textarea.style.height = `${textarea.scrollHeight}px`;
         });
 
         // (新) 使用事件委托处理所有消息动作
-        const conversationArea = this.dialog.querySelector('.foxlate-summary-dialog-conversation');
+        const conversationArea = this.summaryContainer.querySelector('.foxlate-summary-conversation');
         conversationArea.addEventListener('click', (e) => {
             const copyBtn = e.target.closest('.foxlate-msg-action-copy');
             const regenerateBtn = e.target.closest('.foxlate-msg-action-regenerate');
@@ -517,11 +508,11 @@ class SummaryManager {
     }
 
     handleDialogClose() {
-        this.hideDialog();
+        this.collapse();
     }
 
     async handleRefreshConversation() {
-        const conversationArea = this.dialog.querySelector('.foxlate-summary-dialog-conversation');
+        const conversationArea = this.summaryContainer.querySelector('.foxlate-summary-conversation');
         conversationArea.innerHTML = ''; // 清空UI
         this.conversationHistory = []; // 清空历史
         this.state = 'loading';
@@ -539,7 +530,7 @@ class SummaryManager {
 
         navigator.clipboard.writeText(textToCopy).then(() => {
             // (可选) 提供一个复制成功的视觉反馈
-            const copyBtn = this.dialog.querySelector('.foxlate-summary-dialog-copy-btn');
+            const copyBtn = this.summaryContainer.querySelector('.foxlate-summary-dialog-copy-btn');
             const originalIcon = copyBtn.innerHTML;
             copyBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>`;
             setTimeout(() => {
@@ -551,7 +542,7 @@ class SummaryManager {
     async handleRegenerateMessage(index) {
         if (this.state === 'loading' || index >= this.conversationHistory.length) return;
 
-        const messageToRegenerate = this.dialog.querySelector(`[data-message-index="${index}"]`);
+        const messageToRegenerate = this.summaryContainer.querySelector(`[data-message-index="${index}"]`);
         if (!messageToRegenerate) return;
 
         // 截取到当前消息之前的历史作为上下文
@@ -602,7 +593,7 @@ class SummaryManager {
     }
 
     enterEditMode(index) {
-        const messageEl = this.dialog.querySelector(`[data-message-index="${index}"]`);
+        const messageEl = this.summaryContainer.querySelector(`[data-message-index="${index}"]`);
         if (!messageEl || this.conversationHistory[index].role !== 'user') return;
 
         const originalContent = this.conversationHistory[index].content;
@@ -638,7 +629,7 @@ class SummaryManager {
 
         // 1. 截断历史记录和UI
         this.conversationHistory = this.conversationHistory.slice(0, index + 1);
-        const conversationArea = this.dialog.querySelector('.foxlate-summary-dialog-conversation');
+        const conversationArea = this.summaryContainer.querySelector('.foxlate-summary-conversation');
         const messages = conversationArea.querySelectorAll('.foxlate-summary-message');
         messages.forEach(msg => {
             const msgIndex = parseInt(msg.dataset.messageIndex, 10);
@@ -728,89 +719,36 @@ class SummaryManager {
         return '';
     }
 
-    toggleDialog() {
-        if (this.isDialogVisible) {
-            this.hideDialog();
-        } else {
-            this.showDialog();
-        }
-    }
-
-    showDialog() {
-        if (!this.dialog) return;
-        this.positionDialog();
-        this.dialog.classList.add('visible');
-        this.isDialogVisible = true;
+    expand() {
+        if (!this.summaryContainer || this.isExpanded) return;
+        this.summaryContainer.classList.add('expanded');
+        this.isExpanded = true;
         document.addEventListener('keydown', this.handleKeyDown);
         // 对话框显示时，让输入框自动获得焦点
-        setTimeout(() => this.dialog.querySelector('.foxlate-summary-dialog-input')?.focus(), 150); // 延迟以等待动画
+        setTimeout(() => this.summaryContainer.querySelector('.foxlate-summary-dialog-input')?.focus(), 300); // 延迟以等待动画
     }
 
-    hideDialog() {
-        if (!this.dialog) return;
-        this.dialog.classList.remove('visible');
-        this.isDialogVisible = false;
+    collapse() {
+        if (!this.summaryContainer || !this.isExpanded) return;
+        this.summaryContainer.classList.remove('expanded');
+        this.isExpanded = false;
         document.removeEventListener('keydown', this.handleKeyDown);
     }
 
     handleKeyDown(e) {
-        if (e.key === 'Escape') this.hideDialog();
-    }
-
-    positionDialog() {
-        if (!this.fab || !this.dialog) return;
-
-        const fabRect = this.fab.getBoundingClientRect();
-        const dialogRect = this.dialog.getBoundingClientRect();
-        const gap = 12; // FAB 和对话框之间的间距
-
-        const positions = {
-            top: fabRect.top - dialogRect.height - gap,
-            bottom: fabRect.bottom + gap,
-            left: fabRect.left,
-            right: fabRect.right - dialogRect.width,
-            hCenter: fabRect.left + (fabRect.width / 2) - (dialogRect.width / 2),
-            vCenter: fabRect.top + (fabRect.height / 2) - (dialogRect.height / 2),
-        };
-
-        // 检查可用空间
-        const space = {
-            top: fabRect.top - gap,
-            bottom: window.innerHeight - fabRect.bottom - gap,
-            left: fabRect.left - gap,
-            right: window.innerWidth - fabRect.right - gap,
-        };
-
-        let bestPosition = { top: positions.bottom, left: positions.hCenter };
-        let transformOrigin = 'center top'; // 默认的变换原点，对应下方位置
-
-        // 优先在下方或上方显示
-        if (space.bottom >= dialogRect.height) {
-            bestPosition = { top: positions.bottom, left: positions.hCenter };
-        } else if (space.top >= dialogRect.height) {
-            bestPosition = { top: positions.top, left: positions.hCenter };
-            transformOrigin = 'center bottom';
-        } else if (space.right >= dialogRect.width) { // 其次是右侧
-            bestPosition = { top: positions.vCenter, left: fabRect.right + gap };
-            transformOrigin = 'left center';
-        } else if (space.left >= dialogRect.width) { // 最后是左侧
-            bestPosition = { top: positions.vCenter, left: fabRect.left - dialogRect.width - gap };
-            transformOrigin = 'right center';
+        if (e.key === 'Escape') {
+            this.collapse();
         }
-
-        // 边界检查，确保对话框不会超出视口
-        bestPosition.top = Math.max(gap, Math.min(bestPosition.top, window.innerHeight - dialogRect.height - gap));
-        bestPosition.left = Math.max(gap, Math.min(bestPosition.left, window.innerWidth - dialogRect.width - gap));
-
-        // (新) 在应用位置和使其可见之前，设置变换原点
-        this.dialog.style.transformOrigin = transformOrigin;
-
-        this.dialog.style.top = `${bestPosition.top}px`;
-        this.dialog.style.left = `${bestPosition.left}px`;
     }
 
     addMessageToConversation(content, role, isError = false) {
-        const conversationArea = this.dialog.querySelector('.foxlate-summary-dialog-conversation');
+        const conversationArea = this.summaryContainer.querySelector('.foxlate-summary-conversation');
+        if (!conversationArea) {
+            console.error("Conversation area not found.");
+            return;
+        } else {
+            console.log("Conversation area found.");
+        }
         const messageEl = document.createElement('div');
         messageEl.className = `foxlate-summary-message ${role}`;
         // (新) 为消息元素添加索引，以便进行精确操作
@@ -834,7 +772,7 @@ class SummaryManager {
     }
 
     updateLastMessage(content, role, isError = false) {
-        const conversationArea = this.dialog.querySelector('.foxlate-summary-dialog-conversation');
+        const conversationArea = this.summaryContainer.querySelector('.foxlate-summary-conversation');
         const lastMessage = conversationArea.lastElementChild;
         if (lastMessage && lastMessage.classList.contains('loading')) {
             lastMessage.className = `foxlate-summary-message ${role}`;
@@ -855,7 +793,7 @@ class SummaryManager {
     }
 
     updateMessageAtIndex(index, isError = false) {
-        const messageEl = this.dialog.querySelector(`[data-message-index="${index}"]`);
+        const messageEl = this.summaryContainer.querySelector(`[data-message-index="${index}"]`);
         if (!messageEl) return;
         
         const message = this.conversationHistory[index];
@@ -875,7 +813,7 @@ class SummaryManager {
         messageEl.innerHTML = contentHTML + actionsHTML;
 
         // 确保滚动条在需要时可见
-        const conversationArea = this.dialog.querySelector('.foxlate-summary-dialog-conversation');
+        const conversationArea = this.summaryContainer.querySelector('.foxlate-summary-conversation');
         // 如果消息在视口之外，则滚动到该消息
         if (messageEl.offsetTop < conversationArea.scrollTop || messageEl.offsetTop + messageEl.offsetHeight > conversationArea.scrollTop + conversationArea.clientHeight) {
             messageEl.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -883,8 +821,8 @@ class SummaryManager {
     }
 
     async handleSendMessage() {
-        const inputEl = this.dialog.querySelector('.foxlate-summary-dialog-input');
-        const sendBtn = this.dialog.querySelector('.foxlate-summary-dialog-send-btn');
+        const inputEl = this.summaryContainer.querySelector('.foxlate-summary-dialog-input');
+        const sendBtn = this.summaryContainer.querySelector('.foxlate-summary-dialog-send-btn');
         const query = inputEl.value.trim();
 
         if (!query || this.state === 'loading') return;
@@ -952,7 +890,7 @@ class SummaryManager {
 
         const startX = e.clientX;
         const startY = e.clientY;
-        const fabStartRect = this.fab.getBoundingClientRect();
+        const fabStartRect = this.summaryContainer.getBoundingClientRect();
         let isDragging = false; // 拖动状态标志
 
         const handleDragMove = (moveEvent) => {
@@ -963,10 +901,10 @@ class SummaryManager {
             // 仅当移动超过阈值时，才真正开始拖动
             if (!isDragging && Math.hypot(dx, dy) > 5) {
                 isDragging = true;
-                // 在拖动开始时，记录对话框的原始可见状态并隐藏它
-                this.wasDialogVisibleBeforeDrag = this.isDialogVisible;
-                if (this.isDialogVisible) {
-                    this.hideDialog();
+                // (新) 如果在拖动开始时对话框是展开的，则立即将其收起。
+                // 这提供了“抓住并收起”的直观交互。
+                if (this.isExpanded) {
+                    this.collapse();
                 }
             }
 
@@ -979,8 +917,8 @@ class SummaryManager {
             newLeft = Math.max(0, Math.min(newLeft, window.innerWidth - fabStartRect.width));
             newTop = Math.max(0, Math.min(newTop, window.innerHeight - fabStartRect.height));
 
-            this.fab.style.left = `${newLeft}px`;
-            this.fab.style.top = `${newTop}px`;
+            this.summaryContainer.style.left = `${newLeft}px`;
+            this.summaryContainer.style.top = `${newTop}px`;
         };
 
         const handleDragEnd = (endEvent) => {
@@ -990,9 +928,6 @@ class SummaryManager {
             if (!isDragging) {
                 // 如果从未进入拖动状态，则视为一次纯粹的点击
                 this.handleFabClick();
-            } else if (this.wasDialogVisibleBeforeDrag) { // 如果是拖动，则根据拖动前的状态恢复对话框
-                // 拖动结束后，如果之前是可见的，则重新显示
-                this.showDialog();
             }
         };
 
@@ -1001,25 +936,23 @@ class SummaryManager {
     }
 
     setupVisibilityObserver() {
-        if (!this.fab) return;
+        if (!this.summaryContainer) return;
         this.visibilityObserver = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
-                if (!entry.isIntersecting && this.isDialogVisible) {
-                    this.hideDialog();
+                if (!entry.isIntersecting && this.isExpanded) {
+                    this.collapse();
                 }
             });
         }, { threshold: 0.1 });
-        this.visibilityObserver.observe(this.fab);
+        this.visibilityObserver.observe(this.summaryContainer);
     }
 
     destroy() {
-        this.fab?.remove();
-        this.dialog?.remove();
+        this.summaryContainer?.remove();
         if (this.visibilityObserver) {
             this.visibilityObserver.disconnect();
         }
-        this.fab = null;
-        this.dialog = null;
+        this.summaryContainer = null;
         this.visibilityObserver = null;
         document.removeEventListener('keydown', this.handleKeyDown);
     }
