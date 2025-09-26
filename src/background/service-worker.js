@@ -417,6 +417,53 @@ const messageHandlers = {
         }
     },
 
+    // (新) 处理 AI 建议请求
+    async INFER_SUGGESTIONS(request) {
+        const { history, aiModel, targetLang } = request.payload;
+
+        if (!history || history.length === 0 || !aiModel) {
+            return { success: false, error: "History or AI model not provided for suggestions." };
+        }
+
+        try {
+            const settings = await SettingsManager.getValidatedSettings();
+            const engineId = aiModel.startsWith('ai:') ? aiModel.substring(3) : aiModel;
+            const aiConfig = settings.aiEngines.find(e => e.id === engineId);
+
+            if (!aiConfig) {
+                throw new Error(`AI engine configuration not found for ID: ${engineId}`);
+            }
+
+            const suggestPromptTemplate = Constants.AI_PROMPTS.suggest;
+            const suggester = new AITranslator();
+            const suggestConfig = { ...aiConfig, customPrompt: suggestPromptTemplate };
+
+            const result = await suggester.translate(history, targetLang, 'auto', suggestConfig);
+
+            if (result.error) {
+                throw new Error(result.error);
+            }
+
+            // AI 应该返回一个 JSON 字符串数组，我们需要解析它
+            let suggestions = [];
+            try {
+                suggestions = JSON.parse(result.text);
+                if (!Array.isArray(suggestions)) {
+                    throw new Error("AI did not return a JSON array of suggestions.");
+                }
+            } catch (parseError) {
+                logError('INFER_SUGGESTIONS (JSON parse)', parseError);
+                // 如果解析失败，将原始文本作为单个建议返回
+                suggestions = [result.text];
+            }
+
+            return { success: true, suggestions: suggestions };
+        } catch (error) {
+            logError('INFER_SUGGESTIONS', error);
+            return { success: false, error: error.message };
+        }
+    },
+
     async TEST_CONNECTION(request) {
         const { engine, settings, text } = request.payload;
         if (engine !== 'ai') {

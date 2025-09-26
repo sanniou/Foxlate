@@ -18,7 +18,12 @@ class SummaryModule {
     init() {
         if (document.body) {
             this.summaryButton = new SummaryButton();
-            this.summaryDialog = new SummaryDialog(this.handleSendMessage.bind(this), this.handleAction.bind(this), this.fetchInitialSummary.bind(this)); // Pass fetchInitialSummary as refreshHandler
+            this.summaryDialog = new SummaryDialog(
+                this.handleSendMessage.bind(this),
+                this.handleAction.bind(this),
+                this.fetchInitialSummary.bind(this),
+                this.handleInferSuggestions.bind(this) // Pass the new handler
+            );
             this.setupEventListeners();
             this.positionInitialButton(); // 修复：初始化按钮位置
         } else {
@@ -179,7 +184,7 @@ class SummaryModule {
         }
     }
 
-    async handleAction(action, index, payload) {
+        async handleAction(action, index, payload) {
         const message = this.conversationHistory[index];
         if (!message) return;
 
@@ -217,6 +222,30 @@ class SummaryModule {
         }
     }
 
+    async handleInferSuggestions() {
+        this.summaryDialog.setLoading(true); // Show loading indicator
+        try {
+            const historyForAI = this.conversationHistory.map(msg => ({
+                role: msg.role,
+                content: msg.role === 'user' ? msg.content : msg.contents[msg.activeContentIndex]
+            }));
+
+            const response = await browser.runtime.sendMessage({
+                type: 'INFER_SUGGESTIONS', // New message type
+                payload: { history: historyForAI, aiModel: this.settings.summarySettings?.aiModel, targetLang: this.settings.targetLanguage }
+            });
+
+            if (!response.success) throw new Error(response.error);
+
+            this.summaryDialog.renderSuggestions(response.suggestions);
+        } catch (error) {
+            console.error('[Foxlate Summary] Error inferring suggestions:', error);
+            this.summaryDialog.renderSuggestions([`**Error:** ${error.message}`]);
+        } finally {
+            this.summaryDialog.setLoading(false);
+        }
+    }
+
     destroy() {
         this.summaryButton?.destroy();
         this.summaryDialog?.destroy();
@@ -244,11 +273,12 @@ class SummaryButton {
 }
 
 class SummaryDialog {
-    constructor(sendMessageHandler, actionHandler, refreshHandler) {
+    constructor(sendMessageHandler, actionHandler, refreshHandler, inferSuggestionsHandler) {
         this.isOpen = false;
         this.sendMessageHandler = sendMessageHandler;
         this.actionHandler = actionHandler;
-        this.refreshHandler = refreshHandler; // Add refreshHandler
+        this.refreshHandler = refreshHandler;
+        this.inferSuggestionsHandler = inferSuggestionsHandler; // Store the handler
         this.create();
     }
 
@@ -263,11 +293,21 @@ class SummaryDialog {
             </div>
             <div class="foxlate-summary-conversation"></div>
             <div class="foxlate-summary-footer">
+                <!-- New: Suggestions area -->
+                <div class="foxlate-summary-suggestions" style="display: none;">
+                    <!-- Suggestions will be dynamically inserted here -->
+                </div>
+                <!-- New: Menu bar -->
+                <div class="foxlate-summary-menubar">
+                    <button class="suggest-button" aria-label="Suggest">${this.getIcon('suggest')}</button>
+                </div>
                 <textarea placeholder="${browser.i18n.getMessage('summaryInputPlaceholder') || 'Ask a follow-up...'}" rows="1"></textarea>
                 <button class="send-button" aria-label="Send">${this.getIcon('send')}</button>
             </div>
         `;
         this.conversationArea = this.element.querySelector('.foxlate-summary-conversation');
+        this.suggestionsArea = this.element.querySelector('.foxlate-summary-suggestions');
+        this.suggestButton = this.element.querySelector('.suggest-button');
         this.textarea = this.element.querySelector('textarea');
         this.sendButton = this.element.querySelector('.send-button');
         document.body.appendChild(this.element);
@@ -275,6 +315,7 @@ class SummaryDialog {
         this.sendButton.addEventListener('click', () => this.triggerSend());
         this.refreshButton = this.element.querySelector('.refresh-button'); // Get refresh button
         this.refreshButton.addEventListener('click', () => this.refreshHandler()); // Add event listener
+        this.suggestButton.addEventListener('click', () => this.toggleSuggestions()); // New event listener
         
         this.textarea.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && e.ctrlKey) {
@@ -370,6 +411,54 @@ class SummaryDialog {
         this.element.classList.toggle('loading', isLoading);
     }
 
+    toggleSuggestions() {
+        if (this.suggestionsArea.style.display === 'none') {
+            this.suggestionsArea.style.display = 'flex'; // Show suggestions area
+            this.inferSuggestionsHandler(); // Trigger AI inference
+        } else {
+            this.suggestionsArea.style.display = 'none'; // Hide suggestions area
+            this.suggestionsArea.innerHTML = ''; // Clear suggestions
+        }
+    }
+
+    renderSuggestions(suggestions) {
+        this.suggestionsArea.innerHTML = ''; // Clear previous suggestions
+        if (suggestions && suggestions.length > 0) {
+            suggestions.forEach(suggestion => {
+                const suggestionEl = document.createElement('div');
+                suggestionEl.className = 'foxlate-suggestion-item';
+                suggestionEl.innerHTML = `
+                    <span class="suggestion-text">${suggestion}</span>
+                    <button class="send-suggestion-button" data-suggestion="${suggestion}" aria-label="Send suggestion">${this.getIcon('send')}</button>
+                    <button class="edit-suggestion-button" data-suggestion="${suggestion}" aria-label="Edit suggestion">${this.getIcon('edit')}</button>
+                `;
+                this.suggestionsArea.appendChild(suggestionEl);
+            });
+
+            // Add event listeners for new suggestion buttons
+            this.suggestionsArea.querySelectorAll('.send-suggestion-button').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const suggestion = e.currentTarget.dataset.suggestion;
+                    this.sendMessageHandler(suggestion);
+                    this.toggleSuggestions(); // Hide suggestions after sending
+                });
+            });
+
+            this.suggestionsArea.querySelectorAll('.edit-suggestion-button').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const suggestion = e.currentTarget.dataset.suggestion;
+                    this.textarea.value = suggestion;
+                    this.textarea.style.height = 'auto';
+                    this.textarea.style.height = `${this.textarea.scrollHeight}px`;
+                    this.textarea.focus();
+                    this.toggleSuggestions(); // Hide suggestions after editing
+                });
+            });
+        } else {
+            this.suggestionsArea.innerHTML = '<div class="foxlate-suggestion-item">No suggestions available.</div>';
+        }
+    }
+
     getIcon(name) {
         const icons = {
             send: '<svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 24 24" width="20"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>',
@@ -380,7 +469,8 @@ class SummaryDialog {
             cancel: '<svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>',
             prev: '<svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>',
             next: '<svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>',
-            refresh: '<svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>'
+            refresh: '<svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>',
+            suggest: '<svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>' // Placeholder for suggest icon
         };
         return icons[name] || '';
     }

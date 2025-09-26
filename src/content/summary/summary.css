@@ -93,3 +93,94 @@
 .foxlate-summary-footer .send-button:hover { background-color: #f0f0f0; }
 .foxlate-summary-footer .send-button svg { fill: #1a73e8; }
 .foxlate-summary-footer .send-button:disabled svg { fill: #aaa; }
+
+/* New styles for suggestions feature */
+.foxlate-summary-menubar {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 4px 16px; /* Adjust padding to match footer */
+    border-bottom: 1px solid #e0e0e0;
+    /* margin-bottom: 8px; Removed as it's part of the footer now */
+}
+
+.suggest-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 6px 8px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #5f6368;
+    font-size: 0.9em;
+    font-weight: 500;
+    transition: background-color 0.2s ease-in-out;
+}
+
+.suggest-button:hover {
+    background-color: #f0f0f0;
+}
+
+.suggest-button svg {
+    fill: currentColor;
+    width: 18px;
+    height: 18px;
+    margin-right: 4px;
+}
+
+.foxlate-summary-suggestions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 16px;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.foxlate-suggestion-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: #e8f0fe; /* Light blue background */
+    border-radius: 16px;
+    padding: 8px 12px;
+    font-size: 0.9em;
+    color: #202121;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
+}
+
+.foxlate-suggestion-item:hover {
+    background-color: #d2e3fc; /* Slightly darker blue on hover */
+}
+
+.foxlate-suggestion-item .suggestion-text {
+    flex-grow: 1;
+    margin-right: 8px;
+}
+
+.foxlate-suggestion-item button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.8;
+    transition: opacity 0.2s ease-in-out, background-color 0.2s ease-in-out;
+}
+
+.foxlate-suggestion-item button:hover {
+    opacity: 1;
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.foxlate-suggestion-item button svg {
+    fill: #5f6368;
+    width: 16px;
+    height: 16px;
+}
