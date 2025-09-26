@@ -39,9 +39,12 @@ class SummaryModule {
         }
 
         const targetRect = targetElement.getBoundingClientRect();
-        // 将按钮定位在目标元素右上角，并向内偏移
-        const initialX = window.scrollX + targetRect.right - 60;
-        const initialY = window.scrollY + targetRect.top + 20;
+        const BUTTON_OFFSET_X = 10; // 按钮距离 mainBody 右侧的偏移
+        const BUTTON_OFFSET_Y = 50; // 按钮距离 mainBody 顶部的偏移
+
+        // 计算按钮的初始位置，使其位于 targetElement 的右上角外部
+        const initialX = window.scrollX + targetRect.right + BUTTON_OFFSET_X;
+        const initialY = window.scrollY + targetRect.top + BUTTON_OFFSET_Y;
 
         this.summaryButton.setPosition(initialX, initialY);
     }
@@ -96,6 +99,7 @@ class SummaryModule {
     }
 
     async toggleDialog() {
+        this.summaryButton.element.classList.toggle('rotated');
         if (this.summaryDialog.isOpen) {
             this.summaryDialog.hide();
         } else {
