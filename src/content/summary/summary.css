@@ -87,7 +87,7 @@
 .loading-indicator::after { left: 12px; animation-delay: -0.16s; }
 @keyframes loading-bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1.0); } }
 
-.foxlate-summary-footer { padding: 8px 16px; border-top: 1px solid #e0e0e0; display: flex; align-items: flex-start; gap: 8px; flex-shrink: 0; }
+.foxlate-summary-footer { padding: 8px 16px 12px 16px; border-top: 1px solid #e0e0e0; display: flex; align-items: flex-start; gap: 8px; flex-shrink: 0; }
 .foxlate-summary-footer textarea { flex-grow: 1; border: none; outline: none; resize: none; font-size: 1em; background: transparent; max-height: 100px; /* 约4-5行的高度 */ font-family: inherit; padding-top: 6px; }
 .foxlate-summary-footer .send-button { border: none; background: none; cursor: pointer; padding: 4px; border-radius: 50%; }
 .foxlate-summary-footer .send-button:hover { background-color: #f0f0f0; }
