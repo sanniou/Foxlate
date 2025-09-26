@@ -526,25 +526,57 @@ class SummaryDialog {
         this.isOpen = true;
         this.element.style.visibility = 'visible';
 
-        // --- 修复后的四象限最优解算法 ---
-        const DIALOG_ESTIMATED_WIDTH = 400;
-        const DIALOG_ESTIMATED_HEIGHT = 450;
-        const MARGIN = 16;
+        // --- 重新设计的四象限最优解算法 ---
+        // 1. 确保对话框可见但不可交互，以便获取其真实尺寸
+        this.element.style.visibility = 'hidden';
+        this.element.style.pointerEvents = 'none';
+        this.element.classList.add('visible'); // 添加 visible 类以确保 CSS 样式生效，例如宽度限制
+
+        // 2. 获取对话框的实际渲染尺寸
+        const dialogWidth = this.element.offsetWidth;
+        const dialogHeight = this.element.offsetHeight;
+
+        // 3. 移除临时样式
+        this.element.classList.remove('visible');
+        this.element.style.pointerEvents = 'auto';
+
+        const MARGIN = 16; // 对话框与视口边缘的最小间距
 
         const { top, left, right, bottom } = buttonRect;
         const winWidth = window.innerWidth;
         const winHeight = window.innerHeight;
 
-        const spaceRight = winWidth - left - MARGIN; // 按钮左侧到屏幕右侧的距离
-        const spaceLeft = right - MARGIN; // 按钮右侧到屏幕左侧的距离
-        const spaceBottom = winHeight - bottom - MARGIN;
-        const spaceTop = top - MARGIN;
+        // 计算按钮周围四个方向的可用空间
+        const spaceAvailableRightOfButton = winWidth - right - MARGIN; // 按钮右侧到视口右边缘的距离
+        const spaceAvailableLeftOfButton = left - MARGIN; // 按钮左侧到视口左边缘的距离
+        const spaceAvailableBelowButton = winHeight - bottom - MARGIN; // 按钮下方到视口底部的距离
+        const spaceAvailableAboveButton = top - MARGIN; // 按钮上方到视口顶部的距离
 
+        // 对话框左边缘与按钮左边缘对齐时，右侧可用空间
+        const spaceAvailableRightOfButtonAlignLeft = winWidth - left - MARGIN;
+        // 对话框右边缘与按钮右边缘对齐时，左侧可用空间
+        const spaceAvailableLeftOfButtonAlignRight = right - MARGIN;
+
+        // 定义八种定位策略和得分
         const quadrants = [
-            { name: 'bottomRight', score: Math.min(DIALOG_ESTIMATED_WIDTH, spaceRight) * Math.min(DIALOG_ESTIMATED_HEIGHT, spaceBottom), origin: 'top left', top: `${bottom + 8}px`, left: `${left}px` },
-            { name: 'bottomLeft',  score: Math.min(DIALOG_ESTIMATED_WIDTH, spaceLeft)  * Math.min(DIALOG_ESTIMATED_HEIGHT, spaceBottom), origin: 'top right', top: `${bottom + 8}px`, right: `${winWidth - right}px` },
-            { name: 'topRight',    score: Math.min(DIALOG_ESTIMATED_WIDTH, spaceRight) * Math.min(DIALOG_ESTIMATED_HEIGHT, spaceTop),    origin: 'bottom left', bottom: `${winHeight - top + 8}px`, left: `${left}px` },
-            { name: 'topLeft',     score: Math.min(DIALOG_ESTIMATED_WIDTH, spaceLeft)  * Math.min(DIALOG_ESTIMATED_HEIGHT, spaceTop),    origin: 'bottom right', bottom: `${winHeight - top + 8}px`, right: `${winWidth - right}px` }
+            // 1. 按钮下方，对话框左边缘与按钮左边缘对齐 (Bottom-AlignLeft)
+            { name: 'bottomAlignLeft', score: Math.min(dialogWidth, spaceAvailableRightOfButtonAlignLeft) * Math.min(dialogHeight, spaceAvailableBelowButton), origin: 'top left', top: `${bottom + 8}px`, left: `${left}px` },
+            // 2. 按钮下方，对话框右边缘与按钮右边缘对齐 (Bottom-AlignRight)
+            { name: 'bottomAlignRight',  score: Math.min(dialogWidth, spaceAvailableLeftOfButtonAlignRight)  * Math.min(dialogHeight, spaceAvailableBelowButton), origin: 'top right', top: `${bottom + 8}px`, right: `${winWidth - right}px` },
+            // 3. 按钮上方，对话框左边缘与按钮左边缘对齐 (Top-AlignLeft)
+            { name: 'topAlignLeft',    score: Math.min(dialogWidth, spaceAvailableRightOfButtonAlignLeft) * Math.min(dialogHeight, spaceAvailableAboveButton),    origin: 'bottom left', bottom: `${winHeight - top + 8}px`, left: `${left}px` },
+            // 4. 按钮上方，对话框右边缘与按钮右边缘对齐 (Top-AlignRight)
+            { name: 'topAlignRight',     score: Math.min(dialogWidth, spaceAvailableLeftOfButtonAlignRight)  * Math.min(dialogHeight, spaceAvailableAboveButton),    origin: 'bottom right', bottom: `${winHeight - top + 8}px`, right: `${winWidth - right}px` },
+
+            // 新增的左右定位策略
+            // 5. 按钮右侧，对话框顶部与按钮顶部对齐 (Right-Top)
+            { name: 'rightTop', score: Math.min(dialogWidth, spaceAvailableRightOfButton) * Math.min(dialogHeight, winHeight - top - MARGIN), origin: 'top left', top: `${top}px`, left: `${right + 8}px` },
+            // 6. 按钮右侧，对话框底部与按钮底部对齐 (Right-Bottom)
+            { name: 'rightBottom', score: Math.min(dialogWidth, spaceAvailableRightOfButton) * Math.min(dialogHeight, bottom - MARGIN), origin: 'bottom left', bottom: `${winHeight - bottom}px`, left: `${right + 8}px` },
+            // 7. 按钮左侧，对话框顶部与按钮顶部对齐 (Left-Top)
+            { name: 'leftTop', score: Math.min(dialogWidth, spaceAvailableLeftOfButton) * Math.min(dialogHeight, winHeight - top - MARGIN), origin: 'top right', top: `${top}px`, right: `${winWidth - left + 8}px` },
+            // 8. 按钮左侧，对话框底部与按钮底部对齐 (Left-Bottom)
+            { name: 'leftBottom', score: Math.min(dialogWidth, spaceAvailableLeftOfButton) * Math.min(dialogHeight, bottom - MARGIN), origin: 'bottom right', bottom: `${winHeight - bottom}px`, right: `${winWidth - left + 8}px` },
         ];
 
         let bestQuadrant = quadrants[0];
@@ -565,6 +597,7 @@ class SummaryDialog {
         if (!bestQuadrant.bottom) this.element.style.removeProperty('bottom');
         if (!bestQuadrant.right) this.element.style.removeProperty('right');
 
+        this.element.style.visibility = 'visible'; // 显式设置可见
         this.element.classList.add('visible');
         this.textarea.focus();
     }
