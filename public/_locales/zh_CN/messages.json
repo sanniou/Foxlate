@@ -938,5 +938,17 @@
   "noEnginesInImport": {
     "message": "导入数据中未找到引擎",
     "description": "导入数据中没有找到引擎时的错误信息"
+  },
+  "summarySuggestButton": {
+    "message": "建议",
+    "description": "内容总结输入框的建议按钮文本。"
+  },
+  "summaryLoadingSuggestions": {
+    "message": "正在加载建议...",
+    "description": "内容总结建议加载时的文本。"
+  },
+  "summaryNoSuggestions": {
+    "message": "暂无建议。",
+    "description": "内容总结没有建议时的文本。"
   }
 }

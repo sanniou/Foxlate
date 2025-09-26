@@ -292,15 +292,17 @@ class SummaryDialog {
                 <button class="refresh-button" aria-label="Refresh">${this.getIcon('refresh')}</button>
             </div>
             <div class="foxlate-summary-conversation"></div>
+
+            <!-- Moved: Menu bar -->
+            <div class="foxlate-summary-menubar">
+                <button class="suggest-button" aria-label="Suggest">${this.getIcon('suggest')} ${browser.i18n.getMessage('summarySuggestButton')}</button>
+            </div>
+            <!-- Moved: Suggestions area -->
+            <div class="foxlate-summary-suggestions">
+                <!-- Suggestions will be dynamically inserted here -->
+            </div>
+
             <div class="foxlate-summary-footer">
-                <!-- New: Suggestions area -->
-                <div class="foxlate-summary-suggestions" style="display: none;">
-                    <!-- Suggestions will be dynamically inserted here -->
-                </div>
-                <!-- New: Menu bar -->
-                <div class="foxlate-summary-menubar">
-                    <button class="suggest-button" aria-label="Suggest">${this.getIcon('suggest')}</button>
-                </div>
                 <textarea placeholder="${browser.i18n.getMessage('summaryInputPlaceholder') || 'Ask a follow-up...'}" rows="1"></textarea>
                 <button class="send-button" aria-label="Send">${this.getIcon('send')}</button>
             </div>
@@ -409,38 +411,78 @@ class SummaryDialog {
         this.sendButton.disabled = isLoading;
         this.textarea.disabled = isLoading;
         this.element.classList.toggle('loading', isLoading);
+        // Also disable the suggest button when loading
+        this.suggestButton.disabled = isLoading;
+        this.suggestButton.classList.toggle('loading', isLoading); // Add a loading class for visual feedback
     }
 
     toggleSuggestions() {
-        if (this.suggestionsArea.style.display === 'none') {
-            this.suggestionsArea.style.display = 'flex'; // Show suggestions area
-            this.inferSuggestionsHandler(); // Trigger AI inference
-        } else {
-            this.suggestionsArea.style.display = 'none'; // Hide suggestions area
+        if (this.suggestionsArea.classList.contains('is-visible')) { // Check for class instead of style.display
+            this.suggestionsArea.classList.remove('is-visible'); // Hide suggestions area
             this.suggestionsArea.innerHTML = ''; // Clear suggestions
+        } else {
+            this.suggestionsArea.classList.add('is-visible'); // Show suggestions area
+            // Display loading indicator immediately
+            this.suggestionsArea.innerHTML = `
+                <div class="foxlate-suggestion-loading">
+                    <div class="loading-indicator"></div>
+                    <span>${browser.i18n.getMessage('summaryLoadingSuggestions') || 'Loading suggestions...'}</span>
+                </div>
+            `;
+            // Disable suggest button and show loading state
+            this.suggestButton.disabled = true;
+            this.suggestButton.classList.add('loading');
+
+            this.inferSuggestionsHandler().finally(() => {
+                // Re-enable suggest button and remove loading state after inference is complete (success or error)
+                this.suggestButton.disabled = false;
+                this.suggestButton.classList.remove('loading');
+            });
         }
     }
 
     renderSuggestions(suggestions) {
-        this.suggestionsArea.innerHTML = ''; // Clear previous suggestions
+        this.suggestionsArea.innerHTML = ''; // Clear loading indicator or previous suggestions
+
+        let parsedSuggestions = [];
         if (suggestions && suggestions.length > 0) {
-            suggestions.forEach(suggestion => {
+            // Attempt to parse Markdown JSON if the first suggestion looks like it
+            if (typeof suggestions[0] === 'string' && suggestions[0].startsWith('```json') && suggestions[0].endsWith('```')) {
+                try {
+                    const jsonString = suggestions[0].substring(7, suggestions[0].length - 3).trim();
+                    const tempSuggestions = JSON.parse(jsonString);
+                    if (Array.isArray(tempSuggestions)) {
+                        parsedSuggestions = tempSuggestions;
+                    } else {
+                        parsedSuggestions = suggestions; // Fallback if parsing fails or not an array
+                    }
+                } catch (e) {
+                    console.error('[Foxlate Summary] Error parsing Markdown JSON suggestions:', e);
+                    parsedSuggestions = suggestions; // Fallback to original if parsing fails
+                }
+            } else {
+                parsedSuggestions = suggestions;
+            }
+
+            parsedSuggestions.forEach(suggestion => {
                 const suggestionEl = document.createElement('div');
                 suggestionEl.className = 'foxlate-suggestion-item';
                 suggestionEl.innerHTML = `
                     <span class="suggestion-text">${suggestion}</span>
-                    <button class="send-suggestion-button" data-suggestion="${suggestion}" aria-label="Send suggestion">${this.getIcon('send')}</button>
                     <button class="edit-suggestion-button" data-suggestion="${suggestion}" aria-label="Edit suggestion">${this.getIcon('edit')}</button>
                 `;
                 this.suggestionsArea.appendChild(suggestionEl);
             });
 
-            // Add event listeners for new suggestion buttons
-            this.suggestionsArea.querySelectorAll('.send-suggestion-button').forEach(button => {
-                button.addEventListener('click', (e) => {
-                    const suggestion = e.currentTarget.dataset.suggestion;
-                    this.sendMessageHandler(suggestion);
-                    this.toggleSuggestions(); // Hide suggestions after sending
+            // Add event listeners for new suggestion items (entire row)
+            this.suggestionsArea.querySelectorAll('.foxlate-suggestion-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    // Only trigger send if not clicking the edit button
+                    if (!e.target.closest('.edit-suggestion-button')) {
+                        const suggestion = item.querySelector('.suggestion-text').textContent;
+                        this.sendMessageHandler(suggestion);
+                        this.toggleSuggestions(); // Hide suggestions after sending
+                    }
                 });
             });
 
@@ -455,7 +497,12 @@ class SummaryDialog {
                 });
             });
         } else {
-            this.suggestionsArea.innerHTML = '<div class="foxlate-suggestion-item">No suggestions available.</div>';
+            // Improved error/no suggestions display
+            this.suggestionsArea.innerHTML = `
+                <div class="foxlate-suggestion-message foxlate-suggestion-error">
+                    ${browser.i18n.getMessage('summaryNoSuggestions') || 'No suggestions available.'}
+                </div>
+            `;
         }
     }
 
@@ -470,7 +517,7 @@ class SummaryDialog {
             prev: '<svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>',
             next: '<svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>',
             refresh: '<svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>',
-            suggest: '<svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>' // Placeholder for suggest icon
+            suggest: '<svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16"><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17h8v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7z"/></svg>' // Suggest icon (lightbulb)
         };
         return icons[name] || '';
     }

@@ -926,5 +926,17 @@
   "noEnginesInImport": {
     "message": "No engines found in import data",
     "description": "Error message when no engines found in import data"
+  },
+  "summarySuggestButton": {
+    "message": "Suggest",
+    "description": "Text for the suggest button in the content summary input."
+  },
+  "summaryLoadingSuggestions": {
+    "message": "Loading suggestions...",
+    "description": "Text displayed when content summary suggestions are loading."
+  },
+  "summaryNoSuggestions": {
+    "message": "No suggestions available.",
+    "description": "Text displayed when no content summary suggestions are available."
   }
 }

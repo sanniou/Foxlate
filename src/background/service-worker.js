@@ -424,6 +424,10 @@ const messageHandlers = {
         if (!history || history.length === 0 || !aiModel) {
             return { success: false, error: "History or AI model not provided for suggestions." };
         }
+        history.push({
+            "role": "user",
+            "content": "continue"
+        })
 
         try {
             const settings = await SettingsManager.getValidatedSettings();
