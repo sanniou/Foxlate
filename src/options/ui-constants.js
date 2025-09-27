@@ -18,6 +18,7 @@ export const ELEMENT_IDS = {
     // AI Engine Management
     AI_ENGINE_MANAGEMENT_GROUP: 'aiEngineManagementGroup',
     MANAGE_AI_ENGINES_BTN: 'manageAiEnginesBtn',
+    RETRY_ALL_SYNC_BTN: 'retryAllSyncBtn',
 
     // Domain Rules
     ADD_DOMAIN_RULE_BTN: 'addDomainRuleBtn',
@@ -104,6 +105,10 @@ export const ELEMENT_IDS = {
     RUN_GLOBAL_TEST_BTN: 'runGlobalTestBtn',
     TEST_TEXT_INPUT: 'testTextInput',
     TEST_TEXT_INPUT_ERROR: 'testTextInputError',
+
+    // Global Test Area
+    TEST_TRANSLATION_BTN: 'testTranslationBtn',
+    MANUAL_TEST_TRANSLATE_BTN: 'manual-test-translate-btn',
 
     // Log Area
     TOGGLE_LOG_BTN: 'toggleLogBtn',

@@ -106,10 +106,22 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     const updateStateAndRender = (newSettings) => {
         console.log('[Options] Settings changed, updating state and re-rendering.', newSettings);
-        // 1. 更新全局状态 (深拷贝以避免意外修改)
-        state = JSON.parse(JSON.stringify(newSettings));
         
-        // 2. 从新状态渲染UI
+        // 1. 保留当前的 UI 状态
+        const currentUiState = state.ui || { 
+            isDomainRuleModalOpen: false, 
+            editingRule: null, 
+            originalDomain: null,
+            isAiEngineModalOpen: false,
+            editingAiEngine: null,
+            isAiEngineFormVisible: false
+        };
+
+        // 2. 将从存储中加载的新设置与现有的 UI 状态合并
+        state = JSON.parse(JSON.stringify(newSettings));
+        state.ui = currentUiState;
+        
+        // 3. 从合并后的新状态渲染UI
         render();
     }
 
@@ -130,11 +142,13 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.displayModeSelect.value = state.displayMode;
         elements.cacheSizeInput.value = state.cacheSize ?? Constants.DEFAULT_SETTINGS.cacheSize;
 
-        // 2. 重新渲染动态列表
+        // 2. 重新渲染动态列表和模态框
         updateApiFieldsVisibility();
         renderDomainRules();
         renderPrecheckRulesUI();
         renderAiEngineList();
+        renderDomainRuleModal();
+        renderAiEngineModal();
         checkDefaultEngineAvailability();
 
         // 3. 更新快照并重置保存按钮状态
@@ -147,7 +161,9 @@ document.addEventListener('DOMContentLoaded', () => {
      * @returns {object} 当前的设置对象。
      */
     const getSettingsFromUI = () => {
-        return JSON.parse(JSON.stringify(state));
+        const settingsToSave = JSON.parse(JSON.stringify(state));
+        delete settingsToSave.ui; // 从要保存的设置中移除 UI 状态
+        return settingsToSave;
     };
 
     const updateSaveButtonState = () => {
@@ -511,12 +527,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const removeDomainRule = async (domainToRemove) => {
         if (window.confirm(browser.i18n.getMessage('confirmDeleteRule'))) {
             try {
-                const settings = await SettingsManager.getValidatedSettings();
-                if (settings.domainRules[domainToRemove]) {
-                    delete settings.domainRules[domainToRemove];
-                    await SettingsManager.saveSettings(settings);
-                    showStatusMessage(browser.i18n.getMessage('removeRuleSuccess'));
-                }
+                delete state.domainRules[domainToRemove];
+                await SettingsManager.saveSettings(getSettingsFromUI());
+                showStatusMessage(browser.i18n.getMessage('removeRuleSuccess'));
             } catch (error) {
                 console.error("Failed to remove domain rule:", error);
                 showStatusMessage("Failed to remove domain rule.", true);
@@ -525,12 +538,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const editDomainRule = (domain) => {
-        const ruleData = state.domainRules[domain];
-        if (ruleData) {
-            openDomainRuleModal({ domain, ...ruleData });
-        } else {
-            console.error(`Rule for domain "${domain}" not found in local state.`);
-        }
+        const ruleData = state.domainRules[domain] || {};
+        openDomainRuleModal(domain, ruleData);
     };
 
     const saveDomainRule = async () => {
@@ -539,23 +548,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const isExcludeValid = validateCssSelectorInput(elements.ruleExcludeSelectorTextarea);
         const isMainBodyValid = validateCssSelectorInput(elements.ruleMainBodySelector);
 
-        let isSummarySettingsValid = true;
-        if (elements.ruleEnableSummary.checked) {
-            if (!elements.ruleMainBodySelector.value.trim()) {
-                const field = elements.ruleMainBodySelector.closest('.m3-form-field');
-                field.classList.add('is-invalid');
-                field.querySelector('.error-message').textContent = browser.i18n.getMessage('errorMainBodySelectorRequired');
-                isSummarySettingsValid = false;
-            }
-            if (!elements.ruleSummaryAiModel.value) {
-                const field = elements.ruleSummaryAiModel.closest('.m3-form-field');
-                field.classList.add('is-invalid');
-                field.querySelector('.error-message').textContent = browser.i18n.getMessage('errorSummaryModelRequired');
-                isSummarySettingsValid = false;
-            }
-        }
-
-        if (!isDomainValid || !isContentValid || !isExcludeValid || !isMainBodyValid || !isSummarySettingsValid) {
+        if (!isDomainValid || !isContentValid || !isExcludeValid || !isMainBodyValid) {
             const firstInvalidField = elements.domainRuleModal.querySelector('.m3-form-field.is-invalid');
             if (firstInvalidField) {
                 firstInvalidField.classList.add('error-shake');
@@ -565,49 +558,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            const newDomain = elements.ruleDomainInput.value.trim();
-            const originalDomain = elements.editingDomainInput.value;
-            const rule = {};
-            
-            if (!elements.ruleApplyToSubdomainsCheckbox.checked) rule.applyToSubdomains = false;
-            if (elements.ruleAutoTranslateSelect.value !== 'default') rule.autoTranslate = elements.ruleAutoTranslateSelect.value;
-            if (elements.ruleTranslatorEngineSelect.value !== 'default') rule.translatorEngine = elements.ruleTranslatorEngineSelect.value;
-            if (elements.ruleTargetLanguageSelect.value !== 'default') rule.targetLanguage = elements.ruleTargetLanguageSelect.value;
-            if (elements.ruleSourceLanguageSelect.value !== 'default') rule.sourceLanguage = elements.ruleSourceLanguageSelect.value;
-            if (elements.ruleDisplayModeSelect.value !== 'default') rule.displayMode = elements.ruleDisplayModeSelect.value;
+            const newDomain = state.ui.editingRule.domain;
+            const originalDomain = state.ui.originalDomain;
+            const rule = state.ui.editingRule;
 
-            if (elements.ruleEnableSummary.checked) {
-                rule.summarySettings = {
-                    enabled: true,
-                    mainBodySelector: elements.ruleMainBodySelector.value.trim(),
-                    aiModel: elements.ruleSummaryAiModel.value
-                };
-            }
+            delete state.domainRules[originalDomain];
+            state.domainRules[newDomain] = rule;
 
-            const contentSelector = elements.ruleContentSelector.value.trim();
-            const excludeSelector = elements.ruleExcludeSelectorTextarea.value.trim();
-            rule.cssSelectorOverride = elements.ruleCssSelectorOverrideCheckbox.checked;
-            if (contentSelector || excludeSelector) {
-                rule.cssSelector = { content: contentSelector, exclude: excludeSelector };
-            } else {
-                delete rule.cssSelector;
-            }
-
-            const enabled = elements.ruleEnableSubtitleCheckbox.checked;
-            const existingRule = state.domainRules[originalDomain] || {};
-            const existingSubtitleSettings = existingRule.subtitleSettings || {};
-            if (enabled) {
-                rule.subtitleSettings = { ...existingSubtitleSettings, enabled: true, strategy: elements.ruleSubtitleStrategySelect.value, displayMode: elements.ruleSubtitleDisplayMode.value };
-            } else {
-                rule.subtitleSettings = { ...existingSubtitleSettings, enabled: false };
-            }
-
-            const settings = await SettingsManager.getValidatedSettings();
-            if (originalDomain && originalDomain !== newDomain) {
-                delete settings.domainRules[originalDomain];
-            }
-            settings.domainRules[newDomain] = rule;
-            await SettingsManager.saveSettings(settings);
+            await SettingsManager.saveSettings(getSettingsFromUI());
 
             closeDomainRuleModal();
             showStatusMessage(browser.i18n.getMessage('saveRuleSuccess') || 'Rule saved successfully.');
@@ -618,8 +576,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const exportSettings = async () => {
-        const { settings } = await browser.storage.sync.get('settings');
-        const settingsJson = JSON.stringify(settings, null, 2);
+        const settingsJson = JSON.stringify(getSettingsFromUI(), null, 2);
         const blob = new Blob([settingsJson], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -649,8 +606,6 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.readAsText(file);
     };
 
-    let currentEditingAiEngineId = null;
-
     const openModal = (modalElement) => {
         if (!modalElement) return;
         document.body.classList.add('modal-open');
@@ -664,6 +619,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const closeModal = (modalElement, onClosed) => {
         if (!modalElement) return;
+        if (!modalElement.classList.contains('is-visible')) return;
         modalElement.classList.remove('is-visible');
         if (document.querySelectorAll('.modal.is-visible').length === 0) {
             document.body.classList.remove('modal-open');
@@ -685,18 +641,17 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const openAiEngineModal = () => {
-        openModal(elements.aiEngineModal);
-        renderAiEngineList();
-        elements.aiEngineForm.style.display = 'none';
+        state.ui.isAiEngineModalOpen = true;
+        render();
     };
 
     const closeAiEngineModal = () => {
-        closeModal(elements.aiEngineModal, () => {
-            elements.aiEngineForm.style.display = 'none';
-            elements.aiTestResult.style.display = 'none';
-            currentEditingAiEngineId = null;
-        });
+        state.ui.isAiEngineModalOpen = false;
+        state.ui.editingAiEngine = null;
+        state.ui.isAiEngineFormVisible = false;
+        render();
     };
+
     const openImportAiEngineModal = () => {
         elements.importAiEngineConfigText.value = '';
         elements.importAiEngineErrorText.textContent = '';
@@ -710,20 +665,19 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const hideAiEngineForm = () => {
-        elements.aiEngineForm.style.display = 'none';
-        elements.aiTestSection.style.display = 'none';
-        aiEngineValidator.clearAllErrors();
-        currentEditingAiEngineId = null;
+        state.ui.isAiEngineFormVisible = false;
+        state.ui.editingAiEngine = null;
+        render();
     };
 
     const handleKeyDown = (event) => {
         if (event.key === "Escape") {
             if (elements.importAiEngineModal.classList.contains('is-visible')) {
                 closeImportAiEngineModal();
-            } else if (elements.aiEngineModal.classList.contains('is-visible')) {
-                if (elements.aiEngineForm.style.display !== 'none') hideAiEngineForm();
+            } else if (state.ui.isAiEngineModalOpen) {
+                if (state.ui.isAiEngineFormVisible) hideAiEngineForm();
                 else closeAiEngineModal();
-            } else if (elements.domainRuleModal.classList.contains('is-visible')) {
+            } else if (state.ui.isDomainRuleModalOpen) {
                 closeDomainRuleModal();
             }
         }
@@ -731,37 +685,81 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.addEventListener('keydown', handleKeyDown);
 
-    const openDomainRuleModal = (ruleData = {}) => {
-        openModal(elements.domainRuleModal);
-        elements.domainRuleFormTitle.textContent = ruleData.domain ? browser.i18n.getMessage('editDomainRule') : browser.i18n.getMessage('addDomainRule');
-        elements.editingDomainInput.value = ruleData.domain || '';
-        elements.ruleDomainInput.value = ruleData.domain || '';
-        elements.ruleApplyToSubdomainsCheckbox.checked = ruleData.applyToSubdomains !== false;
-        elements.ruleAutoTranslateSelect.value = ruleData.autoTranslate || 'default';
-        elements.ruleTranslatorEngineSelect.value = ruleData.translatorEngine || 'default';
-        elements.ruleTargetLanguageSelect.value = ruleData.targetLanguage || 'default';
-        elements.ruleSourceLanguageSelect.value = ruleData.sourceLanguage || 'default';
-        elements.ruleDisplayModeSelect.value = ruleData.displayMode || 'default';
-        const selector = ruleData.cssSelector || {};
-        elements.ruleContentSelector.value = selector.content || [selector.inline, selector.block].filter(Boolean).join(', ');
-        elements.ruleExcludeSelectorTextarea.value = selector.exclude || '';
-        elements.ruleCssSelectorOverrideCheckbox.checked = ruleData.cssSelectorOverride || false;
-        const subtitleSettings = ruleData.subtitleSettings || {};
-        elements.ruleEnableSubtitleCheckbox.checked = subtitleSettings.enabled || false;
-        elements.ruleSubtitleStrategySelect.value = subtitleSettings.strategy || 'none';
-        elements.ruleSubtitleDisplayMode.value = subtitleSettings.displayMode || 'off';
-        elements.ruleSubtitleSettingsGroup.style.display = elements.ruleEnableSubtitleCheckbox.checked ? 'block' : 'none';
-        const summarySettings = ruleData.summarySettings || {};
-        elements.ruleEnableSummary.checked = summarySettings.enabled || false;
-        elements.ruleMainBodySelector.value = summarySettings.mainBodySelector || '';
-        elements.ruleSummaryAiModel.value = summarySettings.aiModel || '';
-        elements.ruleSummarySettingsGroup.style.display = elements.ruleEnableSummary.checked ? 'block' : 'none';
-        elements.domainRuleModal.querySelectorAll('.m3-form-field.filled select').forEach(initializeSelectLabel);
-        domainRuleValidator.clearAllErrors();
-        validateCssSelectorInput(elements.ruleMainBodySelector);
+    const openDomainRuleModal = (domain, ruleData = {}) => {
+        state.ui.originalDomain = domain || null;
+        state.ui.editingRule = JSON.parse(JSON.stringify(ruleData));
+        if (!state.ui.editingRule.domain) state.ui.editingRule.domain = domain || '';
+        state.ui.isDomainRuleModalOpen = true;
+        render();
     };
 
-    const closeDomainRuleModal = () => closeModal(elements.domainRuleModal);
+    const closeDomainRuleModal = () => {
+        state.ui.isDomainRuleModalOpen = false;
+        render();
+    };
+
+    const renderDomainRuleModal = () => {
+        const { isDomainRuleModalOpen, editingRule } = state.ui;
+        if (!elements.domainRuleModal) return;
+
+        if (isDomainRuleModalOpen && editingRule) {
+            elements.domainRuleFormTitle.textContent = state.ui.originalDomain ? browser.i18n.getMessage('editDomainRule') : browser.i18n.getMessage('addDomainRule');
+            elements.ruleDomainInput.value = editingRule.domain || '';
+            elements.ruleApplyToSubdomainsCheckbox.checked = editingRule.applyToSubdomains !== false;
+            elements.ruleAutoTranslateSelect.value = editingRule.autoTranslate || 'default';
+            elements.ruleTranslatorEngineSelect.value = editingRule.translatorEngine || 'default';
+            elements.ruleTargetLanguageSelect.value = editingRule.targetLanguage || 'default';
+            elements.ruleSourceLanguageSelect.value = editingRule.sourceLanguage || 'default';
+            elements.ruleDisplayModeSelect.value = editingRule.displayMode || 'default';
+            const selector = editingRule.cssSelector || {};
+            elements.ruleContentSelector.value = selector.content || [selector.inline, selector.block].filter(Boolean).join(', ');
+            elements.ruleExcludeSelectorTextarea.value = selector.exclude || '';
+            elements.ruleCssSelectorOverrideCheckbox.checked = editingRule.cssSelectorOverride || false;
+            const subtitleSettings = editingRule.subtitleSettings || {};
+            elements.ruleEnableSubtitleCheckbox.checked = subtitleSettings.enabled || false;
+            elements.ruleSubtitleStrategySelect.value = subtitleSettings.strategy || 'none';
+            elements.ruleSubtitleDisplayMode.value = subtitleSettings.displayMode || 'off';
+            elements.ruleSubtitleSettingsGroup.style.display = elements.ruleEnableSubtitleCheckbox.checked ? 'block' : 'none';
+            const summarySettings = editingRule.summarySettings || {};
+            elements.ruleEnableSummary.checked = summarySettings.enabled || false;
+            elements.ruleMainBodySelector.value = summarySettings.mainBodySelector || '';
+            elements.ruleSummaryAiModel.value = summarySettings.aiModel || '';
+            elements.ruleSummarySettingsGroup.style.display = elements.ruleEnableSummary.checked ? 'block' : 'none';
+            
+            openModal(elements.domainRuleModal);
+            elements.domainRuleModal.querySelectorAll('.m3-form-field.filled select').forEach(initializeSelectLabel);
+            domainRuleValidator.clearAllErrors();
+        } else {
+            closeModal(elements.domainRuleModal);
+        }
+    };
+
+    const renderAiEngineModal = () => {
+        const { isAiEngineModalOpen, isAiEngineFormVisible, editingAiEngine } = state.ui;
+        if (!elements.aiEngineModal) return;
+
+        if (isAiEngineModalOpen) {
+            renderAiEngineList();
+            elements.aiEngineForm.style.display = isAiEngineFormVisible ? 'block' : 'none';
+            if (isAiEngineFormVisible && editingAiEngine) {
+                aiEngineValidator.clearAllErrors();
+                populateEngineSelect(elements.aiShortTextEngineSelect, { includeDefault: true, excludeId: editingAiEngine.id });
+                elements.aiFormTitle.textContent = editingAiEngine.id ? browser.i18n.getMessage('edit') : browser.i18n.getMessage('add');
+                elements.aiTestText.value = 'Hello, world!';
+                const formFields = { aiEngineNameInput: 'name', aiApiKeyInput: 'apiKey', aiApiUrlInput: 'apiUrl', aiModelNameInput: 'model', aiCustomPromptInput: 'customPrompt', aiShortTextThresholdInput: 'wordCountThreshold', aiShortTextEngineSelect: 'fallbackEngine' };
+                for (const [elementKey, engineKey] of Object.entries(formFields)) {
+                    const element = elements[elementKey];
+                    if (!element) continue;
+                    const defaultValue = engineKey === 'wordCountThreshold' ? 1 : (engineKey === 'fallbackEngine' ? 'default' : '');
+                    element.value = editingAiEngine[engineKey] ?? defaultValue;
+                }
+                initializeSelectLabel(elements.aiShortTextEngineSelect);
+            }
+            openModal(elements.aiEngineModal);
+        } else {
+            closeModal(elements.aiEngineModal);
+        }
+    };
 
     const renderAiEngineList = () => {
         elements.aiEngineList.innerHTML = '';
@@ -784,28 +782,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const getSyncStatusIcon = (status) => ({ synced: '☁️', local: '💾', syncing: '⏳' })[status] || '❓';
     const getSyncStatusText = (status) => browser.i18n.getMessage(`syncStatus${status.charAt(0).toUpperCase() + status.slice(1)}`) || 'Unknown';
 
-    const showAiEngineForm = (engine = {}) => {
-        aiEngineValidator.clearAllErrors();
-        elements.aiEngineForm.style.display = 'block';
-        elements.aiTestSection.style.display = 'none';
-        populateEngineSelect(elements.aiShortTextEngineSelect, { includeDefault: true, excludeId: engine.id });
-        elements.aiFormTitle.textContent = engine.id ? browser.i18n.getMessage('edit') : browser.i18n.getMessage('add');
-        elements.aiTestText.value = 'Hello, world!';
-        const formFields = { aiEngineNameInput: 'name', aiApiKeyInput: 'apiKey', aiApiUrlInput: 'apiUrl', aiModelNameInput: 'model', aiCustomPromptInput: 'customPrompt', aiShortTextThresholdInput: 'wordCountThreshold', aiShortTextEngineSelect: 'fallbackEngine' };
-        for (const [elementKey, engineKey] of Object.entries(formFields)) {
-            const element = elements[elementKey];
-            if (!element) continue;
-            const defaultValue = engineKey === 'wordCountThreshold' ? 1 : (engineKey === 'fallbackEngine' ? 'default' : '');
-            element.value = engine[engineKey] ?? defaultValue;
-        }
-        initializeSelectLabel(elements.aiShortTextEngineSelect);
-        currentEditingAiEngineId = engine.id || null;
+    const addAiEngine = () => {
+        state.ui.editingAiEngine = {};
+        state.ui.isAiEngineFormVisible = true;
+        render();
     };
 
-    const addAiEngine = () => showAiEngineForm();
     const editAiEngine = (id) => {
         const engine = state.aiEngines.find(e => e.id === id);
-        if (engine) showAiEngineForm(engine);
+        if (engine) {
+            state.ui.editingAiEngine = JSON.parse(JSON.stringify(engine));
+            state.ui.isAiEngineFormVisible = true;
+            render();
+        }
     };
 
     const handleGlobalClick = async (e) => {
@@ -839,20 +828,20 @@ document.addEventListener('DOMContentLoaded', () => {
             [ELEMENT_IDS.OPEN_IMPORT_AI_ENGINE_MODAL_BTN]: openImportAiEngineModal,
             [ELEMENT_IDS.CONFIRM_IMPORT_AI_ENGINE_BTN]: handleConfirmImportAiEngine,
             [ELEMENT_IDS.CANCEL_IMPORT_AI_ENGINE_BTN]: closeImportAiEngineModal,
-            'retryAllSyncBtn': retryAllLocalEnginesSync, // Note: This ID is not in ui-constants.js
+            [ELEMENT_IDS.RETRY_ALL_SYNC_BTN]: retryAllLocalEnginesSync,
             [ELEMENT_IDS.CLEAR_CACHE_BTN]: clearCache,
             [ELEMENT_IDS.MANAGE_AI_ENGINES_BTN]: openAiEngineModal,
             [ELEMENT_IDS.ADD_AI_ENGINE_BTN]: addAiEngine,
             [ELEMENT_IDS.SAVE_AI_ENGINE_BTN]: saveAiEngine,
             [ELEMENT_IDS.CANCEL_AI_ENGINE_BTN]: hideAiEngineForm,
             [ELEMENT_IDS.TEST_AI_ENGINE_BTN]: testAiEngineConnection,
-            [ELEMENT_IDS.ADD_DOMAIN_RULE_BTN]: openDomainRuleModal,
+            [ELEMENT_IDS.ADD_DOMAIN_RULE_BTN]: () => openDomainRuleModal(),
             [ELEMENT_IDS.CANCEL_DOMAIN_RULE_BTN]: closeDomainRuleModal,
             [ELEMENT_IDS.SAVE_DOMAIN_RULE_BTN]: saveDomainRule,
             [ELEMENT_IDS.RUN_GLOBAL_TEST_BTN]: runGlobalPrecheckTest,
-            'testTranslationBtn': toggleTestArea, // Note: This ID is not in ui-constants.js
+            [ELEMENT_IDS.TEST_TRANSLATION_BTN]: toggleTestArea,
             [ELEMENT_IDS.TOGGLE_LOG_BTN]: toggleLogArea,
-            'manual-test-translate-btn': performTestTranslation // Note: This ID is not in ui-constants.js
+            [ELEMENT_IDS.MANUAL_TEST_TRANSLATE_BTN]: performTestTranslation
         };
         if (buttonActions[closestButton.id]) return buttonActions[closestButton.id]();
 
@@ -897,6 +886,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const target = e.target;
         const id = target.id;
 
+        // --- 主设置表单 ---
         const simpleStateUpdaters = {
             [ELEMENT_IDS.DEFAULT_CONTENT_SELECTOR]: (val) => state.translationSelector.default.content = val,
             [ELEMENT_IDS.DEFAULT_EXCLUDE_SELECTOR]: (val) => state.translationSelector.default.exclude = val,
@@ -906,13 +896,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 state.cacheSize = !isNaN(size) && size >= 0 ? size : Constants.DEFAULT_SETTINGS.cacheSize;
             }
         };
-
         if (simpleStateUpdaters[id]) {
             simpleStateUpdaters[id](target.value);
             updateSaveButtonState();
             return;
         }
 
+        // --- 动态前置检查规则 ---
         const precheckItem = target.closest('.rule-item[data-category][data-index]');
         if (precheckItem) {
             const { category, index } = precheckItem.dataset;
@@ -926,9 +916,45 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return;
         }
+        
+        // --- 域名规则弹窗 ---
+        if (target.closest(`#${ELEMENT_IDS.DOMAIN_RULE_MODAL}`)) {
+            if (!state.ui.editingRule) return;
+            const updater = {
+                [ELEMENT_IDS.RULE_DOMAIN_INPUT]: (val) => state.ui.editingRule.domain = val,
+                [ELEMENT_IDS.RULE_CONTENT_SELECTOR]: (val) => {
+                    if (!state.ui.editingRule.cssSelector) state.ui.editingRule.cssSelector = {};
+                    state.ui.editingRule.cssSelector.content = val;
+                },
+                [ELEMENT_IDS.RULE_EXCLUDE_SELECTOR_TEXTAREA]: (val) => {
+                    if (!state.ui.editingRule.cssSelector) state.ui.editingRule.cssSelector = {};
+                    state.ui.editingRule.cssSelector.exclude = val;
+                },
+                [ELEMENT_IDS.RULE_MAIN_BODY_SELECTOR]: (val) => {
+                    if (!state.ui.editingRule.summarySettings) state.ui.editingRule.summarySettings = {};
+                    state.ui.editingRule.summarySettings.mainBodySelector = val;
+                }
+            }[id];
+            if (updater) updater(target.value);
+            return;
+        }
 
-        if (target.closest('#aiEngineForm')) aiEngineValidator?.clearAllErrors();
-        if (target.id === 'ruleDomain') domainRuleValidator?.clearAllErrors();
+        // --- AI 引擎弹窗 ---
+        if (target.closest(`#${ELEMENT_IDS.AI_ENGINE_MODAL}`)) {
+            if (!state.ui.editingAiEngine) return;
+            const updater = {
+                [ELEMENT_IDS.AI_ENGINE_NAME_INPUT]: (val) => state.ui.editingAiEngine.name = val,
+                [ELEMENT_IDS.AI_API_KEY_INPUT]: (val) => state.ui.editingAiEngine.apiKey = val,
+                [ELEMENT_IDS.AI_API_URL_INPUT]: (val) => state.ui.editingAiEngine.apiUrl = val,
+                [ELEMENT_IDS.AI_MODEL_NAME_INPUT]: (val) => state.ui.editingAiEngine.model = val,
+                [ELEMENT_IDS.AI_CUSTOM_PROMPT_INPUT]: (val) => state.ui.editingAiEngine.customPrompt = val,
+                [ELEMENT_IDS.AI_SHORT_TEXT_THRESHOLD_INPUT]: (val) => state.ui.editingAiEngine.wordCountThreshold = parseInt(val, 10) || 0
+            }[id];
+            if (updater) updater(target.value);
+            return;
+        }
+
+        // --- 其他输入框 ---
         if (target.id === 'testTextInput') {
             const fieldContainer = target.closest('.m3-form-field');
             if (fieldContainer.classList.contains('is-invalid')) {
@@ -943,18 +969,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const id = target.id;
         const value = target.type === 'checkbox' ? target.checked : target.value;
 
+        // --- 主设置表单 ---
         const stateUpdaters = {
             [ELEMENT_IDS.TRANSLATOR_ENGINE]: (val) => { state.translatorEngine = val; updateApiFieldsVisibility(); },
             [ELEMENT_IDS.DISPLAY_MODE_SELECT]: (val) => state.displayMode = val,
             [ELEMENT_IDS.TARGET_LANGUAGE]: (val) => state.targetLanguage = val
         };
-
         if (stateUpdaters[id]) {
             stateUpdaters[id](value);
             updateSaveButtonState();
             return;
         }
 
+        // --- 动态前置检查规则 ---
         const precheckItem = target.closest('.rule-item[data-category][data-index]');
         if (precheckItem) {
             const { category, index } = precheckItem.dataset;
@@ -966,31 +993,56 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return;
         }
+        
+        // --- 域名规则弹窗 ---
+        if (target.closest(`#${ELEMENT_IDS.DOMAIN_RULE_MODAL}`)) {
+            if (!state.ui.editingRule) return;
+            const updater = {
+                [ELEMENT_IDS.RULE_APPLY_TO_SUBDOMAINS_CHECKBOX]: (val) => state.ui.editingRule.applyToSubdomains = val,
+                [ELEMENT_IDS.RULE_AUTO_TRANSLATE_SELECT]: (val) => state.ui.editingRule.autoTranslate = val,
+                [ELEMENT_IDS.RULE_TRANSLATOR_ENGINE_SELECT]: (val) => state.ui.editingRule.translatorEngine = val,
+                [ELEMENT_IDS.RULE_TARGET_LANGUAGE_SELECT]: (val) => state.ui.editingRule.targetLanguage = val,
+                [ELEMENT_IDS.RULE_SOURCE_LANGUAGE_SELECT]: (val) => state.ui.editingRule.sourceLanguage = val,
+                [ELEMENT_IDS.RULE_DISPLAY_MODE_SELECT]: (val) => state.ui.editingRule.displayMode = val,
+                [ELEMENT_IDS.RULE_CSS_SELECTOR_OVERRIDE_CHECKBOX]: (val) => state.ui.editingRule.cssSelectorOverride = val,
+                [ELEMENT_IDS.RULE_ENABLE_SUBTITLE_CHECKBOX]: (val) => {
+                    if (!state.ui.editingRule.subtitleSettings) state.ui.editingRule.subtitleSettings = {};
+                    state.ui.editingRule.subtitleSettings.enabled = val;
+                    elements.ruleSubtitleSettingsGroup.style.display = val ? 'block' : 'none';
+                },
+                [ELEMENT_IDS.RULE_SUBTITLE_STRATEGY_SELECT]: (val) => {
+                    if (!state.ui.editingRule.subtitleSettings) state.ui.editingRule.subtitleSettings = {};
+                    state.ui.editingRule.subtitleSettings.strategy = val;
+                },
+                [ELEMENT_IDS.RULE_SUBTITLE_DISPLAY_MODE]: (val) => {
+                    if (!state.ui.editingRule.subtitleSettings) state.ui.editingRule.subtitleSettings = {};
+                    state.ui.editingRule.subtitleSettings.displayMode = val;
+                },
+                [ELEMENT_IDS.RULE_ENABLE_SUMMARY]: (val) => {
+                    if (!state.ui.editingRule.summarySettings) state.ui.editingRule.summarySettings = {};
+                    state.ui.editingRule.summarySettings.enabled = val;
+                    elements.ruleSummarySettingsGroup.style.display = val ? 'block' : 'none';
+                },
+                [ELEMENT_IDS.RULE_SUMMARY_AI_MODEL]: (val) => {
+                    if (!state.ui.editingRule.summarySettings) state.ui.editingRule.summarySettings = {};
+                    state.ui.editingRule.summarySettings.aiModel = val;
+                }
+            }[id];
+            if (updater) updater(value);
+            return;
+        }
 
-        if (target.closest('#domainRuleModal')) {
-            if (id === 'ruleEnableSubtitle') {
-                elements.ruleSubtitleSettingsGroup.style.display = target.checked ? 'block' : 'none';
-                if (target.checked) elements.ruleSubtitleSettingsGroup.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            } else if (id === 'ruleEnableSummary') {
-                elements.ruleSummarySettingsGroup.style.display = target.checked ? 'block' : 'none';
-                if (target.checked) elements.ruleSummarySettingsGroup.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }
+        // --- AI 引擎弹窗 ---
+        if (target.closest(`#${ELEMENT_IDS.AI_ENGINE_MODAL}`)) {
+            if (!state.ui.editingAiEngine) return;
+            const updater = {
+                [ELEMENT_IDS.AI_SHORT_TEXT_ENGINE_SELECT]: (val) => state.ui.editingAiEngine.fallbackEngine = val
+            }[id];
+            if (updater) updater(value);
             return;
         }
 
         if (id === 'import-input') importSettings(e);
-    };
-
-    const getAiEngineFormData = () => {
-        return {
-            name: elements.aiEngineNameInput.value.trim(),
-            apiKey: elements.aiApiKeyInput.value.trim(),
-            apiUrl: elements.aiApiUrlInput.value.trim(),
-            model: elements.aiModelNameInput.value.trim(),
-            customPrompt: elements.aiCustomPromptInput.value.trim(),
-            wordCountThreshold: parseInt(elements.aiShortTextThresholdInput.value, 10) || 0,
-            fallbackEngine: elements.aiShortTextEngineSelect.value
-        };
     };
 
     const handleConfirmImportAiEngine = () => {
@@ -1019,7 +1071,9 @@ document.addEventListener('DOMContentLoaded', () => {
             delete cleanEngineData.id; delete cleanEngineData.syncStatus;
 
             closeImportAiEngineModal();
-            showAiEngineForm(cleanEngineData);
+            state.ui.editingAiEngine = cleanEngineData;
+            state.ui.isAiEngineFormVisible = true;
+            render();
             showStatusMessage(browser.i18n.getMessage('importedAiEngineSuccess'));
         } catch (err) {
             errorEl.textContent = err.message;
@@ -1031,8 +1085,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveAiEngine = async () => {
         if (!aiEngineValidator.validate()) return;
         try {
-            const engineData = getAiEngineFormData();
-            await SettingsManager.saveAiEngine(engineData, currentEditingAiEngineId);
+            const engineData = state.ui.editingAiEngine;
+            const engineId = engineData.id || null;
+            await SettingsManager.saveAiEngine(engineData, engineId);
             hideAiEngineForm();
             showStatusMessage(browser.i18n.getMessage('saveAiEngineSuccess'));
         } catch (error) {
@@ -1341,7 +1396,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!aiEngineValidator.validate()) return;
 
         elements.aiTestSection.style.display = 'block';
-        const engineData = getAiEngineFormData();
+        const engineData = state.ui.editingAiEngine;
         const testText = elements.aiTestText.value.trim() || 'Hello, world!';
 
         elements.aiTestResult.textContent = browser.i18n.getMessage('testing') || 'Testing...';
