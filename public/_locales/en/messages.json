@@ -93,7 +93,7 @@
   },
   "excludeSelectorsDescription": {
     "message": "Elements matching these selectors (and their children) will not be translated. Use a comma to separate multiple selectors.",
-    "description": "Helper text for the exclude CSS selector textarea."
+    "description": "Helper text for the exclude CSS selector."
   },
   "ruleManagement": {
     "message": "Rule Management",
@@ -938,5 +938,25 @@
   "summaryNoSuggestions": {
     "message": "No suggestions available.",
     "description": "Text displayed when no content summary suggestions are available."
+  },
+  "confirmTitle": {
+    "message": "Confirm",
+    "description": "Title for the confirm modal."
+  },
+  "confirmDeleteAiEngineTitle": {
+    "message": "Delete AI Engine",
+    "description": "Title for the confirm delete AI engine modal."
+  },
+  "clearCacheConfirmTitle": {
+    "message": "Clear Cache",
+    "description": "Title for the clear cache confirm modal."
+  },
+  "resetSettingsConfirmTitle": {
+    "message": "Reset Settings",
+    "description": "Title for the reset settings confirm modal."
+  },
+  "confirmDeleteRuleTitle": {
+    "message": "Delete Rule",
+    "description": "Title for the delete rule confirm modal."
   }
 }

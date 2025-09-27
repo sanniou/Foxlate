@@ -4,14 +4,25 @@ import { shouldTranslate } from '../common/precheck.js';
 import { escapeHtml } from '../common/utils.js';
 import * as Constants from '../common/constants.js';
 import { FormValidator } from './validator.js';
-import { SUBTITLE_STRATEGIES } from '../content/subtitle/strategy-manifest.js';
 import { ELEMENT_IDS } from './ui-constants.js';
+import { AIEngineModal } from './components/AIEngineModal.js';
+import { DomainRuleModal } from './components/DomainRuleModal.js';
+import { ConfirmModal } from './components/ConfirmModal.js';
+import {
+    populateEngineSelect,
+    populateLanguageOptions,
+    populateAutoTranslateOptions,
+    populateDisplayModeOptions,
+    populateSubtitleDisplayModeOptions,
+    populateSubtitleStrategyOptions
+} from './ui-helpers.js';
 
 document.addEventListener('DOMContentLoaded', () => {
 
-    // --- 全局验证器实例 ---
-    let aiEngineValidator;
-    let domainRuleValidator;
+    // --- Components ---
+    let aiEngineModal;
+    let domainRuleModal;
+    let confirmModal;
 
     // --- Element Cache ---
     const elements = {
@@ -29,9 +40,18 @@ document.addEventListener('DOMContentLoaded', () => {
         defaultContentSelector: document.getElementById(ELEMENT_IDS.DEFAULT_CONTENT_SELECTOR),
         defaultExcludeSelector: document.getElementById(ELEMENT_IDS.DEFAULT_EXCLUDE_SELECTOR),
         deeplxApiUrl: document.getElementById(ELEMENT_IDS.DEEPLX_API_URL),
+        manageAiEnginesBtn: document.getElementById(ELEMENT_IDS.MANAGE_AI_ENGINES_BTN),
+        displayModeSelect: document.getElementById(ELEMENT_IDS.DISPLAY_MODE_SELECT),
+        saveSettingsBtn: document.getElementById(ELEMENT_IDS.SAVE_SETTINGS_BTN),
+        runGlobalTestBtn: document.getElementById(ELEMENT_IDS.RUN_GLOBAL_TEST_BTN),
+        testTextInput: document.getElementById(ELEMENT_IDS.TEST_TEXT_INPUT),
+        testTextInputError: document.getElementById(ELEMENT_IDS.TEST_TEXT_INPUT_ERROR),
+        cacheSizeInput: document.getElementById(ELEMENT_IDS.CACHE_SIZE_INPUT),
+        cacheInfoDisplay: document.getElementById(ELEMENT_IDS.CACHE_INFO_DISPLAY),
+        clearCacheBtn: document.getElementById(ELEMENT_IDS.CLEAR_CACHE_BTN),
+        // Component-related elements for AIEngineModal
         aiEngineModal: document.getElementById(ELEMENT_IDS.AI_ENGINE_MODAL),
         closeAiEngineModalBtn: document.querySelector(ELEMENT_IDS.CLOSE_AI_ENGINE_MODAL_BTN_SELECTOR),
-        manageAiEnginesBtn: document.getElementById(ELEMENT_IDS.MANAGE_AI_ENGINES_BTN),
         aiEngineList: document.getElementById(ELEMENT_IDS.AI_ENGINE_LIST),
         addAiEngineBtn: document.getElementById(ELEMENT_IDS.ADD_AI_ENGINE_BTN),
         aiEngineForm: document.getElementById(ELEMENT_IDS.AI_ENGINE_FORM),
@@ -55,6 +75,10 @@ document.addEventListener('DOMContentLoaded', () => {
         cancelAiEngineBtn: document.getElementById(ELEMENT_IDS.CANCEL_AI_ENGINE_BTN),
         testAiEngineBtn: document.getElementById(ELEMENT_IDS.TEST_AI_ENGINE_BTN),
         aiTestResult: document.getElementById(ELEMENT_IDS.AI_TEST_RESULT),
+        // Component-related elements for DomainRuleModal
+        domainRuleModal: document.getElementById(ELEMENT_IDS.DOMAIN_RULE_MODAL),
+        saveDomainRuleBtn: document.getElementById(ELEMENT_IDS.SAVE_DOMAIN_RULE_BTN),
+        cancelDomainRuleBtn: document.getElementById(ELEMENT_IDS.CANCEL_DOMAIN_RULE_BTN),
         closeDomainRuleModalBtn: document.querySelector(ELEMENT_IDS.CLOSE_DOMAIN_RULE_MODAL_BTN_SELECTOR),
         domainRuleFormTitle: document.getElementById(ELEMENT_IDS.DOMAIN_RULE_FORM_TITLE),
         editingDomainInput: document.getElementById(ELEMENT_IDS.EDITING_DOMAIN_INPUT),
@@ -68,7 +92,6 @@ document.addEventListener('DOMContentLoaded', () => {
         ruleContentSelector: document.getElementById(ELEMENT_IDS.RULE_CONTENT_SELECTOR),
         ruleExcludeSelectorTextarea: document.getElementById(ELEMENT_IDS.RULE_EXCLUDE_SELECTOR_TEXTAREA),
         ruleCssSelectorOverrideCheckbox: document.getElementById(ELEMENT_IDS.RULE_CSS_SELECTOR_OVERRIDE_CHECKBOX),
-        cancelDomainRuleBtn: document.getElementById(ELEMENT_IDS.CANCEL_DOMAIN_RULE_BTN),
         ruleEnableSubtitleCheckbox: document.getElementById(ELEMENT_IDS.RULE_ENABLE_SUBTITLE_CHECKBOX),
         ruleSubtitleSettingsGroup: document.getElementById(ELEMENT_IDS.RULE_SUBTITLE_SETTINGS_GROUP),
         ruleSubtitleStrategySelect: document.getElementById(ELEMENT_IDS.RULE_SUBTITLE_STRATEGY_SELECT),
@@ -77,17 +100,14 @@ document.addEventListener('DOMContentLoaded', () => {
         ruleEnableSummary: document.getElementById(ELEMENT_IDS.RULE_ENABLE_SUMMARY),
         ruleSummarySettingsGroup: document.getElementById(ELEMENT_IDS.RULE_SUMMARY_SETTINGS_GROUP),
         ruleSummaryAiModel: document.getElementById(ELEMENT_IDS.RULE_SUMMARY_AI_MODEL),
-        displayModeSelect: document.getElementById(ELEMENT_IDS.DISPLAY_MODE_SELECT),
-        saveSettingsBtn: document.getElementById(ELEMENT_IDS.SAVE_SETTINGS_BTN),
-        domainRuleModal: document.getElementById(ELEMENT_IDS.DOMAIN_RULE_MODAL),
-        saveDomainRuleBtn: document.getElementById(ELEMENT_IDS.SAVE_DOMAIN_RULE_BTN),
-        runGlobalTestBtn: document.getElementById(ELEMENT_IDS.RUN_GLOBAL_TEST_BTN),
-        testTextInput: document.getElementById(ELEMENT_IDS.TEST_TEXT_INPUT),
-        testTextInputError: document.getElementById(ELEMENT_IDS.TEST_TEXT_INPUT_ERROR),
-        cacheSizeInput: document.getElementById(ELEMENT_IDS.CACHE_SIZE_INPUT),
-        cacheInfoDisplay: document.getElementById(ELEMENT_IDS.CACHE_INFO_DISPLAY),
-        clearCacheBtn: document.getElementById(ELEMENT_IDS.CLEAR_CACHE_BTN),
         domainRuleForm: document.getElementById(ELEMENT_IDS.DOMAIN_RULE_FORM),
+        // Component-related elements for ConfirmModal
+        confirmModal: document.getElementById(ELEMENT_IDS.CONFIRM_MODAL),
+        confirmModalTitle: document.getElementById(ELEMENT_IDS.CONFIRM_MODAL_TITLE),
+        confirmModalMessage: document.getElementById(ELEMENT_IDS.CONFIRM_MODAL_MESSAGE),
+        confirmModalConfirmBtn: document.getElementById(ELEMENT_IDS.CONFIRM_MODAL_CONFIRM_BTN),
+        confirmModalCancelBtn: document.getElementById(ELEMENT_IDS.CONFIRM_MODAL_CANCEL_BTN),
+        closeConfirmModalBtn: document.getElementById(ELEMENT_IDS.CLOSE_CONFIRM_MODAL_BTN),
     };
     elements.toggleLogBtn = document.getElementById('toggleLogBtn');
     elements.logContent = document.getElementById('log-content');
@@ -107,21 +127,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const updateStateAndRender = (newSettings) => {
         console.log('[Options] Settings changed, updating state and re-rendering.', newSettings);
         
-        // 1. 保留当前的 UI 状态
         const currentUiState = state.ui || { 
-            isDomainRuleModalOpen: false, 
-            editingRule: null, 
-            originalDomain: null,
-            isAiEngineModalOpen: false,
-            editingAiEngine: null,
-            isAiEngineFormVisible: false
+            // isDomainRuleModalOpen: false, // Managed by DomainRuleModal
+            // editingRule: null, // Managed by DomainRuleModal
+            // originalDomain: null, // Managed by DomainRuleModal
         };
 
-        // 2. 将从存储中加载的新设置与现有的 UI 状态合并
         state = JSON.parse(JSON.stringify(newSettings));
         state.ui = currentUiState;
         
-        // 3. 从合并后的新状态渲染UI
         render();
     }
 
@@ -132,7 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('[Options] Rendering UI from state.');
 
         // 1. 更新主表单字段
-        populateEngineSelect(elements.translatorEngine);
+        populateEngineSelect(elements.translatorEngine, { allEngines: state.aiEngines });
         elements.translatorEngine.value = state.translatorEngine;
         elements.targetLanguage.value = state.targetLanguage;
         const defaultSelector = state.translationSelector.default || {};
@@ -146,10 +160,15 @@ document.addEventListener('DOMContentLoaded', () => {
         updateApiFieldsVisibility();
         renderDomainRules();
         renderPrecheckRulesUI();
-        renderAiEngineList();
-        renderDomainRuleModal();
-        renderAiEngineModal();
         checkDefaultEngineAvailability();
+
+        // Update components if they are open
+        if (aiEngineModal && aiEngineModal.isOpen()) {
+            aiEngineModal.updateEngines(state.aiEngines);
+        }
+        if (domainRuleModal && domainRuleModal.isOpen()) {
+            domainRuleModal.updateEngines(state.aiEngines); // Pass updated engines to domain rule modal too
+        }
 
         // 3. 更新快照并重置保存按钮状态
         initialSettingsSnapshot = JSON.stringify(getSettingsFromUI());
@@ -290,7 +309,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         return isValid;
-    }
+    };
 
     const applyTranslations = () => {
         document.documentElement.lang = browser.i18n.getUILanguage();
@@ -328,6 +347,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const manageSelectLabels = () => {
         document.querySelectorAll('.m3-form-field.filled select').forEach(initializeSelectLabel);
+    };
+
+    const updateCacheInfo = async () => {
+        try {
+            const info = await browser.runtime.sendMessage({ type: 'GET_CACHE_INFO' });
+            if (info) elements.cacheInfoDisplay.textContent = `${info.count} / ${info.limit}`;
+        } catch (error) {
+            console.error("Failed to get cache info:", error);
+            elements.cacheInfoDisplay.textContent = 'N/A';
+        }
+    };
+
+    const clearCache = async () => {
+        const confirmed = await confirmModal.open(
+            browser.i18n.getMessage('confirmTitle'),
+            browser.i18n.getMessage('clearCacheConfirm')
+        );
+        if (confirmed) {
+            await browser.runtime.sendMessage({ type: 'CLEAR_CACHE' });
+            await updateCacheInfo();
+            showStatusMessage(browser.i18n.getMessage('clearCacheSuccess'));
+        }
     };
 
     const loadSettings = async () => {
@@ -374,7 +415,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const resetSettings = async () => {
-        if (window.confirm(browser.i18n.getMessage('resetSettingsConfirm'))) {
+        const confirmed = await confirmModal.open(
+            browser.i18n.getMessage('confirmTitle'),
+            browser.i18n.getMessage('resetSettingsConfirm')
+        );
+        if (confirmed) {
             try {
                 const defaultSettings = SettingsManager.generateDefaultSettings();
                 await SettingsManager.saveSettings(defaultSettings);
@@ -525,7 +570,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const removeDomainRule = async (domainToRemove) => {
-        if (window.confirm(browser.i18n.getMessage('confirmDeleteRule'))) {
+        const confirmed = await confirmModal.open(
+            browser.i18n.getMessage('confirmTitle'),
+            browser.i18n.getMessage('confirmDeleteRule')
+        );
+        if (confirmed) {
             try {
                 delete state.domainRules[domainToRemove];
                 await SettingsManager.saveSettings(getSettingsFromUI());
@@ -539,40 +588,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const editDomainRule = (domain) => {
         const ruleData = state.domainRules[domain] || {};
-        openDomainRuleModal(domain, ruleData);
-    };
-
-    const saveDomainRule = async () => {
-        const isDomainValid = domainRuleValidator.validate();
-        const isContentValid = validateCssSelectorInput(elements.ruleContentSelector);
-        const isExcludeValid = validateCssSelectorInput(elements.ruleExcludeSelectorTextarea);
-        const isMainBodyValid = validateCssSelectorInput(elements.ruleMainBodySelector);
-
-        if (!isDomainValid || !isContentValid || !isExcludeValid || !isMainBodyValid) {
-            const firstInvalidField = elements.domainRuleModal.querySelector('.m3-form-field.is-invalid');
-            if (firstInvalidField) {
-                firstInvalidField.classList.add('error-shake');
-                setTimeout(() => firstInvalidField.classList.remove('error-shake'), 500);
-            }
-            return;
-        }
-
-        try {
-            const newDomain = state.ui.editingRule.domain;
-            const originalDomain = state.ui.originalDomain;
-            const rule = state.ui.editingRule;
-
-            delete state.domainRules[originalDomain];
-            state.domainRules[newDomain] = rule;
-
-            await SettingsManager.saveSettings(getSettingsFromUI());
-
-            closeDomainRuleModal();
-            showStatusMessage(browser.i18n.getMessage('saveRuleSuccess') || 'Rule saved successfully.');
-        } catch (error) {
-            console.error("Failed to save domain rule:", error);
-            showStatusMessage("Failed to save domain rule.", true);
-        }
+        domainRuleModal.open(domain, ruleData, state.aiEngines);
     };
 
     const exportSettings = async () => {
@@ -606,712 +622,19 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.readAsText(file);
     };
 
-    const openModal = (modalElement) => {
-        if (!modalElement) return;
-        document.body.classList.add('modal-open');
-        modalElement.style.display = 'flex';
-        modalElement.offsetWidth;
-        modalElement.classList.add('is-visible');
-        const scrollableContent = modalElement.querySelector('#domainRuleForm, .modal-scroll-content');
-        if (scrollableContent) scrollableContent.scrollTop = 0;
-        else modalElement.scrollTop = 0;
-    };
-
-    const closeModal = (modalElement, onClosed) => {
-        if (!modalElement) return;
-        if (!modalElement.classList.contains('is-visible')) return;
-        modalElement.classList.remove('is-visible');
-        if (document.querySelectorAll('.modal.is-visible').length === 0) {
-            document.body.classList.remove('modal-open');
+    const handleGlobalFocusIn = (e) => {
+        if (e.target.id === 'testTextInput') {
+            document.querySelectorAll('.rule-test-result.show').forEach(resultEl => resultEl.classList.remove('show'));
         }
-        const modalContent = modalElement.querySelector('.modal-content');
-        if (!modalContent) {
-            modalElement.style.display = 'none';
-            if (onClosed) onClosed();
-            return;
-        }
-        const onTransitionEnd = (e) => {
-            if (e.target === modalContent && (e.propertyName === 'transform' || e.propertyName === 'opacity')) {
-                modalElement.style.display = 'none';
-                modalContent.removeEventListener('transitionend', onTransitionEnd);
-                if (onClosed) onClosed();
-            }
-        };
-        modalContent.addEventListener('transitionend', onTransitionEnd);
-    };
-
-    const openAiEngineModal = () => {
-        state.ui.isAiEngineModalOpen = true;
-        render();
-    };
-
-    const closeAiEngineModal = () => {
-        state.ui.isAiEngineModalOpen = false;
-        state.ui.editingAiEngine = null;
-        state.ui.isAiEngineFormVisible = false;
-        render();
-    };
-
-    const openImportAiEngineModal = () => {
-        elements.importAiEngineConfigText.value = '';
-        elements.importAiEngineErrorText.textContent = '';
-        elements.importAiEngineConfigText.closest('.m3-form-field').classList.remove('is-invalid');
-        openModal(elements.importAiEngineModal);
-        elements.importAiEngineConfigText.focus();
-    };
-
-    const closeImportAiEngineModal = () => {
-        closeModal(elements.importAiEngineModal);
-    };
-
-    const hideAiEngineForm = () => {
-        state.ui.isAiEngineFormVisible = false;
-        state.ui.editingAiEngine = null;
-        render();
     };
 
     const handleKeyDown = (event) => {
         if (event.key === "Escape") {
-            if (elements.importAiEngineModal.classList.contains('is-visible')) {
-                closeImportAiEngineModal();
-            } else if (state.ui.isAiEngineModalOpen) {
-                if (state.ui.isAiEngineFormVisible) hideAiEngineForm();
-                else closeAiEngineModal();
-            } else if (state.ui.isDomainRuleModalOpen) {
-                closeDomainRuleModal();
-            }
+            // Components handle their own escape key logic now
         }
     };
 
     document.addEventListener('keydown', handleKeyDown);
-
-    const openDomainRuleModal = (domain, ruleData = {}) => {
-        state.ui.originalDomain = domain || null;
-        state.ui.editingRule = JSON.parse(JSON.stringify(ruleData));
-        if (!state.ui.editingRule.domain) state.ui.editingRule.domain = domain || '';
-        state.ui.isDomainRuleModalOpen = true;
-        render();
-    };
-
-    const closeDomainRuleModal = () => {
-        state.ui.isDomainRuleModalOpen = false;
-        render();
-    };
-
-    const renderDomainRuleModal = () => {
-        const { isDomainRuleModalOpen, editingRule } = state.ui;
-        if (!elements.domainRuleModal) return;
-
-        if (isDomainRuleModalOpen && editingRule) {
-            elements.domainRuleFormTitle.textContent = state.ui.originalDomain ? browser.i18n.getMessage('editDomainRule') : browser.i18n.getMessage('addDomainRule');
-            elements.ruleDomainInput.value = editingRule.domain || '';
-            elements.ruleApplyToSubdomainsCheckbox.checked = editingRule.applyToSubdomains !== false;
-            elements.ruleAutoTranslateSelect.value = editingRule.autoTranslate || 'default';
-            elements.ruleTranslatorEngineSelect.value = editingRule.translatorEngine || 'default';
-            elements.ruleTargetLanguageSelect.value = editingRule.targetLanguage || 'default';
-            elements.ruleSourceLanguageSelect.value = editingRule.sourceLanguage || 'default';
-            elements.ruleDisplayModeSelect.value = editingRule.displayMode || 'default';
-            const selector = editingRule.cssSelector || {};
-            elements.ruleContentSelector.value = selector.content || [selector.inline, selector.block].filter(Boolean).join(', ');
-            elements.ruleExcludeSelectorTextarea.value = selector.exclude || '';
-            elements.ruleCssSelectorOverrideCheckbox.checked = editingRule.cssSelectorOverride || false;
-            const subtitleSettings = editingRule.subtitleSettings || {};
-            elements.ruleEnableSubtitleCheckbox.checked = subtitleSettings.enabled || false;
-            elements.ruleSubtitleStrategySelect.value = subtitleSettings.strategy || 'none';
-            elements.ruleSubtitleDisplayMode.value = subtitleSettings.displayMode || 'off';
-            elements.ruleSubtitleSettingsGroup.style.display = elements.ruleEnableSubtitleCheckbox.checked ? 'block' : 'none';
-            const summarySettings = editingRule.summarySettings || {};
-            elements.ruleEnableSummary.checked = summarySettings.enabled || false;
-            elements.ruleMainBodySelector.value = summarySettings.mainBodySelector || '';
-            elements.ruleSummaryAiModel.value = summarySettings.aiModel || '';
-            elements.ruleSummarySettingsGroup.style.display = elements.ruleEnableSummary.checked ? 'block' : 'none';
-            
-            openModal(elements.domainRuleModal);
-            elements.domainRuleModal.querySelectorAll('.m3-form-field.filled select').forEach(initializeSelectLabel);
-            domainRuleValidator.clearAllErrors();
-        } else {
-            closeModal(elements.domainRuleModal);
-        }
-    };
-
-    const renderAiEngineModal = () => {
-        const { isAiEngineModalOpen, isAiEngineFormVisible, editingAiEngine } = state.ui;
-        if (!elements.aiEngineModal) return;
-
-        if (isAiEngineModalOpen) {
-            renderAiEngineList();
-            elements.aiEngineForm.style.display = isAiEngineFormVisible ? 'block' : 'none';
-            if (isAiEngineFormVisible && editingAiEngine) {
-                aiEngineValidator.clearAllErrors();
-                populateEngineSelect(elements.aiShortTextEngineSelect, { includeDefault: true, excludeId: editingAiEngine.id });
-                elements.aiFormTitle.textContent = editingAiEngine.id ? browser.i18n.getMessage('edit') : browser.i18n.getMessage('add');
-                elements.aiTestText.value = 'Hello, world!';
-                const formFields = { aiEngineNameInput: 'name', aiApiKeyInput: 'apiKey', aiApiUrlInput: 'apiUrl', aiModelNameInput: 'model', aiCustomPromptInput: 'customPrompt', aiShortTextThresholdInput: 'wordCountThreshold', aiShortTextEngineSelect: 'fallbackEngine' };
-                for (const [elementKey, engineKey] of Object.entries(formFields)) {
-                    const element = elements[elementKey];
-                    if (!element) continue;
-                    const defaultValue = engineKey === 'wordCountThreshold' ? 1 : (engineKey === 'fallbackEngine' ? 'default' : '');
-                    element.value = editingAiEngine[engineKey] ?? defaultValue;
-                }
-                initializeSelectLabel(elements.aiShortTextEngineSelect);
-            }
-            openModal(elements.aiEngineModal);
-        } else {
-            closeModal(elements.aiEngineModal);
-        }
-    };
-
-    const renderAiEngineList = () => {
-        elements.aiEngineList.innerHTML = '';
-        if (!state.aiEngines || state.aiEngines.length === 0) {
-            elements.aiEngineList.innerHTML = `<p>${browser.i18n.getMessage('noAiEnginesFound') || 'No AI engines configured.'}</p>`;
-            return;
-        }
-        const ul = document.createElement('ul');
-        state.aiEngines.forEach(engine => {
-            const syncStatus = engine.syncStatus || 'local';
-            const statusIcon = getSyncStatusIcon(syncStatus);
-            const statusText = getSyncStatusText(syncStatus);
-            const li = document.createElement('li');
-            li.innerHTML = `<div class="engine-info"><span class="engine-name">${escapeHtml(engine.name)}</span><span class="sync-status ${syncStatus}" title="${statusText}">${statusIcon} ${statusText}</span></div><div class="actions">${syncStatus === 'local' ? `<button class="m3-button text retry-sync-btn" data-id="${engine.id}">${browser.i18n.getMessage('retrySync')}</button>` : ''}<button class="m3-button text copy-ai-engine-btn" data-id="${engine.id}">${browser.i18n.getMessage('copy')}</button><button class="m3-button text edit-ai-engine-btn" data-id="${engine.id}">${browser.i18n.getMessage('edit')}</button><button class="m3-button text danger remove-ai-engine-btn" data-id="${engine.id}">${browser.i18n.getMessage('removeAiEngine')}</button></div>`;
-            ul.appendChild(li);
-        });
-        elements.aiEngineList.appendChild(ul);
-    };
-
-    const getSyncStatusIcon = (status) => ({ synced: '☁️', local: '💾', syncing: '⏳' })[status] || '❓';
-    const getSyncStatusText = (status) => browser.i18n.getMessage(`syncStatus${status.charAt(0).toUpperCase() + status.slice(1)}`) || 'Unknown';
-
-    const addAiEngine = () => {
-        state.ui.editingAiEngine = {};
-        state.ui.isAiEngineFormVisible = true;
-        render();
-    };
-
-    const editAiEngine = (id) => {
-        const engine = state.aiEngines.find(e => e.id === id);
-        if (engine) {
-            state.ui.editingAiEngine = JSON.parse(JSON.stringify(engine));
-            state.ui.isAiEngineFormVisible = true;
-            render();
-        }
-    };
-
-    const handleGlobalClick = async (e) => {
-        let target = e.target;
-        if (target instanceof SVGElement && target.parentNode) target = target.parentNode;
-
-        if (target.closest('#importAiEngineModal .close-button')) return closeImportAiEngineModal();
-        if (target.closest('#aiEngineModal .close-button')) return closeAiEngineModal();
-        if (target.closest('#domainRuleModal .close-button')) return closeDomainRuleModal();
-
-        const closestButton = target.closest('button, [role="button"]');
-        if (!closestButton) return;
-
-        if (closestButton.matches('.m3-button:not(.text), .tab-button') && closestButton.id !== 'saveSettingsBtn') {
-            const ripple = document.createElement('span');
-            ripple.className = 'ripple';
-            const rect = closestButton.getBoundingClientRect();
-            const size = Math.max(rect.width, rect.height);
-            ripple.style.width = ripple.style.height = `${size}px`;
-            ripple.style.left = `${e.clientX - rect.left - size / 2}px`;
-            ripple.style.top = `${e.clientY - rect.top - size / 2}px`;
-            closestButton.appendChild(ripple);
-            ripple.addEventListener('animationend', () => ripple.remove(), { once: true });
-        }
-
-        const buttonActions = {
-            [ELEMENT_IDS.SAVE_SETTINGS_BTN]: saveSettings,
-            [ELEMENT_IDS.RESET_SETTINGS_BTN]: resetSettings,
-            [ELEMENT_IDS.EXPORT_BTN]: exportSettings,
-            [ELEMENT_IDS.IMPORT_BTN]: () => elements.importInput.click(),
-            [ELEMENT_IDS.OPEN_IMPORT_AI_ENGINE_MODAL_BTN]: openImportAiEngineModal,
-            [ELEMENT_IDS.CONFIRM_IMPORT_AI_ENGINE_BTN]: handleConfirmImportAiEngine,
-            [ELEMENT_IDS.CANCEL_IMPORT_AI_ENGINE_BTN]: closeImportAiEngineModal,
-            [ELEMENT_IDS.RETRY_ALL_SYNC_BTN]: retryAllLocalEnginesSync,
-            [ELEMENT_IDS.CLEAR_CACHE_BTN]: clearCache,
-            [ELEMENT_IDS.MANAGE_AI_ENGINES_BTN]: openAiEngineModal,
-            [ELEMENT_IDS.ADD_AI_ENGINE_BTN]: addAiEngine,
-            [ELEMENT_IDS.SAVE_AI_ENGINE_BTN]: saveAiEngine,
-            [ELEMENT_IDS.CANCEL_AI_ENGINE_BTN]: hideAiEngineForm,
-            [ELEMENT_IDS.TEST_AI_ENGINE_BTN]: testAiEngineConnection,
-            [ELEMENT_IDS.ADD_DOMAIN_RULE_BTN]: () => openDomainRuleModal(),
-            [ELEMENT_IDS.CANCEL_DOMAIN_RULE_BTN]: closeDomainRuleModal,
-            [ELEMENT_IDS.SAVE_DOMAIN_RULE_BTN]: saveDomainRule,
-            [ELEMENT_IDS.RUN_GLOBAL_TEST_BTN]: runGlobalPrecheckTest,
-            [ELEMENT_IDS.TEST_TRANSLATION_BTN]: toggleTestArea,
-            [ELEMENT_IDS.TOGGLE_LOG_BTN]: toggleLogArea,
-            [ELEMENT_IDS.MANUAL_TEST_TRANSLATE_BTN]: performTestTranslation
-        };
-        if (buttonActions[closestButton.id]) return buttonActions[closestButton.id]();
-
-        const classActions = {
-            'retry-sync-btn': (btn) => retryEngineSync(btn.dataset.id),
-            'edit-ai-engine-btn': (btn) => editAiEngine(btn.dataset.id),
-            'copy-ai-engine-btn': async (btn) => {
-                const engine = state.aiEngines.find(e => e.id === btn.dataset.id);
-                if (engine) {
-                    try {
-                        const cleanEngine = { ...engine };
-                        delete cleanEngine.id; delete cleanEngine.syncStatus;
-                        await navigator.clipboard.writeText(JSON.stringify(cleanEngine, null, 2));
-                        showStatusMessage(browser.i18n.getMessage('copiedAiEngineSuccess'));
-                    } catch (err) {
-                        showStatusMessage(browser.i18n.getMessage('copyAiEngineError'), true);
-                        console.error('Failed to copy AI Engine:', err);
-                    }
-                }
-            },
-            'remove-ai-engine-btn': (btn) => removeAiEngine(btn.dataset.id),
-            'edit-rule-btn': (btn) => editDomainRule(btn.dataset.domain),
-            'delete-rule-btn': (btn) => removeDomainRule(btn.dataset.domain),
-            'tab-button': (btn) => switchPrecheckTab(btn.dataset.category),
-            'add-rule-btn': (btn) => addRuleToCategory(btn.closest('.tab-panel').dataset.category),
-            'remove-rule-btn': (btn) => {
-                const item = btn.closest('.rule-item');
-                state.precheckRules[item.dataset.category].splice(item.dataset.index, 1);
-                render();
-            },
-            'test-rule-btn': (btn) => {
-                const item = btn.closest('.rule-item');
-                testRegex(item.querySelector('.rule-regex'), item.querySelector('.rule-flags'), item.querySelector('.rule-test-result'));
-            }
-        };
-        for (const className in classActions) {
-            if (closestButton.classList.contains(className)) return classActions[className](closestButton);
-        }
-    };
-
-    const handleGlobalInput = (e) => {
-        const target = e.target;
-        const id = target.id;
-
-        // --- 主设置表单 ---
-        const simpleStateUpdaters = {
-            [ELEMENT_IDS.DEFAULT_CONTENT_SELECTOR]: (val) => state.translationSelector.default.content = val,
-            [ELEMENT_IDS.DEFAULT_EXCLUDE_SELECTOR]: (val) => state.translationSelector.default.exclude = val,
-            [ELEMENT_IDS.DEEPLX_API_URL]: (val) => state.deeplxApiUrl = val,
-            [ELEMENT_IDS.CACHE_SIZE_INPUT]: (val) => {
-                const size = parseInt(val, 10);
-                state.cacheSize = !isNaN(size) && size >= 0 ? size : Constants.DEFAULT_SETTINGS.cacheSize;
-            }
-        };
-        if (simpleStateUpdaters[id]) {
-            simpleStateUpdaters[id](target.value);
-            updateSaveButtonState();
-            return;
-        }
-
-        // --- 动态前置检查规则 ---
-        const precheckItem = target.closest('.rule-item[data-category][data-index]');
-        if (precheckItem) {
-            const { category, index } = precheckItem.dataset;
-            const rule = state.precheckRules[category]?.[index];
-            if (rule) {
-                const inputClass = target.className;
-                if (inputClass.includes('rule-name')) rule.name = target.value;
-                else if (inputClass.includes('rule-regex')) rule.regex = target.value;
-                else if (inputClass.includes('rule-flags')) rule.flags = target.value;
-                updateSaveButtonState();
-            }
-            return;
-        }
-        
-        // --- 域名规则弹窗 ---
-        if (target.closest(`#${ELEMENT_IDS.DOMAIN_RULE_MODAL}`)) {
-            if (!state.ui.editingRule) return;
-            const updater = {
-                [ELEMENT_IDS.RULE_DOMAIN_INPUT]: (val) => state.ui.editingRule.domain = val,
-                [ELEMENT_IDS.RULE_CONTENT_SELECTOR]: (val) => {
-                    if (!state.ui.editingRule.cssSelector) state.ui.editingRule.cssSelector = {};
-                    state.ui.editingRule.cssSelector.content = val;
-                },
-                [ELEMENT_IDS.RULE_EXCLUDE_SELECTOR_TEXTAREA]: (val) => {
-                    if (!state.ui.editingRule.cssSelector) state.ui.editingRule.cssSelector = {};
-                    state.ui.editingRule.cssSelector.exclude = val;
-                },
-                [ELEMENT_IDS.RULE_MAIN_BODY_SELECTOR]: (val) => {
-                    if (!state.ui.editingRule.summarySettings) state.ui.editingRule.summarySettings = {};
-                    state.ui.editingRule.summarySettings.mainBodySelector = val;
-                }
-            }[id];
-            if (updater) updater(target.value);
-            return;
-        }
-
-        // --- AI 引擎弹窗 ---
-        if (target.closest(`#${ELEMENT_IDS.AI_ENGINE_MODAL}`)) {
-            if (!state.ui.editingAiEngine) return;
-            const updater = {
-                [ELEMENT_IDS.AI_ENGINE_NAME_INPUT]: (val) => state.ui.editingAiEngine.name = val,
-                [ELEMENT_IDS.AI_API_KEY_INPUT]: (val) => state.ui.editingAiEngine.apiKey = val,
-                [ELEMENT_IDS.AI_API_URL_INPUT]: (val) => state.ui.editingAiEngine.apiUrl = val,
-                [ELEMENT_IDS.AI_MODEL_NAME_INPUT]: (val) => state.ui.editingAiEngine.model = val,
-                [ELEMENT_IDS.AI_CUSTOM_PROMPT_INPUT]: (val) => state.ui.editingAiEngine.customPrompt = val,
-                [ELEMENT_IDS.AI_SHORT_TEXT_THRESHOLD_INPUT]: (val) => state.ui.editingAiEngine.wordCountThreshold = parseInt(val, 10) || 0
-            }[id];
-            if (updater) updater(target.value);
-            return;
-        }
-
-        // --- 其他输入框 ---
-        if (target.id === 'testTextInput') {
-            const fieldContainer = target.closest('.m3-form-field');
-            if (fieldContainer.classList.contains('is-invalid')) {
-                fieldContainer.classList.remove('is-invalid');
-                elements.testTextInputError.textContent = '';
-            }
-        }
-    };
-
-    const handleGlobalChange = (e) => {
-        const target = e.target;
-        const id = target.id;
-        const value = target.type === 'checkbox' ? target.checked : target.value;
-
-        // --- 主设置表单 ---
-        const stateUpdaters = {
-            [ELEMENT_IDS.TRANSLATOR_ENGINE]: (val) => { state.translatorEngine = val; updateApiFieldsVisibility(); },
-            [ELEMENT_IDS.DISPLAY_MODE_SELECT]: (val) => state.displayMode = val,
-            [ELEMENT_IDS.TARGET_LANGUAGE]: (val) => state.targetLanguage = val
-        };
-        if (stateUpdaters[id]) {
-            stateUpdaters[id](value);
-            updateSaveButtonState();
-            return;
-        }
-
-        // --- 动态前置检查规则 ---
-        const precheckItem = target.closest('.rule-item[data-category][data-index]');
-        if (precheckItem) {
-            const { category, index } = precheckItem.dataset;
-            const rule = state.precheckRules[category]?.[index];
-            if (rule) {
-                if (target.matches('.rule-mode')) rule.mode = value;
-                else if (target.matches('.rule-enabled-checkbox')) rule.enabled = value;
-                updateSaveButtonState();
-            }
-            return;
-        }
-        
-        // --- 域名规则弹窗 ---
-        if (target.closest(`#${ELEMENT_IDS.DOMAIN_RULE_MODAL}`)) {
-            if (!state.ui.editingRule) return;
-            const updater = {
-                [ELEMENT_IDS.RULE_APPLY_TO_SUBDOMAINS_CHECKBOX]: (val) => state.ui.editingRule.applyToSubdomains = val,
-                [ELEMENT_IDS.RULE_AUTO_TRANSLATE_SELECT]: (val) => state.ui.editingRule.autoTranslate = val,
-                [ELEMENT_IDS.RULE_TRANSLATOR_ENGINE_SELECT]: (val) => state.ui.editingRule.translatorEngine = val,
-                [ELEMENT_IDS.RULE_TARGET_LANGUAGE_SELECT]: (val) => state.ui.editingRule.targetLanguage = val,
-                [ELEMENT_IDS.RULE_SOURCE_LANGUAGE_SELECT]: (val) => state.ui.editingRule.sourceLanguage = val,
-                [ELEMENT_IDS.RULE_DISPLAY_MODE_SELECT]: (val) => state.ui.editingRule.displayMode = val,
-                [ELEMENT_IDS.RULE_CSS_SELECTOR_OVERRIDE_CHECKBOX]: (val) => state.ui.editingRule.cssSelectorOverride = val,
-                [ELEMENT_IDS.RULE_ENABLE_SUBTITLE_CHECKBOX]: (val) => {
-                    if (!state.ui.editingRule.subtitleSettings) state.ui.editingRule.subtitleSettings = {};
-                    state.ui.editingRule.subtitleSettings.enabled = val;
-                    elements.ruleSubtitleSettingsGroup.style.display = val ? 'block' : 'none';
-                },
-                [ELEMENT_IDS.RULE_SUBTITLE_STRATEGY_SELECT]: (val) => {
-                    if (!state.ui.editingRule.subtitleSettings) state.ui.editingRule.subtitleSettings = {};
-                    state.ui.editingRule.subtitleSettings.strategy = val;
-                },
-                [ELEMENT_IDS.RULE_SUBTITLE_DISPLAY_MODE]: (val) => {
-                    if (!state.ui.editingRule.subtitleSettings) state.ui.editingRule.subtitleSettings = {};
-                    state.ui.editingRule.subtitleSettings.displayMode = val;
-                },
-                [ELEMENT_IDS.RULE_ENABLE_SUMMARY]: (val) => {
-                    if (!state.ui.editingRule.summarySettings) state.ui.editingRule.summarySettings = {};
-                    state.ui.editingRule.summarySettings.enabled = val;
-                    elements.ruleSummarySettingsGroup.style.display = val ? 'block' : 'none';
-                },
-                [ELEMENT_IDS.RULE_SUMMARY_AI_MODEL]: (val) => {
-                    if (!state.ui.editingRule.summarySettings) state.ui.editingRule.summarySettings = {};
-                    state.ui.editingRule.summarySettings.aiModel = val;
-                }
-            }[id];
-            if (updater) updater(value);
-            return;
-        }
-
-        // --- AI 引擎弹窗 ---
-        if (target.closest(`#${ELEMENT_IDS.AI_ENGINE_MODAL}`)) {
-            if (!state.ui.editingAiEngine) return;
-            const updater = {
-                [ELEMENT_IDS.AI_SHORT_TEXT_ENGINE_SELECT]: (val) => state.ui.editingAiEngine.fallbackEngine = val
-            }[id];
-            if (updater) updater(value);
-            return;
-        }
-
-        if (id === 'import-input') importSettings(e);
-    };
-
-    const handleConfirmImportAiEngine = () => {
-        const formField = elements.importAiEngineConfigText.closest('.m3-form-field');
-        const errorEl = elements.importAiEngineErrorText;
-        const configText = elements.importAiEngineConfigText.value.trim();
-
-        formField.classList.remove('is-invalid');
-        errorEl.textContent = '';
-
-        if (!configText) {
-            errorEl.textContent = browser.i18n.getMessage('pasteConfigRequired');
-            formField.classList.add('is-invalid');
-            return;
-        }
-
-        try {
-            const importedData = JSON.parse(configText);
-            const engineData = Array.isArray(importedData) ? importedData[0] : importedData;
-
-            if (!engineData || !engineData.name || !engineData.apiKey || !engineData.apiUrl || !engineData.model || !engineData.customPrompt) {
-                throw new Error(browser.i18n.getMessage('invalidAiEngineData'));
-            }
-
-            const cleanEngineData = { ...engineData };
-            delete cleanEngineData.id; delete cleanEngineData.syncStatus;
-
-            closeImportAiEngineModal();
-            state.ui.editingAiEngine = cleanEngineData;
-            state.ui.isAiEngineFormVisible = true;
-            render();
-            showStatusMessage(browser.i18n.getMessage('importedAiEngineSuccess'));
-        } catch (err) {
-            errorEl.textContent = err.message;
-            formField.classList.add('is-invalid');
-            console.error('Failed to import AI Engine:', err);
-        }
-    };
-
-    const saveAiEngine = async () => {
-        if (!aiEngineValidator.validate()) return;
-        try {
-            const engineData = state.ui.editingAiEngine;
-            const engineId = engineData.id || null;
-            await SettingsManager.saveAiEngine(engineData, engineId);
-            hideAiEngineForm();
-            showStatusMessage(browser.i18n.getMessage('saveAiEngineSuccess'));
-        } catch (error) {
-            console.error("Failed to save AI engine:", error);
-            showStatusMessage("Failed to save AI engine.", true);
-        }
-    };
-
-    const retryEngineSync = async (engineId) => {
-        const engine = state.aiEngines.find(e => e.id === engineId);
-        if (!engine) return console.error('Engine not found:', engineId);
-        try {
-            await SettingsManager.saveAiEngine(engine, engineId);
-            showStatusMessage(browser.i18n.getMessage('retrySyncSuccess'));
-        } catch (error) {
-            console.error('Retry sync failed for engine:', engineId, error);
-            showStatusMessage(browser.i18n.getMessage('retrySyncFailed'), true);
-        }
-    };
-
-    const checkDefaultEngineAvailability = () => {
-        const settings = getSettingsFromUI();
-        if (!settings.translatorEngine || !settings.translatorEngine.startsWith('ai:')) return true;
-        const engineId = settings.translatorEngine.substring(3);
-        const engineExists = state.aiEngines.some(e => e.id === engineId);
-        if (!engineExists) showDefaultEngineWarning();
-        return engineExists;
-    };
-
-    const showDefaultEngineWarning = () => {
-        const warningElement = document.getElementById('defaultEngineWarning');
-        if (warningElement) {
-            warningElement.style.display = 'block';
-            warningElement.innerHTML = `<div class="warning-message">⚠️ ${browser.i18n.getMessage('defaultEngineNotFound')}</div>`;
-        }
-    };
-
-    const hideDefaultEngineWarning = () => {
-        const warningElement = document.getElementById('defaultEngineWarning');
-        if (warningElement) warningElement.style.display = 'none';
-    };
-
-    const retryAllLocalEnginesSync = async () => {
-        const localEngineIds = state.aiEngines.filter(e => e.syncStatus === 'local').map(e => e.id);
-        if (localEngineIds.length === 0) return showStatusMessage(browser.i18n.getMessage('noLocalEngines'));
-
-        let successCount = 0, failCount = 0;
-        for (const engineId of localEngineIds) {
-            try {
-                await retryEngineSync(engineId);
-                successCount++;
-            } catch (error) {
-                failCount++;
-            }
-        }
-        const message = browser.i18n.getMessage('batchSyncResult', [successCount, failCount]);
-        showStatusMessage(message, failCount > 0);
-    };
-
-    const removeAiEngine = async (id) => {
-        if (window.confirm(browser.i18n.getMessage('confirmDeleteAiEngine'))) {
-            try {
-                await SettingsManager.removeAiEngine(id);
-                showStatusMessage(browser.i18n.getMessage('removeAiEngineSuccess'));
-            } catch (error) {
-                console.error("Failed to remove AI engine:", error);
-                showStatusMessage("Failed to remove AI engine.", true);
-            }
-        }
-    };
-
-    const updateApiFieldsVisibility = () => {
-        const engine = elements.translatorEngine.value;
-        elements.deeplxUrlGroup.style.display = 'none';
-        if (engine === 'deeplx') elements.deeplxUrlGroup.style.display = 'block';
-        else if (engine.startsWith('ai:')) elements.aiEngineManagementGroup.style.display = 'block';
-    };
-
-    const populateEngineSelect = (selectElement, { includeDefault = false, excludeId = null, onlyAi = false } = {}) => {
-        if (!selectElement) return;
-        const currentValue = selectElement.value;
-        selectElement.innerHTML = '';
-
-        if (includeDefault) {
-            const defaultOption = document.createElement('option');
-            defaultOption.value = 'default';
-            defaultOption.textContent = browser.i18n.getMessage('useDefaultSetting');
-            selectElement.appendChild(defaultOption);
-        }
-
-        if (!onlyAi) {
-            for (const key in Constants.SUPPORTED_ENGINES) {
-                const option = document.createElement('option');
-                option.value = key;
-                option.textContent = browser.i18n.getMessage(Constants.SUPPORTED_ENGINES[key]);
-                selectElement.appendChild(option);
-            }
-        }
-
-        if (state.aiEngines) {
-            state.aiEngines.forEach(engine => {
-                if (engine.id !== excludeId) {
-                    const option = document.createElement('option');
-                    option.value = `ai:${engine.id}`;
-                    option.textContent = engine.name;
-                    selectElement.appendChild(option);
-                }
-            });
-        }
-
-        if (Array.from(selectElement.options).some(opt => opt.value === currentValue)) {
-            selectElement.value = currentValue;
-        } else if (selectElement.options.length > 0) {
-            selectElement.value = selectElement.options[0].value;
-        }
-    };
-
-    const populateModalDropdowns = () => {
-        populateEngineSelect(elements.ruleTranslatorEngineSelect, { includeDefault: true });
-        const summaryAiSelect = elements.ruleSummaryAiModel;
-        summaryAiSelect.innerHTML = '';
-        populateEngineSelect(summaryAiSelect, { includeDefault: false, onlyAi: true });
-
-        const langSelect = elements.ruleTargetLanguageSelect;
-        langSelect.innerHTML = '';
-        const defaultLangOption = document.createElement('option');
-        defaultLangOption.value = 'default';
-        defaultLangOption.textContent = browser.i18n.getMessage('useDefaultSetting');
-        langSelect.appendChild(defaultLangOption);
-        for (const code in Constants.SUPPORTED_LANGUAGES) {
-            if (code === 'auto') continue;
-            const option = document.createElement('option');
-            option.value = code;
-            option.textContent = browser.i18n.getMessage(Constants.SUPPORTED_LANGUAGES[code]);
-            langSelect.appendChild(option);
-        }
-
-        const sourceLangSelect = elements.ruleSourceLanguageSelect;
-        sourceLangSelect.innerHTML = '';
-        const defaultSourceLangOption = document.createElement('option');
-        defaultSourceLangOption.value = 'default';
-        defaultSourceLangOption.textContent = browser.i18n.getMessage('useDefaultSetting');
-        sourceLangSelect.appendChild(defaultSourceLangOption);
-        for (const code in Constants.SUPPORTED_LANGUAGES) {
-            const option = document.createElement('option');
-            option.value = code;
-            option.textContent = browser.i18n.getMessage(Constants.SUPPORTED_LANGUAGES[code]);
-            sourceLangSelect.appendChild(option);
-        }
-
-        populateAutoTranslateOptions(elements.ruleAutoTranslateSelect, true);
-        populateDisplayModeOptions(elements.ruleDisplayModeSelect, true);
-
-        const strategySelect = elements.ruleSubtitleStrategySelect;
-        strategySelect.innerHTML = '';
-        const noStrategyOption = document.createElement('option');
-        noStrategyOption.value = 'none';
-        noStrategyOption.textContent = browser.i18n.getMessage('subtitleStrategyNone') || '不使用';
-        strategySelect.appendChild(noStrategyOption);
-        SUBTITLE_STRATEGIES.forEach(strategy => {
-            const option = document.createElement('option');
-            option.value = strategy.name;
-            option.textContent = strategy.displayName || (strategy.name.charAt(0).toUpperCase() + strategy.name.slice(1));
-            strategySelect.appendChild(option);
-        });
-
-        const displayModeSelect = elements.ruleSubtitleDisplayMode;
-        if (displayModeSelect) {
-            displayModeSelect.innerHTML = '';
-            for (const code in Constants.SUBTITLE_DISPLAY_MODES) {
-                const option = document.createElement('option');
-                option.value = code;
-                option.textContent = browser.i18n.getMessage(Constants.SUBTITLE_DISPLAY_MODES[code]) || code;
-                displayModeSelect.appendChild(option);
-            }
-        }
-    };
-
-    const populateLanguageOptions = () => {
-        const select = elements.targetLanguage;
-        if (!select) return;
-        select.innerHTML = '';
-        for (const code in Constants.SUPPORTED_LANGUAGES) {
-            if (code === 'auto') continue;
-            const option = document.createElement('option');
-            option.value = code;
-            option.textContent = browser.i18n.getMessage(Constants.SUPPORTED_LANGUAGES[code]) || code;
-            select.appendChild(option);
-        }
-    };
-
-    const populateAutoTranslateOptions = (selectElement, includeDefault = false) => {
-        if (!selectElement) return;
-        selectElement.innerHTML = '';
-        if (includeDefault) {
-            const defaultOption = document.createElement('option');
-            defaultOption.value = 'default';
-            defaultOption.textContent = browser.i18n.getMessage('useDefaultSetting');
-            selectElement.appendChild(defaultOption);
-        }
-        for (const code in Constants.AUTO_TRANSLATE_MODES) {
-            const option = document.createElement('option');
-            option.value = code;
-            option.textContent = browser.i18n.getMessage(Constants.AUTO_TRANSLATE_MODES[code]) || code;
-            selectElement.appendChild(option);
-        }
-    };
-
-    const populateDisplayModeOptions = (selectElement, includeDefault = false) => {
-        if (!selectElement) return;
-        selectElement.innerHTML = '';
-        if (includeDefault) {
-            const defaultOption = document.createElement('option');
-            defaultOption.value = 'default';
-            defaultOption.textContent = browser.i18n.getMessage('useDefaultSetting');
-            selectElement.appendChild(defaultOption);
-        }
-        for (const code in Constants.DISPLAY_MODES) {
-            const option = document.createElement('option');
-            option.value = code;
-            option.textContent = browser.i18n.getMessage(Constants.DISPLAY_MODES[code].optionsKey) || code;
-            selectElement.appendChild(option);
-        }
-    };
 
     const toggleTestArea = async () => {
         const container = document.getElementById('test-translation-container');
@@ -1388,35 +711,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error('Translation test error:', error);
             resultArea.textContent = `Error: ${error.message}`;
-            resultArea.className = 'test-result-area error';
-        }
-    };
-
-    const testAiEngineConnection = async () => {
-        if (!aiEngineValidator.validate()) return;
-
-        elements.aiTestSection.style.display = 'block';
-        const engineData = state.ui.editingAiEngine;
-        const testText = elements.aiTestText.value.trim() || 'Hello, world!';
-
-        elements.aiTestResult.textContent = browser.i18n.getMessage('testing') || 'Testing...';
-        elements.aiTestResult.classList.remove('success', 'error');
-        elements.aiTestResult.style.display = 'block';
-        elements.aiTestResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-
-        try {
-            const response = await browser.runtime.sendMessage({ type: 'TEST_CONNECTION', payload: { engine: 'ai', settings: { ...engineData }, text: testText } });
-            if (response.success) {
-                elements.aiTestResult.innerHTML = `<strong>${browser.i18n.getMessage('testOriginal')}:</strong> ${escapeHtml(testText)}<br><strong>${browser.i18n.getMessage('testTranslated')}:</strong> ${escapeHtml(response.translatedText.text)}`;
-                elements.aiTestResult.classList.add('success');
-            } else {
-                elements.aiTestResult.textContent = `${browser.i18n.getMessage('testError')}: ${response.error}`;
-                elements.aiTestResult.classList.add('error');
-            }
-        } catch (error) {
-            console.error('AI connection test error:', error);
-            elements.aiTestResult.textContent = `${browser.i18n.getMessage('testError')}: ${error.message}`;
-            elements.aiTestResult.classList.add('error');
+            resultArea.classList.add('error');
         }
     };
 
@@ -1445,49 +740,276 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    const updateCacheInfo = async () => {
-        try {
-            const info = await browser.runtime.sendMessage({ type: 'GET_CACHE_INFO' });
-            if (info) elements.cacheInfoDisplay.textContent = `${info.count} / ${info.limit}`;
-        } catch (error) {
-            console.error("Failed to get cache info:", error);
-            elements.cacheInfoDisplay.textContent = 'N/A';
+    const handleGlobalClick = async (e) => {
+        // console.log('Global click event:', e.target); // Log the initial target
+        let target = e.target;
+        if (target instanceof SVGElement && target.parentNode) {
+            target = target.parentNode;
+            // console.log('Target adjusted to parentNode:', target);
+        }
+
+        const closestButton = target.closest('button, [role="button"]');
+        // console.log('Closest button found:', closestButton); // Log the closest button
+        if (!closestButton) {
+            // console.log('No closest button found, returning.');
+            return;
+        }
+
+        if (closestButton.matches('.m3-button:not(.text), .tab-button') && closestButton.id !== 'saveSettingsBtn') {
+            const ripple = document.createElement('span');
+            ripple.className = 'ripple';
+            const rect = closestButton.getBoundingClientRect();
+            const size = Math.max(rect.width, rect.height);
+            ripple.style.width = ripple.style.height = `${size}px`;
+            ripple.style.left = `${e.clientX - rect.left - size / 2}px`;
+            ripple.style.top = `${e.clientY - rect.top - size / 2}px`;
+            closestButton.appendChild(ripple);
+            ripple.addEventListener('animationend', () => ripple.remove(), { once: true });
+        }
+
+        const buttonActions = {
+            [ELEMENT_IDS.SAVE_SETTINGS_BTN]: saveSettings,
+            [ELEMENT_IDS.RESET_SETTINGS_BTN]: resetSettings,
+            [ELEMENT_IDS.EXPORT_BTN]: exportSettings,
+            [ELEMENT_IDS.IMPORT_BTN]: () => elements.importInput.click(),
+            [ELEMENT_IDS.CLEAR_CACHE_BTN]: clearCache,
+            [ELEMENT_IDS.MANAGE_AI_ENGINES_BTN]: () => aiEngineModal.open(state.aiEngines),
+            [ELEMENT_IDS.ADD_DOMAIN_RULE_BTN]: () => domainRuleModal.open(null, {}, state.aiEngines),
+            [ELEMENT_IDS.RUN_GLOBAL_TEST_BTN]: runGlobalPrecheckTest,
+            [ELEMENT_IDS.TEST_TRANSLATION_BTN]: toggleTestArea,
+            [ELEMENT_IDS.TOGGLE_LOG_BTN]: toggleLogArea,
+            [ELEMENT_IDS.MANUAL_TEST_TRANSLATE_BTN]: performTestTranslation
+        };
+        // console.log('Checking buttonActions for ID:', closestButton.id);
+        if (buttonActions[closestButton.id]) {
+            // console.log('Executing action for ID:', closestButton.id);
+            return buttonActions[closestButton.id]();
+        }
+
+        const classActions = {
+            'edit-rule-btn': (btn) => editDomainRule(btn.dataset.domain),
+            'delete-rule-btn': (btn) => removeDomainRule(btn.dataset.domain),
+            'tab-button': (btn) => switchPrecheckTab(btn.dataset.category),
+            'add-rule-btn': (btn) => addRuleToCategory(btn.closest('.tab-panel').dataset.category),
+            'remove-rule-btn': (btn) => {
+                const item = btn.closest('.rule-item');
+                state.precheckRules[item.dataset.category].splice(item.dataset.index, 1);
+                render();
+            },
+            'test-rule-btn': (btn) => {
+                const item = btn.closest('.rule-item');
+                testRegex(item.querySelector('.rule-regex'), item.querySelector('.rule-flags'), item.querySelector('.rule-test-result'));
+            }
+        };
+        // console.log('Checking classActions for classes:', closestButton.classList);
+        for (const className in classActions) {
+            if (closestButton.classList.contains(className)) {
+                // console.log('Executing action for class:', className);
+                return classActions[className](closestButton);
+            }
+        }
+        // console.log('No action found for button:', closestButton);
+    };
+
+    const handleGlobalInput = (e) => {
+        const target = e.target;
+        const id = target.id;
+
+        // --- 主设置表单 ---
+        const simpleStateUpdaters = {
+            [ELEMENT_IDS.DEFAULT_CONTENT_SELECTOR]: (val) => state.translationSelector.default.content = val,
+            [ELEMENT_IDS.DEFAULT_EXCLUDE_SELECTOR]: (val) => state.translationSelector.default.exclude = val,
+            [ELEMENT_IDS.DEEPLX_API_URL]: (val) => state.deeplxApiUrl = val,
+            [ELEMENT_IDS.CACHE_SIZE_INPUT]: (val) => {
+                const size = parseInt(val, 10);
+                state.cacheSize = !isNaN(size) && size >= 0 ? size : Constants.DEFAULT_SETTINGS.cacheSize;
+            }
+        };
+        if (simpleStateUpdaters[id]) {
+            simpleStateUpdaters[id](target.value);
+            updateSaveButtonState();
+            return;
+        }
+
+        // --- 动态前置检查规则 ---
+        const precheckItem = target.closest('.rule-item[data-category][data-index]');
+        if (precheckItem) {
+            const { category, index } = precheckItem.dataset;
+            const rule = state.precheckRules[category]?.[index];
+            if (rule) {
+                const inputClass = target.className;
+                if (inputClass.includes('rule-name')) rule.name = target.value;
+                else if (inputClass.includes('rule-regex')) rule.regex = target.value;
+                else if (inputClass.includes('rule-flags')) rule.flags = target.value;
+                updateSaveButtonState();
+            }
+            return;
+        }
+        
+        // --- 其他输入框 ---
+        if (target.id === 'testTextInput') {
+            const fieldContainer = target.closest('.m3-form-field');
+            if (fieldContainer.classList.contains('is-invalid')) {
+                fieldContainer.classList.remove('is-invalid');
+                elements.testTextInputError.textContent = '';
+            }
         }
     };
 
-    const clearCache = async () => {
-        if (window.confirm(browser.i18n.getMessage('clearCacheConfirm'))) {
-            await browser.runtime.sendMessage({ type: 'CLEAR_CACHE' });
-            await updateCacheInfo();
-            showStatusMessage(browser.i18n.getMessage('clearCacheSuccess'));
+    const handleGlobalChange = (e) => {
+        const target = e.target;
+        const id = target.id;
+        const value = target.type === 'checkbox' ? target.checked : target.value;
+
+        // --- 主设置表单 ---
+        const stateUpdaters = {
+            [ELEMENT_IDS.TRANSLATOR_ENGINE]: (val) => { state.translatorEngine = val; updateApiFieldsVisibility(); },
+            [ELEMENT_IDS.DISPLAY_MODE_SELECT]: (val) => state.displayMode = val,
+            [ELEMENT_IDS.TARGET_LANGUAGE]: (val) => state.targetLanguage = val
+        };
+        if (stateUpdaters[id]) {
+            stateUpdaters[id](value);
+            updateSaveButtonState();
+            return;
+        }
+
+        // --- 动态前置检查规则 ---
+        const precheckItem = target.closest('.rule-item[data-category][data-index]');
+        if (precheckItem) {
+            const { category, index } = precheckItem.dataset;
+            const rule = state.precheckRules[category]?.[index];
+            if (rule) {
+                if (target.matches('.rule-mode')) rule.mode = value;
+                else if (target.matches('.rule-enabled-checkbox')) rule.enabled = value;
+                updateSaveButtonState();
+            }
+            return;
+        }
+        
+        if (id === 'import-input') importSettings(e);
+    };
+
+    const retryAllLocalEnginesSync = async () => {
+        const localEngineIds = state.aiEngines.filter(e => e.syncStatus === 'local').map(e => e.id);
+        if (localEngineIds.length === 0) return showStatusMessage(browser.i18n.getMessage('noLocalEngines'));
+
+        let successCount = 0, failCount = 0;
+        for (const engineId of localEngineIds) {
+            try {
+                await SettingsManager.saveAiEngine(state.aiEngines.find(e => e.id === engineId), engineId);
+                successCount++;
+            } catch (error) {
+                failCount++;
+            }
+        }
+        const message = browser.i18n.getMessage('batchSyncResult', [successCount, failCount]);
+        showStatusMessage(message, failCount > 0);
+    };
+
+    const checkDefaultEngineAvailability = () => {
+        const settings = getSettingsFromUI();
+        if (!settings.translatorEngine || !settings.translatorEngine.startsWith('ai:')) {
+            hideDefaultEngineWarning();
+            return true;
+        }
+        const engineId = settings.translatorEngine.substring(3);
+        const engineExists = state.aiEngines.some(e => e.id === engineId);
+        if (!engineExists) {
+            showDefaultEngineWarning();
+        } else {
+            hideDefaultEngineWarning();
+        }
+        return engineExists;
+    };
+
+    const showDefaultEngineWarning = () => {
+        const warningElement = document.getElementById('defaultEngineWarning');
+        if (warningElement) {
+            warningElement.style.display = 'block';
+            warningElement.innerHTML = `<div class="warning-message">⚠️ ${browser.i18n.getMessage('defaultEngineNotFound')}</div>`;
         }
     };
 
-    const handleGlobalFocusIn = (e) => {
-        if (e.target.id === 'testTextInput') {
-            document.querySelectorAll('.rule-test-result.show').forEach(resultEl => resultEl.classList.remove('show'));
+    const hideDefaultEngineWarning = () => {
+        const warningElement = document.getElementById('defaultEngineWarning');
+        if (warningElement) {
+            warningElement.style.display = 'none';
+        }
+    };
+
+    const updateApiFieldsVisibility = () => {
+        const engine = elements.translatorEngine.value;
+        elements.deeplxUrlGroup.style.display = 'none';
+        elements.aiEngineManagementGroup.style.display = 'none';
+        if (engine === 'deeplx') {
+            elements.deeplxUrlGroup.style.display = 'block';
+        } else if (engine.startsWith('ai:') || state.aiEngines?.length > 0) {
+            elements.aiEngineManagementGroup.style.display = 'block';
         }
     };
 
     const initialize = async () => {
         applyTranslations();
-        populateLanguageOptions();
+        populateLanguageOptions(elements.targetLanguage);
         populateDisplayModeOptions(elements.displayModeSelect);
         await loadSettings();
         manageSelectLabels();
-        populateModalDropdowns();
 
-        aiEngineValidator = new FormValidator(elements.aiEngineForm, {
-            'aiEngineName': { rules: 'required', labelKey: 'aiEngineName' },
-            'aiApiKey': { rules: 'required', labelKey: 'aiApiKey' },
-            'aiApiUrl': { rules: 'required', labelKey: 'aiApiUrl' },
-            'aiModelName': { rules: 'required', labelKey: 'aiModelName' },
-            'aiCustomPrompt': { rules: 'required', labelKey: 'aiCustomPrompt' },
-            'aiShortTextEngine': { rules: 'required', labelKey: 'aiShortTextEngine' }
+        // Initialize Components
+        confirmModal = new ConfirmModal(elements);
+        aiEngineModal = new AIEngineModal(elements, confirmModal);
+        domainRuleModal = new DomainRuleModal(elements);
+
+        // Bind Component Events
+        aiEngineModal.on('save', async (engineData) => {
+            try {
+                await SettingsManager.saveAiEngine(engineData, engineData.id || null);
+                showStatusMessage(browser.i18n.getMessage('saveAiEngineSuccess'));
+            } catch (error) {
+                console.error("Failed to save AI engine:", error);
+                showStatusMessage("Failed to save AI engine.", true);
+            }
         });
 
-        domainRuleValidator = new FormValidator(elements.domainRuleForm, {
-            'ruleDomain': { rules: 'required', labelKey: 'domain' }
+        aiEngineModal.on('remove', async (engineId) => {
+            try {
+                await SettingsManager.removeAiEngine(engineId);
+                showStatusMessage(browser.i18n.getMessage('removeAiEngineSuccess'));
+            } catch (error) {
+                console.error("Failed to remove AI engine:", error);
+                showStatusMessage("Failed to remove AI engine.", true);
+            }
+        });
+
+        aiEngineModal.on('retrySync', async (engineId) => {
+            try {
+                const engine = state.aiEngines.find(e => e.id === engineId);
+                if (engine) {
+                    await SettingsManager.saveAiEngine(engine, engineId);
+                    showStatusMessage(browser.i18n.getMessage('retrySyncSuccess'));
+                }
+            } catch (error) {
+                console.error('Retry sync failed for engine:', engineId, error);
+                showStatusMessage(browser.i18n.getMessage('retrySyncFailed'), true);
+            }
+        });
+
+        aiEngineModal.on('showStatus', (message, isError) => {
+            showStatusMessage(message, isError);
+        });
+
+        domainRuleModal.on('save', async ({ rule, originalDomain }) => {
+            try {
+                if (originalDomain) {
+                    delete state.domainRules[originalDomain];
+                }
+                state.domainRules[rule.domain] = rule;
+                await SettingsManager.saveSettings(getSettingsFromUI());
+                showStatusMessage(browser.i18n.getMessage('saveRuleSuccess') || 'Rule saved successfully.');
+            } catch (error) {
+                console.error("Failed to save domain rule:", error);
+                showStatusMessage("Failed to save domain rule.", true);
+            }
         });
 
         document.addEventListener('click', handleGlobalClick);

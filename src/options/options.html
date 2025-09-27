@@ -380,6 +380,20 @@
     </div>
 
 
+    <!-- Confirm Modal -->
+    <div id="confirmModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-button" id="closeConfirmModalBtn">&times;</span>
+            <h2 id="confirmModalTitle"></h2>
+            <p id="confirmModalMessage" style="margin: 16px 0;"></p>
+            <div class="button-group modal-actions">
+                <button id="confirmModalCancelBtn" class="m3-button text" i18n-text="cancel">Cancel</button>
+                <button id="confirmModalConfirmBtn" class="m3-button filled danger" i18n-text="confirm">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+
     <!-- Domain Rule Management Modal -->
     <div id="domainRuleModal" class="modal" style="display: none;">
         <div class="modal-content">
@@ -566,5 +580,10 @@
 
     <script src="/common/precheck.js"></script> <!-- Load shared precheck logic -->
     <script src="validator.js" type="module"></script>
+    <script src="components/BaseComponent.js" type="module"></script>
+    <script src="ui-helpers.js" type="module"></script>
+    <script src="components/ConfirmModal.js" type="module"></script>
+    <script src="components/AIEngineModal.js" type="module"></script>
+    <script src="components/DomainRuleModal.js" type="module"></script>
     <script src="options.js" type="module"></script>
 </html>

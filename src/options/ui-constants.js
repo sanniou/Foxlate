@@ -77,6 +77,14 @@ export const ELEMENT_IDS = {
     CANCEL_DOMAIN_RULE_BTN: 'cancelDomainRuleBtn',
     CLOSE_DOMAIN_RULE_MODAL_BTN_SELECTOR: '#domainRuleModal .close-button',
 
+    // Confirm Modal
+    CONFIRM_MODAL: 'confirmModal',
+    CONFIRM_MODAL_TITLE: 'confirmModalTitle',
+    CONFIRM_MODAL_MESSAGE: 'confirmModalMessage',
+    CONFIRM_MODAL_CONFIRM_BTN: 'confirmModalConfirmBtn',
+    CONFIRM_MODAL_CANCEL_BTN: 'confirmModalCancelBtn',
+    CLOSE_CONFIRM_MODAL_BTN: 'closeConfirmModalBtn',
+
     // Domain Rule Form Fields
     RULE_DOMAIN_INPUT: 'ruleDomain',
     RULE_APPLY_TO_SUBDOMAINS_CHECKBOX: 'ruleApplyToSubdomains',
