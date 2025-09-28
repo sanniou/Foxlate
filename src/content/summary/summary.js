@@ -9,8 +9,8 @@ class SummaryModule {
         this.summaryButton = null;
         this.summaryDialog = null;
         this.isDragging = false;
-        this.initialButtonX = 0; // Initialize
-        this.initialButtonY = 0; // Initialize
+        this.positionButtonX = 0; // Initialize
+        this.positionButtonY = 0; // Initialize
         this.selectionContext = null; // { text: string, rect: DOMRect }
 
         // Tab management
@@ -50,8 +50,8 @@ class SummaryModule {
         const targetRect = targetElement.getBoundingClientRect();
         const initialX = targetRect.right + 10;
         const initialY = targetRect.top + 50;
-        this.initialButtonX = initialX; // Store initial X
-        this.initialButtonY = initialY; // Store initial Y
+        this.positionButtonX = initialX; // Store initial X
+        this.positionButtonY = initialY; // Store initial Y
         this.summaryButton.setPosition(initialX, initialY);
     }
 
@@ -83,7 +83,7 @@ class SummaryModule {
             const handleDragEnd = () => {
                 document.removeEventListener('mousemove', handleDragMove);
                 document.removeEventListener('mouseup', handleDragEnd);
-                this.summaryButton.element.classList.remove('dragging'); // Bug 4 Fix
+                this.summaryButton.element.classList.remove('dragging');
 
                 if (hasDragged && wasOpenBeforeDrag) {
                     requestAnimationFrame(() => {
@@ -115,8 +115,10 @@ class SummaryModule {
             this.summaryButton.setPosition(rect.right + 10, rect.top - 10);
         } else {
             this.selectionContext = null;
-            // Reset to initial position
-            this.summaryButton.setPosition(this.initialButtonX, this.initialButtonY);
+            // Only reset position if not currently dragging the button
+            if (!this.isDragging) {
+                this.summaryButton.setPosition(this.positionButtonX, this.positionButtonY);
+            }
         }
     }
 
@@ -343,6 +345,7 @@ class SummaryModule {
         this.activeTabId = tabId;
         this.summaryDialog._fullRerenderNeeded = true; // Bug 1 Fix
         this.updateDialogUI();
+        this.summaryDialog.resetSuggestions(); // Reset suggestion bar
     }
 
     handleTabClose(tabId) {
@@ -730,6 +733,13 @@ class SummaryDialog {
         this.isOpen = false;
         this.element.classList.remove('visible');
         setTimeout(() => { if (!this.isOpen) this.element.style.visibility = 'hidden'; }, 200);
+    }
+
+    resetSuggestions() {
+        this.suggestionsArea.classList.remove('is-visible');
+        this.suggestionsArea.innerHTML = '';
+        this.suggestButton.disabled = false;
+        this.suggestButton.classList.remove('loading');
     }
 
     destroy() { this.element?.remove(); }
