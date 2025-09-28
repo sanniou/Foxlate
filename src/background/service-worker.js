@@ -336,11 +336,12 @@ const messageHandlers = {
     // (新) 处理内容总结请求
     async SUMMARIZE_CONTENT(request) {
         const { text, aiModel, targetLang } = request.payload;
-
-        if (!text || !aiModel) {
-            return { success: false, error: "Text or AI model not provided for summarization." };
+        if (!text) {
+            return { success: false, error: "Text not provided for summarization." };
         }
-
+        if (!aiModel) {
+            return { success: false, error: "AI model not provided for summarization." };
+        }
         try {
             // 1. 获取 AI 引擎配置
             const settings = await SettingsManager.getValidatedSettings();

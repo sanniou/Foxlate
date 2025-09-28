@@ -9,6 +9,8 @@ class SummaryModule {
         this.summaryButton = null;
         this.summaryDialog = null;
         this.isDragging = false;
+        this.initialButtonX = 0; // Initialize
+        this.initialButtonY = 0; // Initialize
         this.selectionContext = null; // { text: string, rect: DOMRect }
 
         // Tab management
@@ -46,8 +48,10 @@ class SummaryModule {
             if (foundElement) targetElement = foundElement;
         }
         const targetRect = targetElement.getBoundingClientRect();
-        const initialX = window.scrollX + targetRect.right + 10;
-        const initialY = window.scrollY + targetRect.top + 50;
+        const initialX = targetRect.right + 10;
+        const initialY = targetRect.top + 50;
+        this.initialButtonX = initialX; // Store initial X
+        this.initialButtonY = initialY; // Store initial Y
         this.summaryButton.setPosition(initialX, initialY);
     }
 
@@ -107,9 +111,12 @@ class SummaryModule {
             const range = selection.getRangeAt(0);
             const rect = range.getBoundingClientRect();
             this.selectionContext = { text: selectedText, rect };
-            this.summaryButton.setPosition(window.scrollX + rect.right, window.scrollY + rect.top);
+            // Apply offset
+            this.summaryButton.setPosition(rect.right + 10, rect.top - 10);
         } else {
             this.selectionContext = null;
+            // Reset to initial position
+            this.summaryButton.setPosition(this.initialButtonX, this.initialButtonY);
         }
     }
 
@@ -292,7 +299,7 @@ class SummaryModule {
                 this.summaryDialog._fullRerenderNeeded = true;
                 await this.getAIResponseForTab(activeTab);
                 break;
-            default: 
+            default:
                 this.summaryDialog.handleAction(action, message, index);
                 break;
         }
@@ -309,10 +316,10 @@ class SummaryModule {
             }));
             const response = await browser.runtime.sendMessage({
                 type: 'INFER_SUGGESTIONS',
-                payload: { 
-                    history: historyForAI, 
-                    aiModel: this.settings.summarySettings?.aiModel, 
-                    targetLang: this.settings.targetLanguage 
+                payload: {
+                    history: historyForAI,
+                    aiModel: this.settings.summarySettings?.aiModel,
+                    targetLang: this.settings.targetLanguage
                 }
             });
             if (!response.success) throw new Error(response.error);
@@ -539,7 +546,7 @@ class SummaryDialog {
     }
 
     handleAction(action, message, index) {
-        switch(action) {
+        switch (action) {
             case 'copy':
                 navigator.clipboard.writeText(message.role === 'user' ? message.content : message.contents[message.activeContentIndex]);
                 break;
@@ -547,9 +554,9 @@ class SummaryDialog {
                 this.enterEditMode(index, message.content);
                 break;
             case 'cancel-edit':
-                 this._fullRerenderNeeded = true;
-                 this.renderConversation(this.getActiveTab().history);
-                 break;
+                this._fullRerenderNeeded = true;
+                this.renderConversation(this.getActiveTab().history);
+                break;
             case 'history-prev':
             case 'history-next':
                 if (message.role === 'assistant') {
@@ -714,7 +721,7 @@ class SummaryDialog {
         let bestQuadrant = quadrants.sort((a, b) => b.score - a.score)[0];
 
         Object.assign(this.element.style, { transformOrigin: bestQuadrant.origin, top: bestQuadrant.top || '', left: bestQuadrant.left || '', bottom: bestQuadrant.bottom || '', right: bestQuadrant.right || '' });
-        
+
         this.element.classList.add('visible');
         this.textarea.focus();
     }
