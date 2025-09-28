@@ -27,7 +27,8 @@ export class DomainRuleModal extends BaseComponent {
         super();
         this.#elements = elements;
         this.#validator = new FormValidator(this.#elements.domainRuleForm, {
-            'ruleDomain': { rules: 'required', labelKey: 'domain' }
+            'ruleDomain': { rules: 'required', labelKey: 'domain' },
+            'ruleCharThreshold': { rules: 'required', labelKey: 'charThresholdLabel' }
         });
         this.#bindEvents();
     }
@@ -198,7 +199,27 @@ export class DomainRuleModal extends BaseComponent {
         const isExcludeValid = this.#validateCssSelectorInput(this.#elements.ruleExcludeSelectorTextarea);
         const isMainBodyValid = this.#validateCssSelectorInput(this.#elements.ruleMainBodySelector);
 
-        if (!isDomainValid || !isContentValid || !isExcludeValid || !isMainBodyValid) {
+        // Add charThreshold validation
+        let isCharThresholdValid = true;
+        const charThresholdElement = this.#elements.ruleCharThreshold;
+        const charThresholdValue = charThresholdElement.value.trim();
+        const parsedThreshold = parseInt(charThresholdValue, 10);
+
+        if (charThresholdValue === '' || isNaN(parsedThreshold) || parsedThreshold < 0) {
+            this.#validator.setError(charThresholdElement, browser.i18n.getMessage('charThresholdInvalid') || 'Character threshold must be a non-negative number.');
+            isCharThresholdValid = false;
+        } else {
+            // Clear any previous error for charThreshold if it's now valid
+            const field = charThresholdElement.closest('.m3-form-field');
+            if (field) {
+                field.classList.remove('is-invalid');
+                const errorDiv = field.querySelector('.error-message');
+                if (errorDiv) errorDiv.textContent = '';
+            }
+        }
+
+
+        if (!isDomainValid || !isContentValid || !isExcludeValid || !isMainBodyValid || !isCharThresholdValid) {
             const firstInvalidField = this.#elements.domainRuleModal.querySelector('.m3-form-field.is-invalid');
             if (firstInvalidField) {
                 firstInvalidField.classList.add('error-shake');
