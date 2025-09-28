@@ -827,14 +827,7 @@
     "message": "Summary AI Model",
     "description": "Label for the AI model selection for content summary."
   },
-  "charThresholdLabel": {
-    "message": "Character Threshold",
-    "description": "Label for the character threshold for content summary."
-  },
-  "charThresholdDescription": {
-    "message": "Only summarize content with character count exceeding this threshold. Set to 0 to disable.",
-    "description": "Description for the character threshold for content summary."
-  },
+  
   "errorMainBodySelectorRequired": {
     "message": "Main Body Selector is required when summary is enabled.",
     "description": "Validation error message."

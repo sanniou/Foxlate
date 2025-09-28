@@ -27,8 +27,7 @@ export class DomainRuleModal extends BaseComponent {
         super();
         this.#elements = elements;
         this.#validator = new FormValidator(this.#elements.domainRuleForm, {
-            'ruleDomain': { rules: 'required', labelKey: 'domain' },
-            'ruleCharThreshold': { rules: 'required', labelKey: 'charThresholdLabel' }
+            'ruleDomain': { rules: 'required', labelKey: 'domain' }
         });
         this.#bindEvents();
     }
@@ -87,7 +86,6 @@ export class DomainRuleModal extends BaseComponent {
             this.#elements.ruleEnableSummary.checked = summarySettings.enabled || false;
             this.#elements.ruleMainBodySelector.value = summarySettings.mainBodySelector || '';
             this.#elements.ruleSummaryAiModel.value = summarySettings.aiModel || '';
-            this.#elements.ruleCharThreshold.value = summarySettings.charThreshold !== undefined ? summarySettings.charThreshold : Constants.DEFAULT_SETTINGS.summarySettings.charThreshold;
             this.#elements.ruleSummarySettingsGroup.style.display = this.#elements.ruleEnableSummary.checked ? 'block' : 'none';
 
             this.#populateDropdowns();
@@ -170,11 +168,6 @@ export class DomainRuleModal extends BaseComponent {
             [ELEMENT_IDS.RULE_SUMMARY_AI_MODEL]: (val) => {
                 if (!this.#state.editingRule.summarySettings) this.#state.editingRule.summarySettings = {};
                 this.#state.editingRule.summarySettings.aiModel = val;
-            },
-            [ELEMENT_IDS.RULE_CHAR_THRESHOLD]: (val) => {
-                if (!this.#state.editingRule.summarySettings) this.#state.editingRule.summarySettings = {};
-                const threshold = parseInt(val, 10);
-                this.#state.editingRule.summarySettings.charThreshold = !isNaN(threshold) && threshold >= 0 ? threshold : Constants.DEFAULT_SETTINGS.summarySettings.charThreshold;
             }
         }[id];
         if (updater) updater(value);
@@ -208,27 +201,7 @@ export class DomainRuleModal extends BaseComponent {
         const isExcludeValid = this.#validateCssSelectorInput(this.#elements.ruleExcludeSelectorTextarea);
         const isMainBodyValid = this.#validateCssSelectorInput(this.#elements.ruleMainBodySelector);
 
-        // Add charThreshold validation
-        let isCharThresholdValid = true;
-        const charThresholdElement = this.#elements.ruleCharThreshold;
-        const charThresholdValue = charThresholdElement.value.trim();
-        const parsedThreshold = parseInt(charThresholdValue, 10);
-
-        if (charThresholdValue === '' || isNaN(parsedThreshold) || parsedThreshold < 0) {
-            this.#validator.setError(charThresholdElement, browser.i18n.getMessage('charThresholdInvalid') || 'Character threshold must be a non-negative number.');
-            isCharThresholdValid = false;
-        } else {
-            // Clear any previous error for charThreshold if it's now valid
-            const field = charThresholdElement.closest('.m3-form-field');
-            if (field) {
-                field.classList.remove('is-invalid');
-                const errorDiv = field.querySelector('.error-message');
-                if (errorDiv) errorDiv.textContent = '';
-            }
-        }
-
-
-        if (!isDomainValid || !isContentValid || !isExcludeValid || !isMainBodyValid || !isCharThresholdValid) {
+        if (!isDomainValid || !isContentValid || !isExcludeValid || !isMainBodyValid) {
             const firstInvalidField = this.#elements.domainRuleModal.querySelector('.m3-form-field.is-invalid');
             if (firstInvalidField) {
                 firstInvalidField.classList.add('error-shake');

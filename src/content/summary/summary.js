@@ -223,33 +223,51 @@ class SummaryModule {
         }
     }
 
+    preProcessDOM(doc) {
+        // 移除常见的不必要元素
+        const selectorsToRemove = ['header', 'footer', 'nav', 'aside', '.ad', '#ad', '[class*="advert"]'];
+        selectorsToRemove.forEach(selector => {
+            doc.querySelectorAll(selector).forEach(el => el.remove());
+        });
+
+        // 清理所有元素的class，避免Readability的误判
+        doc.querySelectorAll('*').forEach(el => {
+            el.removeAttribute('class');
+        });
+    }
+
     async extractPageContent() {
         const selector = this.settings.summarySettings?.mainBodySelector;
-        const charThreshold = this.settings.summarySettings?.charThreshold || DEFAULT_SETTINGS.summarySettings.charThreshold;
         let content = '';
+
+        const getReadabilityContent = async (doc) => {
+            try {
+                const { default: Readability } = await import('../../lib/readability.esm.js');
+                this.preProcessDOM(doc); // 预处理DOM
+                const reader = new Readability(doc);
+                const article = reader.parse();
+                return article?.textContent || '';
+            } catch (e) {
+                console.warn('[Foxlate Summary] Readability processing failed.', e);
+                return '';
+            }
+        };
+
         if (selector) {
             const element = document.querySelector(selector);
             if (element) {
-                try {
-                    const { default: Readability } = await import('../../lib/readability.esm.js');
-                    const doc = document.implementation.createHTMLDocument('');
-                    doc.body.innerHTML = element.innerHTML;
-                    const reader = new Readability(doc, { charThreshold: charThreshold });
-                    const article = reader.parse();
-                    content = article?.textContent || '';
-                } catch (e) { console.warn('[Foxlate Summary] Readability on selector failed.', e); }
-                if (!content) content = element.innerText;
+                const doc = document.implementation.createHTMLDocument('');
+                doc.body.innerHTML = element.innerHTML;
+                content = await getReadabilityContent(doc);
+                if (!content) {
+                    content = element.innerText;
+                }
             }
         }
 
         if (!content) {
-            try {
-                const { default: Readability } = await import('../../lib/readability.esm.js');
-                const docClone = document.cloneNode(true);
-                const reader = new Readability(docClone, { charThreshold: charThreshold });
-                const article = reader.parse();
-                content = article?.textContent || '';
-            } catch (e) { console.warn('[Foxlate Summary] Global Readability failed.', e); }
+            const docClone = document.cloneNode(true);
+            content = await getReadabilityContent(docClone);
         }
 
         if (!content) {

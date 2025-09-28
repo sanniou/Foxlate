@@ -108,7 +108,7 @@ export const ELEMENT_IDS = {
     RULE_SUMMARY_SETTINGS_GROUP: 'ruleSummarySettingsGroup',
     RULE_MAIN_BODY_SELECTOR: 'ruleMainBodySelector',
     RULE_SUMMARY_AI_MODEL: 'ruleSummaryAiModel',
-    RULE_CHAR_THRESHOLD: 'ruleCharThreshold',
+    
 
     // Global Pre-check Test
     RUN_GLOBAL_TEST_BTN: 'runGlobalTestBtn',

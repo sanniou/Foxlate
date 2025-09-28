@@ -839,14 +839,7 @@
     "message": "总结 AI 模型",
     "description": "内容总结的 AI 模型选择标签。"
   },
-  "charThresholdLabel": {
-    "message": "字符阈值",
-    "description": "内容总结的字符阈值标签。"
-  },
-  "charThresholdDescription": {
-    "message": "仅总结字符数超过此阈值的内容。设置为 0 可禁用。",
-    "description": "内容总结的字符阈值描述。"
-  },
+  
   "errorMainBodySelectorRequired": {
     "message": "启用内容总结时，必须指定主体内容选择器。",
     "description": "验证错误信息。"
