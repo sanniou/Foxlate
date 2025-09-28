@@ -2,6 +2,7 @@ import browser from '../../lib/browser-polyfill.js';
 import { BaseComponent } from './BaseComponent.js';
 import { FormValidator } from '../validator.js';
 import { escapeHtml } from '../../common/utils.js';
+import * as Constants from '../../common/constants.js';
 import { ELEMENT_IDS } from '../ui-constants.js';
 import {
     populateEngineSelect,
@@ -85,6 +86,7 @@ export class DomainRuleModal extends BaseComponent {
             this.#elements.ruleEnableSummary.checked = summarySettings.enabled || false;
             this.#elements.ruleMainBodySelector.value = summarySettings.mainBodySelector || '';
             this.#elements.ruleSummaryAiModel.value = summarySettings.aiModel || '';
+            this.#elements.ruleCharThreshold.value = summarySettings.charThreshold !== undefined ? summarySettings.charThreshold : Constants.DEFAULT_SETTINGS.summarySettings.charThreshold;
             this.#elements.ruleSummarySettingsGroup.style.display = this.#elements.ruleEnableSummary.checked ? 'block' : 'none';
 
             this.#populateDropdowns();
@@ -162,7 +164,7 @@ export class DomainRuleModal extends BaseComponent {
             [ELEMENT_IDS.RULE_CHAR_THRESHOLD]: (val) => {
                 if (!this.#state.editingRule.summarySettings) this.#state.editingRule.summarySettings = {};
                 const threshold = parseInt(val, 10);
-                this.#state.editingRule.summarySettings.charThreshold = !isNaN(threshold) && threshold >= 0 ? threshold : 0;
+                this.#state.editingRule.summarySettings.charThreshold = !isNaN(threshold) && threshold >= 0 ? threshold : Constants.DEFAULT_SETTINGS.summarySettings.charThreshold;
             }
         }[id];
         if (updater) updater(value);
