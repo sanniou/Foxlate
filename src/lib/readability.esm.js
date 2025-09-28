@@ -20,7 +20,6 @@
  */
 
 /**
- * from https://unpkg.com/@mozilla/readability@0.6.0/Readability.js
  * Public constructor.
  * @param {HTMLDocument} doc     The document to parse.
  * @param {Object}       options The options object.

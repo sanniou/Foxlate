@@ -27,11 +27,15 @@ const LIBS_TO_CHECK = [
         type: 'npm',
         packageName: '@mozilla/readability',
         localPath: path.join(__dirname, 'src', 'lib', 'readability.esm.js'),
-        versionRegex: /@mozilla\/readability@([\d\.]+)/,
+        versionRegex: null,
+        latestVersionUrl: 'https://unpkg.com/${packageName}@${version}/Readability.js'
     },
 ];
 
 async function getLocalVersion(filePath, regex) {
+    if (!regex) {
+        return null;
+    }
     try {
         const content = await fs.readFile(filePath, 'utf-8');
         const match = content.match(regex);
@@ -97,10 +101,6 @@ async function checkLibraryUpdates() {
             console.log(`🟡 ${lib.name}: Local file not found. Skipping.`);
             continue;
         }
-        if (!localVersion) {
-            console.log(`🟡 ${lib.name}: Could not determine local version. Skipping.`);
-            continue;
-        }
 
         try {
             let latestVersion;
@@ -109,6 +109,19 @@ async function checkLibraryUpdates() {
             } else if (lib.type === 'github_release') {
                 latestVersion = await getLatestGitHubRelease(lib.repo);
             }
+
+            if (!localVersion) {
+                console.log(`🟡 ${lib.name}: Could not determine local version.`);
+                if (lib.latestVersionUrl) {
+                    const url = lib.latestVersionUrl
+                        .replace('${packageName}', lib.packageName)
+                        .replace('${version}', latestVersion);
+                    console.log(`    Latest version is ${latestVersion}.`);
+                    console.log(`    URL: ${url}`);
+                }
+                continue;
+            }
+
 
             console.log(`🔄 Checking ${lib.name}: Local version is ${localVersion}, Latest version is ${latestVersion}`);
 
