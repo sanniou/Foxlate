@@ -153,6 +153,15 @@ export class DomainRuleModal extends BaseComponent {
                 if (!this.#state.editingRule.summarySettings) this.#state.editingRule.summarySettings = {};
                 this.#state.editingRule.summarySettings.enabled = val;
                 this.#elements.ruleSummarySettingsGroup.style.display = val ? 'block' : 'none';
+
+                // If summary is being enabled and no AI model is set,
+                // set it to the current value of the dropdown (which defaults to the first option).
+                if (val && !this.#state.editingRule.summarySettings.aiModel) {
+                    const aiModelSelect = this.#elements.ruleSummaryAiModel;
+                    if (aiModelSelect.value) {
+                        this.#state.editingRule.summarySettings.aiModel = aiModelSelect.value;
+                    }
+                }
             },
             [ELEMENT_IDS.RULE_MAIN_BODY_SELECTOR]: (val) => {
                 if (!this.#state.editingRule.summarySettings) this.#state.editingRule.summarySettings = {};
