@@ -85,6 +85,11 @@ class SummaryModule {
                 document.removeEventListener('mouseup', handleDragEnd);
                 this.summaryButton.element.classList.remove('dragging');
 
+                // Save the final position after dragging
+                const finalRect = this.summaryButton.element.getBoundingClientRect();
+                this.positionButtonX = finalRect.left;
+                this.positionButtonY = finalRect.top;
+
                 if (hasDragged && wasOpenBeforeDrag) {
                     requestAnimationFrame(() => {
                         const buttonRect = this.summaryButton.element.getBoundingClientRect();
