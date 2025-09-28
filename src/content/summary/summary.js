@@ -211,6 +211,7 @@ class SummaryModule {
             });
 
             if (!response.success) throw new Error(response.error);
+            tab.history.push({ role: 'user', content: content, isHidden: true });
             tab.history.push({ role: 'assistant', contents: [response.summary], activeContentIndex: 0 });
             tab.state = 'summarized';
         } catch (error) {
@@ -537,6 +538,7 @@ class SummaryDialog {
     }
 
     renderMessage(message, index) {
+        if (message.isHidden) return;
         const messageEl = document.createElement('div');
         messageEl.className = `foxlate-summary-message ${message.role}`;
         messageEl.dataset.index = index;
