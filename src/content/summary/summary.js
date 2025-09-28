@@ -44,13 +44,21 @@ class SummaryModule {
     positionInitialButton() {
         const mainBodySelector = this.settings.summarySettings?.mainBodySelector;
         let targetElement = document.body;
+        let initialX , initialY ;
         if (mainBodySelector) {
             const foundElement = document.querySelector(mainBodySelector);
-            if (foundElement) targetElement = foundElement;
+            if (foundElement) {
+                targetElement = foundElement;
+                const targetRect = targetElement.getBoundingClientRect();
+                initialX = targetRect.right + 10;
+                initialY = targetRect.top + 50;
+            }
         }
-        const targetRect = targetElement.getBoundingClientRect();
-        const initialX = targetRect.right + 10;
-        const initialY = targetRect.top + 50;
+        if (!initialX || !initialY) {
+            const bodyRect = document.body.getBoundingClientRect();
+            initialX = bodyRect.right - 250;
+            initialY = bodyRect.top + 250;
+        }
         this.positionButtonX = initialX; // Store initial X
         this.positionButtonY = initialY; // Store initial Y
         this.summaryButton.setPosition(initialX, initialY);
