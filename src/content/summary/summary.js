@@ -1,4 +1,3 @@
-
 // src/content/summary/summary.js
 
 import browser from '../../lib/browser-polyfill.js';
@@ -10,8 +9,14 @@ class SummaryModule {
         this.summaryButton = null;
         this.summaryDialog = null;
         this.isDragging = false;
-        this.state = 'idle';
-        this.conversationHistory = [];
+        this.selectionContext = null; // { text: string, rect: DOMRect }
+
+        // Tab management
+        this.tabs = []; // { id, title, history, type, state: 'idle' | 'loading' | 'summarized' | 'error' }
+        this.activeTabId = null;
+        this.nextTabId = 0;
+        this.nextSelectionTabNum = 1;
+
         this.init();
     }
 
@@ -21,72 +26,60 @@ class SummaryModule {
             this.summaryDialog = new SummaryDialog(
                 this.handleSendMessage.bind(this),
                 this.handleAction.bind(this),
-                this.fetchInitialSummary.bind(this),
-                this.handleInferSuggestions.bind(this) // Pass the new handler
+                this.handleRefresh.bind(this),
+                this.handleInferSuggestions.bind(this),
+                this.handleTabSwitch.bind(this),
+                this.handleTabClose.bind(this)
             );
             this.setupEventListeners();
-            this.positionInitialButton(); // 修复：初始化按钮位置
+            this.positionInitialButton();
         } else {
             window.addEventListener('DOMContentLoaded', () => this.init());
         }
     }
 
-    // 修复：新增方法，用于根据 mainBody 定位按钮初始位置
     positionInitialButton() {
         const mainBodySelector = this.settings.summarySettings?.mainBodySelector;
-        let targetElement = document.body; // 默认 fallback 到 body
-
+        let targetElement = document.body;
         if (mainBodySelector) {
             const foundElement = document.querySelector(mainBodySelector);
-            if (foundElement) {
-                targetElement = foundElement;
-            }
+            if (foundElement) targetElement = foundElement;
         }
-
         const targetRect = targetElement.getBoundingClientRect();
-        const BUTTON_OFFSET_X = 10; // 按钮距离 mainBody 右侧的偏移
-        const BUTTON_OFFSET_Y = 50; // 按钮距离 mainBody 顶部的偏移
-
-        // 计算按钮的初始位置，使其位于 targetElement 的右上角外部
-        const initialX = window.scrollX + targetRect.right + BUTTON_OFFSET_X;
-        const initialY = window.scrollY + targetRect.top + BUTTON_OFFSET_Y;
-
+        const initialX = window.scrollX + targetRect.right + 10;
+        const initialY = window.scrollY + targetRect.top + 50;
         this.summaryButton.setPosition(initialX, initialY);
     }
 
     setupEventListeners() {
         this.summaryButton.element.addEventListener('click', () => {
-            if (!this.isDragging) this.toggleDialog();
+            if (!this.isDragging) this.handleSummaryButtonClick();
         });
 
         this.summaryButton.element.addEventListener('mousedown', (e) => {
             if (e.button !== 0) return;
             e.preventDefault();
-            const startX = e.clientX;
-            const startY = e.clientY;
+            const startX = e.clientX, startY = e.clientY;
             const fabStartRect = this.summaryButton.element.getBoundingClientRect();
             let hasDragged = false;
             const wasOpenBeforeDrag = this.summaryDialog.isOpen;
 
             const handleDragMove = (moveEvent) => {
                 moveEvent.preventDefault();
-                const dx = moveEvent.clientX - startX;
-                const dy = moveEvent.clientY - startY;
+                const dx = moveEvent.clientX - startX, dy = moveEvent.clientY - startY;
                 if (!hasDragged && Math.hypot(dx, dy) > 5) {
                     hasDragged = true;
                     this.isDragging = true;
-                    if (wasOpenBeforeDrag) {
-                        this.summaryDialog.hide();
-                    }
+                    this.summaryButton.element.classList.add('dragging'); // Bug 4 Fix
+                    if (wasOpenBeforeDrag) this.summaryDialog.hide();
                 }
-                if (hasDragged) {
-                    this.summaryButton.setPosition(fabStartRect.left + dx, fabStartRect.top + dy);
-                }
+                if (hasDragged) this.summaryButton.setPosition(fabStartRect.left + dx, fabStartRect.top + dy);
             };
 
             const handleDragEnd = () => {
                 document.removeEventListener('mousemove', handleDragMove);
                 document.removeEventListener('mouseup', handleDragEnd);
+                this.summaryButton.element.classList.remove('dragging'); // Bug 4 Fix
 
                 if (hasDragged && wasOpenBeforeDrag) {
                     requestAnimationFrame(() => {
@@ -94,83 +87,100 @@ class SummaryModule {
                         this.summaryDialog.show(buttonRect);
                     });
                 }
-
                 setTimeout(() => { this.isDragging = false; }, 0);
             };
 
             document.addEventListener('mousemove', handleDragMove);
             document.addEventListener('mouseup', handleDragEnd);
         });
+
+        document.addEventListener('mouseup', this.handleSelection.bind(this));
     }
 
-    async toggleDialog() {
+    handleSelection(event) {
+        if (this.summaryDialog.element.contains(event.target)) return;
+
+        const selection = window.getSelection();
+        const selectedText = selection.toString().trim();
+
+        if (selectedText.length > 50) {
+            const range = selection.getRangeAt(0);
+            const rect = range.getBoundingClientRect();
+            this.selectionContext = { text: selectedText, rect };
+            this.summaryButton.setPosition(window.scrollX + rect.right, window.scrollY + rect.top);
+        } else {
+            this.selectionContext = null;
+        }
+    }
+
+    async handleSummaryButtonClick() {
+        if (this.selectionContext) {
+            await this.fetchSelectionSummary();
+            this.selectionContext = null;
+        } else {
+            await this.togglePageSummaryDialog();
+        }
+    }
+
+    async togglePageSummaryDialog() {
         this.summaryButton.element.classList.toggle('rotated');
         if (this.summaryDialog.isOpen) {
             this.summaryDialog.hide();
         } else {
-            const buttonRect = this.summaryButton.element.getBoundingClientRect();
-            this.summaryDialog.show(buttonRect);
-            if (this.state === 'idle') await this.fetchInitialSummary();
+            const pageTab = this.tabs.find(t => t.type === 'page');
+            if (!pageTab) {
+                await this.fetchInitialPageSummary();
+            } else {
+                this.activeTabId = pageTab.id;
+                this.updateDialogUI();
+                this.summaryDialog.show(this.summaryButton.element.getBoundingClientRect());
+            }
         }
     }
 
-    async fetchInitialSummary() {
-        this.state = 'loading';
-        this.summaryDialog.setLoading(true);
-        this.conversationHistory = []; // Clear conversation history on refresh
-        this.summaryDialog.renderConversation(this.conversationHistory, true);
-        let content = '';
+    getActiveTab() {
+        return this.tabs.find(t => t.id === this.activeTabId);
+    }
+
+    updateDialogUI() {
+        const activeTab = this.getActiveTab();
+        if (!activeTab) {
+            if (this.tabs.length === 0) this.summaryDialog.hide();
+            return;
+        }
+        this.summaryDialog.renderTabs(this.tabs, this.activeTabId);
+        this.summaryDialog.renderConversation(activeTab.history, activeTab.state === 'loading'); // Bug 2 Fix
+        this.summaryDialog.setLoading(activeTab.state === 'loading');
+    }
+
+    async fetchInitialPageSummary() {
+        const newTab = this.createNewTab('page', browser.i18n.getMessage('summaryTabPageTitle') || 'Page');
+        this.tabs.push(newTab);
+        this.activeTabId = newTab.id;
+        this.summaryDialog.show(this.summaryButton.element.getBoundingClientRect());
+        await this.fetchSummaryForTab(newTab);
+    }
+
+    async fetchSelectionSummary() {
+        this.summaryButton.element.classList.add('rotated'); // Bug 3 Fix
+        const newTab = this.createNewTab('selection', `${browser.i18n.getMessage('summaryTabSelectionTitle') || 'Selection'} ${this.nextSelectionTabNum++}`);
+        newTab.selectionText = this.selectionContext.text;
+        this.tabs.push(newTab);
+        this.activeTabId = newTab.id;
+        this.summaryDialog.show(this.summaryButton.element.getBoundingClientRect());
+        await this.fetchSummaryForTab(newTab, this.selectionContext.text);
+    }
+
+    async fetchSummaryForTab(tab, text = null) {
+        tab.state = 'loading';
+        tab.history = [];
+        this.summaryDialog._fullRerenderNeeded = true;
+        this.updateDialogUI();
 
         try {
-            const selector = this.settings.summarySettings?.mainBodySelector;
-            let article = null;
-
-            // Tier 1: Hybrid Extraction (mainBodySelector + Readability cleaning)
-            if (selector) {
-                const element = document.querySelector(selector);
-                if (element) {
-                    try {
-                        const { default: Readability } = await import('../../lib/readability.esm.js');
-                        // To run Readability on a specific element, we must provide it with a full document context.
-                        // Cloning the element into a new document is the correct approach.
-                        const doc = document.implementation.createHTMLDocument('');
-                        doc.body.innerHTML = element.innerHTML;
-                        // We also pass the original document's URL to help Readability resolve relative links, if any.
-                        const reader = new Readability(doc, { charThreshold: 150, ntop: 20 });
-                        article = reader.parse();
-                        content = article?.textContent || '';
-                    } catch (e) {
-                        console.warn('[Foxlate Summary] Readability cleaning on selector failed, falling back to innerText.', e);
-                    }
-                    // Fallback for Tier 1 if Readability fails on the fragment
-                    if (!content) {
-                        content = element.innerText;
-                    }
-                }
-            }
-
-            // Tier 2: Global Readability if Tier 1 failed
-            if (!content) {
-                try {
-                    const { default: Readability } = await import('../../lib/readability.esm.js');
-                    const docClone = document.cloneNode(true);
-                    const reader = new Readability(docClone, { charThreshold: 250, ntop: 25 });
-                    article = reader.parse();
-                    content = article?.textContent || '';
-                } catch (e) {
-                    console.warn('[Foxlate Summary] Global Readability failed.', e);
-                }
-            }
-
-            // Tier 3: Final fallback to body.innerText
-            if (!content) {
-                console.warn('[Foxlate Summary] All extraction methods failed, falling back to document.body.innerText.');
-                content = document.body.innerText;
-            }
-
-            if (!content.trim()) {
-                throw new Error('Failed to extract any meaningful content from the page.');
-            }
+            let content = text;
+            if (!content) content = await this.extractPageContent();
+            if (!content.trim()) throw new Error('Failed to extract any meaningful content.');
 
             const response = await browser.runtime.sendMessage({
                 type: 'SUMMARIZE_CONTENT',
@@ -178,34 +188,65 @@ class SummaryModule {
             });
 
             if (!response.success) throw new Error(response.error);
-            this.conversationHistory.push({ role: 'assistant', contents: [response.summary], activeContentIndex: 0 });
-
+            tab.history.push({ role: 'assistant', contents: [response.summary], activeContentIndex: 0 });
+            tab.state = 'summarized';
         } catch (error) {
             console.error('[Foxlate Summary] Error:', error);
-            this.conversationHistory.push({ role: 'assistant', contents: [`**Error:** ${error.message}`], activeContentIndex: 0, isError: true });
+            tab.history.push({ role: 'assistant', contents: [`**Error:** ${error.message}`], activeContentIndex: 0, isError: true });
+            tab.state = 'error';
         } finally {
-            this.state = 'summarized';
-            this.summaryDialog.setLoading(false);
-            this.summaryDialog.renderConversation(this.conversationHistory);
+            this.updateDialogUI();
         }
+    }
+
+    async extractPageContent() {
+        const selector = this.settings.summarySettings?.mainBodySelector;
+        let content = '';
+        if (selector) {
+            const element = document.querySelector(selector);
+            if (element) {
+                try {
+                    const { default: Readability } = await import('../../lib/readability.esm.js');
+                    const doc = document.implementation.createHTMLDocument('');
+                    doc.body.innerHTML = element.innerHTML;
+                    const reader = new Readability(doc, { charThreshold: 150 });
+                    const article = reader.parse();
+                    content = article?.textContent || '';
+                } catch (e) { console.warn('[Foxlate Summary] Readability on selector failed.', e); }
+                if (!content) content = element.innerText;
+            }
+        }
+
+        if (!content) {
+            try {
+                const { default: Readability } = await import('../../lib/readability.esm.js');
+                const docClone = document.cloneNode(true);
+                const reader = new Readability(docClone, { charThreshold: 250 });
+                const article = reader.parse();
+                content = article?.textContent || '';
+            } catch (e) { console.warn('[Foxlate Summary] Global Readability failed.', e); }
+        }
+
+        if (!content) {
+            console.warn('[Foxlate Summary] Fallback to body.innerText.');
+            content = document.body.innerText;
+        }
+        return content;
     }
 
     async handleSendMessage(query) {
-        if (!query || this.state === 'loading') return;
-        this.conversationHistory.push({ role: 'user', content: query });
-        this.summaryDialog.renderConversation(this.conversationHistory);
-        await this.getAIResponse();
+        const activeTab = this.getActiveTab();
+        if (!query || !activeTab || activeTab.state === 'loading') return;
+        activeTab.history.push({ role: 'user', content: query });
+        await this.getAIResponseForTab(activeTab);
     }
 
-    async getAIResponse(isReroll = false) {
-        this.state = 'loading';
-        this.summaryDialog.setLoading(true);
-        if (!isReroll) {
-             this.summaryDialog.renderConversation(this.conversationHistory, true);
-        }
+    async getAIResponseForTab(tab, isReroll = false) {
+        tab.state = 'loading';
+        this.updateDialogUI();
 
         try {
-            const historyForAI = this.conversationHistory.map(msg => ({
+            const historyForAI = tab.history.map(msg => ({
                 role: msg.role,
                 content: msg.role === 'user' ? msg.content : msg.contents[msg.activeContentIndex]
             }));
@@ -216,98 +257,115 @@ class SummaryModule {
             });
             if (!response.success) throw new Error(response.error);
 
-            const lastMessage = this.conversationHistory[this.conversationHistory.length - 1];
+            const lastMessage = tab.history[tab.history.length - 1];
             if (isReroll && lastMessage?.role === 'assistant') {
                 lastMessage.contents.push(response.reply);
                 lastMessage.activeContentIndex = lastMessage.contents.length - 1;
             } else {
-                this.conversationHistory.push({ role: 'assistant', contents: [response.reply], activeContentIndex: 0 });
+                tab.history.push({ role: 'assistant', contents: [response.reply], activeContentIndex: 0 });
             }
+            tab.state = 'summarized';
         } catch (error) {
-            console.error('[Foxlate Summary] Error:', error);
-            this.conversationHistory.push({ role: 'assistant', contents: [`**Error:** ${error.message}`], activeContentIndex: 0, isError: true });
+            console.error('[Foxlate Summary] AI response error:', error);
+            tab.history.push({ role: 'assistant', contents: [`**Error:** ${error.message}`], activeContentIndex: 0, isError: true });
+            tab.state = 'error';
         } finally {
-            this.state = 'summarized';
-            this.summaryDialog.setLoading(false);
-            this.summaryDialog.renderConversation(this.conversationHistory);
+            this.updateDialogUI();
         }
     }
 
-        async handleAction(action, index, payload) {
-        const message = this.conversationHistory[index];
+    async handleAction(action, index, payload) {
+        const activeTab = this.getActiveTab();
+        if (!activeTab) return;
+        const message = activeTab.history[index];
         if (!message) return;
 
         switch (action) {
-            case 'copy':
-                navigator.clipboard.writeText(message.role === 'user' ? message.content : message.contents[message.activeContentIndex]);
-                break;
             case 'reroll':
-                this.conversationHistory = this.conversationHistory.slice(0, index + 1);
-                this.summaryDialog._fullRerenderNeeded = true; // 标记需要完全重新渲染
-                await this.getAIResponse(true);
-                break;
-            case 'edit':
-                this.summaryDialog.enterEditMode(index, message.content);
+                activeTab.history = activeTab.history.slice(0, index + 1);
+                this.summaryDialog._fullRerenderNeeded = true;
+                await this.getAIResponseForTab(activeTab, true);
                 break;
             case 'save-edit':
-                this.conversationHistory = this.conversationHistory.slice(0, index);
-                this.conversationHistory.push({ role: 'user', content: payload });
-                this.summaryDialog._fullRerenderNeeded = true; // 标记需要完全重新渲染
-                this.summaryDialog.renderConversation(this.conversationHistory);
-                // 移除 is-editing 类
-                const savedMessageEl = this.summaryDialog.conversationArea.querySelector(`[data-index="${index}"]`);
-                if (savedMessageEl) savedMessageEl.classList.remove('is-editing');
-                await this.getAIResponse();
+                activeTab.history = activeTab.history.slice(0, index);
+                activeTab.history.push({ role: 'user', content: payload });
+                this.summaryDialog._fullRerenderNeeded = true;
+                await this.getAIResponseForTab(activeTab);
                 break;
-            case 'cancel-edit':
-                this.summaryDialog._fullRerenderNeeded = true; // 强制完全重新渲染
-                this.summaryDialog.renderConversation(this.conversationHistory);
-                // 移除 is-editing 类
-                const cancelledMessageEl = this.summaryDialog.conversationArea.querySelector(`[data-index="${index}"]`);
-                if (cancelledMessageEl) cancelledMessageEl.classList.remove('is-editing');
-                break;
-            case 'history-prev':
-            case 'history-next':
-                if (message.role === 'assistant') {
-                    const direction = action === 'history-prev' ? -1 : 1;
-                    const newIndex = message.activeContentIndex + direction;
-                    if (newIndex >= 0 && newIndex < message.contents.length) {
-                        message.activeContentIndex = newIndex;
-                        this.summaryDialog._fullRerenderNeeded = true; // 强制完全重新渲染
-                        this.summaryDialog.renderConversation(this.conversationHistory);
-                    }
-                }
+            default: 
+                this.summaryDialog.handleAction(action, message, index);
                 break;
         }
     }
 
     async handleInferSuggestions() {
-        this.summaryDialog.setLoading(true); // Show loading indicator
+        const activeTab = this.getActiveTab();
+        if (!activeTab) return;
+        this.summaryDialog.setLoading(true);
         try {
-            const historyForAI = this.conversationHistory.map(msg => ({
+            const historyForAI = activeTab.history.map(msg => ({
                 role: msg.role,
                 content: msg.role === 'user' ? msg.content : msg.contents[msg.activeContentIndex]
             }));
-
             const response = await browser.runtime.sendMessage({
-                type: 'INFER_SUGGESTIONS', // New message type
-                payload: { history: historyForAI, aiModel: this.settings.summarySettings?.aiModel, targetLang: this.settings.targetLanguage }
+                type: 'INFER_SUGGESTIONS',
+                payload: { 
+                    history: historyForAI, 
+                    aiModel: this.settings.summarySettings?.aiModel, 
+                    targetLang: this.settings.targetLanguage 
+                }
             });
-
             if (!response.success) throw new Error(response.error);
-
             this.summaryDialog.renderSuggestions(response.suggestions);
         } catch (error) {
-            console.error('[Foxlate Summary] Error inferring suggestions:', error);
+            console.error('[Foxlate Summary] Suggestion error:', error);
             this.summaryDialog.renderSuggestions([`**Error:** ${error.message}`]);
         } finally {
             this.summaryDialog.setLoading(false);
         }
     }
 
+    handleRefresh() {
+        const activeTab = this.getActiveTab();
+        if (!activeTab || activeTab.state === 'loading') return;
+        this.fetchSummaryForTab(activeTab, activeTab.type === 'selection' ? activeTab.selectionText : null);
+    }
+
+    handleTabSwitch(tabId) {
+        if (this.activeTabId === tabId) return;
+        this.activeTabId = tabId;
+        this.summaryDialog._fullRerenderNeeded = true; // Bug 1 Fix
+        this.updateDialogUI();
+    }
+
+    handleTabClose(tabId) {
+        const tabIndex = this.tabs.findIndex(t => t.id === tabId);
+        if (tabIndex === -1) return;
+
+        this.tabs.splice(tabIndex, 1);
+
+        if (this.activeTabId === tabId) {
+            if (this.tabs.length > 0) {
+                const newIndex = Math.max(0, tabIndex - 1);
+                this.activeTabId = this.tabs[newIndex].id;
+            } else {
+                this.activeTabId = null;
+                this.summaryDialog.hide();
+                this.summaryButton.element.classList.remove('rotated');
+            }
+        }
+        this.summaryDialog._fullRerenderNeeded = true;
+        this.updateDialogUI();
+    }
+
+    createNewTab(type, title) {
+        return { id: this.nextTabId++, title, history: [], type, state: 'idle', selectionText: null };
+    }
+
     destroy() {
         this.summaryButton?.destroy();
         this.summaryDialog?.destroy();
+        document.removeEventListener('mouseup', this.handleSelection.bind(this));
     }
 }
 
@@ -321,7 +379,6 @@ class SummaryButton {
         this.element.className = 'foxlate-summary-button';
         this.element.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M11.25 3.5H12.75V5H11.25V3.5ZM12 19C11.35 19 10.8 18.8 10.35 18.35C9.9 17.9 9.7 17.35 9.7 16.7C9.7 16.05 9.9 15.5 10.35 15.05C10.8 14.6 11.35 14.4 12 14.4C12.65 14.4 13.2 14.6 13.65 15.05C14.1 15.5 14.3 16.05 14.3 16.7C14.3 17.35 14.1 17.9 13.65 18.35C13.2 18.8 12.65 19 12 19ZM5 12.75V11.25H3.5V12.75H5ZM19 12C19 11.35 18.8 10.8 18.35 10.35C17.9 9.9 17.35 9.7 16.7 9.7C16.05 9.7 15.5 9.9 15.05 10.35C14.6 10.8 14.4 11.35 14.4 12C14.4 12.65 14.6 13.2 15.05 13.65C15.5 14.1 16.05 14.3 16.7 14.3C17.35 14.3 17.9 14.1 18.35 13.65C18.8 13.2 19 12.65 19 12ZM20.5 12.75V11.25H19V12.75H20.5ZM11.25 20.5V19H12.75V20.5H11.25ZM7.05 7.05L6 6L7.05 4.95L8.1 6L7.05 7.05ZM15.9 18.1L14.85 17.05L15.9 16L17 17.05L15.9 18.1ZM15.9 8.1L17 7.05L15.9 6L14.85 7.05L15.9 8.1Z"/></svg>`;
         document.body.appendChild(this.element);
-        // 修复：移除这里的硬编码位置，由 SummaryModule 控制
     }
     setPosition(x, y) {
         const rect = this.element.getBoundingClientRect();
@@ -332,14 +389,16 @@ class SummaryButton {
 }
 
 class SummaryDialog {
-    constructor(sendMessageHandler, actionHandler, refreshHandler, inferSuggestionsHandler) {
+    constructor(sendMessageHandler, actionHandler, refreshHandler, inferSuggestionsHandler, tabSwitchHandler, tabCloseHandler) {
         this.isOpen = false;
         this.sendMessageHandler = sendMessageHandler;
         this.actionHandler = actionHandler;
         this.refreshHandler = refreshHandler;
-        this.inferSuggestionsHandler = inferSuggestionsHandler; // Store the handler
-        this._renderedMessageCount = 0; // 新增：已渲染消息数量
-        this._fullRerenderNeeded = false; // 新增：是否需要完全重新渲染的标志
+        this.inferSuggestionsHandler = inferSuggestionsHandler;
+        this.tabSwitchHandler = tabSwitchHandler;
+        this.tabCloseHandler = tabCloseHandler;
+        this._renderedMessageCount = 0;
+        this._fullRerenderNeeded = false;
         this.create();
     }
 
@@ -352,45 +411,31 @@ class SummaryDialog {
                 <h3>${browser.i18n.getMessage('summaryModalTitle') || 'Summary'}</h3>
                 <button class="refresh-button" aria-label="Refresh">${this.getIcon('refresh')}</button>
             </div>
+            <div class="foxlate-summary-tabs"></div>
             <div class="foxlate-summary-conversation"></div>
-
-            <!-- Moved: Menu bar -->
             <div class="foxlate-summary-menubar">
                 <button class="suggest-button" aria-label="Suggest">${this.getIcon('suggest')} ${browser.i18n.getMessage('summarySuggestButton')}</button>
             </div>
-            <!-- Moved: Suggestions area -->
-            <div class="foxlate-summary-suggestions">
-                <!-- Suggestions will be dynamically inserted here -->
-            </div>
-
+            <div class="foxlate-summary-suggestions"></div>
             <div class="foxlate-summary-footer">
                 <textarea placeholder="${browser.i18n.getMessage('summaryInputPlaceholder') || 'Ask a follow-up...'}" rows="1"></textarea>
                 <button class="send-button" aria-label="Send">${this.getIcon('send')}</button>
             </div>
         `;
+        this.tabsArea = this.element.querySelector('.foxlate-summary-tabs');
         this.conversationArea = this.element.querySelector('.foxlate-summary-conversation');
         this.suggestionsArea = this.element.querySelector('.foxlate-summary-suggestions');
         this.suggestButton = this.element.querySelector('.suggest-button');
         this.textarea = this.element.querySelector('textarea');
         this.sendButton = this.element.querySelector('.send-button');
+        this.refreshButton = this.element.querySelector('.refresh-button');
         document.body.appendChild(this.element);
 
         this.sendButton.addEventListener('click', () => this.triggerSend());
-        this.refreshButton = this.element.querySelector('.refresh-button'); // Get refresh button
-        this.refreshButton.addEventListener('click', () => this.refreshHandler()); // Add event listener
-        this.suggestButton.addEventListener('click', () => this.toggleSuggestions()); // New event listener
-        
-        this.textarea.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && e.ctrlKey) {
-                e.preventDefault();
-                this.triggerSend();
-            }
-        });
-
-        this.textarea.addEventListener('input', () => {
-            this.textarea.style.height = 'auto';
-            this.textarea.style.height = `${this.textarea.scrollHeight}px`;
-        });
+        this.refreshButton.addEventListener('click', () => this.refreshHandler());
+        this.suggestButton.addEventListener('click', () => this.toggleSuggestions());
+        this.textarea.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); this.triggerSend(); } });
+        this.textarea.addEventListener('input', () => { this.textarea.style.height = 'auto'; this.textarea.style.height = `${this.textarea.scrollHeight}px`; });
 
         this.conversationArea.addEventListener('click', (e) => {
             const target = e.target.closest('[data-action]');
@@ -398,6 +443,31 @@ class SummaryDialog {
             const action = target.dataset.action;
             const index = parseInt(target.closest('.foxlate-summary-message').dataset.index, 10);
             this.actionHandler(action, index, action === 'save-edit' ? target.closest('.message-edit-area').querySelector('textarea').value : null);
+        });
+
+        this.tabsArea.addEventListener('click', (e) => {
+            const tabEl = e.target.closest('.foxlate-summary-tab');
+            if (!tabEl) return;
+            const tabId = parseInt(tabEl.dataset.tabId, 10);
+            if (e.target.closest('.foxlate-summary-tab-close')) {
+                this.tabCloseHandler(tabId);
+            } else {
+                this.tabSwitchHandler(tabId);
+            }
+        });
+    }
+
+    renderTabs(tabs, activeTabId) {
+        this.tabsArea.innerHTML = '';
+        tabs.forEach(tab => {
+            const tabEl = document.createElement('div');
+            tabEl.className = `foxlate-summary-tab ${tab.id === activeTabId ? 'active' : ''}`;
+            tabEl.dataset.tabId = tab.id;
+            tabEl.innerHTML = `
+                <span class="foxlate-summary-tab-title">${tab.title}</span>
+                ${tabs.length > 1 ? `<button class="foxlate-summary-tab-close">${this.getIcon('cancel')}</button>` : ''}
+            `;
+            this.tabsArea.appendChild(tabEl);
         });
     }
 
@@ -413,20 +483,19 @@ class SummaryDialog {
     renderConversation(history, isLoading = false) {
         if (!this.conversationArea) return;
 
-        // 检查是否需要完全重新渲染（例如，历史被截断或首次渲染）
-        if (history.length < this._renderedMessageCount || this._fullRerenderNeeded) {
+        if (!history || this._fullRerenderNeeded) {
             this.conversationArea.innerHTML = '';
             this._renderedMessageCount = 0;
-            this._fullRerenderNeeded = false; // 重置标志
+            this._fullRerenderNeeded = false;
         }
 
-        // 增量渲染新消息
+        if (!history) return;
+
         for (let i = this._renderedMessageCount; i < history.length; i++) {
             this.renderMessage(history[i], i);
         }
         this._renderedMessageCount = history.length;
 
-        // 处理加载指示器
         const existingLoadingEl = this.conversationArea.querySelector('.foxlate-summary-message.assistant.loading');
         if (isLoading) {
             if (!existingLoadingEl) {
@@ -436,9 +505,7 @@ class SummaryDialog {
                 this.conversationArea.appendChild(loadingEl);
             }
         } else {
-            if (existingLoadingEl) {
-                existingLoadingEl.remove();
-            }
+            if (existingLoadingEl) existingLoadingEl.remove();
         }
 
         this.conversationArea.scrollTop = this.conversationArea.scrollHeight;
@@ -471,12 +538,37 @@ class SummaryDialog {
         return `<div class="message-actions">${buttons}</div>`;
     }
 
+    handleAction(action, message, index) {
+        switch(action) {
+            case 'copy':
+                navigator.clipboard.writeText(message.role === 'user' ? message.content : message.contents[message.activeContentIndex]);
+                break;
+            case 'edit':
+                this.enterEditMode(index, message.content);
+                break;
+            case 'cancel-edit':
+                 this._fullRerenderNeeded = true;
+                 this.renderConversation(this.getActiveTab().history);
+                 break;
+            case 'history-prev':
+            case 'history-next':
+                if (message.role === 'assistant') {
+                    const direction = action === 'history-prev' ? -1 : 1;
+                    const newIndex = message.activeContentIndex + direction;
+                    if (newIndex >= 0 && newIndex < message.contents.length) {
+                        message.activeContentIndex = newIndex;
+                        this._fullRerenderNeeded = true;
+                        this.renderConversation(this.getActiveTab().history);
+                    }
+                }
+                break;
+        }
+    }
+
     enterEditMode(index, content) {
         const messageEl = this.conversationArea.querySelector(`[data-index="${index}"]`);
         if (!messageEl) return;
-
-        messageEl.classList.add('is-editing'); // 添加 is-editing 类
-
+        messageEl.classList.add('is-editing');
         messageEl.innerHTML = `
             <div class="message-edit-area">
                 <textarea rows="3">${content}</textarea>
@@ -490,63 +582,31 @@ class SummaryDialog {
         textarea.focus();
         textarea.style.height = 'auto';
         textarea.style.height = `${textarea.scrollHeight}px`;
-
-        // 添加事件监听器
-        textarea.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && e.ctrlKey) {
-                e.preventDefault();
-                // 触发 save-edit action
-                this.actionHandler('save-edit', index, textarea.value);
-            }
-        });
-
-        textarea.addEventListener('input', () => {
-            textarea.style.height = 'auto';
-            textarea.style.height = `${textarea.scrollHeight}px`;
-        });
-
-        // 重新绑定 cancel-edit 和 save-edit 按钮的事件
-        // 由于 innerHTML 替换了内容，原有的事件监听器会失效，需要重新绑定
-        const saveButton = messageEl.querySelector('[data-action="save-edit"]');
-        const cancelButton = messageEl.querySelector('[data-action="cancel-edit"]');
-
-        saveButton.addEventListener('click', () => {
-            this.actionHandler('save-edit', index, textarea.value);
-        });
-
-        cancelButton.addEventListener('click', () => {
-            this.actionHandler('cancel-edit', index, null); // null 表示不传递内容，因为 cancel 只是恢复显示
-        });
     }
 
     setLoading(isLoading) {
         this.sendButton.disabled = isLoading;
         this.textarea.disabled = isLoading;
         this.element.classList.toggle('loading', isLoading);
-        // Also disable the suggest button when loading
         this.suggestButton.disabled = isLoading;
-        this.suggestButton.classList.toggle('loading', isLoading); // Add a loading class for visual feedback
+        this.suggestButton.classList.toggle('loading', isLoading);
     }
 
     toggleSuggestions() {
-        if (this.suggestionsArea.classList.contains('is-visible')) { // Check for class instead of style.display
-            this.suggestionsArea.classList.remove('is-visible'); // Hide suggestions area
-            this.suggestionsArea.innerHTML = ''; // Clear suggestions
+        if (this.suggestionsArea.classList.contains('is-visible')) {
+            this.suggestionsArea.classList.remove('is-visible');
+            this.suggestionsArea.innerHTML = '';
         } else {
-            this.suggestionsArea.classList.add('is-visible'); // Show suggestions area
-            // Display loading indicator immediately
+            this.suggestionsArea.classList.add('is-visible');
             this.suggestionsArea.innerHTML = `
                 <div class="foxlate-suggestion-loading">
                     <div class="loading-indicator"></div>
                     <span>${browser.i18n.getMessage('summaryLoadingSuggestions') || 'Loading suggestions...'}</span>
                 </div>
             `;
-            // Disable suggest button and show loading state
             this.suggestButton.disabled = true;
             this.suggestButton.classList.add('loading');
-
             this.inferSuggestionsHandler().finally(() => {
-                // Re-enable suggest button and remove loading state after inference is complete (success or error)
                 this.suggestButton.disabled = false;
                 this.suggestButton.classList.remove('loading');
             });
@@ -554,23 +614,18 @@ class SummaryDialog {
     }
 
     renderSuggestions(suggestions) {
-        this.suggestionsArea.innerHTML = ''; // Clear loading indicator or previous suggestions
-
+        this.suggestionsArea.innerHTML = '';
         let parsedSuggestions = [];
         if (suggestions && suggestions.length > 0) {
-            // Attempt to parse Markdown JSON if the first suggestion looks like it
-            if (typeof suggestions[0] === 'string' && suggestions[0].startsWith('```json') && suggestions[0].endsWith('```')) {
+            if (typeof suggestions[0] === 'string' && suggestions[0].startsWith('```json')) {
                 try {
                     const jsonString = suggestions[0].substring(7, suggestions[0].length - 3).trim();
                     const tempSuggestions = JSON.parse(jsonString);
-                    if (Array.isArray(tempSuggestions)) {
-                        parsedSuggestions = tempSuggestions;
-                    } else {
-                        parsedSuggestions = suggestions; // Fallback if parsing fails or not an array
-                    }
+                    if (Array.isArray(tempSuggestions)) parsedSuggestions = tempSuggestions;
+                    else parsedSuggestions = suggestions;
                 } catch (e) {
-                    console.error('[Foxlate Summary] Error parsing Markdown JSON suggestions:', e);
-                    parsedSuggestions = suggestions; // Fallback to original if parsing fails
+                    console.error('[Foxlate Summary] Error parsing suggestions:', e);
+                    parsedSuggestions = suggestions;
                 }
             } else {
                 parsedSuggestions = suggestions;
@@ -586,14 +641,12 @@ class SummaryDialog {
                 this.suggestionsArea.appendChild(suggestionEl);
             });
 
-            // Add event listeners for new suggestion items (entire row)
             this.suggestionsArea.querySelectorAll('.foxlate-suggestion-item').forEach(item => {
                 item.addEventListener('click', (e) => {
-                    // Only trigger send if not clicking the edit button
                     if (!e.target.closest('.edit-suggestion-button')) {
                         const suggestion = item.querySelector('.suggestion-text').textContent;
                         this.sendMessageHandler(suggestion);
-                        this.toggleSuggestions(); // Hide suggestions after sending
+                        this.toggleSuggestions();
                     }
                 });
             });
@@ -605,11 +658,10 @@ class SummaryDialog {
                     this.textarea.style.height = 'auto';
                     this.textarea.style.height = `${this.textarea.scrollHeight}px`;
                     this.textarea.focus();
-                    this.toggleSuggestions(); // Hide suggestions after editing
+                    this.toggleSuggestions();
                 });
             });
         } else {
-            // Improved error/no suggestions display
             this.suggestionsArea.innerHTML = `
                 <div class="foxlate-suggestion-message foxlate-suggestion-error">
                     ${browser.i18n.getMessage('summaryNoSuggestions') || 'No suggestions available.'}
@@ -624,12 +676,12 @@ class SummaryDialog {
             copy: '<svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>',
             edit: '<svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>',
             reroll: '<svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>',
-            save: '<svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg',
+            save: '<svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>',
             cancel: '<svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>',
             prev: '<svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>',
             next: '<svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>',
             refresh: '<svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>',
-            suggest: '<svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16"><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17h8v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7z"/></svg>' // Suggest icon (lightbulb)
+            suggest: '<svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16"><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17h8v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7z"/></svg>'
         };
         return icons[name] || '';
     }
@@ -637,79 +689,32 @@ class SummaryDialog {
     show(buttonRect) {
         this.isOpen = true;
         this.element.style.visibility = 'visible';
-
-        // --- 重新设计的四象限最优解算法 ---
-        // 1. 确保对话框可见但不可交互，以便获取其真实尺寸
-        this.element.style.visibility = 'hidden';
-        this.element.style.pointerEvents = 'none';
-        this.element.classList.add('visible'); // 添加 visible 类以确保 CSS 样式生效，例如宽度限制
-
-        // 2. 获取对话框的实际渲染尺寸
+        const MARGIN = 16;
         const dialogWidth = this.element.offsetWidth;
         const dialogHeight = this.element.offsetHeight;
-
-        // 3. 移除临时样式
-        this.element.classList.remove('visible');
-        this.element.style.pointerEvents = 'auto';
-
-        const MARGIN = 16; // 对话框与视口边缘的最小间距
-
         const { top, left, right, bottom } = buttonRect;
         const winWidth = window.innerWidth;
         const winHeight = window.innerHeight;
+        const spaceRight = winWidth - right - MARGIN;
+        const spaceLeft = left - MARGIN;
+        const spaceBelow = winHeight - bottom - MARGIN;
+        const spaceAbove = top - MARGIN;
 
-        // 计算按钮周围四个方向的可用空间
-        const spaceAvailableRightOfButton = winWidth - right - MARGIN; // 按钮右侧到视口右边缘的距离
-        const spaceAvailableLeftOfButton = left - MARGIN; // 按钮左侧到视口左边缘的距离
-        const spaceAvailableBelowButton = winHeight - bottom - MARGIN; // 按钮下方到视口底部的距离
-        const spaceAvailableAboveButton = top - MARGIN; // 按钮上方到视口顶部的距离
-
-        // 对话框左边缘与按钮左边缘对齐时，右侧可用空间
-        const spaceAvailableRightOfButtonAlignLeft = winWidth - left - MARGIN;
-        // 对话框右边缘与按钮右边缘对齐时，左侧可用空间
-        const spaceAvailableLeftOfButtonAlignRight = right - MARGIN;
-
-        // 定义八种定位策略和得分
         const quadrants = [
-            // 1. 按钮下方，对话框左边缘与按钮左边缘对齐 (Bottom-AlignLeft)
-            { name: 'bottomAlignLeft', score: Math.min(dialogWidth, spaceAvailableRightOfButtonAlignLeft) * Math.min(dialogHeight, spaceAvailableBelowButton), origin: 'top left', top: `${bottom + 8}px`, left: `${left}px` },
-            // 2. 按钮下方，对话框右边缘与按钮右边缘对齐 (Bottom-AlignRight)
-            { name: 'bottomAlignRight',  score: Math.min(dialogWidth, spaceAvailableLeftOfButtonAlignRight)  * Math.min(dialogHeight, spaceAvailableBelowButton), origin: 'top right', top: `${bottom + 8}px`, right: `${winWidth - right}px` },
-            // 3. 按钮上方，对话框左边缘与按钮左边缘对齐 (Top-AlignLeft)
-            { name: 'topAlignLeft',    score: Math.min(dialogWidth, spaceAvailableRightOfButtonAlignLeft) * Math.min(dialogHeight, spaceAvailableAboveButton),    origin: 'bottom left', bottom: `${winHeight - top + 8}px`, left: `${left}px` },
-            // 4. 按钮上方，对话框右边缘与按钮右边缘对齐 (Top-AlignRight)
-            { name: 'topAlignRight',     score: Math.min(dialogWidth, spaceAvailableLeftOfButtonAlignRight)  * Math.min(dialogHeight, spaceAvailableAboveButton),    origin: 'bottom right', bottom: `${winHeight - top + 8}px`, right: `${winWidth - right}px` },
-
-            // 新增的左右定位策略
-            // 5. 按钮右侧，对话框顶部与按钮顶部对齐 (Right-Top)
-            { name: 'rightTop', score: Math.min(dialogWidth, spaceAvailableRightOfButton) * Math.min(dialogHeight, winHeight - top - MARGIN), origin: 'top left', top: `${top}px`, left: `${right + 8}px` },
-            // 6. 按钮右侧，对话框底部与按钮底部对齐 (Right-Bottom)
-            { name: 'rightBottom', score: Math.min(dialogWidth, spaceAvailableRightOfButton) * Math.min(dialogHeight, bottom - MARGIN), origin: 'bottom left', bottom: `${winHeight - bottom}px`, left: `${right + 8}px` },
-            // 7. 按钮左侧，对话框顶部与按钮顶部对齐 (Left-Top)
-            { name: 'leftTop', score: Math.min(dialogWidth, spaceAvailableLeftOfButton) * Math.min(dialogHeight, winHeight - top - MARGIN), origin: 'top right', top: `${top}px`, right: `${winWidth - left + 8}px` },
-            // 8. 按钮左侧，对话框底部与按钮底部对齐 (Left-Bottom)
-            { name: 'leftBottom', score: Math.min(dialogWidth, spaceAvailableLeftOfButton) * Math.min(dialogHeight, bottom - MARGIN), origin: 'bottom right', bottom: `${winHeight - bottom}px`, right: `${winWidth - left + 8}px` },
+            { name: 'bottomAlignLeft', score: Math.min(dialogWidth, winWidth - left - MARGIN) * Math.min(dialogHeight, spaceBelow), origin: 'top left', top: `${bottom + 8}px`, left: `${left}px` },
+            { name: 'bottomAlignRight', score: Math.min(dialogWidth, right - MARGIN) * Math.min(dialogHeight, spaceBelow), origin: 'top right', top: `${bottom + 8}px`, right: `${winWidth - right}px` },
+            { name: 'topAlignLeft', score: Math.min(dialogWidth, winWidth - left - MARGIN) * Math.min(dialogHeight, spaceAbove), origin: 'bottom left', bottom: `${winHeight - top + 8}px`, left: `${left}px` },
+            { name: 'topAlignRight', score: Math.min(dialogWidth, right - MARGIN) * Math.min(dialogHeight, spaceAbove), origin: 'bottom right', bottom: `${winHeight - top + 8}px`, right: `${winWidth - right}px` },
+            { name: 'rightTop', score: Math.min(dialogWidth, spaceRight) * Math.min(dialogHeight, winHeight - top - MARGIN), origin: 'top left', top: `${top}px`, left: `${right + 8}px` },
+            { name: 'rightBottom', score: Math.min(dialogWidth, spaceRight) * Math.min(dialogHeight, bottom - MARGIN), origin: 'bottom left', bottom: `${winHeight - bottom}px`, left: `${right + 8}px` },
+            { name: 'leftTop', score: Math.min(dialogWidth, spaceLeft) * Math.min(dialogHeight, winHeight - top - MARGIN), origin: 'top right', top: `${top}px`, right: `${winWidth - left + 8}px` },
+            { name: 'leftBottom', score: Math.min(dialogWidth, spaceLeft) * Math.min(dialogHeight, bottom - MARGIN), origin: 'bottom right', bottom: `${winHeight - bottom}px`, right: `${winWidth - left + 8}px` },
         ];
 
-        let bestQuadrant = quadrants[0];
-        for (let i = 1; i < quadrants.length; i++) {
-            if (quadrants[i].score > bestQuadrant.score) {
-                bestQuadrant = quadrants[i];
-            }
-        }
+        let bestQuadrant = quadrants.sort((a, b) => b.score - a.score)[0];
 
-        this.element.style.transformOrigin = bestQuadrant.origin;
-        this.element.style.top = bestQuadrant.top || '';
-        this.element.style.left = bestQuadrant.left || '';
-        this.element.style.bottom = bestQuadrant.bottom || '';
-        this.element.style.right = bestQuadrant.right || '';
-
-        if (!bestQuadrant.top) this.element.style.removeProperty('top');
-        if (!bestQuadrant.left) this.element.style.removeProperty('left');
-        if (!bestQuadrant.bottom) this.element.style.removeProperty('bottom');
-        if (!bestQuadrant.right) this.element.style.removeProperty('right');
-
-        this.element.style.visibility = 'visible'; // 显式设置可见
+        Object.assign(this.element.style, { transformOrigin: bestQuadrant.origin, top: bestQuadrant.top || '', left: bestQuadrant.left || '', bottom: bestQuadrant.bottom || '', right: bestQuadrant.right || '' });
+        
         this.element.classList.add('visible');
         this.textarea.focus();
     }
@@ -729,5 +734,12 @@ export function initializeSummary(settings) {
     if (summaryModuleInstance) summaryModuleInstance.destroy();
     if (settings?.summarySettings?.enabled) {
         summaryModuleInstance = new SummaryModule(settings);
+    }
+}
+
+export function destroySummary() {
+    if (summaryModuleInstance) {
+        summaryModuleInstance.destroy();
+        summaryModuleInstance = null;
     }
 }
