@@ -119,18 +119,67 @@ class SummaryModule {
         this.summaryDialog.setLoading(true);
         this.conversationHistory = []; // Clear conversation history on refresh
         this.summaryDialog.renderConversation(this.conversationHistory, true);
+        let content = '';
+
         try {
             const selector = this.settings.summarySettings?.mainBodySelector;
-            if (!selector) throw new Error('Summary main body selector not configured.');
-            const element = document.querySelector(selector);
-            if (!element) throw new Error(`Main body element not found: "${selector}"`);
+            let article = null;
+
+            // Tier 1: Hybrid Extraction (mainBodySelector + Readability cleaning)
+            if (selector) {
+                const element = document.querySelector(selector);
+                if (element) {
+                    try {
+                        const { default: Readability } = await import('../../lib/readability.esm.js');
+                        // To run Readability on a specific element, we must provide it with a full document context.
+                        // Cloning the element into a new document is the correct approach.
+                        const doc = document.implementation.createHTMLDocument('');
+                        doc.body.innerHTML = element.innerHTML;
+                        // We also pass the original document's URL to help Readability resolve relative links, if any.
+                        const reader = new Readability(doc, { charThreshold: 150, ntop: 20 });
+                        article = reader.parse();
+                        content = article?.textContent || '';
+                    } catch (e) {
+                        console.warn('[Foxlate Summary] Readability cleaning on selector failed, falling back to innerText.', e);
+                    }
+                    // Fallback for Tier 1 if Readability fails on the fragment
+                    if (!content) {
+                        content = element.innerText;
+                    }
+                }
+            }
+
+            // Tier 2: Global Readability if Tier 1 failed
+            if (!content) {
+                try {
+                    const { default: Readability } = await import('../../lib/readability.esm.js');
+                    const docClone = document.cloneNode(true);
+                    const reader = new Readability(docClone, { charThreshold: 250, ntop: 25 });
+                    article = reader.parse();
+                    content = article?.textContent || '';
+                } catch (e) {
+                    console.warn('[Foxlate Summary] Global Readability failed.', e);
+                }
+            }
+
+            // Tier 3: Final fallback to body.innerText
+            if (!content) {
+                console.warn('[Foxlate Summary] All extraction methods failed, falling back to document.body.innerText.');
+                content = document.body.innerText;
+            }
+
+            if (!content.trim()) {
+                throw new Error('Failed to extract any meaningful content from the page.');
+            }
 
             const response = await browser.runtime.sendMessage({
                 type: 'SUMMARIZE_CONTENT',
-                payload: { text: element.innerText, aiModel: this.settings.summarySettings?.aiModel, targetLang: this.settings.targetLanguage }
+                payload: { text: content, aiModel: this.settings.summarySettings?.aiModel, targetLang: this.settings.targetLanguage }
             });
+
             if (!response.success) throw new Error(response.error);
             this.conversationHistory.push({ role: 'assistant', contents: [response.summary], activeContentIndex: 0 });
+
         } catch (error) {
             console.error('[Foxlate Summary] Error:', error);
             this.conversationHistory.push({ role: 'assistant', contents: [`**Error:** ${error.message}`], activeContentIndex: 0, isError: true });
