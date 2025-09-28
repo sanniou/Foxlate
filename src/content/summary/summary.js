@@ -2,6 +2,7 @@
 
 import browser from '../../lib/browser-polyfill.js';
 import { marked } from '../../lib/marked.esm.js';
+import { DEFAULT_SETTINGS } from '../../common/constants.js';
 
 class SummaryModule {
     constructor(settings) {
@@ -215,6 +216,7 @@ class SummaryModule {
 
     async extractPageContent() {
         const selector = this.settings.summarySettings?.mainBodySelector;
+        const charThreshold = this.settings.summarySettings?.charThreshold || DEFAULT_SETTINGS.summarySettings.charThreshold;
         let content = '';
         if (selector) {
             const element = document.querySelector(selector);
@@ -223,7 +225,7 @@ class SummaryModule {
                     const { default: Readability } = await import('../../lib/readability.esm.js');
                     const doc = document.implementation.createHTMLDocument('');
                     doc.body.innerHTML = element.innerHTML;
-                    const reader = new Readability(doc, { charThreshold: 150 });
+                    const reader = new Readability(doc, { charThreshold: charThreshold });
                     const article = reader.parse();
                     content = article?.textContent || '';
                 } catch (e) { console.warn('[Foxlate Summary] Readability on selector failed.', e); }
@@ -235,7 +237,7 @@ class SummaryModule {
             try {
                 const { default: Readability } = await import('../../lib/readability.esm.js');
                 const docClone = document.cloneNode(true);
-                const reader = new Readability(docClone, { charThreshold: 250 });
+                const reader = new Readability(docClone, { charThreshold: charThreshold });
                 const article = reader.parse();
                 content = article?.textContent || '';
             } catch (e) { console.warn('[Foxlate Summary] Global Readability failed.', e); }

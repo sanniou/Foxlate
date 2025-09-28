@@ -158,6 +158,11 @@ export class DomainRuleModal extends BaseComponent {
             [ELEMENT_IDS.RULE_SUMMARY_AI_MODEL]: (val) => {
                 if (!this.#state.editingRule.summarySettings) this.#state.editingRule.summarySettings = {};
                 this.#state.editingRule.summarySettings.aiModel = val;
+            },
+            [ELEMENT_IDS.RULE_CHAR_THRESHOLD]: (val) => {
+                if (!this.#state.editingRule.summarySettings) this.#state.editingRule.summarySettings = {};
+                const threshold = parseInt(val, 10);
+                this.#state.editingRule.summarySettings.charThreshold = !isNaN(threshold) && threshold >= 0 ? threshold : 0;
             }
         }[id];
         if (updater) updater(value);

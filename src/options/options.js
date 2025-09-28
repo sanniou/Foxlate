@@ -100,6 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ruleEnableSummary: document.getElementById(ELEMENT_IDS.RULE_ENABLE_SUMMARY),
         ruleSummarySettingsGroup: document.getElementById(ELEMENT_IDS.RULE_SUMMARY_SETTINGS_GROUP),
         ruleSummaryAiModel: document.getElementById(ELEMENT_IDS.RULE_SUMMARY_AI_MODEL),
+        ruleCharThreshold: document.getElementById(ELEMENT_IDS.RULE_CHAR_THRESHOLD),
         domainRuleForm: document.getElementById(ELEMENT_IDS.DOMAIN_RULE_FORM),
         // Component-related elements for ConfirmModal
         confirmModal: document.getElementById(ELEMENT_IDS.CONFIRM_MODAL),

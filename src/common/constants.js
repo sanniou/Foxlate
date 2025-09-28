@@ -67,6 +67,7 @@ export const DEFAULT_SETTINGS = {
     precheckRules: {}, // Populated dynamically in options.js to handle i18n
     cacheSize: 5000, // Number of translation items to cache
     parallelRequests: 5, // Number of parallel translation requests
+    summarySettings: { charThreshold: 150 },
 };
 
 export const AI_PROMPTS = {
