@@ -151,18 +151,13 @@ export class AIEngineModal extends BaseComponent {
 
         const ul = document.createElement('ul');
         engines.forEach(engine => {
-            const syncStatus = engine.syncStatus || 'local';
-            const statusIcon = { synced: '☁️', local: '💾', syncing: '⏳' }[syncStatus] || '❓';
-            const statusText = browser.i18n.getMessage(`syncStatus${syncStatus.charAt(0).toUpperCase() + syncStatus.slice(1)}`) || 'Unknown';
             const li = document.createElement('li');
             li.dataset.id = engine.id;
             li.innerHTML = `
                 <div class="engine-info">
                     <span class="engine-name">${escapeHtml(engine.name)}</span>
-                    <span class="sync-status ${syncStatus}" title="${statusText}">${statusIcon} ${statusText}</span>
                 </div>
                 <div class="actions">
-                    ${syncStatus === 'local' ? `<button class="m3-button text retry-sync-btn">${browser.i18n.getMessage('retrySync')}</button>` : ''}
                     <button class="m3-button text copy-ai-engine-btn">${browser.i18n.getMessage('copy')}</button>
                     <button class="m3-button text edit-ai-engine-btn">${browser.i18n.getMessage('edit')}</button>
                     <button class="m3-button text danger remove-ai-engine-btn">${browser.i18n.getMessage('removeAiEngine')}</button>
@@ -211,7 +206,6 @@ export class AIEngineModal extends BaseComponent {
             try {
                 const cleanEngine = { ...engine };
                 delete cleanEngine.id;
-                delete cleanEngine.syncStatus;
                 await navigator.clipboard.writeText(JSON.stringify(cleanEngine, null, 2));
                 this.emit('showStatus', browser.i18n.getMessage('copiedAiEngineSuccess'));
             } catch (err) {
@@ -245,7 +239,6 @@ export class AIEngineModal extends BaseComponent {
 
             const cleanEngineData = { ...engineData };
             delete cleanEngineData.id;
-            delete cleanEngineData.syncStatus;
 
             this.#closeImportModal();
             this.#showForm(cleanEngineData);
@@ -317,8 +310,6 @@ export class AIEngineModal extends BaseComponent {
                 this.#removeEngine(engineId);
             } else if (target.classList.contains('copy-ai-engine-btn')) {
                 this.#copyEngine(engineId);
-            } else if (target.classList.contains('retry-sync-btn')) {
-                this.emit('retrySync', engineId);
             }
         });
 

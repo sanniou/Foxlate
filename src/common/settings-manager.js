@@ -22,7 +22,7 @@ export class SettingsManager {
         browser.storage.onChanged.addListener(async (changes, area) => {
             // 使用类名直接访问静态成员，可以完全避免 `this` 上下文可能引发的混淆或错误，
             // 尤其是在事件监听器的回调函数和静态块中。
-            if (area === 'local' && changes.localAiEngines) {
+            if (area === 'local' && changes.settings) {
                 // (已修改) 直接传递新旧值
                 await SettingsManager.notifySettingsChanged(changes.settings?.newValue, changes.settings?.oldValue);
             }
@@ -188,25 +188,14 @@ export class SettingsManager {
         }
 
         // 优先从 local 获取设置
-        const localData = await browser.storage.local.get(['settings', 'localAiEngines']);
+        const localData = await browser.storage.local.get('settings');
         let storedSettings = localData.settings;
-        const localAiEngines = localData.localAiEngines || [];
 
         const defaultSettings = SettingsManager.generateDefaultSettings();
 
         const settingsToValidate = storedSettings || defaultSettings;
 
         const validatedSettings = { ...defaultSettings, ...settingsToValidate };
-
-        // --- 合并 AI 引擎 ---
-        // 此时，validatedSettings.aiEngines 应该只包含从 sync 或 defaultSettings 来的引擎
-        // 我们需要将 localAiEngines 合并进来
-        const currentEngines = validatedSettings.aiEngines || [];
-        // 确保 localAiEngines 中的引擎不会覆盖 currentEngines 中的同 ID 引擎
-        const currentEngineIds = new Set(currentEngines.map(e => e.id));
-        const uniqueLocalEngines = localAiEngines.filter(e => !currentEngineIds.has(e.id));
-
-        validatedSettings.aiEngines = [...currentEngines, ...uniqueLocalEngines];
 
         // Deep merge for translationSelector
         const storedDefaultSelector = settingsToValidate.translationSelector?.default;
@@ -242,20 +231,8 @@ export class SettingsManager {
     static async downloadSettingsFromCloud() {
         const syncSettings = await SettingsManager.getSyncSettings();
         if (syncSettings) {
-            // 获取当前的本地 AI 引擎，以便在下载云端设置时合并它们
-            const localData = await browser.storage.local.get('localAiEngines');
-            const localAiEngines = localData.localAiEngines || [];
-
-            // 合并云端设置和本地 AI 引擎
-            const mergedSettings = { ...syncSettings };
-            const syncedEngines = mergedSettings.aiEngines || [];
-            const syncedEngineIds = new Set(syncedEngines.map(e => e.id));
-            const uniqueLocalEngines = localAiEngines.filter(e => !syncedEngineIds.has(e.id));
-
-            mergedSettings.aiEngines = [...syncedEngines, ...uniqueLocalEngines];
-
-            await SettingsManager.saveLocalSettings(mergedSettings);
-            console.log('[SettingsManager] Settings downloaded from cloud and merged with local AI engines.');
+            await SettingsManager.saveLocalSettings(syncSettings);
+            console.log('[SettingsManager] Settings downloaded from cloud.');
         } else {
             console.warn('[SettingsManager] No settings found in cloud storage to download.');
         }
@@ -402,11 +379,7 @@ export class SettingsManager {
             }
         }
 
-        // 将所有 AI 引擎都保存到 localAiEngines
-        const allEngines = settingsToSave.aiEngines || [];
-        delete settingsToSave.aiEngines; // 从主设置中移除 aiEngines
-
-        await browser.storage.local.set({ settings: settingsToSave, localAiEngines: allEngines });
+        await browser.storage.local.set({ settings: settingsToSave });
 
         await SettingsManager.notifySettingsChanged(settingsToSave, oldSettings);
     }
@@ -452,11 +425,11 @@ export class SettingsManager {
         const engineIndex = settings.aiEngines.findIndex(e => e.id === engineId);
 
         if (engineIndex > -1) {
-            // 更新现有引擎，并乐观地将其状态设置为 'synced' 以尝试同步
-            settings.aiEngines[engineIndex] = { ...settings.aiEngines[engineIndex], ...engineToSave, syncStatus: 'synced' };
+            // 更新现有引擎
+            settings.aiEngines[engineIndex] = { ...settings.aiEngines[engineIndex], ...engineToSave };
         } else {
-            // 添加新引擎，并乐观地设置为 'synced'
-            settings.aiEngines.push({ ...engineToSave, syncStatus: 'synced' });
+            // 添加新引擎
+            settings.aiEngines.push({ ...engineToSave });
         }
 
         await this.saveLocalSettings(settings);
@@ -471,7 +444,7 @@ export class SettingsManager {
         settings.aiEngines = settings.aiEngines.filter(e => e.id !== engineId);
 
         if (settings.translatorEngine === `ai:${engineId}`) {
-            const firstAiEngine = settings.aiEngines.find(e => e.syncStatus === 'synced');
+            const firstAiEngine = settings.aiEngines[0]; // Get the first available AI engine
             settings.translatorEngine = firstAiEngine ? `ai:${firstAiEngine.id}` : 'google';
         }
 

@@ -1057,23 +1057,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (id === 'import-input') importSettings(e);
     };
 
-    const retryAllLocalEnginesSync = async () => {
-        const localEngineIds = state.aiEngines.filter(e => e.syncStatus === 'local').map(e => e.id);
-        if (localEngineIds.length === 0) return showStatusMessage(browser.i18n.getMessage('noLocalEngines'));
-
-        let successCount = 0, failCount = 0;
-        for (const engineId of localEngineIds) {
-            try {
-                await SettingsManager.saveAiEngine(state.aiEngines.find(e => e.id === engineId), engineId);
-                successCount++;
-            } catch (error) {
-                failCount++;
-            }
-        }
-        const message = browser.i18n.getMessage('batchSyncResult', [successCount, failCount]);
-        showStatusMessage(message, failCount > 0);
-    };
-
     const checkDefaultEngineAvailability = () => {
         const settings = getSettingsFromUI();
         if (!settings.translatorEngine || !settings.translatorEngine.startsWith('ai:')) {
@@ -1155,19 +1138,6 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (error) {
                 console.error("Failed to remove AI engine:", error);
                 showStatusMessage("Failed to remove AI engine.", true);
-            }
-        });
-
-        aiEngineModal.on('retrySync', async (engineId) => {
-            try {
-                const engine = state.aiEngines.find(e => e.id === engineId);
-                if (engine) {
-                    await SettingsManager.saveAiEngine(engine, engineId);
-                    showStatusMessage(browser.i18n.getMessage('retrySyncSuccess'));
-                }
-            } catch (error) {
-                console.error('Retry sync failed for engine:', engineId, error);
-                showStatusMessage(browser.i18n.getMessage('retrySyncFailed'), true);
             }
         });
 
