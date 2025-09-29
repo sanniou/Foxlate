@@ -32,7 +32,8 @@ class SummaryModule {
                 this.handleRefresh.bind(this),
                 this.handleInferSuggestions.bind(this),
                 this.handleTabSwitch.bind(this),
-                this.handleTabClose.bind(this)
+                this.handleTabClose.bind(this),
+                this.getActiveTab.bind(this)
             );
             this.setupEventListeners();
             this.positionInitialButton();
@@ -433,7 +434,7 @@ class SummaryButton {
 }
 
 class SummaryDialog {
-    constructor(sendMessageHandler, actionHandler, refreshHandler, inferSuggestionsHandler, tabSwitchHandler, tabCloseHandler) {
+    constructor(sendMessageHandler, actionHandler, refreshHandler, inferSuggestionsHandler, tabSwitchHandler, tabCloseHandler, getActiveTabHandler) {
         this.isOpen = false;
         this.sendMessageHandler = sendMessageHandler;
         this.actionHandler = actionHandler;
@@ -441,6 +442,7 @@ class SummaryDialog {
         this.inferSuggestionsHandler = inferSuggestionsHandler;
         this.tabSwitchHandler = tabSwitchHandler;
         this.tabCloseHandler = tabCloseHandler;
+        this.getActiveTabHandler = getActiveTabHandler;
         this._renderedMessageCount = 0;
         this._fullRerenderNeeded = false;
         this.create();
@@ -593,7 +595,7 @@ class SummaryDialog {
                 break;
             case 'cancel-edit':
                 this._fullRerenderNeeded = true;
-                this.renderConversation(this.getActiveTab().history);
+                this.renderConversation(this.getActiveTabHandler().history);
                 break;
             case 'history-prev':
             case 'history-next':
@@ -603,7 +605,7 @@ class SummaryDialog {
                     if (newIndex >= 0 && newIndex < message.contents.length) {
                         message.activeContentIndex = newIndex;
                         this._fullRerenderNeeded = true;
-                        this.renderConversation(this.getActiveTab().history);
+                        this.renderConversation(this.getActiveTabHandler().history);
                     }
                 }
                 break;
