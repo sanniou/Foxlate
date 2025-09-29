@@ -929,8 +929,8 @@ button.m3-icon-button.danger {
 
 .fab {
   position: fixed;
-  bottom: 40px;
-  right: 40px;
+  bottom: 32px;
+  right: calc((100vw - 800px) / 2 + 24px);
   width: 56px;
   height: 56px;
   background-color: var(--md-sys-color-primary);
@@ -1277,6 +1277,11 @@ ul#cloudDataList {
 
     .button-group button {
         width: 100%;
+    }
+
+    /* 在窄屏幕上，将 FAB 移回右下角，以避免遮挡内容 */
+    .fab {
+        right: 32px;
     }
 }
 
