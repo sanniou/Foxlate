@@ -841,11 +841,11 @@ async function setBadgeAndState(tabId, state) {
         switch (state) {
             case 'loading':
                 badgeText = '...';
-                badgeColor = '#F57C00'; // Orange - Loading
+                badgeColor = '#6750A4';
                 break;
             case 'translated':
                 badgeText = '✓';
-                badgeColor = '#388E3C'; // Green - Translated
+                badgeColor = '#006D3D';
                 break;
             default:
                 break;
