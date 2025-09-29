@@ -11,6 +11,8 @@ const CSS_FILES = ["content/style.css", "content/summary/summary.css"];
 const CORE_SCRIPT_FILES = ["content/content-script.js"];
 
 // --- Dynamically build strategy maps from the manifest ---
+const CLOUD_BACKUP_PREFIX = 'foxlate_backup_';
+const MAX_CLOUD_BACKUPS = 10;
 // We create these Maps at startup for performance. Map lookups (O(1)) are much faster
 // than searching an array (O(n)) on every navigation event.
 const STRATEGY_FILE_MAP = new Map(
@@ -533,62 +535,62 @@ const messageHandlers = {
         return TranslatorManager.getCacheInfo();
     },
 
-    async CLEAR_CACHE() {
-        // 委托给 TranslatorManager 清空缓存
-        await TranslatorManager.clearCache();
-        return { success: true };
-    },
-
-    // --- Cloud Sync Handlers ---
-    async GET_CLOUD_BACKUPS() {
-        try {
-            const allItems = await browser.storage.sync.get(null);
-            const backups = Object.keys(allItems)
-                .filter(key => key.startsWith('foxlate_backup_'))
-                .map(key => allItems[key])
-                .filter(item => item && typeof item === 'object' && typeof item.timestamp === 'number')
-                .sort((a, b) => b.timestamp - a.timestamp); // Newest first
-            return { success: true, backups };
-        } catch (error) {
-            logError('GET_CLOUD_BACKUPS', error);
-            return { success: false, error: error.message };
-        }
-    },
-
-    async UPLOAD_SETTINGS_TO_CLOUD(request) {
-        try {
-            const settingsToUpload = request.payload;
-            const timestamp = Date.now();
-            const backupId = `foxlate_backup_${timestamp}`;
-            const backupItem = {
-                id: backupId,
-                timestamp: timestamp,
-                settings: settingsToUpload
-            };
-
-            await browser.storage.sync.set({ [backupId]: backupItem });
-
-            // Rotation: Keep only the last 10 backups
-            const allItems = await browser.storage.sync.get(null);
-            const backupKeys = Object.keys(allItems)
-                .filter(key => key.startsWith('foxlate_backup_'))
-                .sort((a, b) => {
-                    const tsA = parseInt(a.split('_')[2] || '0');
-                    const tsB = parseInt(b.split('_')[2] || '0');
-                    return tsB - tsA; // Sort descending by timestamp in key
-                });
-
-            if (backupKeys.length > 10) {
-                const keysToRemove = backupKeys.slice(10);
-                await browser.storage.sync.remove(keysToRemove);
-            }
-
-            return { success: true };
-        } catch (error) {
-            logError('UPLOAD_SETTINGS_TO_CLOUD', error);
-            return { success: false, error: error.message };
-        }
-    },
+     async CLEAR_CACHE() {
+         // 委托给 TranslatorManager 清空缓存
+         await TranslatorManager.clearCache();
+         return { success: true };
+     },
+ 
+     // --- Cloud Sync Handlers ---
+     async GET_CLOUD_BACKUPS() {
+         try {
+             const backups = await getCloudBackupItems();
+             // 按时间戳降序排序（最新的在前）
+             backups.sort((a, b) => b.timestamp - a.timestamp);
+             return { success: true, backups };
+         } catch (error) {
+             logError('GET_CLOUD_BACKUPS', error);
+             return { success: false, error: error.message };
+         }
+     },
+ 
+     async UPLOAD_SETTINGS_TO_CLOUD(request) {
+         try {
+             const settingsToUpload = request.payload;
+             const timestamp = Date.now();
+             const backupId = `${CLOUD_BACKUP_PREFIX}${timestamp}`;
+             const backupItem = {
+                 id: backupId,
+                 timestamp: timestamp,
+                 settings: settingsToUpload
+             };
+ 
+             await browser.storage.sync.set({ [backupId]: backupItem });
+ 
+             // (已重构) 备份轮换逻辑
+             const allBackups = await getCloudBackupItems();
+ 
+             if (allBackups.length > MAX_CLOUD_BACKUPS) {
+                 // 1. 根据对象内部可靠的时间戳属性进行升序排序（最旧的在前）
+                 allBackups.sort((a, b) => a.timestamp - b.timestamp);
+ 
+                 // 2. 确定需要删除的备份数量
+                 const backupsToRemoveCount = allBackups.length - MAX_CLOUD_BACKUPS;
+ 
+                 // 3. 提取最旧备份的 ID（即存储键）
+                 const keysToRemove = allBackups.slice(0, backupsToRemoveCount).map(backup => backup.id);
+ 
+                 // 4. 执行删除
+                 await browser.storage.sync.remove(keysToRemove);
+                 console.log(`[Cloud Sync] Rotated backups, removed ${keysToRemove.length} oldest item(s).`);
+             }
+ 
+             return { success: true };
+         } catch (error) {
+             logError('UPLOAD_SETTINGS_TO_CLOUD', error);
+             return { success: false, error: error.message };
+         }
+     },
 
     async DOWNLOAD_SETTINGS_FROM_CLOUD(request) {
         try {
@@ -623,6 +625,21 @@ const messageHandlers = {
     },
 };
 
+/**
+ * @private
+ * (新) 从云端存储中获取所有备份条目。
+ * @returns {Promise<Array<object>>} 一个解析为备份对象数组的 Promise。
+ */
+async function getCloudBackupItems() {
+    const allItems = await browser.storage.sync.get(null);
+    // 通过检查值而不是键来过滤，这样更健壮
+    return Object.values(allItems)
+        .filter(item =>
+            item && typeof item === 'object' &&
+            typeof item.id === 'string' && item.id.startsWith(CLOUD_BACKUP_PREFIX) &&
+            typeof item.timestamp === 'number'
+        );
+}
 // --- Main Event Listeners ---
 
 browser.commands.onCommand.addListener(async (command, tab) => {
