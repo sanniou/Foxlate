@@ -90,16 +90,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const loadAndApplySettings = async () => {
+    const loadAndApplySettings = async (settingsFromMessage = null) => {
         const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
         if (!tab) return;
         activeTabId = tab.id;
 
         currentHostname = getHostname(tab.url);
-        const finalRule = await browser.runtime.sendMessage({
-            type: 'GET_EFFECTIVE_SETTINGS',
-            payload: { hostname: currentHostname }
-        });
+        const finalRule = settingsFromMessage || await browser.runtime.sendMessage({
+             type: 'GET_EFFECTIVE_SETTINGS',
+             payload: { hostname: currentHostname }
+         });
 
         // The 'source' property is now reliably provided by getEffectiveSettings.
         currentRuleSource = finalRule.source;
@@ -272,10 +272,10 @@ document.addEventListener('DOMContentLoaded', () => {
         await loadAndApplySettings();
 
         browser.runtime.onMessage.addListener((request) => {
-            // (已修改) 监听来自 service-worker 的设置更新广播
+            // (已优化) 监听来自 service-worker 的设置更新广播，并直接使用附带的设置数据
             if (request.type === 'SETTINGS_UPDATED' || request.type === 'RELOAD_TRANSLATION_JOB') {
                 console.log(`[Popup] Received '${request.type}' message. Reloading settings and UI.`);
-                loadAndApplySettings();
+                loadAndApplySettings(request.payload?.newValue);
                 // 也可以选择性地更新按钮状态，以提供更即时的反馈
                 updateButtonStateFromContentScript();
             }

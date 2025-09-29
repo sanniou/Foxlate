@@ -816,7 +816,7 @@ SettingsManager.on('settingsChanged', async ({ newValue, oldValue }) => {
     // (优化) 只通知那些当前有活动翻译的标签页
     const activeTabIds = await TabStateManager.getActiveTabIds();
     for (const tabId of activeTabIds) {
-        browser.tabs.sendMessage(tabId, { type: messageType }).catch(e => {
+        browser.tabs.sendMessage(tabId, { type: messageType, payload: { newValue } }).catch(e => {
             if (!e.message.includes("Receiving end does not exist")) {
                 logError('settingsChanged listener (notify tab)', e);
             }
@@ -826,7 +826,7 @@ SettingsManager.on('settingsChanged', async ({ newValue, oldValue }) => {
     // (新) 同时，向扩展的其余部分（如 popup）广播一个通用更新消息。
     // 这确保了即使弹窗是打开的，它也能收到设置更新的通知。
     browser.runtime.sendMessage({ type: messageType, payload: { newValue, oldValue } }).catch(e => {
-        // 忽略错误，因为可能没有其他监听器（例如，弹窗未打开）。
+        // 忽略错误，因为可能没有其他监听器（例如，弹窗未打开）
     });
 
     // 更新依赖于设置的后台服务

@@ -719,10 +719,10 @@ const messageHandlers = {
         return Promise.resolve({ status: 'PONG' });
     },
 
-    async SETTINGS_UPDATED() {
+    async SETTINGS_UPDATED(request) {
         console.log("[Content Script] Received settings update. Updating local cache.");
-        const newSettings = await getEffectiveSettings();
-        if (currentPageJob) {
+        const newSettings = request.payload.newValue;
+        if (currentPageJob && newSettings) {
             currentPageJob.settings = newSettings;
             console.log("[Foxlate] Updated page translation job settings:", newSettings);
         }
