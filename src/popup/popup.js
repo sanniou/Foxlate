@@ -224,7 +224,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         settings.domainRules[domainToUpdate] = rule;
 
-        await SettingsManager.saveSettings(settings);
+        await SettingsManager.saveLocalSettings(settings);
         // The settings will be reloaded automatically via the SETTINGS_UPDATED event listener.
     };
 
