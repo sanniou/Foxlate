@@ -26,15 +26,7 @@ class SummaryModule {
     init() {
         if (document.body) {
             this.summaryButton = new SummaryButton();
-            this.summaryDialog = new SummaryDialog(
-                this.handleSendMessage.bind(this),
-                this.handleRefresh.bind(this),
-                this.handleInferSuggestions.bind(this),
-                this.handleTabSwitch.bind(this),
-                this.handleTabClose.bind(this),
-                this.getActiveTab.bind(this),
-                this.handleModuleAction.bind(this)
-            );
+            this.summaryDialog = new SummaryDialog(this);
             this.setupEventListeners();
             this.positionInitialButton();
         } else {
@@ -342,12 +334,10 @@ class SummaryModule {
         } catch (error) {
             console.error('[Foxlate Summary] Suggestion error:', error);
             this.summaryDialog.renderSuggestions([`**Error:** ${error.message}`]);
-        } finally {
-            this.summaryDialog.setLoading(false);
         }
     }
     
-    async handleModuleAction(action, index, payload) {
+    async handleDialogAction(action, index, payload = null) {
         const activeTab = this.getActiveTab();
         if (!activeTab) return;
         const message = activeTab.history[index];
@@ -364,6 +354,28 @@ class SummaryModule {
                 activeTab.history.push({ role: 'user', content: payload });
                 this.summaryDialog._fullRerenderNeeded = true;
                 await this.getAIResponseForTab(activeTab);
+                break;
+            case 'copy':
+                navigator.clipboard.writeText(message.role === 'user' ? message.content : message.contents[message.activeContentIndex]);
+                break;
+            case 'edit':
+                this.summaryDialog.enterEditMode(index, message.content);
+                break;
+            case 'cancel-edit':
+                this.summaryDialog._fullRerenderNeeded = true;
+                this.summaryDialog.renderConversation(activeTab.history);
+                break;
+            case 'history-prev':
+            case 'history-next':
+                if (message.role === 'assistant') {
+                    const direction = action === 'history-prev' ? -1 : 1;
+                    const newIndex = message.activeContentIndex + direction;
+                    if (newIndex >= 0 && newIndex < message.contents.length) {
+                        message.activeContentIndex = newIndex;
+                        this.summaryDialog._fullRerenderNeeded = true;
+                        this.summaryDialog.renderConversation(activeTab.history);
+                    }
+                }
                 break;
         }
     }
@@ -433,15 +445,9 @@ class SummaryButton {
 }
 
 class SummaryDialog {
-    constructor(sendMessageHandler, refreshHandler, inferSuggestionsHandler, tabSwitchHandler, tabCloseHandler, getActiveTabHandler, moduleActionHandler) {
+    constructor(summaryModule) {
         this.isOpen = false;
-        this.sendMessageHandler = sendMessageHandler;
-        this.refreshHandler = refreshHandler;
-        this.inferSuggestionsHandler = inferSuggestionsHandler;
-        this.tabSwitchHandler = tabSwitchHandler;
-        this.tabCloseHandler = tabCloseHandler;
-        this.getActiveTabHandler = getActiveTabHandler;
-        this.moduleActionHandler = moduleActionHandler;
+        this.summaryModule = summaryModule;
         this._renderedMessageCount = 0;
         this._fullRerenderNeeded = false;
         this.create();
@@ -472,14 +478,14 @@ class SummaryDialog {
         this.suggestionsArea = this.element.querySelector('.foxlate-summary-suggestions');
         this.suggestButton = this.element.querySelector('.suggest-button');
         this.textarea = this.element.querySelector('textarea');
-        this.sendButton = this.element.querySelector('.send-button');
-        this.refreshButton = this.element.querySelector('.refresh-button');
+        this.sendButton = this.element.querySelector('button.send-button');
+        this.refreshButton = this.element.querySelector('button.refresh-button');
         document.body.appendChild(this.element);
 
-        this.sendButton.addEventListener('click', () => this.triggerSend());
-        this.refreshButton.addEventListener('click', () => this.refreshHandler());
+        this.sendButton.addEventListener('click', () => this.summaryModule.handleSendMessage(this.textarea.value.trim()));
+        this.refreshButton.addEventListener('click', () => this.summaryModule.handleRefresh());
         this.suggestButton.addEventListener('click', () => this.toggleSuggestions());
-        this.textarea.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); this.triggerSend(); } });
+        this.textarea.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); this.summaryModule.handleSendMessage(this.textarea.value.trim()); } });
         this.textarea.addEventListener('input', () => { this.textarea.style.height = 'auto'; this.textarea.style.height = `${this.textarea.scrollHeight}px`; });
 
         this.conversationArea.addEventListener('click', (e) => {
@@ -487,16 +493,11 @@ class SummaryDialog {
             if (!target) return;
             const action = target.dataset.action;
             const index = parseInt(target.closest('.foxlate-summary-message').dataset.index, 10);
-            // Delegate actions to the module if they are module-level actions
-            if (['reroll', 'save-edit'].includes(action)) {
-                this.moduleActionHandler(action, index, action === 'save-edit' ? target.closest('.message-edit-area').querySelector('textarea').value : null);
-            } else {
-                const activeTab = this.getActiveTabHandler();
-                if (!activeTab) return;
-                const message = activeTab.history[index];
-                if (!message) return;
-                this.handleAction(action, message, index);
+            let payload = null;
+            if (action === 'save-edit') {
+                payload = target.closest('.message-edit-area').querySelector('textarea').value;
             }
+            this.summaryModule.handleDialogAction(action, index, payload);
         });
 
         this.tabsArea.addEventListener('click', (e) => {
@@ -504,9 +505,9 @@ class SummaryDialog {
             if (!tabEl) return;
             const tabId = parseInt(tabEl.dataset.tabId, 10);
             if (e.target.closest('.foxlate-summary-tab-close')) {
-                this.tabCloseHandler(tabId);
+                this.summaryModule.handleTabClose(tabId);
             } else {
-                this.tabSwitchHandler(tabId);
+                this.summaryModule.handleTabSwitch(tabId);
             }
         });
     }
@@ -528,7 +529,7 @@ class SummaryDialog {
     triggerSend() {
         const query = this.textarea.value.trim();
         if (query && !this.sendButton.disabled) {
-            this.sendMessageHandler(query);
+            this.summaryModule.handleSendMessage(query);
             this.textarea.value = '';
             this.textarea.style.height = 'auto';
         }
@@ -593,33 +594,6 @@ class SummaryDialog {
         return `<div class="message-actions">${buttons}</div>`;
     }
 
-    handleAction(action, message, index) {
-        switch (action) {
-            case 'copy':
-                navigator.clipboard.writeText(message.role === 'user' ? message.content : message.contents[message.activeContentIndex]);
-                break;
-            case 'edit':
-                this.enterEditMode(index, message.content);
-                break;
-            case 'cancel-edit':
-                this._fullRerenderNeeded = true;
-                this.renderConversation(this.getActiveTabHandler().history);
-                break;
-            case 'history-prev':
-            case 'history-next':
-                if (message.role === 'assistant') {
-                    const direction = action === 'history-prev' ? -1 : 1;
-                    const newIndex = message.activeContentIndex + direction;
-                    if (newIndex >= 0 && newIndex < message.contents.length) {
-                        message.activeContentIndex = newIndex;
-                        this._fullRerenderNeeded = true;
-                        this.renderConversation(this.getActiveTabHandler().history);
-                    }
-                }
-                break;
-        }
-    }
-
     enterEditMode(index, content) {
         const messageEl = this.conversationArea.querySelector(`[data-index="${index}"]`);
         if (!messageEl) return;
@@ -661,7 +635,7 @@ class SummaryDialog {
             `;
             this.suggestButton.disabled = true;
             this.suggestButton.classList.add('loading');
-            this.inferSuggestionsHandler().finally(() => {
+            this.summaryModule.handleInferSuggestions().finally(() => {
                 this.suggestButton.disabled = false;
                 this.suggestButton.classList.remove('loading');
             });
@@ -700,7 +674,7 @@ class SummaryDialog {
                 item.addEventListener('click', (e) => {
                     if (!e.target.closest('.edit-suggestion-button')) {
                         const suggestion = item.querySelector('.suggestion-text').textContent;
-                        this.sendMessageHandler(suggestion);
+                        this.summaryModule.handleSendMessage(suggestion);
                         this.toggleSuggestions();
                     }
                 });
