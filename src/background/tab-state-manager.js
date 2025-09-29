@@ -1,97 +1,47 @@
 import browser from '../lib/browser-polyfill.js';
 
 /**
- * 一个单例类，用于原子化地管理与会话相关的标签页状态。
- * 这可以防止多个异步操作同时读/写会话存储时可能出现的竞态条件。
- * 它在内存中维护状态的副本，并对所有写操作进行排队。
+ * (已重构) 一个单例类，用于原子化地管理与会话相关的标签页状态。
+ * 此类采用“读时加载，写时更新”的模式，并使用异步写队列来防止并发写入 `storage.session` 时可能出现的竞态条件。
+ * 它不再维护一个完整的内存状态副本，从而简化了逻辑。
  */
 class TabStateManager {
-    #state = {
-        tabTranslationStates: {}, // { [tabId]: 'loading' | 'translated' }
-        sessionTabTranslations: {} // { [tabId]: hostname }
-    };
-    #isInitialized = false;
-    #initializationPromise = null;
     #writeLock = false;
     #writeQueue = [];
 
     constructor() {
-        this.#initializationPromise = this.#initialize();
-        // 监听存储的外部更改，以保持内存状态同步。
-        browser.storage.onChanged.addListener(this.#handleStorageChange.bind(this));
         // 当标签页关闭时，自动清理状态。
         browser.tabs.onRemoved.addListener(this.removeTab.bind(this));
     }
 
-    async #initialize() {
-        try {
-            const sessionData = await browser.storage.session.get(['tabTranslationStates', 'sessionTabTranslations']);
-            this.#state.tabTranslationStates = sessionData.tabTranslationStates || {};
-            this.#state.sessionTabTranslations = sessionData.sessionTabTranslations || {};
-            console.log('[TabStateManager] Initialized with state:', this.#state);
-        } catch (e) {
-            console.error('[TabStateManager] Failed to initialize state from storage.', e);
-        } finally {
-            this.#isInitialized = true;
-        }
-    }
-
-    async #ensureInitialized() {
-        if (!this.#isInitialized) {
-            await this.#initializationPromise;
-        }
-    }
-
     /**
      * 将写操作加入队列以确保原子性。
-     * @param {Function} writeFunction - 一个修改 this.#state 的异步函数。
+     * @param {Function} writeFunction - 一个执行完整“读-改-写”周期的异步函数。
      * @returns {Promise<void>}
      */
     async #enqueueWrite(writeFunction) {
         return new Promise((resolve, reject) => {
             this.#writeQueue.push({ writeFunction, resolve, reject });
-            this.#processWriteQueue();
+            this.#processWriteQueue(); // 尝试处理队列
         });
     }
 
     async #processWriteQueue() {
         if (this.#writeLock || this.#writeQueue.length === 0) {
-            return;
+            return; // 如果队列为空或已被锁定，则返回
         }
         this.#writeLock = true;
         const { writeFunction, resolve, reject } = this.#writeQueue.shift();
         try {
+            // 执行完整的“读-改-写”事务
             await writeFunction();
-            // 修改内存状态后，将其持久化到会话存储中。
-            await browser.storage.session.set(this.#state);
             resolve();
         } catch (e) {
             console.error('[TabStateManager] Error processing write queue:', e);
             reject(e);
         } finally {
             this.#writeLock = false;
-            // 处理队列中的下一项。
-            this.#processWriteQueue();
-        }
-    }
-
-    /**
-     * 处理会话存储的外部更改，以保持内存状态同步。
-     */
-    #handleStorageChange(changes, area) {
-        if (area !== 'session') return;
-
-        let stateChanged = false;
-        if (changes.tabTranslationStates) {
-            this.#state.tabTranslationStates = changes.tabTranslationStates.newValue || {};
-            stateChanged = true;
-        }
-        if (changes.sessionTabTranslations) {
-            this.#state.sessionTabTranslations = changes.sessionTabTranslations.newValue || {};
-            stateChanged = true;
-        }
-        if (stateChanged) {
-            console.log('[TabStateManager] In-memory state synced with storage changes.');
+            this.#processWriteQueue(); // 递归处理队列中的下一项
         }
     }
 
@@ -102,23 +52,25 @@ class TabStateManager {
      * @returns {Promise<number[]>}
      */
     async getActiveTabIds() {
-        await this.#ensureInitialized();
-        // 活动标签页是指具有任何状态（'loading' 或 'translated'）的标签页。
-        return Object.keys(this.#state.tabTranslationStates).map(Number);
+        const { tabTranslationStates } = await browser.storage.session.get('tabTranslationStates');
+        return Object.keys(tabTranslationStates || {}).map(Number);
     }
+
     /**
      * 设置给定标签页的翻译状态（例如，'loading', 'translated'）。
      * @param {number} tabId
      * @param {string} status - 'loading', 'translated', 或 'original' 用于清除状态。
      */
     async setTabStatus(tabId, status) {
-        await this.#ensureInitialized();
         return this.#enqueueWrite(() => {
-            if (status === 'original' || !status) {
-                delete this.#state.tabTranslationStates[tabId];
-            } else {
-                this.#state.tabTranslationStates[tabId] = status;
-            }
+            return this.#readModifyWrite('tabTranslationStates', states => {
+                if (status === 'original' || !status) {
+                    delete states[tabId];
+                } else {
+                    states[tabId] = status;
+                }
+                return states;
+            });
         });
     }
 
@@ -128,12 +80,11 @@ class TabStateManager {
      * @param {string} hostname
      */
     async registerTabForAutoTranslation(tabId, hostname) {
-        await this.#ensureInitialized();
         return this.#enqueueWrite(() => {
-            if (this.#state.sessionTabTranslations[tabId] !== hostname) {
-                this.#state.sessionTabTranslations[tabId] = hostname;
-                console.log(`[TabStateManager] Registered ${hostname} for auto-translation in tab ${tabId}.`);
-            }
+            return this.#readModifyWrite('sessionTabTranslations', states => {
+                states[tabId] = hostname;
+                return states;
+            });
         });
     }
 
@@ -142,12 +93,11 @@ class TabStateManager {
      * @param {number} tabId
      */
     async unregisterTabForAutoTranslation(tabId) {
-        await this.#ensureInitialized();
         return this.#enqueueWrite(() => {
-            if (this.#state.sessionTabTranslations[tabId]) {
-                delete this.#state.sessionTabTranslations[tabId];
-                console.log(`[TabStateManager] Unregistered auto-translation for tab ${tabId}.`);
-            }
+            return this.#readModifyWrite('sessionTabTranslations', states => {
+                delete states[tabId];
+                return states;
+            });
         });
     }
 
@@ -158,8 +108,8 @@ class TabStateManager {
      * @returns {Promise<boolean>}
      */
     async isTabRegisteredForAutoTranslation(tabId, hostname) {
-        await this.#ensureInitialized();
-        return this.#state.sessionTabTranslations[tabId] === hostname;
+        const { sessionTabTranslations } = await browser.storage.session.get('sessionTabTranslations');
+        return (sessionTabTranslations || {})[tabId] === hostname;
     }
 
     /**
@@ -168,23 +118,36 @@ class TabStateManager {
      * @param {number} tabId
      */
     async removeTab(tabId) {
-        await this.#ensureInitialized();
         return this.#enqueueWrite(() => {
-            let changed = false;
-            if (this.#state.tabTranslationStates[tabId]) {
-                delete this.#state.tabTranslationStates[tabId];
-                changed = true;
-            }
-            if (this.#state.sessionTabTranslations[tabId]) {
-                delete this.#state.sessionTabTranslations[tabId];
-                changed = true;
-            }
-            if (changed) {
-                console.log(`[TabStateManager] Cleaned up state for closed tab ${tabId}.`);
-            }
+            return this.#readModifyWrite(['tabTranslationStates', 'sessionTabTranslations'], states => {
+                let changed = false;
+                if (states.tabTranslationStates && states.tabTranslationStates[tabId]) {
+                    delete states.tabTranslationStates[tabId];
+                    changed = true;
+                }
+                if (states.sessionTabTranslations && states.sessionTabTranslations[tabId]) {
+                    delete states.sessionTabTranslations[tabId];
+                    changed = true;
+                }
+                if (changed) {
+                    console.log(`[TabStateManager] Cleaned up state for closed tab ${tabId}.`);
+                }
+                return states;
+            });
         });
+    }
+
+    /**
+     * @private
+     * 一个通用的“读-改-写”辅助函数，用于封装对 storage 的原子操作。
+     * @param {string|string[]} keys - 要读取的 storage 键。
+     * @param {Function} modifier - 一个接收当前值并返回新值的函数。
+     */
+    async #readModifyWrite(keys, modifier) {
+        const currentStates = await browser.storage.session.get(keys);
+        const newStates = modifier(currentStates || {});
+        await browser.storage.session.set(newStates);
     }
 }
 
 export default new TabStateManager();
-
