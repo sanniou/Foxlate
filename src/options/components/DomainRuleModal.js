@@ -21,6 +21,7 @@ export class DomainRuleModal extends BaseComponent {
         editingRule: null,
         originalDomain: null,
         allAiEngines: [], // 需要从外部传入，用于填充下拉框
+        globalSettings: {}, // (新) 存储全局设置以显示默认值
     };
 
     constructor(elements) {
@@ -36,11 +37,12 @@ export class DomainRuleModal extends BaseComponent {
         return this.#state.isOpen;
     }
 
-    open(domain, ruleData = {}, allAiEngines = []) {
+    open(domain, ruleData = {}, globalSettings = {}) {
         this.#state.originalDomain = domain || null;
         this.#state.editingRule = JSON.parse(JSON.stringify(ruleData));
         if (!this.#state.editingRule.domain) this.#state.editingRule.domain = domain || '';
-        this.#state.allAiEngines = allAiEngines;
+        this.#state.allAiEngines = globalSettings.aiEngines || [];
+        this.#state.globalSettings = globalSettings;
         this.#state.isOpen = true;
         this.#render();
     }
@@ -65,36 +67,63 @@ export class DomainRuleModal extends BaseComponent {
         const modal = this.#elements.domainRuleModal;
 
         if (isOpen && editingRule) {
+            // (修复) 步骤 1: 首先填充所有下拉列表的选项。
+            this.#populateDropdowns();
+
             this.#elements.domainRuleFormTitle.textContent = this.#state.originalDomain ? browser.i18n.getMessage('editDomainRule') : browser.i18n.getMessage('addDomainRule');
             this.#elements.ruleDomainInput.value = editingRule.domain || '';
-            this.#elements.ruleApplyToSubdomainsCheckbox.checked = editingRule.applyToSubdomains !== false;
-            this.#elements.ruleAutoTranslateSelect.value = editingRule.autoTranslate || 'default';
-            this.#elements.ruleTranslatorEngineSelect.value = editingRule.translatorEngine || 'default';
-            this.#elements.ruleTargetLanguageSelect.value = editingRule.targetLanguage || 'default';
-            this.#elements.ruleSourceLanguageSelect.value = editingRule.sourceLanguage || 'default';
-            this.#elements.ruleDisplayModeSelect.value = editingRule.displayMode || 'default';
+            this.#elements.ruleApplyToSubdomainsCheckbox.checked = editingRule.applyToSubdomains ?? true;
+            this.#elements.ruleAutoTranslateSelect.value = editingRule.autoTranslate ?? 'default';
+            this.#elements.ruleTranslatorEngineSelect.value = editingRule.translatorEngine ?? 'default';
+            this.#elements.ruleTargetLanguageSelect.value = editingRule.targetLanguage ?? 'default';
+            this.#elements.ruleSourceLanguageSelect.value = editingRule.sourceLanguage ?? 'default';
+            this.#elements.ruleDisplayModeSelect.value = editingRule.displayMode ?? 'default';
             const selector = editingRule.cssSelector || {};
             this.#elements.ruleContentSelector.value = selector.content || '';
             this.#elements.ruleExcludeSelectorTextarea.value = selector.exclude || '';
-            this.#elements.ruleCssSelectorOverrideCheckbox.checked = editingRule.cssSelectorOverride || false;
+            this.#elements.ruleCssSelectorOverrideCheckbox.checked = editingRule.cssSelectorOverride ?? false;
             const subtitleSettings = editingRule.subtitleSettings || {};
             this.#elements.ruleEnableSubtitleCheckbox.checked = subtitleSettings.enabled || false;
             this.#elements.ruleSubtitleStrategySelect.value = subtitleSettings.strategy || 'none';
             this.#elements.ruleSubtitleDisplayMode.value = subtitleSettings.displayMode || 'off';
             this.#elements.ruleSubtitleSettingsGroup.style.display = this.#elements.ruleEnableSubtitleCheckbox.checked ? 'block' : 'none';
             const summarySettings = editingRule.summarySettings || {};
-            this.#elements.ruleEnableSummary.checked = summarySettings.enabled || false;
+            this.#elements.ruleEnableSummary.checked = summarySettings.enabled ?? false;
             this.#elements.ruleMainBodySelector.value = summarySettings.mainBodySelector || '';
-            this.#elements.ruleSummaryAiModel.value = summarySettings.aiModel || '';
+            // (修复) 步骤 2: 在选项填充后，安全地设置选中值。
+            this.#elements.ruleSummaryAiModel.value = summarySettings.aiModel ?? '';
             this.#elements.ruleSummarySettingsGroup.style.display = this.#elements.ruleEnableSummary.checked ? 'block' : 'none';
 
-            this.#populateDropdowns();
             this.#openModal(modal);
             this.#elements.domainRuleModal.querySelectorAll('.m3-form-field.filled select').forEach(this.#initializeSelectLabel);
             this.#validator.clearAllErrors();
         } else {
             this.#closeModal(modal);
         }
+    }
+
+    /**
+     * (新) 为“使用默认”选项生成带提示的文本。
+     * @param {string} defaultValue - 全局默认值。
+     * @param {string} defaultLabel - “使用默认设置”的 i18n 文本。
+     * @returns {string} 格式化后的选项文本。
+     */
+    #getDefaultOptionText(defaultValue, defaultLabel) {
+        return `${defaultLabel} (${defaultValue})`;
+    }
+
+    /**
+     * (新) 获取 AI 引擎的显示名称。
+     * @param {string} engineValue - 引擎值 (例如 'google', 'ai:some-id')。
+     * @returns {string} 引擎的显示名称。
+     */
+    #getEngineDisplayName(engineValue) {
+        if (engineValue.startsWith('ai:')) {
+            const engineId = engineValue.substring(3);
+            const engine = this.#state.allAiEngines.find(e => e.id === engineId);
+            return engine ? engine.name : engineValue;
+        }
+        return Constants.SUPPORTED_ENGINES[engineValue] ? browser.i18n.getMessage(Constants.SUPPORTED_ENGINES[engineValue]) : engineValue;
     }
 
     #populateDropdowns() {
@@ -109,6 +138,24 @@ export class DomainRuleModal extends BaseComponent {
 
         populateSubtitleStrategyOptions(this.#elements.ruleSubtitleStrategySelect);
         populateSubtitleDisplayModeOptions(this.#elements.ruleSubtitleDisplayMode);
+
+        // (新) 更新“使用默认”选项的提示文本
+        const { globalSettings } = this.#state;
+        if (!globalSettings) return;
+
+        const defaultLabel = browser.i18n.getMessage('useDefaultSetting');
+
+        const updateHint = (selectElement, globalValue, valueMap = {}) => {
+            const defaultOption = selectElement.querySelector('option[value="default"]');
+            if (defaultOption) {
+                const displayValue = valueMap[globalValue] ? browser.i18n.getMessage(valueMap[globalValue]) : globalValue;
+                defaultOption.textContent = this.#getDefaultOptionText(displayValue, defaultLabel);
+            }
+        };
+
+        updateHint(this.#elements.ruleTranslatorEngineSelect, globalSettings.translatorEngine, { ...Constants.SUPPORTED_ENGINES, ...Object.fromEntries(this.#state.allAiEngines.map(e => [`ai:${e.id}`, e.name])) });
+        updateHint(this.#elements.ruleTargetLanguageSelect, globalSettings.targetLanguage, Constants.SUPPORTED_LANGUAGES);
+        updateHint(this.#elements.ruleDisplayModeSelect, globalSettings.displayMode, Object.fromEntries(Object.entries(Constants.DISPLAY_MODES).map(([k, v]) => [k, v.optionsKey])));
     }
 
     #handleInputChange(e) {

@@ -184,7 +184,7 @@ document.addEventListener('DOMContentLoaded', () => {
             aiEngineModal.updateEngines(state.aiEngines);
         }
         if (domainRuleModal && domainRuleModal.isOpen()) {
-            domainRuleModal.updateEngines(state.aiEngines); // Pass updated engines to domain rule modal too
+            domainRuleModal.updateEngines(state); // (已修改) 传递整个 state 对象
         }
 
         // 3. 更新快照并重置保存按钮状态
@@ -647,7 +647,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const editDomainRule = (domain) => {
         const ruleData = state.domainRules[domain] || {};
-        domainRuleModal.open(domain, ruleData, state.aiEngines);
+        domainRuleModal.open(domain, ruleData, state);
     };
 
     const exportSettings = async () => {
@@ -934,7 +934,7 @@ document.addEventListener('DOMContentLoaded', () => {
             [ELEMENT_IDS.IMPORT_BTN]: () => elements.importInput.click(),
             [ELEMENT_IDS.CLEAR_CACHE_BTN]: clearCache,
             [ELEMENT_IDS.MANAGE_AI_ENGINES_BTN]: () => aiEngineModal.open(state.aiEngines),
-            [ELEMENT_IDS.ADD_DOMAIN_RULE_BTN]: () => domainRuleModal.open(null, {}, state.aiEngines),
+            [ELEMENT_IDS.ADD_DOMAIN_RULE_BTN]: () => domainRuleModal.open(null, {}, state),
             [ELEMENT_IDS.RUN_GLOBAL_TEST_BTN]: runGlobalPrecheckTest,
             [ELEMENT_IDS.TEST_TRANSLATION_BTN]: toggleTestArea,
             [ELEMENT_IDS.TOGGLE_LOG_BTN]: toggleLogArea,

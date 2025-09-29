@@ -42,13 +42,14 @@ export class AIEngineModal extends BaseComponent {
     }
 
     updateEngines(newEngines) {
-        this.#state.allEngines = newEngines;
+        // (已修改) 兼容接收整个 state 对象或仅引擎数组
+        this.#state.allEngines = Array.isArray(newEngines) ? newEngines : (newEngines.aiEngines || []);
         if (this.#state.isOpen) {
             this.#renderEngineList(this.#state.allEngines);
             // Also re-populate the fallback engine select if the form is visible
             if (this.#state.isFormVisible && this.#elements.aiShortTextEngineSelect) {
                 populateEngineSelect(this.#elements.aiShortTextEngineSelect, {
-                    includeDefault: true,
+                    includeDefault: false, // 备用引擎不应为“默认”
                     excludeId: this.#state.editingEngine?.id,
                     allEngines: this.#state.allEngines
                 });

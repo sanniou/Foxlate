@@ -326,10 +326,21 @@ export class SettingsManager {
             }
         }
 
-        // Start with global settings as the base and merge the domain rule
-        const effectiveSettings = { ...settings, ...domainRule, source: ruleSource };
+        // 以全局设置为基础开始
+        const effectiveSettings = { ...settings };
+        effectiveSettings.source = ruleSource;
 
-        // --- 字幕和选择器逻辑 (已重构) ---
+        // 智能合并域名规则。如果规则值为 'default'，则忽略它，保留全局设置。
+        for (const key in domainRule) {
+            if (Object.prototype.hasOwnProperty.call(domainRule, key)) {
+                const value = domainRule[key];
+                // 检查 null 和 'default'，因为 'default' 是 "使用默认" 的值
+                if (value !== 'default' && value !== null && value !== undefined) {
+                    effectiveSettings[key] = value;
+                }
+            }
+        }
+
         effectiveSettings.subtitleSettings = SettingsManager.#calculateEffectiveSubtitleSettings(hostname, domainRule);
 
         effectiveSettings.translationSelector = SettingsManager.#calculateEffectiveSelectorSettings(
@@ -350,6 +361,7 @@ export class SettingsManager {
         const compiledSettings = SettingsManager.precompileRules(effectiveSettings.precheckRules);
         effectiveSettings.precheckRules = compiledSettings;
 
+        console.log('Effective settings for', hostname, ':', effectiveSettings);
         SettingsManager.#effectiveSettingsCache.set(hostname, structuredClone(effectiveSettings));
         return effectiveSettings;
     }
