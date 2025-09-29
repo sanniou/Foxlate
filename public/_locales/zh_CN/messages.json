@@ -291,10 +291,6 @@
     "message": "规则适用于精确的主机名。默认为“手动翻译”。",
     "description": "域名规则的描述。"
   },
-  "configurationManagement": {
-    "message": "配置管理",
-    "description": "配置管理部分标题。"
-  },
   "cacheManagement": {
     "message": "缓存管理",
     "description": "缓存管理部分标题。"
@@ -1024,10 +1020,6 @@
     "message": "您确定要删除此云端备份吗？此操作无法撤销。",
     "description": "删除备份前的确认信息。"
   },
-  "syncManagement": {
-    "message": "同步管理",
-    "description": "同步管理部分的标题。"
-  },
   "uploadSettings": {
     "message": "上传设置到云端",
     "description": "上传设置到云端的按钮文本。"
@@ -1100,13 +1092,9 @@
     "message": "缓存",
     "description": "缓存管理的导航链接。"
   },
-  "navSync": {
-    "message": "同步",
-    "description": "同步管理的导航链接。"
-  },
-  "navConfig": {
-    "message": "配置",
-    "description": "配置管理的导航链接。"
+  "navData": {
+    "message": "数据管理",
+    "description": "数据管理导航链接。"
   },
   "engineSettings": {
     "message": "引擎设置",
@@ -1115,5 +1103,9 @@
   "appearanceSettings": {
     "message": "外观设置",
     "description": "外观设置的部分标题。"
+  },
+  "dataManagement": {
+    "message": "数据管理",
+    "description": "数据管理部分标题。"
   }
 }
