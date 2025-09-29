@@ -263,7 +263,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // 动态填充字幕显示模式下拉菜单
         populateSelect(elements.subtitleDisplayModeSelect, Constants.SUBTITLE_DISPLAY_MODES);
         
-        // 从全局常量构建弹窗专用的显示模式，并填充下拉菜单
+        // (修复) 从全局常量构建显示模式，并填充下拉菜单，使用与选项页一致的 i18n key
         const popupDisplayModes = Object.fromEntries(
             Object.entries(Constants.DISPLAY_MODES).map(([key, value]) => [key, value.popupKey])
         );

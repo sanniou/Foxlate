@@ -155,7 +155,11 @@ export class DomainRuleModal extends BaseComponent {
 
         updateHint(this.#elements.ruleTranslatorEngineSelect, globalSettings.translatorEngine, { ...Constants.SUPPORTED_ENGINES, ...Object.fromEntries(this.#state.allAiEngines.map(e => [`ai:${e.id}`, e.name])) });
         updateHint(this.#elements.ruleTargetLanguageSelect, globalSettings.targetLanguage, Constants.SUPPORTED_LANGUAGES);
-        updateHint(this.#elements.ruleDisplayModeSelect, globalSettings.displayMode, Object.fromEntries(Object.entries(Constants.DISPLAY_MODES).map(([k, v]) => [k, v.optionsKey])));
+        // (修复) 统一使用 optionsKey，与全局设置的下拉菜单保持一致
+        const displayModeValueMap = Object.fromEntries(
+            Object.entries(Constants.DISPLAY_MODES).map(([key, value]) => [key, value.optionsKey])
+        );
+        updateHint(this.#elements.ruleDisplayModeSelect, globalSettings.displayMode, displayModeValueMap);
     }
 
     #handleInputChange(e) {

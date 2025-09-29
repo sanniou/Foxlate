@@ -108,15 +108,15 @@
     "description": "显示模式选项的标签。"
   },
   "replaceOriginal": {
-    "message": "替换原文",
+    "message": "替换模式",
     "description": "用翻译替换原文的选项。"
   },
   "appendTranslated": {
-    "message": "追加翻译",
+    "message": "追加模式",
     "description": "将翻译附加到原文的选项。"
   },
   "hoverToDisplay": {
-    "message": "悬停显示",
+    "message": "悬停模式",
     "description": "悬停时显示翻译的选项。"
   },
   "domainRules": {
