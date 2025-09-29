@@ -2,7 +2,7 @@
 
 import browser from '../../lib/browser-polyfill.js';
 import { marked } from '../../lib/marked.esm.js';
-import { DEFAULT_SETTINGS } from '../../common/constants.js';
+import { debounce } from '../../common/utils.js';
 
 class SummaryModule {
     constructor(settings) {
@@ -446,11 +446,57 @@ class SummaryButton {
 }
 
 class SummaryDialog {
+    // 定义常量
+    static MARGIN = 16;
+    static DEBOUNCE_DELAY = 100; // ms
+
     constructor(summaryModule) {
         this.isOpen = false;
         this.summaryModule = summaryModule;
         this._renderedMessageCount = 0;
         this._fullRerenderNeeded = false;
+        this.lastButtonRect = null; // 用于存储上次 show 时的 buttonRect
+
+        // 绑定事件处理函数，以便在移除时使用
+        this.boundHandleSendMessage = () => this.summaryModule.handleSendMessage(this.textarea.value.trim());
+        this.boundHandleRefresh = () => this.summaryModule.handleRefresh();
+        this.boundToggleSuggestions = () => this.toggleSuggestions();
+        this.boundHandleTextareaKeydown = (e) => {
+            if (e.key === 'Enter' && e.ctrlKey) {
+                e.preventDefault();
+                this.summaryModule.handleSendMessage(this.textarea.value.trim());
+            }
+        };
+        this.boundHandleTextareaInput = () => {
+            this.textarea.style.height = 'auto';
+            this.textarea.style.height = `${this.textarea.scrollHeight}px`;
+        };
+        this.boundHandleConversationClick = (e) => {
+            const target = e.target.closest('[data-action]');
+            if (!target) return;
+            const action = target.dataset.action;
+            const index = parseInt(target.closest('.foxlate-summary-message').dataset.index, 10);
+            let payload = null;
+            if (action === 'save-edit') {
+                payload = target.closest('.message-edit-area').querySelector('textarea').value;
+            }
+            this.summaryModule.handleDialogAction(action, index, payload);
+        };
+        this.boundHandleTabsAreaClick = (e) => {
+            const tabEl = e.target.closest('.foxlate-summary-tab');
+            if (!tabEl) return;
+            const tabId = parseInt(tabEl.dataset.tabId, 10);
+            if (e.target.closest('.foxlate-summary-tab-close')) {
+                this.summaryModule.handleTabClose(tabId);
+            } else {
+                this.summaryModule.handleTabSwitch(tabId);
+            }
+        };
+
+        // 动态重定位相关
+        this.boundRepositionDialog = this.repositionDialog.bind(this);
+        this.debouncedHandleResizeAndScroll = debounce(this.handleWindowResizeAndScroll.bind(this), SummaryDialog.DEBOUNCE_DELAY);
+
         this.create();
     }
 
@@ -482,34 +528,14 @@ class SummaryDialog {
         this.sendButton = this.element.querySelector('button.send-button');
         this.refreshButton = this.element.querySelector('button.refresh-button');
 
-        this.sendButton.addEventListener('click', () => this.summaryModule.handleSendMessage(this.textarea.value.trim()));
-        this.refreshButton.addEventListener('click', () => this.summaryModule.handleRefresh());
-        this.suggestButton.addEventListener('click', () => this.toggleSuggestions());
-        this.textarea.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); this.summaryModule.handleSendMessage(this.textarea.value.trim()); } });
-        this.textarea.addEventListener('input', () => { this.textarea.style.height = 'auto'; this.textarea.style.height = `${this.textarea.scrollHeight}px`; });
-
-        this.conversationArea.addEventListener('click', (e) => {
-            const target = e.target.closest('[data-action]');
-            if (!target) return;
-            const action = target.dataset.action;
-            const index = parseInt(target.closest('.foxlate-summary-message').dataset.index, 10);
-            let payload = null;
-            if (action === 'save-edit') {
-                payload = target.closest('.message-edit-area').querySelector('textarea').value;
-            }
-            this.summaryModule.handleDialogAction(action, index, payload);
-        });
-
-        this.tabsArea.addEventListener('click', (e) => {
-            const tabEl = e.target.closest('.foxlate-summary-tab');
-            if (!tabEl) return;
-            const tabId = parseInt(tabEl.dataset.tabId, 10);
-            if (e.target.closest('.foxlate-summary-tab-close')) {
-                this.summaryModule.handleTabClose(tabId);
-            } else {
-                this.summaryModule.handleTabSwitch(tabId);
-            }
-        });
+        // 添加事件监听器
+        this.sendButton.addEventListener('click', this.boundHandleSendMessage);
+        this.refreshButton.addEventListener('click', this.boundHandleRefresh);
+        this.suggestButton.addEventListener('click', this.boundToggleSuggestions);
+        this.textarea.addEventListener('keydown', this.boundHandleTextareaKeydown);
+        this.textarea.addEventListener('input', this.boundHandleTextareaInput);
+        this.conversationArea.addEventListener('click', this.boundHandleConversationClick);
+        this.tabsArea.addEventListener('click', this.boundHandleTabsAreaClick);
     }
 
     renderTabs(tabs, activeTabId) {
@@ -717,16 +743,32 @@ class SummaryDialog {
 
     show(buttonRect) {
         this.isOpen = true;
+        this.lastButtonRect = buttonRect; // 存储 buttonRect
         if (!this.element.parentNode) {
             document.body.appendChild(this.element);
         }
         this.element.style.visibility = 'visible';
-        const MARGIN = 16;
+
+        this.repositionDialog(); // 调用重定位方法
+
+        // 添加窗口大小和滚动监听器
+        window.addEventListener('resize', this.debouncedHandleResizeAndScroll);
+        window.addEventListener('scroll', this.debouncedHandleResizeAndScroll, true); // 捕获阶段监听，确保能捕获到所有滚动事件
+
+        this.element.classList.add('visible');
+        this.textarea.focus();
+    }
+
+    repositionDialog() {
+        if (!this.isOpen || !this.lastButtonRect) return; // 如果对话框未打开或没有 buttonRect，则不重定位
+
         const dialogWidth = this.element.offsetWidth;
         const dialogHeight = this.element.offsetHeight;
-        const { top, left, right, bottom } = buttonRect;
+        const { top, left, right, bottom } = this.lastButtonRect;
         const winWidth = window.innerWidth;
         const winHeight = window.innerHeight;
+        const MARGIN = SummaryDialog.MARGIN; // 使用常量
+
         const spaceRight = winWidth - right - MARGIN;
         const spaceLeft = left - MARGIN;
         const spaceBelow = winHeight - bottom - MARGIN;
@@ -745,16 +787,33 @@ class SummaryDialog {
 
         let bestQuadrant = quadrants.sort((a, b) => b.score - a.score)[0];
 
-        Object.assign(this.element.style, { transformOrigin: bestQuadrant.origin, top: bestQuadrant.top || '', left: bestQuadrant.left || '', bottom: bestQuadrant.bottom || '', right: bestQuadrant.right || '' });
+        // 清除旧的定位属性，避免冲突
+        this.element.style.top = '';
+        this.element.style.left = '';
+        this.element.style.bottom = '';
+        this.element.style.right = '';
 
-        this.element.classList.add('visible');
-        this.textarea.focus();
+        Object.assign(this.element.style, { transformOrigin: bestQuadrant.origin, top: bestQuadrant.top || '', left: bestQuadrant.left || '', bottom: bestQuadrant.bottom || '', right: bestQuadrant.right || '' });
     }
+
+    handleWindowResizeAndScroll() {
+        // 重新获取 summaryButton 的位置，因为滚动和resize会改变其位置
+        if (this.summaryModule.summaryButton && this.summaryModule.summaryButton.element) {
+            this.lastButtonRect = this.summaryModule.summaryButton.element.getBoundingClientRect();
+        }
+        this.repositionDialog();
+    }
+
+    
 
     hide() {
         this.isOpen = false;
         this.element.classList.remove('visible');
         setTimeout(() => { if (!this.isOpen) this.element.style.visibility = 'hidden'; }, 200);
+
+        // 移除窗口大小和滚动监听器
+        window.removeEventListener('resize', this.debouncedHandleResizeAndScroll);
+        window.removeEventListener('scroll', this.debouncedHandleResizeAndScroll, true);
     }
 
     resetSuggestions() {
@@ -764,7 +823,22 @@ class SummaryDialog {
         this.suggestButton.classList.remove('loading');
     }
 
-    destroy() { this.element?.remove(); }
+    destroy() {
+        // 移除所有事件监听器
+        this.sendButton.removeEventListener('click', this.boundHandleSendMessage);
+        this.refreshButton.removeEventListener('click', this.boundHandleRefresh);
+        this.suggestButton.removeEventListener('click', this.boundToggleSuggestions);
+        this.textarea.removeEventListener('keydown', this.boundHandleTextareaKeydown);
+        this.textarea.removeEventListener('input', this.boundHandleTextareaInput);
+        this.conversationArea.removeEventListener('click', this.boundHandleConversationClick);
+        this.tabsArea.removeEventListener('click', this.boundHandleTabsAreaClick);
+
+        // 移除窗口大小和滚动监听器 (确保在 hide() 之后再次调用 destroy() 时也能清理)
+        window.removeEventListener('resize', this.debouncedHandleResizeAndScroll);
+        window.removeEventListener('scroll', this.debouncedHandleResizeAndScroll, true);
+
+        this.element?.remove();
+    }
 }
 
 let summaryModuleInstance = null;
