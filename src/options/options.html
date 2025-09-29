@@ -17,7 +17,6 @@
                 <ul>
                     <li><a href="#general" class="nav-link active" i18n-text="navGeneral">General</a></li>
                     <li><a href="#engine" class="nav-link" i18n-text="navEngine">Engine</a></li>
-                    <li><a href="#appearance" class="nav-link" i18n-text="navAppearance">Appearance</a></li>
                     <li><a href="#rules" class="nav-link" i18n-text="navRules">Rules</a></li>
                     <li><a href="#precheck" class="nav-link" i18n-text="navPreCheck">Pre-check</a></li>
                     <li><a href="#cache" class="nav-link" i18n-text="navCache">Cache</a></li>
@@ -39,7 +38,14 @@
                         <label for="targetLanguage" i18n-text="targetLanguage">Target Language:</label>
                     </div>
                 </div>
-                <!-- More general settings can be added here -->
+                <div class="form-group">
+                    <div class="m3-form-field filled">
+                        <select id="displayModeSelect">
+                            <!-- Options will be populated by JS -->
+                        </select>
+                        <label for="displayModeSelect" i18n-text="displayMode">Display Mode:</label>
+                    </div>
+                </div>
             </section>
 
             <!-- Engine Settings Panel -->
@@ -85,19 +91,6 @@
                     <div id="test-log-area" class="test-log-area" style="display: none;">
                         <h4 i18n-text="testLogTitle">Translation Log</h4>
                         <pre id="log-content"></pre>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Appearance Settings Panel -->
-            <section id="appearance" class="content-panel">
-                <h2 i18n-text="appearanceSettings">Appearance Settings</h2>
-                <div class="form-group">
-                    <div class="m3-form-field filled">
-                        <select id="displayModeSelect">
-                            <!-- Options will be populated by JS -->
-                        </select>
-                        <label for="displayModeSelect" i18n-text="displayMode">Display Mode:</label>
                     </div>
                 </div>
             </section>
