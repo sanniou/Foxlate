@@ -28,12 +28,12 @@ class SummaryModule {
             this.summaryButton = new SummaryButton();
             this.summaryDialog = new SummaryDialog(
                 this.handleSendMessage.bind(this),
-                this.handleAction.bind(this),
                 this.handleRefresh.bind(this),
                 this.handleInferSuggestions.bind(this),
                 this.handleTabSwitch.bind(this),
                 this.handleTabClose.bind(this),
-                this.getActiveTab.bind(this)
+                this.getActiveTab.bind(this),
+                this.handleModuleAction.bind(this)
             );
             this.setupEventListeners();
             this.positionInitialButton();
@@ -45,7 +45,7 @@ class SummaryModule {
     positionInitialButton() {
         const mainBodySelector = this.settings.summarySettings?.mainBodySelector;
         let targetElement = document.body;
-        let initialX , initialY ;
+        let initialX, initialY;
         if (mainBodySelector) {
             const foundElement = document.querySelector(mainBodySelector);
             if (foundElement) {
@@ -318,29 +318,7 @@ class SummaryModule {
         }
     }
 
-    async handleAction(action, index, payload) {
-        const activeTab = this.getActiveTab();
-        if (!activeTab) return;
-        const message = activeTab.history[index];
-        if (!message) return;
 
-        switch (action) {
-            case 'reroll':
-                activeTab.history = activeTab.history.slice(0, index + 1);
-                this.summaryDialog._fullRerenderNeeded = true;
-                await this.getAIResponseForTab(activeTab, true);
-                break;
-            case 'save-edit':
-                activeTab.history = activeTab.history.slice(0, index);
-                activeTab.history.push({ role: 'user', content: payload });
-                this.summaryDialog._fullRerenderNeeded = true;
-                await this.getAIResponseForTab(activeTab);
-                break;
-            default:
-                this.summaryDialog.handleAction(action, message, index);
-                break;
-        }
-    }
 
     async handleInferSuggestions() {
         const activeTab = this.getActiveTab();
@@ -366,6 +344,27 @@ class SummaryModule {
             this.summaryDialog.renderSuggestions([`**Error:** ${error.message}`]);
         } finally {
             this.summaryDialog.setLoading(false);
+        }
+    }
+    
+    async handleModuleAction(action, index, payload) {
+        const activeTab = this.getActiveTab();
+        if (!activeTab) return;
+        const message = activeTab.history[index];
+        if (!message) return;
+
+        switch (action) {
+            case 'reroll':
+                activeTab.history = activeTab.history.slice(0, index + 1);
+                this.summaryDialog._fullRerenderNeeded = true;
+                await this.getAIResponseForTab(activeTab, true);
+                break;
+            case 'save-edit':
+                activeTab.history = activeTab.history.slice(0, index);
+                activeTab.history.push({ role: 'user', content: payload });
+                this.summaryDialog._fullRerenderNeeded = true;
+                await this.getAIResponseForTab(activeTab);
+                break;
         }
     }
 
@@ -434,15 +433,15 @@ class SummaryButton {
 }
 
 class SummaryDialog {
-    constructor(sendMessageHandler, actionHandler, refreshHandler, inferSuggestionsHandler, tabSwitchHandler, tabCloseHandler, getActiveTabHandler) {
+    constructor(sendMessageHandler, refreshHandler, inferSuggestionsHandler, tabSwitchHandler, tabCloseHandler, getActiveTabHandler, moduleActionHandler) {
         this.isOpen = false;
         this.sendMessageHandler = sendMessageHandler;
-        this.actionHandler = actionHandler;
         this.refreshHandler = refreshHandler;
         this.inferSuggestionsHandler = inferSuggestionsHandler;
         this.tabSwitchHandler = tabSwitchHandler;
         this.tabCloseHandler = tabCloseHandler;
         this.getActiveTabHandler = getActiveTabHandler;
+        this.moduleActionHandler = moduleActionHandler;
         this._renderedMessageCount = 0;
         this._fullRerenderNeeded = false;
         this.create();
@@ -488,7 +487,16 @@ class SummaryDialog {
             if (!target) return;
             const action = target.dataset.action;
             const index = parseInt(target.closest('.foxlate-summary-message').dataset.index, 10);
-            this.actionHandler(action, index, action === 'save-edit' ? target.closest('.message-edit-area').querySelector('textarea').value : null);
+            // Delegate actions to the module if they are module-level actions
+            if (['reroll', 'save-edit'].includes(action)) {
+                this.moduleActionHandler(action, index, action === 'save-edit' ? target.closest('.message-edit-area').querySelector('textarea').value : null);
+            } else {
+                const activeTab = this.getActiveTabHandler();
+                if (!activeTab) return;
+                const message = activeTab.history[index];
+                if (!message) return;
+                this.handleAction(action, message, index);
+            }
         });
 
         this.tabsArea.addEventListener('click', (e) => {
