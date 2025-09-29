@@ -1071,5 +1071,49 @@
   "lastSynced": {
     "message": "上次同步时间: $1",
     "description": "显示上次同步的时间戳。占位符: 1。"
+  },
+  "settingsTitle": {
+    "message": "Foxlate 设置",
+    "description": "设置页面浏览器标签页的标题。"
+  },
+  "navGeneral": {
+    "message": "通用",
+    "description": "通用设置的导航链接。"
+  },
+  "navEngine": {
+    "message": "引擎",
+    "description": "引擎设置的导航链接。"
+  },
+  "navAppearance": {
+    "message": "外观",
+    "description": "外观设置的导航链接。"
+  },
+  "navRules": {
+    "message": "规则",
+    "description": "规则管理的导航链接。"
+  },
+  "navPreCheck": {
+    "message": "预检查",
+    "description": "预检查规则的导航链接。"
+  },
+  "navCache": {
+    "message": "缓存",
+    "description": "缓存管理的导航链接。"
+  },
+  "navSync": {
+    "message": "同步",
+    "description": "同步管理的导航链接。"
+  },
+  "navConfig": {
+    "message": "配置",
+    "description": "配置管理的导航链接。"
+  },
+  "engineSettings": {
+    "message": "引擎设置",
+    "description": "引擎设置的部分标题。"
+  },
+  "appearanceSettings": {
+    "message": "外观设置",
+    "description": "外观设置的部分标题。"
   }
 }

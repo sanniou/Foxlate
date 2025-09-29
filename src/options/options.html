@@ -2,82 +2,233 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">    
-    <title>Foxlate Settings</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title i18n-text="settingsTitle">Foxlate Settings</title>
     <link rel="stylesheet" href="options.css">
-    <style>
-        /* 为弹窗添加滚动条 */
-        #domainRuleModal .modal-content,
-        #aiEngineModal .modal-content {
-            display: flex;
-            flex-direction: column;
-            max-height: 85vh; /* 限制弹窗最大高度，为屏幕留出边距 */
-        }
-        #domainRuleForm,
-        #aiEngineModal .modal-scroll-content {
-            overflow-y: auto; /* 为表单内容区域启用垂直滚动 */
-            padding-right: 12px; /* 为滚动条留出一些空间，避免内容紧贴滚动条 */
-        }
-
-        /* 域名规则弹窗内表单的布局和间距优化 */
-        #domainRuleForm > .m3-form-field,
-        #domainRuleForm > .m3-switch,
-        #domainRuleForm > .form-grid-2col,
-        #domainRuleForm > .form-section-box,
-        #domainRuleForm > #ruleSubtitleSettingsGroup {
-            margin-top: 24px;
-        }
-        #domainRuleForm > .m3-form-field:first-child {
-            margin-top: 0;
-        }
-        /* (新) 弹窗内小标题样式 */
-        .modal-content h4 {
-            font-size: var(--md-sys-typescale-title-small-font-size);
-            color: var(--md-sys-color-on-surface-variant);
-            margin-top: 0; /* 在 hr 之后，不需要上边距 */
-            margin-bottom: 16px;
-            padding-bottom: 8px;
-        }
-        .form-grid-2col {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-        }
-        .form-section-box {
-            border: 1px solid var(--md-sys-color-outline-variant);
-            border-radius: 12px;
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-        hr.divider {
-            border: none;
-            height: 1px;
-            background-color: var(--md-sys-color-outline-variant);
-            margin: 24px 0;
-        }
-        .form-section-box .m3-helper-text {
-            padding: 0; /* 移除内边距，因为它已经在 box 内部 */
-        }
-        .page-footer {
-            text-align: center;
-            margin-top: 48px;
-            margin-bottom: 32px;
-            color: var(--md-sys-color-on-surface-variant);
-            font-size: 0.875rem;
-        }
-        .page-footer a {
-            color: var(--md-sys-color-primary);
-            text-decoration: none;
-        }
-        .page-footer a:hover {
-            text-decoration: underline;
-        }
-    </style>
 </head>
 <body>
-    <!-- Material Design Floating Action Button for Save -->
+    <header class="page-header">
+        <h1 i18n-text="settingsHeading">Foxlate Settings</h1>
+    </header>
+
+    <div class="content-wrapper">
+        <aside class="sidebar">
+            <nav id="settings-nav">
+                <ul>
+                    <li><a href="#general" class="nav-link active" i18n-text="navGeneral">General</a></li>
+                    <li><a href="#engine" class="nav-link" i18n-text="navEngine">Engine</a></li>
+                    <li><a href="#appearance" class="nav-link" i18n-text="navAppearance">Appearance</a></li>
+                    <li><a href="#rules" class="nav-link" i18n-text="navRules">Rules</a></li>
+                    <li><a href="#precheck" class="nav-link" i18n-text="navPreCheck">Pre-check</a></li>
+                    <li><a href="#cache" class="nav-link" i18n-text="navCache">Cache</a></li>
+                    <li><a href="#sync" class="nav-link" i18n-text="navSync">Sync</a></li>
+                    <li><a href="#config" class="nav-link" i18n-text="navConfig">Configuration</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <main id="settings-content" class="main-content">
+            <!-- General Settings Panel -->
+            <section id="general" class="content-panel active">
+                <h2 i18n-text="generalSettings">General Settings</h2>
+                <div class="form-group">
+                    <div class="m3-form-field filled">
+                        <select id="targetLanguage">
+                            <!-- Options will be populated by options.js -->
+                        </select>
+                        <label for="targetLanguage" i18n-text="targetLanguage">Target Language:</label>
+                    </div>
+                </div>
+                <!-- More general settings can be added here -->
+            </section>
+
+            <!-- Engine Settings Panel -->
+            <section id="engine" class="content-panel">
+                <h2 i18n-text="engineSettings">Engine Settings</h2>
+                <div class="form-group">
+                    <div class="m3-form-field filled">
+                        <select id="translatorEngine">
+                        </select>
+                        <label for="translatorEngine" i18n-text="translationEngine">Translation Engine:</label>
+                    </div>
+                </div>
+                <div class="form-group" id="aiEngineManagementGroup">
+                    <button id="manageAiEnginesBtn" class="m3-button filled" i18n-text="aiEngineProfiles">Manage AI Engine Profiles</button>
+                </div>
+                <div id="defaultEngineWarning" class="warning-section" style="display: none;"></div>
+                <div class="form-group" id="deeplxUrlGroup">
+                    <div class="m3-form-field filled">
+                        <input type="text" id="deeplxApiUrl" i18n-placeholder="deeplxApiUrlPlaceholder" placeholder=" ">
+                        <label for="deeplxApiUrl" i18n-text="deeplxApiUrl">DeepLx API URL:</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <button id="testTranslationBtn" class="m3-button filled" i18n-text="test">Test</button>
+                </div>
+                <div id="test-translation-container" style="display: none;">
+                    <div class="test-translation-area">
+                        <div class="translation-row">
+                            <div class="translation-col">
+                                <textarea id="test-source-text" i18n-placeholder="testSourcePlaceholder"></textarea>
+                            </div>
+                            <div class="translation-col button-col">
+                                <button id="manual-test-translate-btn" class="m3-button" i18n-text="translateButtonText">Translate</button>
+                            </div>
+                            <div class="translation-col">
+                                <div id="test-result-area" class="test-result-area"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="test-actions">
+                        <button id="toggleLogBtn" class="m3-button text" i18n-text="testLogButton">Show Log</button>
+                    </div>
+                    <div id="test-log-area" class="test-log-area" style="display: none;">
+                        <h4 i18n-text="testLogTitle">Translation Log</h4>
+                        <pre id="log-content"></pre>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Appearance Settings Panel -->
+            <section id="appearance" class="content-panel">
+                <h2 i18n-text="appearanceSettings">Appearance Settings</h2>
+                <div class="form-group">
+                    <div class="m3-form-field filled">
+                        <select id="displayModeSelect">
+                            <!-- Options will be populated by JS -->
+                        </select>
+                        <label for="displayModeSelect" i18n-text="displayMode">Display Mode:</label>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Rules Settings Panel -->
+            <section id="rules" class="content-panel">
+                <h2 i18n-text="ruleManagement">Rule Management</h2>
+                <div class="form-group">
+                    <div class="m3-form-field filled">
+                        <textarea id="defaultContentSelector" rows="4" i18n-placeholder="selectorPlaceholderGlobal" placeholder=" "></textarea>
+                        <label for="defaultContentSelector" i18n-text="contentSelectorLabel">Content Selectors</label>
+                        <div class="error-message" id="defaultContentSelectorError"></div>
+                    </div>
+                    <div class="m3-helper-text">
+                        <small i18n-text="contentSelectorDescription">Specify CSS selectors for elements to be translated...</small>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="m3-form-field filled">
+                        <textarea id="defaultExcludeSelector" rows="2" i18n-placeholder="selectorPlaceholderGlobal" placeholder=" "></textarea>
+                        <label for="defaultExcludeSelector" i18n-text="excludeSelectorsLabel">Exclude Selectors</label>
+                        <div class="error-message" id="defaultExcludeSelectorError"></div>
+                    </div>
+                    <div class="m3-helper-text">
+                        <small i18n-text="excludeSelectorsDescription">Elements matching these selectors will not be translated...</small>
+                    </div>
+                </div>
+                <h3 i18n-text="domainSpecificRules">Domain-Specific Rules</h3>
+                <div class="form-group">
+                    <button id="addDomainRuleBtn" class="m3-button filled" i18n-text="addDomainRule">Add Domain Rule</button>
+                </div>
+                <div class="domain-rules-list">
+                    <h3 i18n-text="currentRules">Current Domain Rules:</h3>
+                    <ul id="domainRulesList"></ul>
+                </div>
+                <div class="m3-helper-text">
+                    <small i18n-text="rulesDescription">Domain-specific rules override the default rule.</small>
+                </div>
+            </section>
+
+            <!-- Pre-check Settings Panel -->
+            <section id="precheck" class="content-panel">
+                <h2 i18n-text="precheckRulesTitle">Translation Pre-check Rules</h2>
+                <small i18n-text="precheckRulesDescription"></small>
+                <div class="form-group">
+                    <div class="m3-form-field filled">
+                        <textarea id="testTextInput" rows="2" i18n-placeholder="testRegexInputPlaceholder" placeholder=" "></textarea>
+                        <label for="testTextInput" i18n-text="testRegexInputLabel"></label>
+                        <div class="error-message" id="testTextInputError"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="global-test-actions">
+                        <button id="runGlobalTestBtn" class="m3-button filled" i18n-text="runTestButton">Run Test</button>
+                        <small class="m3-helper-text" i18n-text="globalTestAreaDescription"></small>
+                    </div>
+                </div>
+                <div id="precheck-rules-container"></div>
+            </section>
+
+            <!-- Cache Settings Panel -->
+            <section id="cache" class="content-panel">
+                <h2 i18n-text="cacheManagement">Cache Management</h2>
+                <div class="form-group">
+                    <div class="m3-form-field filled">
+                        <input type="number" id="cacheSizeInput" min="0" step="100" placeholder=" ">
+                        <label for="cacheSizeInput" i18n-text="cacheSizeLabel">Cache Size</label>
+                    </div>
+                    <div class="m3-helper-text">
+                        <small i18n-text="cacheSizeDescription">Max number of translations to store locally...</small>
+                    </div>
+                </div>
+                <div class="form-group cache-info-group">
+                    <span i18n-text="currentCacheUsage">Current Usage:</span>
+                    <span id="cacheInfoDisplay">...</span>
+                    <button id="clearCacheBtn" class="m3-button text danger" i18n-text="clearCache">Clear Cache</button>
+                </div>
+            </section>
+
+            <!-- Sync Settings Panel -->
+            <section id="sync" class="content-panel">
+                <h2 i18n-text="syncManagement">Synchronization Management</h2>
+                <div class="form-group">
+                    <div class="m3-switch">
+                        <input type="checkbox" id="syncEnabled">
+                        <label for="syncEnabled" class="switch-track"><span class="switch-thumb"></span></label>
+                        <label for="syncEnabled" class="switch-label" i18n-text="enableCloudSync">Enable Cloud Sync</label>
+                    </div>
+                    <div class="m3-helper-text">
+                        <small i18n-text="enableCloudSyncDescription">Manually upload/download settings to the cloud.</small>
+                    </div>
+                </div>
+                <div id="syncManagementControls" style="display: none;">
+                    <div class="form-group button-group">
+                        <button id="uploadSettingsBtn" class="m3-button filled-tonal" i18n-text="uploadSettings">Upload Settings</button>
+                    </div>
+                    <div id="cloudSettingsInfo" class="m3-helper-text">
+                        <small i18n-text="cloudSettingsStatus">Cloud settings status: Not checked.</small>
+                    </div>
+                    <div id="cloudDataListSection">
+                        <h3 i18n-text="cloudBackups">Cloud Backups</h3>
+                        <div class="button-group">
+                            <button id="refreshCloudDataBtn" class="m3-button filled-tonal" i18n-text="refreshCloudData">Refresh</button>
+                        </div>
+                        <ul id="cloudDataList" class="cloud-data-list"></ul>
+                        <div class="m3-helper-text">
+                            <small i18n-text="cloudDataDescription">List of settings backups stored in the cloud.</small>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Configuration Settings Panel -->
+            <section id="config" class="content-panel">
+                <h2 i18n-text="configurationManagement">Configuration Management</h2>
+                <div class="form-group button-group">
+                    <button id="export-btn" class="m3-button filled-tonal" i18n-text="exportSettings">Export Settings</button>
+                    <button id="import-btn" class="m3-button filled-tonal" i18n-text="importSettings">Import Settings</button>
+                    <input type="file" id="import-input" accept=".json" style="display: none;">
+                    <button id="reset-settings-btn" class="m3-button danger" i18n-text="resetSettings">Reset Settings</button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <footer class="page-footer">
+        <a href="https://github.com/sanniou/foxlate" target="_blank">GitHub</a>
+        <span>&nbsp;&middot;&nbsp;</span>
+        <a href="https://github.com/sanniou/foxlate/blob/main/PRIVACY.md" target="_blank" i18n-text="privacyPolicy">Privacy Policy</a>
+    </footer>
+
     <button id="saveSettingsBtn" class="fab">  <!-- Added id attribute -->
         <span id="fab-icon-save" class="fab-icon">
             <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm2 16H5V5h11.17L19 7.83V19zM12 12c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3zM6 6h9v4H6z"/></svg>
@@ -89,237 +240,6 @@
             <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
         </span>
     </button>
-
-    <div class="container">
-        <h1 i18n-text="settingsHeading">Foxlate Settings</h1>
-
-        <section class="settings-section">
-            <h2 i18n-text="generalSettings">General Settings</h2>
-            <div class="form-group">
-                <div class="m3-form-field filled">
-                    <select id="translatorEngine">
-                    </select>
-                    <label for="translatorEngine" i18n-text="translationEngine">Translation Engine:</label>
-                </div>
-            </div>
-
-            <!-- AI Engine Management Section -->
-            <div class="form-group" id="aiEngineManagementGroup">
-                <button id="manageAiEnginesBtn" class="m3-button filled" i18n-text="aiEngineProfiles">Manage AI Engine Profiles</button>
-            </div>
-
-            <!-- Default Engine Warning -->
-            <div id="defaultEngineWarning" class="warning-section" style="display: none;">
-                <!-- Warning content will be populated by JavaScript -->
-            </div>
-            <!-- API URL field for DeepLx -->
-            <div class="form-group" id="deeplxUrlGroup">
-                <div class="m3-form-field filled">
-                    <input type="text" id="deeplxApiUrl" i18n-placeholder="deeplxApiUrlPlaceholder" placeholder=" ">
-                    <label for="deeplxApiUrl" i18n-text="deeplxApiUrl">DeepLx API URL:</label>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <div class="with-button-group">
-                    <div class="m3-form-field filled">
-                        <select id="targetLanguage">
-                            <!-- Options will be populated by options.js -->
-                        </select>
-                        <label for="targetLanguage" i18n-text="targetLanguage">Target Language:</label>
-                    </div>
-                    <button id="testTranslationBtn" class="m3-button filled" i18n-text="test">Test</button>
-                </div>
-            </div>
-
-            <div id="test-translation-container" style="display: none;">
-                <div class="test-translation-area">
-                    <div class="translation-row">
-                        <div class="translation-col">
-                            <textarea id="test-source-text" i18n-placeholder="testSourcePlaceholder"></textarea>
-                        </div>
-                        <div class="translation-col button-col">
-                    <button id="manual-test-translate-btn" class="m3-button" i18n-text="translateButtonText">Translate</button>
-                        </div>
-                        <div class="translation-col">
-                            <div id="test-result-area" class="test-result-area"></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="test-actions">
-                    <button id="toggleLogBtn" class="m3-button text" i18n-text="testLogButton">Show Log</button>
-                </div>
-                <div id="test-log-area" class="test-log-area" style="display: none;">
-                    <h4 i18n-text="testLogTitle">Translation Log</h4>
-                    <pre id="log-content"></pre>
-                </div>
-            </div>
-
-        </section>
-
-        <section class="settings-section">
-            <h2 i18n-text="displayFormat">Display Format</h2>
-            <div class="form-group">
-                <div class="m3-form-field filled">
-                    <select id="displayModeSelect">
-                        <!-- 选项将由 JS 动态加载 -->
-                    </select>
-                    <label for="displayModeSelect" i18n-text="displayMode">Display Mode:</label>
-                </div>
-            </div>
-        </section>
-
-        <section class="settings-section">
-            <h2 i18n-text="ruleManagement">Rule Management</h2>
-            <div class="form-group">
-                <div class="m3-form-field filled">
-                    <textarea id="defaultContentSelector" rows="4" i18n-placeholder="selectorPlaceholderGlobal" placeholder=" "></textarea>
-                    <label for="defaultContentSelector" i18n-text="contentSelectorLabel">Content Selectors</label>
-                    <div class="error-message" id="defaultContentSelectorError"></div>
-                </div>
-                <div class="m3-helper-text">
-                    <small i18n-text="contentSelectorDescription">Specify CSS selectors for elements to be translated. The extension will automatically determine if the translation should be displayed as inline or block based on the element's style.</small>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <div class="m3-form-field filled">
-                    <textarea id="defaultExcludeSelector" rows="2" i18n-placeholder="selectorPlaceholderGlobal" placeholder=" "></textarea>
-                    <label for="defaultExcludeSelector" i18n-text="excludeSelectorsLabel">Exclude Selectors</label>
-                    <div class="error-message" id="defaultExcludeSelectorError"></div>
-                </div>
-                <div class="m3-helper-text">
-                    <small i18n-text="excludeSelectorsDescription">Elements matching these selectors (and their children) will not be translated. Use a comma to separate multiple selectors.</small>
-                </div>
-            </div>
-
-            <h3 i18n-text="domainSpecificRules">Domain-Specific Rules</h3>
-            <div class="form-group">
-                <button id="addDomainRuleBtn" class="m3-button filled" i18n-text="addDomainRule">Add Domain Rule</button>
-            </div>
-
-            <div class="domain-rules-list">
-                <h3 i18n-text="currentRules">Current Domain Rules:</h3>
-                <ul id="domainRulesList">
-                  <!-- Domain rules will be dynamically added here -->
-                  <!-- Example of a rule item:
-                  <li class="domain-rule-item" data-domain="example.com">
-                      <span>example.com</span>
-                      <div class="rule-actions">
-                          <button class="edit-rule-btn m3-button text" data-domain="example.com">Edit</button>
-                          <button class="delete-rule-btn m3-button text danger" data-domain="example.com">Delete</button>
-                      </div>
-                  </li>
-                  -->
-                </ul>
-            </div>
-            <div class="m3-helper-text">
-                <small i18n-text="rulesDescription">
-                  Rules apply to the exact hostname. Domain-specific rules override
-                  the default rule.
-                </small>
-            </div>
-        </section>
-
-        <section class="settings-section">
-            <h2 i18n-text="precheckRulesTitle">Translation Pre-check Rules</h2>
-            <small i18n-text="precheckRulesDescription"></small>
-            
-            <!-- Global Test Area -->
-            <div class="form-group"> <!-- This div now only wraps the textarea -->
-                <div class="m3-form-field filled">
-                    <textarea id="testTextInput" rows="2" i18n-placeholder="testRegexInputPlaceholder" placeholder=" "></textarea>
-                    <label for="testTextInput" i18n-text="testRegexInputLabel"></label>
-                    <div class="error-message" id="testTextInputError"></div>
-                </div>
-            </div>
-            <div class="form-group"> <!-- This new div wraps the button and its helper text -->
-                <div class="global-test-actions">
-                    <button id="runGlobalTestBtn" class="m3-button filled" i18n-text="runTestButton">Run Test</button>
-                    <small class="m3-helper-text" i18n-text="globalTestAreaDescription"></small>
-                </div>
-            </div>
-
-            <div id="precheck-rules-container">                
-                <!-- Tabs will be dynamically generated here -->
-            </div>
-        </section>
-
-        <section class="settings-section">
-            <h2 i18n-text="cacheManagement">Cache Management</h2>
-            <div class="form-group">
-                <div class="m3-form-field filled">
-                    <input type="number" id="cacheSizeInput" min="0" step="100" placeholder=" ">
-                    <label for="cacheSizeInput" i18n-text="cacheSizeLabel">Cache Size (number of items)</label>
-                </div>
-                <div class="m3-helper-text">
-                    <small i18n-text="cacheSizeDescription">Sets the maximum number of translations to store locally. A larger cache improves performance but uses more disk space. Set to 0 to disable caching.</small>
-                </div>
-            </div>
-            <div class="form-group cache-info-group">
-                <span i18n-text="currentCacheUsage">Current Usage:</span>
-                <span id="cacheInfoDisplay">...</span>
-                <button id="clearCacheBtn" class="m3-button text danger" i18n-text="clearCache">Clear Cache</button>
-            </div>
-        </section>
-
-        <section class="settings-section">
-            <h2 i18n-text="configurationManagement">Configuration Management</h2>
-            <div class="form-group button-group">
-                <button id="export-btn" class="m3-button filled-tonal" i18n-text="exportSettings">Export Settings</button>
-                <!-- The button triggers the hidden file input -->
-                <button id="import-btn" class="m3-button filled-tonal" i18n-text="importSettings">Import Settings</button>
-                <input type="file" id="import-input" accept=".json" style="display: none;">
-                <button id="reset-settings-btn" class="m3-button danger" i18n-text="resetSettings">Reset Settings</button>
-            </div>
-        </section>
-
-        <section class="settings-section">
-            <h2 i18n-text="syncManagement">Synchronization Management</h2>
-            <div class="form-group">
-                <div class="m3-switch">
-                    <input type="checkbox" id="syncEnabled">
-                    <label for="syncEnabled" class="switch-track">
-                        <span class="switch-thumb"></span>
-                    </label>
-                    <label for="syncEnabled" class="switch-label" i18n-text="enableCloudSync">Enable Cloud Sync</label>
-                </div>
-                <div class="m3-helper-text">
-                    <small i18n-text="enableCloudSyncDescription">When enabled, you can manually upload your settings to the cloud or download them to other devices.</small>
-                </div>
-            </div>
-
-            <div id="syncManagementControls" style="display: none;">
-                <div class="form-group button-group">
-                    <button id="uploadSettingsBtn" class="m3-button filled-tonal" i18n-text="uploadSettings">Upload Settings to Cloud</button>
-                </div>
-                <div id="cloudSettingsInfo" class="m3-helper-text">
-                    <small i18n-text="cloudSettingsStatus">Cloud settings status: Not checked.</small>
-                </div>
-
-                <div id="cloudDataListSection">
-                    <h3 i18n-text="cloudBackups">Cloud Backups</h3>
-                    <div class="button-group">
-                        <button id="refreshCloudDataBtn" class="m3-button filled-tonal" i18n-text="refreshCloudData">Refresh Cloud Data</button>
-                    </div>
-                    <ul id="cloudDataList" class="cloud-data-list">
-                        <!-- Cloud data items will be dynamically added here -->
-                    </ul>
-                    <div class="m3-helper-text">
-                        <small i18n-text="cloudDataDescription">List of settings backups stored in the cloud. Download to restore a previous version or delete old backups.</small>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-    </div>
-
-    <footer class="page-footer">
-        <a href="https://github.com/sanniou/foxlate" target="_blank">GitHub</a>
-        <span>&nbsp;&middot;&nbsp;</span>
-        <a href="https://github.com/sanniou/foxlate/blob/main/PRIVACY.md" target="_blank" i18n-text="privacyPolicy">Privacy Policy</a>
-    </footer>
-
     <div id="statusMessage" class="status-message"></div>
     <!-- AI Engine Management Modal -->
     <div id="aiEngineModal" class="modal" style="display: none;">
@@ -617,7 +537,8 @@
         </div>
     </template>
 
-    <script src="/common/precheck.js"></script> <!-- Load shared precheck logic -->
+    <!-- Scripts -->
+    <script src="/common/precheck.js"></script>
     <script src="validator.js" type="module"></script>
     <script src="components/BaseComponent.js" type="module"></script>
     <script src="ui-helpers.js" type="module"></script>
@@ -625,4 +546,5 @@
     <script src="components/AIEngineModal.js" type="module"></script>
     <script src="components/DomainRuleModal.js" type="module"></script>
     <script src="options.js" type="module"></script>
+</body>
 </html>

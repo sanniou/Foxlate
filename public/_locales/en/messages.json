@@ -1059,5 +1059,49 @@
   "lastSynced": {
     "message": "Last synced: $1",
     "description": "Displays the last synchronization timestamp. Placeholder: 1."
+  },
+  "settingsTitle": {
+    "message": "Foxlate Settings",
+    "description": "Title for the settings page browser tab."
+  },
+  "navGeneral": {
+    "message": "General",
+    "description": "Navigation link for General settings."
+  },
+  "navEngine": {
+    "message": "Engine",
+    "description": "Navigation link for Engine settings."
+  },
+  "navAppearance": {
+    "message": "Appearance",
+    "description": "Navigation link for Appearance settings."
+  },
+  "navRules": {
+    "message": "Rules",
+    "description": "Navigation link for Rule Management."
+  },
+  "navPreCheck": {
+    "message": "Pre-check",
+    "description": "Navigation link for Pre-check Rules."
+  },
+  "navCache": {
+    "message": "Cache",
+    "description": "Navigation link for Cache Management."
+  },
+  "navSync": {
+    "message": "Sync",
+    "description": "Navigation link for Sync Management."
+  },
+  "navConfig": {
+    "message": "Configuration",
+    "description": "Navigation link for Configuration Management."
+  },
+  "engineSettings": {
+    "message": "Engine Settings",
+    "description": "Section heading for engine settings."
+  },
+  "appearanceSettings": {
+    "message": "Appearance Settings",
+    "description": "Section heading for appearance settings."
   }
 }

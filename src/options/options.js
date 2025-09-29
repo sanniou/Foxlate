@@ -117,6 +117,8 @@ document.addEventListener('DOMContentLoaded', () => {
         cloudDataListSection: document.getElementById(ELEMENT_IDS.CLOUD_DATA_LIST_SECTION),
         refreshCloudDataBtn: document.getElementById(ELEMENT_IDS.REFRESH_CLOUD_DATA_BTN),
         cloudDataList: document.getElementById(ELEMENT_IDS.CLOUD_DATA_LIST),
+        // Navigation
+        settingsNav: document.getElementById('settings-nav'),
     };
     elements.toggleLogBtn = document.getElementById('toggleLogBtn');
     elements.logContent = document.getElementById('log-content');
@@ -340,6 +342,48 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
+    const initializeNavigation = () => {
+        const nav = elements.settingsNav;
+        if (!nav) return;
+
+        const switchTab = (hash) => {
+            const targetHash = hash || '#general';
+            const targetPanelId = targetHash.substring(1);
+            const targetPanel = document.getElementById(targetPanelId);
+            const targetLink = nav.querySelector(`a[href="${targetHash}"]`);
+
+            // Deactivate all
+            nav.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
+            document.querySelectorAll('.content-panel').forEach(panel => panel.classList.remove('active'));
+
+            // Activate target
+            if (targetPanel && targetLink) {
+                targetPanel.classList.add('active');
+                targetLink.classList.add('active');
+            } else {
+                // Fallback to general if hash is invalid
+                document.getElementById('general').classList.add('active');
+                nav.querySelector('a[href="#general"]').classList.add('active');
+            }
+        };
+
+        nav.addEventListener('click', (e) => {
+            const link = e.target.closest('.nav-link');
+            if (link) {
+                e.preventDefault();
+                const hash = link.getAttribute('href');
+                if (location.hash !== hash) {
+                    location.hash = hash;
+                }
+            }
+        });
+
+        window.addEventListener('hashchange', () => switchTab(location.hash));
+
+        // Initial load
+        switchTab(location.hash);
+    };
+
     let statusMessageTimeout;
 
     const showStatusMessage = (message, isError = false) => {
@@ -406,7 +450,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (hasInvalidRegex || !isContentValid || !isExcludeValid) {
             elements.saveSettingsBtn.dataset.state = 'error';
-            const firstInvalidField = document.querySelector('.settings-section .m3-form-field.is-invalid');
+            const firstInvalidField = document.querySelector('.content-panel.active .m3-form-field.is-invalid');
             if (firstInvalidField) {
                 firstInvalidField.classList.add('error-shake');
                 setTimeout(() => firstInvalidField.classList.remove('error-shake'), 500);
@@ -1082,6 +1126,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const initialize = async () => {
         applyTranslations();
+        initializeNavigation(); // <-- Add this call
         populateLanguageOptions(elements.targetLanguage);
         populateDisplayModeOptions(elements.displayModeSelect);
         await loadSettings();
