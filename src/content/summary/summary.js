@@ -19,6 +19,7 @@ class SummaryModule {
         this.activeTabId = null;
         this.nextTabId = 0;
         this.nextSelectionTabNum = 1;
+        this.boundHandleSelection = this.handleSelection.bind(this);
 
         this.init();
     }
@@ -105,7 +106,7 @@ class SummaryModule {
             document.addEventListener('mouseup', handleDragEnd);
         });
 
-        document.addEventListener('mouseup', this.handleSelection.bind(this));
+        document.addEventListener('mouseup', this.boundHandleSelection);
     }
 
     handleSelection(event) {
@@ -421,7 +422,7 @@ class SummaryModule {
     destroy() {
         this.summaryButton?.destroy();
         this.summaryDialog?.destroy();
-        document.removeEventListener('mouseup', this.handleSelection.bind(this));
+        document.removeEventListener('mouseup', this.boundHandleSelection);
     }
 }
 
@@ -480,7 +481,6 @@ class SummaryDialog {
         this.textarea = this.element.querySelector('textarea');
         this.sendButton = this.element.querySelector('button.send-button');
         this.refreshButton = this.element.querySelector('button.refresh-button');
-        document.body.appendChild(this.element);
 
         this.sendButton.addEventListener('click', () => this.summaryModule.handleSendMessage(this.textarea.value.trim()));
         this.refreshButton.addEventListener('click', () => this.summaryModule.handleRefresh());
@@ -717,6 +717,9 @@ class SummaryDialog {
 
     show(buttonRect) {
         this.isOpen = true;
+        if (!this.element.parentNode) {
+            document.body.appendChild(this.element);
+        }
         this.element.style.visibility = 'visible';
         const MARGIN = 16;
         const dialogWidth = this.element.offsetWidth;
