@@ -274,6 +274,44 @@
             </div>
         </section>
 
+        <section class="settings-section">
+            <h2 i18n-text="syncManagement">Synchronization Management</h2>
+            <div class="form-group">
+                <div class="m3-switch">
+                    <input type="checkbox" id="syncEnabled">
+                    <label for="syncEnabled" class="switch-track">
+                        <span class="switch-thumb"></span>
+                    </label>
+                    <label for="syncEnabled" class="switch-label" i18n-text="enableCloudSync">Enable Cloud Sync</label>
+                </div>
+                <div class="m3-helper-text">
+                    <small i18n-text="enableCloudSyncDescription">When enabled, you can manually upload your settings to the cloud or download them to other devices.</small>
+                </div>
+            </div>
+
+            <div id="syncManagementControls" style="display: none;">
+                <div class="form-group button-group">
+                    <button id="uploadSettingsBtn" class="m3-button filled-tonal" i18n-text="uploadSettings">Upload Settings to Cloud</button>
+                </div>
+                <div id="cloudSettingsInfo" class="m3-helper-text">
+                    <small i18n-text="cloudSettingsStatus">Cloud settings status: Not checked.</small>
+                </div>
+
+                <div id="cloudDataListSection" class="settings-section">
+                    <h3 i18n-text="cloudBackups">Cloud Backups</h3>
+                    <div class="button-group">
+                        <button id="refreshCloudDataBtn" class="m3-button filled-tonal" i18n-text="refreshCloudData">Refresh Cloud Data</button>
+                    </div>
+                    <ul id="cloudDataList" class="cloud-data-list">
+                        <!-- Cloud data items will be dynamically added here -->
+                    </ul>
+                    <div class="m3-helper-text">
+                        <small i18n-text="cloudDataDescription">List of settings backups stored in the cloud. Download to restore a previous version or delete old backups.</small>
+                    </div>
+                </div>
+            </div>
+        </section>
+
     </div>
 
     <footer class="page-footer">

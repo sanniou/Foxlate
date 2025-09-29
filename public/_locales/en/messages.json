@@ -959,5 +959,37 @@
   "confirmDeleteRuleTitle": {
     "message": "Delete Rule",
     "description": "Title for the delete rule confirm modal."
+  },
+  "cloudBackups": {
+    "message": "Cloud Backups",
+    "description": "Heading for the list of cloud backups."
+  },
+  "refreshCloudData": {
+    "message": "Refresh Cloud Data",
+    "description": "Button text to refresh the list of cloud backups."
+  },
+  "cloudDataDescription": {
+    "message": "List of settings backups stored in the cloud. Download to restore a previous version or delete old backups.",
+    "description": "Helper text for the cloud data list."
+  },
+  "enableCloudSync": {
+    "message": "Enable Cloud Sync",
+    "description": "Label for the switch to enable cloud synchronization."
+  },
+  "enableCloudSyncDescription": {
+    "message": "When enabled, you can manually upload your settings to the cloud or download them to other devices.",
+    "description": "Helper text for the cloud sync enable switch."
+  },
+  "cloudSettingsStatus": {
+    "message": "Cloud settings status: Not checked.",
+    "description": "Initial status of cloud settings."
+  },
+  "cloudSettingsStatusNoData": {
+    "message": "No cloud data found.",
+    "description": "Status when sync is on but no backups are found."
+  },
+  "noCloudBackupsFound": {
+    "message": "No cloud backups found.",
+    "description": "Message displayed in the backup list when it is empty."
   }
 }

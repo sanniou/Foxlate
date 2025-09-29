@@ -122,4 +122,13 @@ export const ELEMENT_IDS = {
     // Log Area
     TOGGLE_LOG_BTN: 'toggleLogBtn',
     LOG_CONTENT: 'log-content',
+
+    // Sync Management
+    SYNC_ENABLED: 'syncEnabled',
+    SYNC_MANAGEMENT_CONTROLS: 'syncManagementControls',
+    UPLOAD_SETTINGS_BTN: 'uploadSettingsBtn',
+    CLOUD_SETTINGS_INFO: 'cloudSettingsInfo',
+    CLOUD_DATA_LIST_SECTION: 'cloudDataListSection',
+    REFRESH_CLOUD_DATA_BTN: 'refreshCloudDataBtn',
+    CLOUD_DATA_LIST: 'cloudDataList',
 };

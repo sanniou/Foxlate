@@ -109,6 +109,14 @@ document.addEventListener('DOMContentLoaded', () => {
         confirmModalConfirmBtn: document.getElementById(ELEMENT_IDS.CONFIRM_MODAL_CONFIRM_BTN),
         confirmModalCancelBtn: document.getElementById(ELEMENT_IDS.CONFIRM_MODAL_CANCEL_BTN),
         closeConfirmModalBtn: document.getElementById(ELEMENT_IDS.CLOSE_CONFIRM_MODAL_BTN),
+        // Synchronization Management elements
+        syncEnabled: document.getElementById(ELEMENT_IDS.SYNC_ENABLED),
+        syncManagementControls: document.getElementById(ELEMENT_IDS.SYNC_MANAGEMENT_CONTROLS),
+        uploadSettingsBtn: document.getElementById(ELEMENT_IDS.UPLOAD_SETTINGS_BTN),
+        cloudSettingsInfo: document.getElementById(ELEMENT_IDS.CLOUD_SETTINGS_INFO),
+        cloudDataListSection: document.getElementById(ELEMENT_IDS.CLOUD_DATA_LIST_SECTION),
+        refreshCloudDataBtn: document.getElementById(ELEMENT_IDS.REFRESH_CLOUD_DATA_BTN),
+        cloudDataList: document.getElementById(ELEMENT_IDS.CLOUD_DATA_LIST),
     };
     elements.toggleLogBtn = document.getElementById('toggleLogBtn');
     elements.logContent = document.getElementById('log-content');
@@ -156,9 +164,15 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.deeplxApiUrl.value = state.deeplxApiUrl;
         elements.displayModeSelect.value = state.displayMode;
         elements.cacheSizeInput.value = state.cacheSize ?? Constants.DEFAULT_SETTINGS.cacheSize;
+        elements.syncEnabled.checked = !!state.syncEnabled;
 
+        // Update components if they are open
+        if (aiEngineModal && aiEngineModal.isOpen()) {
+            aiEngineModal.updateEngines(state.aiEngines);
+        }
         // 2. 重新渲染动态列表和模态框
         updateApiFieldsVisibility();
+        updateSyncControlsVisibility();
         renderDomainRules();
         renderPrecheckRulesUI();
         checkDefaultEngineAvailability();
@@ -402,7 +416,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            await SettingsManager.saveSettings(settingsToSave);
+            await SettingsManager.saveLocalSettings(settingsToSave);
             elements.saveSettingsBtn.dataset.state = 'success';
             setTimeout(() => {
                 updateSaveButtonState();
@@ -423,7 +437,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (confirmed) {
             try {
                 const defaultSettings = SettingsManager.generateDefaultSettings();
-                await SettingsManager.saveSettings(defaultSettings);
+                await SettingsManager.saveLocalSettings(defaultSettings);
                 showStatusMessage(browser.i18n.getMessage('resetSettingsSuccess'));
             } catch (error) {
                 console.error('Error resetting settings:', error);
@@ -578,7 +592,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (confirmed) {
             try {
                 delete state.domainRules[domainToRemove];
-                await SettingsManager.saveSettings(getSettingsFromUI());
+                await SettingsManager.saveLocalSettings(getSettingsFromUI());
                 showStatusMessage(browser.i18n.getMessage('removeRuleSuccess'));
             } catch (error) {
                 console.error("Failed to remove domain rule:", error);
@@ -613,7 +627,7 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.onload = async (e) => {
             try {
                 const settings = JSON.parse(e.target.result);
-                await SettingsManager.saveSettings(settings);
+                await SettingsManager.saveLocalSettings(settings);
                 showStatusMessage(browser.i18n.getMessage('importSuccess'));
             } catch (error) {
                 showStatusMessage(browser.i18n.getMessage('importError'), true);
@@ -741,6 +755,107 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
+    const renderCloudDataList = async () => {
+        elements.cloudDataList.innerHTML = '';
+        elements.cloudSettingsInfo.textContent = browser.i18n.getMessage('cloudSettingsStatus');
+
+        try {
+            const response = await browser.runtime.sendMessage({ type: 'GET_CLOUD_BACKUPS' });
+            if (response && response.success && response.backups && response.backups.length > 0) {
+                response.backups.forEach(backup => {
+                    const li = document.createElement('li');
+                    li.className = 'cloud-data-item';
+                    const date = new Date(backup.timestamp);
+                    const formattedDate = date.toLocaleString(); // Adjust format as needed
+                    li.innerHTML = `
+                        <span>${formattedDate}</span>
+                        <div class="item-actions">
+                            <button class="download-cloud-backup-btn m3-button text" data-backup-id="${backup.id}">${browser.i18n.getMessage('downloadSettings')}</button>
+                            <button class="delete-cloud-backup-btn m3-button text danger" data-backup-id="${backup.id}">${browser.i18n.getMessage('removeRule')}</button>
+                        </div>
+                    `;
+                    elements.cloudDataList.appendChild(li);
+                });
+                elements.cloudSettingsInfo.textContent = `Last synced: ${new Date(response.backups[0].timestamp).toLocaleString()}`;
+            } else {
+                elements.cloudSettingsInfo.textContent = browser.i18n.getMessage('cloudSettingsStatusNoData');
+                const li = document.createElement('li');
+                li.className = 'no-rules-message'; // Reuse class for styling
+                li.textContent = browser.i18n.getMessage('noCloudBackupsFound');
+                elements.cloudDataList.appendChild(li);
+            }
+        } catch (error) {
+            console.error("Failed to fetch cloud backups:", error);
+            elements.cloudSettingsInfo.textContent = `Error: ${error.message}`;
+            showStatusMessage("Failed to load cloud data.", true);
+        }
+    };
+
+    const uploadSettingsToCloud = async () => {
+        const confirmed = await confirmModal.open(
+            browser.i18n.getMessage('confirmTitle'),
+            "Are you sure you want to upload your current settings to the cloud? This will overwrite the latest cloud backup."
+        );
+        if (confirmed) {
+            try {
+                const settingsToUpload = getSettingsFromUI();
+                await browser.runtime.sendMessage({ type: 'UPLOAD_SETTINGS_TO_CLOUD', payload: settingsToUpload });
+                showStatusMessage("Settings uploaded to cloud successfully!");
+                renderCloudDataList();
+            } catch (error) {
+                console.error("Failed to upload settings to cloud:", error);
+                showStatusMessage("Failed to upload settings to cloud.", true);
+            }
+        }
+    };
+
+    const downloadSettingsFromCloud = async (backupId) => {
+        const confirmed = await confirmModal.open(
+            browser.i18n.getMessage('confirmTitle'),
+            "Are you sure you want to download this backup and overwrite your local settings?"
+        );
+        if (confirmed) {
+            try {
+                const response = await browser.runtime.sendMessage({ type: 'DOWNLOAD_SETTINGS_FROM_CLOUD', payload: { backupId } });
+                if (response && response.success) {
+                    await SettingsManager.saveLocalSettings(response.settings);
+                    showStatusMessage("Settings downloaded and applied successfully!");
+                    // Re-render the entire UI to reflect new settings
+                    const newSettings = await SettingsManager.getValidatedSettings();
+                    updateStateAndRender(newSettings);
+                } else {
+                    showStatusMessage(`Failed to download settings: ${response.error}`, true);
+                }
+            } catch (error) {
+                console.error("Failed to download settings from cloud:", error);
+                showStatusMessage("Failed to download settings from cloud.", true);
+            }
+        }
+    };
+
+    const deleteCloudBackup = async (backupId) => {
+        const confirmed = await confirmModal.open(
+            browser.i18n.getMessage('confirmTitle'),
+            "Are you sure you want to delete this cloud backup? This action cannot be undone."
+        );
+        if (confirmed) {
+            try {
+                await browser.runtime.sendMessage({ type: 'DELETE_CLOUD_BACKUP', payload: { backupId } });
+                showStatusMessage("Cloud backup deleted successfully!");
+                renderCloudDataList();
+            } catch (error) {
+                console.error("Failed to delete cloud backup:", error);
+                showStatusMessage("Failed to delete cloud backup.", true);
+            }
+        }
+    };
+
+    const refreshCloudData = async () => {
+        showStatusMessage("Refreshing cloud data...");
+        await renderCloudDataList();
+        showStatusMessage("Cloud data refreshed.");
+    };
+
     const handleGlobalClick = async (e) => {
         // console.log('Global click event:', e.target); // Log the initial target
         let target = e.target;
@@ -779,7 +894,9 @@ document.addEventListener('DOMContentLoaded', () => {
             [ELEMENT_IDS.RUN_GLOBAL_TEST_BTN]: runGlobalPrecheckTest,
             [ELEMENT_IDS.TEST_TRANSLATION_BTN]: toggleTestArea,
             [ELEMENT_IDS.TOGGLE_LOG_BTN]: toggleLogArea,
-            [ELEMENT_IDS.MANUAL_TEST_TRANSLATE_BTN]: performTestTranslation
+            [ELEMENT_IDS.MANUAL_TEST_TRANSLATE_BTN]: performTestTranslation,
+            [ELEMENT_IDS.UPLOAD_SETTINGS_BTN]: uploadSettingsToCloud,
+            [ELEMENT_IDS.REFRESH_CLOUD_DATA_BTN]: refreshCloudData,
         };
         // console.log('Checking buttonActions for ID:', closestButton.id);
         if (buttonActions[closestButton.id]) {
@@ -800,7 +917,9 @@ document.addEventListener('DOMContentLoaded', () => {
             'test-rule-btn': (btn) => {
                 const item = btn.closest('.rule-item');
                 testRegex(item.querySelector('.rule-regex'), item.querySelector('.rule-flags'), item.querySelector('.rule-test-result'));
-            }
+            },
+            'download-cloud-backup-btn': (btn) => downloadSettingsFromCloud(btn.dataset.backupId),
+            'delete-cloud-backup-btn': (btn) => deleteCloudBackup(btn.dataset.backupId),
         };
         // console.log('Checking classActions for classes:', closestButton.classList);
         for (const className in classActions) {
@@ -866,7 +985,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const stateUpdaters = {
             [ELEMENT_IDS.TRANSLATOR_ENGINE]: (val) => { state.translatorEngine = val; updateApiFieldsVisibility(); },
             [ELEMENT_IDS.DISPLAY_MODE_SELECT]: (val) => state.displayMode = val,
-            [ELEMENT_IDS.TARGET_LANGUAGE]: (val) => state.targetLanguage = val
+            [ELEMENT_IDS.TARGET_LANGUAGE]: (val) => state.targetLanguage = val,
+            [ELEMENT_IDS.SYNC_ENABLED]: (val) => { 
+                state.syncEnabled = val;
+                updateSyncControlsVisibility();
+            },
         };
         if (stateUpdaters[id]) {
             stateUpdaters[id](value);
@@ -949,6 +1072,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const updateSyncControlsVisibility = () => {
+        const isEnabled = state.syncEnabled;
+        elements.syncManagementControls.style.display = isEnabled ? 'block' : 'none';
+        if (isEnabled) {
+            renderCloudDataList();
+        }
+    };
+
     const initialize = async () => {
         applyTranslations();
         populateLanguageOptions(elements.targetLanguage);
@@ -1005,7 +1136,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     delete state.domainRules[originalDomain];
                 }
                 state.domainRules[rule.domain] = rule;
-                await SettingsManager.saveSettings(getSettingsFromUI());
+                await SettingsManager.saveLocalSettings(getSettingsFromUI());
                 showStatusMessage(browser.i18n.getMessage('saveRuleSuccess') || 'Rule saved successfully.');
             } catch (error) {
                 console.error("Failed to save domain rule:", error);

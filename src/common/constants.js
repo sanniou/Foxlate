@@ -68,6 +68,7 @@ export const DEFAULT_SETTINGS = {
     cacheSize: 5000, // Number of translation items to cache
     parallelRequests: 5, // Number of parallel translation requests
     summarySettings: {},
+    syncEnabled: false, // Whether cloud sync is enabled
 };
 
 export const AI_PROMPTS = {

@@ -951,5 +951,57 @@
   "summaryNoSuggestions": {
     "message": "暂无建议。",
     "description": "内容总结没有建议时的文本。"
+  },
+  "confirmTitle": {
+    "message": "确认",
+    "description": "Title for the confirm modal."
+  },
+  "confirmDeleteAiEngineTitle": {
+    "message": "删除 AI 引擎",
+    "description": "Title for the confirm delete AI engine modal."
+  },
+  "clearCacheConfirmTitle": {
+    "message": "清除缓存",
+    "description": "Title for the clear cache confirm modal."
+  },
+  "resetSettingsConfirmTitle": {
+    "message": "重置设置",
+    "description": "Title for the reset settings confirm modal."
+  },
+  "confirmDeleteRuleTitle": {
+    "message": "删除规则",
+    "description": "Title for the delete rule confirm modal."
+  },
+  "cloudBackups": {
+    "message": "云端备份",
+    "description": "Heading for the list of cloud backups."
+  },
+  "refreshCloudData": {
+    "message": "刷新云端数据",
+    "description": "Button text to refresh the list of cloud backups."
+  },
+  "cloudDataDescription": {
+    "message": "云端存储的设置备份列表。下载以恢复以前的版本或删除旧备份。",
+    "description": "Helper text for the cloud data list."
+  },
+  "enableCloudSync": {
+    "message": "启用云同步",
+    "description": "用于启用云同步的开关标签。"
+  },
+  "enableCloudSyncDescription": {
+    "message": "启用后，您可以手动将设置上传到云端或下载到其他设备。",
+    "description": "云同步启用开关的辅助文本。"
+  },
+  "cloudSettingsStatus": {
+    "message": "云端设置状态：未检查。",
+    "description": "云设置的初始状态。"
+  },
+  "cloudSettingsStatusNoData": {
+    "message": "未找到云端数据。",
+    "description": "当同步开启但未找到备份时的状态。"
+  },
+  "noCloudBackupsFound": {
+    "message": "未找到云端备份。",
+    "description": "备份列表为空时显示的消息。"
   }
 }

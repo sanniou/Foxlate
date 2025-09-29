@@ -618,6 +618,89 @@ const messageHandlers = {
         await TranslatorManager.clearCache();
         return { success: true };
     },
+
+    // --- Cloud Sync Handlers ---
+    async GET_CLOUD_BACKUPS() {
+        try {
+            const allItems = await browser.storage.sync.get(null);
+            const backups = Object.keys(allItems)
+                .filter(key => key.startsWith('foxlate_backup_'))
+                .map(key => allItems[key])
+                .filter(item => item && typeof item === 'object' && typeof item.timestamp === 'number')
+                .sort((a, b) => b.timestamp - a.timestamp); // Newest first
+            return { success: true, backups };
+        } catch (error) {
+            logError('GET_CLOUD_BACKUPS', error);
+            return { success: false, error: error.message };
+        }
+    },
+
+    async UPLOAD_SETTINGS_TO_CLOUD(request) {
+        try {
+            const settingsToUpload = request.payload;
+            const timestamp = Date.now();
+            const backupId = `foxlate_backup_${timestamp}`;
+            const backupItem = {
+                id: backupId,
+                timestamp: timestamp,
+                settings: settingsToUpload
+            };
+
+            await browser.storage.sync.set({ [backupId]: backupItem });
+
+            // Rotation: Keep only the last 10 backups
+            const allItems = await browser.storage.sync.get(null);
+            const backupKeys = Object.keys(allItems)
+                .filter(key => key.startsWith('foxlate_backup_'))
+                .sort((a, b) => {
+                    const tsA = parseInt(a.split('_')[2] || '0');
+                    const tsB = parseInt(b.split('_')[2] || '0');
+                    return tsB - tsA; // Sort descending by timestamp in key
+                });
+
+            if (backupKeys.length > 10) {
+                const keysToRemove = backupKeys.slice(10);
+                await browser.storage.sync.remove(keysToRemove);
+            }
+
+            return { success: true };
+        } catch (error) {
+            logError('UPLOAD_SETTINGS_TO_CLOUD', error);
+            return { success: false, error: error.message };
+        }
+    },
+
+    async DOWNLOAD_SETTINGS_FROM_CLOUD(request) {
+        try {
+            const { backupId } = request.payload;
+            if (!backupId) {
+                throw new Error("Backup ID is required.");
+            }
+            const data = await browser.storage.sync.get(backupId);
+            if (data && data[backupId]) {
+                return { success: true, settings: data[backupId].settings };
+            } else {
+                throw new Error("Backup not found.");
+            }
+        } catch (error) {
+            logError('DOWNLOAD_SETTINGS_FROM_CLOUD', error);
+            return { success: false, error: error.message };
+        }
+    },
+
+    async DELETE_CLOUD_BACKUP(request) {
+        try {
+            const { backupId } = request.payload;
+            if (!backupId) {
+                throw new Error("Backup ID is required.");
+            }
+            await browser.storage.sync.remove(backupId);
+            return { success: true };
+        } catch (error) {
+            logError('DELETE_CLOUD_BACKUP', error);
+            return { success: false, error: error.message };
+        }
+    },
 };
 
 // --- Main Event Listeners ---
