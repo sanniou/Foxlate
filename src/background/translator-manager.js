@@ -4,6 +4,7 @@ import { DeepLxTranslator } from './translators/deeplx-translator.js';
 import { GoogleTranslator } from './translators/google-translator.js';
 import { AITranslator } from './translators/ai-translator.js';
 
+import * as Constants from '../common/constants.js';
 export class TranslatorManager {
   // --- Private Static State ---
   static #translationCache = new Map();
@@ -345,6 +346,100 @@ export class TranslatorManager {
     this.#inFlightRequests.set(cacheKey, translationPromise);
 
     return translationPromise;
+  }
+
+  /**
+   * (新) 封装一个通用的 AI 任务执行器，以减少重复代码。
+   * @private
+   * @param {string|object} input - 输入文本或历史记录。
+   * @param {string} aiModel - AI 模型 ID。
+   * @param {string} targetLang - 目标语言。
+   * @param {string} promptTemplate - 用于任务的提示词模板。
+   * @returns {Promise<object>} - 包含结果或错误的 Promise。
+   */
+  static async #executeAiTask(input, aiModel, targetLang, promptTemplate) {
+      if (!input || !aiModel) {
+          return { success: false, error: "Input or AI model not provided for AI task." };
+      }
+
+      try {
+          const settings = await SettingsManager.getValidatedSettings();
+          const engineId = aiModel.startsWith('ai:') ? aiModel.substring(3) : aiModel;
+          const aiConfig = settings.aiEngines.find(e => e.id === engineId);
+
+          if (!aiConfig) {
+              throw new Error(`AI engine configuration not found for ID: ${engineId}`);
+          }
+
+          const taskConfig = { ...aiConfig, customPrompt: promptTemplate };
+          const aiTranslator = this.#translators.ai;
+
+          // sourceLang 在这里不重要，设为 'auto'
+          const result = await aiTranslator.translate(input, targetLang, 'auto', taskConfig);
+
+          if (result.error) {
+              throw new Error(result.error);
+          }
+
+          return { success: true, text: result.text };
+      } catch (error) {
+          console.error(`[TranslatorManager] Error in #executeAiTask:`, error);
+          return { success: false, error: error.message };
+      }
+  }
+
+  /**
+   * (新) 使用 AI 执行内容总结任务。
+   * @param {string} text - 要总结的文本。
+   * @param {string} aiModel - 用于总结的 AI 模型 ID。
+   * @param {string} targetLang - 总结的目标语言。
+   * @returns {Promise<{success: boolean, summary?: string, error?: string}>}
+   */
+  static async summarize(text, aiModel, targetLang) {
+      const result = await this.#executeAiTask(text, aiModel, targetLang, Constants.AI_PROMPTS.summarize);
+      return { ...result, summary: result.text };
+  }
+
+  /**
+   * (新) 与 AI 进行对话。
+   * @param {object[]} history - 对话历史记录。
+   * @param {string} aiModel - 使用的 AI 模型 ID。
+   * @param {string} targetLang - 回复的目标语言。
+   * @returns {Promise<{success: boolean, reply?: string, error?: string}>}
+   */
+  static async converse(history, aiModel, targetLang) {
+      const result = await this.#executeAiTask(history, aiModel, targetLang, Constants.AI_PROMPTS.converse);
+      return { ...result, reply: result.text };
+  }
+
+  /**
+   * (新) 使用 AI 推断后续对话建议。
+   * @param {object[]} history - 对话历史记录。
+   * @param {string} aiModel - 使用的 AI 模型 ID。
+   * @param {string} targetLang - 建议的目标语言。
+   * @returns {Promise<{success: boolean, suggestions?: string[], error?: string}>}
+   */
+  static async inferSuggestions(history, aiModel, targetLang) {
+      history.push({ "role": "user", "content": "continue" });
+      const result = await this.#executeAiTask(history, aiModel, targetLang, Constants.AI_PROMPTS.suggest);
+
+      if (!result.success) {
+          return result;
+      }
+
+      // AI 应该返回一个 JSON 字符串数组，我们需要解析它。
+      // (新) 兼容 AI 可能返回 markdown 代码块的情况。
+      let jsonText = result.text.trim();
+      if (jsonText.startsWith('```json') && jsonText.endsWith('```')) {
+          jsonText = jsonText.substring(7, jsonText.length - 3).trim();
+      }
+
+      try {
+          const suggestions = JSON.parse(jsonText);
+          return { success: true, suggestions };
+      } catch (parseError) {
+          return { success: false, error: `Failed to parse AI suggestions: ${parseError.message}. Raw text: "${result.text}"` };
+      }
   }
 
   /**

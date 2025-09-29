@@ -5,7 +5,6 @@ import { shouldTranslate } from '../common/precheck.js';
 import { TranslatorManager } from '../background/translator-manager.js';
 import * as Constants from '../common/constants.js';
 import TabStateManager from './tab-state-manager.js';
-import { AITranslator } from '../background/translators/ai-translator.js';
 import { SUBTITLE_STRATEGIES, SUBTITLE_MANAGER_SCRIPT, DEFAULT_STRATEGY_MAP } from '../content/subtitle/strategy-manifest.js';
 const CSS_FILES = ["content/style.css", "content/summary/summary.css"];
 
@@ -357,136 +356,35 @@ const messageHandlers = {
     // (新) 处理内容总结请求
     async SUMMARIZE_CONTENT(request) {
         const { text, aiModel, targetLang } = request.payload;
-        if (!text) {
-            return { success: false, error: "Text not provided for summarization." };
-        }
-        if (!aiModel) {
-            return { success: false, error: "AI model not provided for summarization." };
-        }
-        try {
-            // 1. 获取 AI 引擎配置
-            const settings = await SettingsManager.getValidatedSettings();
-            const engineId = aiModel.startsWith('ai:') ? aiModel.substring(3) : aiModel;
-            const aiConfig = settings.aiEngines.find(e => e.id === engineId);
-
-            if (!aiConfig) {
-                throw new Error(`AI engine configuration not found for ID: ${engineId}`);
-            }
-
-            // 2. 构造专门用于总结的系统提示词
-            // 这个提示词指示 AI 以目标语言生成要点式总结。
-            const summaryPromptTemplate = Constants.AI_PROMPTS.summarize;
-
-            // 3. 创建一个临时的 AITranslator 实例来执行任务
-            const summarizer = new AITranslator();
-
-            // 4. 调用其 translate 方法，但传入的是总结提示词模板
-            // 我们将 aiConfig 中的 customPrompt 临时替换为我们的总结提示词模板。
-            const summaryConfig = { ...aiConfig, customPrompt: summaryPromptTemplate };
-
-            // sourceLang 在这里不重要，设为 'auto'
-            const result = await summarizer.translate(text, targetLang, 'auto', summaryConfig);
-
-            if (result.error) {
-                throw new Error(result.error);
-            }
-
-            return { success: true, summary: result.text };
-        } catch (error) {
-            logError('SUMMARIZE_CONTENT', error);
-            return { success: false, error: error.message };
-        }
+        return TranslatorManager.summarize(text, aiModel, targetLang);
     },
 
     // (新) 处理与 AI 的通用对话请求
     async CONVERSE_WITH_AI(request) {
         const { history, aiModel, targetLang } = request.payload;
-
-        if (!history || history.length === 0 || !aiModel) {
-            return { success: false, error: "History or AI model not provided for conversation." };
-        }
-
-        try {
-            // 1. 获取 AI 引擎配置
-            const settings = await SettingsManager.getValidatedSettings();
-            const engineId = aiModel.startsWith('ai:') ? aiModel.substring(3) : aiModel;
-            const aiConfig = settings.aiEngines.find(e => e.id === engineId);
-
-            if (!aiConfig) {
-                throw new Error(`AI engine configuration not found for ID: ${engineId}`);
-            }
-
-            // 2. 构造专门用于对话的系统提示词
-            // 这个提示词指示 AI 以目标语言回答问题。
-            // 注意：这里我们覆盖了用户在设置中定义的 customPrompt，因为这是一个特定任务。
-            // 更好的做法可能是让用户为不同任务配置不同提示词，但目前保持简单。
-            const conversationPromptTemplate = Constants.AI_PROMPTS.converse;
-
-            // 3. 创建一个临时的 AITranslator 实例来执行任务
-            const converser = new AITranslator();
-
-            // 4. 调用其 translate 方法，但传入的是对话提示词模板
-            const conversationConfig = { ...aiConfig, customPrompt: conversationPromptTemplate };
-
-            // sourceLang 在这里不重要，设为 'auto'
-            const result = await converser.translate(history, targetLang, 'auto', conversationConfig);
-
-            // 返回的字段名为 'reply' 以匹配 content-script 的期望
-            return { success: true, reply: result.text };
-        } catch (error) {
-            logError('CONVERSE_WITH_AI', error);
-            return { success: false, error: error.message };
-        }
+        return TranslatorManager.converse(history, aiModel, targetLang);
     },
 
     // (新) 处理 AI 建议请求
     async INFER_SUGGESTIONS(request) {
         const { history, aiModel, targetLang } = request.payload;
+        const result = await TranslatorManager.inferSuggestions(history, aiModel, targetLang);
 
-        if (!history || history.length === 0 || !aiModel) {
-            return { success: false, error: "History or AI model not provided for suggestions." };
+        if (!result.success) {
+            return result;
         }
-        history.push({
-            "role": "user",
-            "content": "continue"
-        })
 
         try {
-            const settings = await SettingsManager.getValidatedSettings();
-            const engineId = aiModel.startsWith('ai:') ? aiModel.substring(3) : aiModel;
-            const aiConfig = settings.aiEngines.find(e => e.id === engineId);
-
-            if (!aiConfig) {
-                throw new Error(`AI engine configuration not found for ID: ${engineId}`);
-            }
-
-            const suggestPromptTemplate = Constants.AI_PROMPTS.suggest;
-            const suggester = new AITranslator();
-            const suggestConfig = { ...aiConfig, customPrompt: suggestPromptTemplate };
-
-            const result = await suggester.translate(history, targetLang, 'auto', suggestConfig);
-
-            if (result.error) {
-                throw new Error(result.error);
-            }
-
-            // AI 应该返回一个 JSON 字符串数组，我们需要解析它
             let suggestions = [];
-            try {
-                suggestions = JSON.parse(result.text);
-                if (!Array.isArray(suggestions)) {
-                    throw new Error("AI did not return a JSON array of suggestions.");
-                }
-            } catch (parseError) {
-                logError('INFER_SUGGESTIONS (JSON parse)', parseError);
-                // 如果解析失败，将原始文本作为单个建议返回
-                suggestions = [result.text];
+            if (!Array.isArray(result.suggestions)) {
+                throw new Error("AI did not return a JSON array of suggestions.");
             }
-
-            return { success: true, suggestions: suggestions };
-        } catch (error) {
-            logError('INFER_SUGGESTIONS', error);
-            return { success: false, error: error.message };
+            suggestions = result.suggestions;
+            return { success: true, suggestions };
+        } catch (parseError) {
+            logError('INFER_SUGGESTIONS (JSON parse)', parseError);
+            // 如果解析失败，将原始文本作为单个建议返回
+            return { success: true, suggestions: [result.text] };
         }
     },
 
@@ -495,6 +393,7 @@ const messageHandlers = {
         if (engine !== 'ai') {
             return { success: false, error: `Connection test is only supported for AI engines, but got: ${engine}` };
         }
+        const { AITranslator } = await import('../background/translators/ai-translator.js');
         const translator = new AITranslator();
         try {
             // 直接使用从 payload 传来的临时设置调用翻译器。
