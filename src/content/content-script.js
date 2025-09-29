@@ -828,13 +828,19 @@ const messageHandlers = {
 
     DISPLAY_SELECTION_TRANSLATION(request) {
         const { translationId, isLoading } = request.payload;
+
+        // 关键修复：检查当前框架是否是目标框架。
+        // 由于后台脚本现在将消息发送到特定框架，这个检查可能不是必需的，
+        // 但作为一道额外的防线，它可以防止非目标框架意外地创建UI。
+        // 实际上，如果后台正确指定了 frameId，非目标框架根本不会收到此消息。
+
         if (isLoading) {
             currentSelectionTranslationId = translationId;
         } else if (translationId !== currentSelectionTranslationId) {
             console.log(`[Foxlate] 忽略了一个过时的划词翻译结果。ID: ${translationId}`);
             return { success: true, ignored: true };
         }
-        DisplayManager.handleEphemeralTranslation(request.payload);
+        DisplayManager.handleEphemeralTranslation(request.payload, window.frameId);
         return { success: true };
     },
 

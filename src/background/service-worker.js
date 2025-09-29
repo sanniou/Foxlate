@@ -139,12 +139,13 @@ browser.runtime.onInstalled.addListener(() => {
 /**
  * Injects a script into the tab to get the selected text and its position.
  * @param {number} tabId - The ID of the tab to inject the script into.
+ * @param {number} frameId - The ID of the frame to inject the script into.
  * @returns {Promise<{text: string, coords: {clientX: number, clientY: number}}|null>}
  */
-async function getSelectionDetailsFromTab(tabId) {
+async function getSelectionDetailsFromTab(tabId, frameId) {
     try {
         const injectionResults = await browser.scripting.executeScript({
-            target: { tabId: tabId },
+            target: { tabId: tabId, frameIds: [frameId] },
             func: () => {
                 const selection = window.getSelection();
                 if (selection && selection.rangeCount > 0) {
@@ -179,17 +180,37 @@ async function getSelectionDetailsFromTab(tabId) {
  * Handles the translation for selected text from any source (context menu, shortcut).
  * @param {object} tab - The tab where the selection was made.
  * @param {string} source - The source of the trigger ('contextMenu' or 'shortcut').
+ * @param {number} [frameId] - The frame where the selection was made. If not provided, it will be detected.
  */
-async function handleSelectionTranslation(tab, source) {
-    // First, ensure the core content scripts are ready in the main frame to display the result.
-    // frameId 0 is the main document frame.
-    const scriptsReady = await ensureScriptsInjected(tab.id, 0, [...CSS_FILES, ...CORE_SCRIPT_FILES]);
+async function handleSelectionTranslation(tab, source, frameId) {
+    let targetFrameId = frameId;
+    let selectionDetails;
+
+    // 如果没有提供 frameId (例如，来自快捷键)，则尝试在所有框架中查找选区。
+    if (typeof targetFrameId !== 'number') {
+        const results = await browser.scripting.executeScript({
+            target: { tabId: tab.id, allFrames: true },
+            func: () => window.getSelection().toString().trim() ? window.getSelection().toString() : null
+        });
+
+        const frameWithSelection = results.find(r => r.result);
+        if (!frameWithSelection) {
+            console.log("No text selected in any frame.");
+            return;
+        }
+        targetFrameId = frameWithSelection.frameId;
+    }
+
+    // 确保核心内容脚本已准备好在目标框架中显示结果。
+    const scriptsReady = await ensureScriptsInjected(tab.id, targetFrameId, [...CSS_FILES, ...CORE_SCRIPT_FILES]);
     if (!scriptsReady) {
-        logError('handleSelectionTranslation', new Error(`Could not inject scripts into tab ${tab.id}.`));
+        logError('handleSelectionTranslation', new Error(`Could not inject scripts into tab ${tab.id}, frame ${targetFrameId}.`));
         return;
     }
 
-    const selectionDetails = await getSelectionDetailsFromTab(tab.id);
+    // 从确定的目标框架中获取选区详情。
+    // 注意：内容脚本现在负责显示UI，所以我们只需要在目标框架中注入脚本。
+    selectionDetails = await getSelectionDetailsFromTab(tab.id, targetFrameId);
 
     if (!selectionDetails || !selectionDetails.text.trim()) {
         console.log("No text selected or could not retrieve selection.");
@@ -205,9 +226,9 @@ async function handleSelectionTranslation(tab, source) {
 
     // Immediately send "loading" state for better UX.
     browser.tabs.sendMessage(tab.id, {
-        type: 'DISPLAY_SELECTION_TRANSLATION',
+        type: 'DISPLAY_SELECTION_TRANSLATION', // 这个消息会被所有框架的 content-script 监听到
         payload: { ...basePayload, isLoading: true }
-    }).catch((e) => logError('handleSelectionTranslation (Send Loading)', e));
+    }, { frameId: targetFrameId }).catch((e) => logError('handleSelectionTranslation (Send Loading)', e));
 
     // Perform translation and prepare the result part of the payload.
     let resultPayload;
@@ -248,9 +269,9 @@ async function handleSelectionTranslation(tab, source) {
 
     // Send the final result, combining the base and result payloads.
     browser.tabs.sendMessage(tab.id, {
-        type: 'DISPLAY_SELECTION_TRANSLATION',
+        type: 'DISPLAY_SELECTION_TRANSLATION', // 同样，只发送给目标框架
         payload: { ...basePayload, ...resultPayload }
-    }).catch(e => logError('handleSelectionTranslation (Send Result)', e));
+    }, { frameId: targetFrameId }).catch(e => logError('handleSelectionTranslation (Send Result)', e));
 }
 
 // --- Message Handlers ---
@@ -708,7 +729,7 @@ const messageHandlers = {
 browser.commands.onCommand.addListener(async (command, tab) => {
     if (!tab?.id) return;
 
-    if (command === "translate-selection") {
+    if (command === "translate-selection") { // 快捷键触发时没有 frameId
         handleSelectionTranslation(tab, 'shortcut');
         return;
     }
@@ -748,7 +769,8 @@ browser.commands.onCommand.addListener(async (command, tab) => {
 
 browser.contextMenus.onClicked.addListener((info, tab) => {
     if (info.menuItemId === "translate-selection") {
-        handleSelectionTranslation(tab, 'contextMenu');
+        // 右键菜单事件提供了 frameId
+        handleSelectionTranslation(tab, 'contextMenu', info.frameId);
     }
 });
 

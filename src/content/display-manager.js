@@ -205,11 +205,11 @@ export class DisplayManager {
     /**
      * 处理临时的、非 DOM 绑定的翻译生命周期（例如右键菜单）。
      * @param {object} payload - 从后台脚本接收的事件负载。
+     * @param {number} frameId - 当前框架的ID。
      */
-    static handleEphemeralTranslation(payload) {
+    static handleEphemeralTranslation(payload, frameId) {
         const { isLoading, success, translatedText, error, coords, source } = payload;
         const displayMode = 'contextMenu';
-
         let target;
         if (isLoading) {
             if (this.activeEphemeralTargets.has(displayMode)) {
@@ -221,7 +221,8 @@ export class DisplayManager {
                     clientX: coords.clientX,
                     clientY: coords.clientY,
                     source: source,
-                }
+                },
+                frameId: frameId // 存储框架ID
             };
             this.activeEphemeralTargets.set(displayMode, target);
             this.displayLoading(target, displayMode);
