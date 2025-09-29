@@ -175,6 +175,10 @@
     "message": "取消",
     "description": "通用取消按钮文本。"
   },
+  "confirm": {
+    "message": "确认",
+    "description": "通用确认按钮文本。"
+  },
   "saveRule": {
     "message": "保存规则",
     "description": "保存域名规则的按钮文本。"
@@ -1003,5 +1007,69 @@
   "noCloudBackupsFound": {
     "message": "未找到云端备份。",
     "description": "备份列表为空时显示的消息。"
+  },
+  "downloadSettings": {
+    "message": "下载",
+    "description": "下载云端备份的按钮文本。"
+  },
+  "confirmUploadSettings": {
+    "message": "您确定要将当前设置上传到云端吗？这将创建一个新的备份。",
+    "description": "上传设置前的确认信息。"
+  },
+  "confirmDownloadSettings": {
+    "message": "您确定要下载此备份并覆盖本地设置吗？",
+    "description": "下载备份前的确认信息。"
+  },
+  "confirmDeleteBackup": {
+    "message": "您确定要删除此云端备份吗？此操作无法撤销。",
+    "description": "删除备份前的确认信息。"
+  },
+  "syncManagement": {
+    "message": "同步管理",
+    "description": "同步管理部分的标题。"
+  },
+  "uploadSettings": {
+    "message": "上传设置到云端",
+    "description": "上传设置到云端的按钮文本。"
+  },
+  "refreshingCloudData": {
+    "message": "正在刷新云端数据...",
+    "description": "刷新云端数据时的状态消息。"
+  },
+  "cloudDataRefreshed": {
+    "message": "云端数据已刷新。",
+    "description": "云端数据刷新后的状态消息。"
+  },
+  "settingsUploadedSuccess": {
+    "message": "设置已成功上传到云端！",
+    "description": "成功上传设置的状态消息。"
+  },
+  "uploadSettingsToCloudFailed": {
+    "message": "上传设置到云端失败。",
+    "description": "上传设置失败的状态消息。"
+  },
+  "settingsDownloadedSuccess": {
+    "message": "设置已成功下载并应用！",
+    "description": "成功下载并应用设置的状态消息。"
+  },
+  "downloadSettingsFromCloudFailed": {
+    "message": "从云端下载设置失败。",
+    "description": "从云端下载设置失败的状态消息。"
+  },
+  "deleteBackupSuccess": {
+    "message": "云端备份已成功删除！",
+    "description": "成功删除备份的状态消息。"
+  },
+  "deleteBackupFailed": {
+    "message": "删除云端备份失败。",
+    "description": "删除备份失败的状态消息。"
+  },
+  "loadCloudDataFailed": {
+    "message": "加载云端数据失败。",
+    "description": "加载云端数据失败的状态消息。"
+  },
+  "lastSynced": {
+    "message": "上次同步时间: $1",
+    "description": "显示上次同步的时间戳。占位符: 1。"
   }
 }

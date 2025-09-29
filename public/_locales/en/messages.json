@@ -171,6 +171,10 @@
     "message": "Cancel",
     "description": "Generic cancel button text."
   },
+  "confirm": {
+    "message": "Confirm",
+    "description": "Generic confirm button text."
+  },
   "saveRule": {
     "message": "Save Rule",
     "description": "Button to save a domain rule."
@@ -991,5 +995,69 @@
   "noCloudBackupsFound": {
     "message": "No cloud backups found.",
     "description": "Message displayed in the backup list when it is empty."
+  },
+  "downloadSettings": {
+    "message": "Download",
+    "description": "Button text to download a cloud backup."
+  },
+  "confirmUploadSettings": {
+    "message": "Are you sure you want to upload your current settings to the cloud? This will create a new backup.",
+    "description": "Confirmation message before uploading settings."
+  },
+  "confirmDownloadSettings": {
+    "message": "Are you sure you want to download this backup and overwrite your local settings?",
+    "description": "Confirmation message before downloading a backup."
+  },
+  "confirmDeleteBackup": {
+    "message": "Are you sure you want to delete this cloud backup? This action cannot be undone.",
+    "description": "Confirmation message before deleting a backup."
+  },
+  "syncManagement": {
+    "message": "Synchronization Management",
+    "description": "Section heading for synchronization management."
+  },
+  "uploadSettings": {
+    "message": "Upload Settings to Cloud",
+    "description": "Button text to upload settings to the cloud."
+  },
+  "refreshingCloudData": {
+    "message": "Refreshing cloud data...",
+    "description": "Status message when refreshing cloud data."
+  },
+  "cloudDataRefreshed": {
+    "message": "Cloud data refreshed.",
+    "description": "Status message when cloud data has been refreshed."
+  },
+  "settingsUploadedSuccess": {
+    "message": "Settings uploaded to cloud successfully!",
+    "description": "Status message for successful settings upload."
+  },
+  "uploadSettingsToCloudFailed": {
+    "message": "Failed to upload settings to cloud.",
+    "description": "Status message for failed settings upload."
+  },
+  "settingsDownloadedSuccess": {
+    "message": "Settings downloaded and applied successfully!",
+    "description": "Status message for successful settings download."
+  },
+  "downloadSettingsFromCloudFailed": {
+    "message": "Failed to download settings from cloud.",
+    "description": "Status message for failed settings download from cloud."
+  },
+  "deleteBackupSuccess": {
+    "message": "Cloud backup deleted successfully!",
+    "description": "Status message for successful backup deletion."
+  },
+  "deleteBackupFailed": {
+    "message": "Failed to delete cloud backup.",
+    "description": "Status message for failed backup deletion."
+  },
+  "loadCloudDataFailed": {
+    "message": "Failed to load cloud data.",
+    "description": "Status message for failed cloud data loading."
+  },
+  "lastSynced": {
+    "message": "Last synced: $1",
+    "description": "Displays the last synchronization timestamp. Placeholder: 1."
   }
 }

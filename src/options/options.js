@@ -776,7 +776,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     `;
                     elements.cloudDataList.appendChild(li);
                 });
-                elements.cloudSettingsInfo.textContent = `Last synced: ${new Date(response.backups[0].timestamp).toLocaleString()}`;
+                elements.cloudSettingsInfo.textContent = browser.i18n.getMessage("lastSynced", new Date(response.backups[0].timestamp).toLocaleString());
             } else {
                 elements.cloudSettingsInfo.textContent = browser.i18n.getMessage('cloudSettingsStatusNoData');
                 const li = document.createElement('li');
@@ -787,24 +787,24 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error("Failed to fetch cloud backups:", error);
             elements.cloudSettingsInfo.textContent = `Error: ${error.message}`;
-            showStatusMessage("Failed to load cloud data.", true);
+            showStatusMessage(browser.i18n.getMessage("loadCloudDataFailed"), true);
         }
     };
 
     const uploadSettingsToCloud = async () => {
         const confirmed = await confirmModal.open(
             browser.i18n.getMessage('confirmTitle'),
-            "Are you sure you want to upload your current settings to the cloud? This will overwrite the latest cloud backup."
+            browser.i18n.getMessage('confirmUploadSettings')
         );
         if (confirmed) {
             try {
                 const settingsToUpload = getSettingsFromUI();
                 await browser.runtime.sendMessage({ type: 'UPLOAD_SETTINGS_TO_CLOUD', payload: settingsToUpload });
-                showStatusMessage("Settings uploaded to cloud successfully!");
+                showStatusMessage(browser.i18n.getMessage("settingsUploadedSuccess"));
                 renderCloudDataList();
             } catch (error) {
                 console.error("Failed to upload settings to cloud:", error);
-                showStatusMessage("Failed to upload settings to cloud.", true);
+                showStatusMessage(browser.i18n.getMessage("uploadSettingsToCloudFailed"), true);
             }
         }
     };
@@ -812,14 +812,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const downloadSettingsFromCloud = async (backupId) => {
         const confirmed = await confirmModal.open(
             browser.i18n.getMessage('confirmTitle'),
-            "Are you sure you want to download this backup and overwrite your local settings?"
+            browser.i18n.getMessage('confirmDownloadSettings')
         );
         if (confirmed) {
             try {
                 const response = await browser.runtime.sendMessage({ type: 'DOWNLOAD_SETTINGS_FROM_CLOUD', payload: { backupId } });
                 if (response && response.success) {
                     await SettingsManager.saveLocalSettings(response.settings);
-                    showStatusMessage("Settings downloaded and applied successfully!");
+                    showStatusMessage(browser.i18n.getMessage("settingsDownloadedSuccess"));
                     // Re-render the entire UI to reflect new settings
                     const newSettings = await SettingsManager.getValidatedSettings();
                     updateStateAndRender(newSettings);
@@ -828,7 +828,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (error) {
                 console.error("Failed to download settings from cloud:", error);
-                showStatusMessage("Failed to download settings from cloud.", true);
+                showStatusMessage(browser.i18n.getMessage("downloadSettingsFromCloudFailed"), true);
             }
         }
     };
@@ -836,24 +836,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const deleteCloudBackup = async (backupId) => {
         const confirmed = await confirmModal.open(
             browser.i18n.getMessage('confirmTitle'),
-            "Are you sure you want to delete this cloud backup? This action cannot be undone."
+            browser.i18n.getMessage('confirmDeleteBackup')
         );
         if (confirmed) {
             try {
                 await browser.runtime.sendMessage({ type: 'DELETE_CLOUD_BACKUP', payload: { backupId } });
-                showStatusMessage("Cloud backup deleted successfully!");
+                showStatusMessage(browser.i18n.getMessage("deleteBackupSuccess"));
                 renderCloudDataList();
             } catch (error) {
                 console.error("Failed to delete cloud backup:", error);
-                showStatusMessage("Failed to delete cloud backup.", true);
+                showStatusMessage(browser.i18n.getMessage("deleteBackupFailed"), true);
             }
         }
     };
 
     const refreshCloudData = async () => {
-        showStatusMessage("Refreshing cloud data...");
+        showStatusMessage(browser.i18n.getMessage("refreshingCloudData"));
         await renderCloudDataList();
-        showStatusMessage("Cloud data refreshed.");
+        showStatusMessage(browser.i18n.getMessage("cloudDataRefreshed"));
     };
 
     const handleGlobalClick = async (e) => {

@@ -864,6 +864,15 @@ button.m3-icon-button.danger { /* Specificity for danger color */
     margin-top: 24px; /* Add space above the action buttons */
 }
 
+/* Specific styles for the Confirm modal to make it smaller and centered */
+#confirmModal {
+    align-items: center; /* Vertically center the confirm modal */
+}
+
+#confirmModal .modal-content {
+    max-width: 450px;
+}
+
 .ai-engine-list ul {
     list-style: none;
     padding: 0;
@@ -1200,6 +1209,49 @@ button.m3-icon-button.danger { /* Specificity for danger color */
     margin-top: 20px;
     padding-top: 16px;
     border-top: 1px solid var(--md-sys-color-outline-variant);
+}
+
+/* === Cloud Backup List Styles === */
+#cloudDataListSection {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid var(--md-sys-color-outline-variant);
+}
+
+#cloudDataListSection h3 {
+    margin-top: 0;
+    margin-bottom: 16px;
+    padding-bottom: 0;
+    border-bottom: none;
+    font-size: var(--md-sys-typescale-title-medium-font-size);
+}
+
+ul#cloudDataList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.cloud-data-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 4px; /* More vertical, less horizontal padding */
+    border-bottom: 1px solid var(--md-sys-color-outline-variant);
+    transition: background-color 0.2s ease;
+}
+
+.cloud-data-item:hover {
+    background-color: var(--md-sys-state-hover-on-surface);
+}
+
+.cloud-data-item .item-actions {
+    display: flex;
+    gap: 8px;
+}
+
+#cloudDataListSection .m3-helper-text {
+    margin-top: 16px;
 }
 
 /* Responsive Design for Mobile */
