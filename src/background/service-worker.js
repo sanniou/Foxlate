@@ -39,31 +39,36 @@ function logError(context, error) {
 
 /**
  * 确保指定的资源（CSS 和 JS）被注入到标签页的特定框架中。
- * 此函数使用 `browser.storage.session` 来跟踪已注入的资源，以避免重复注入。
+ * (已优化) 此函数现在使用 TabStateManager 来跟踪已注入的资源，以避免重复注入。
  * @param {number} tabId The ID of the tab.
  * @param {number} frameId The ID of the frame within the tab.
  * @param {string[]} filesToInject An array of file paths to inject (e.g., ['style.css', 'script.js']).
  * @returns {Promise<boolean>} True if scripts are ready or successfully injected, false otherwise.
  */
 async function ensureScriptsInjected(tabId, frameId, filesToInject) {
-    if (!filesToInject || filesToInject.length === 0) {
+    if (!filesToInject?.length) {
+        return true;
+    }
+
+    // (优化) 检查此框架是否已注入过脚本
+    const isInjected = await TabStateManager.isFrameInjected(tabId, frameId);
+    if (isInjected) {
         return true;
     }
 
     try {
-        // 将要注入的文件分为 CSS 和 JS
         const cssToInject = filesToInject.filter(file => file.endsWith('.css'));
         const jsToInject = filesToInject.filter(file => file.endsWith('.js'));
 
-        // 按顺序注入：先 CSS，后 JS。
-        // 内容脚本内部有自己的保护机制（window.foxlateContentScriptInitialized），
-        // 可以防止在同一个页面上下文中重复执行初始化逻辑。
         if (cssToInject.length > 0) {
             await browser.scripting.insertCSS({ target: { tabId, frameIds: [frameId] }, files: cssToInject });
         }
         if (jsToInject.length > 0) {
             await browser.scripting.executeScript({ target: { tabId, frameIds: [frameId] }, files: jsToInject });
         }
+
+        // (优化) 注入成功后，在 TabStateManager 中标记此框架
+        await TabStateManager.markFrameAsInjected(tabId, frameId);
 
         return true;
     } catch (error) {

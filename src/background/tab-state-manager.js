@@ -118,12 +118,12 @@ class TabStateManager {
      * @param {number} tabId
      */
     async removeTab(tabId) {
-        return this.#enqueueWrite(() => {
-            return this.#readModifyWrite(['tabTranslationStates', 'sessionTabTranslations'], states => {
+        return this.#enqueueWrite(async () => {
+            await this.#readModifyWrite(['tabTranslationStates', 'sessionTabTranslations', 'injectedFrames'], states => {
                 let changed = false;
                 if (states.tabTranslationStates && states.tabTranslationStates[tabId]) {
                     delete states.tabTranslationStates[tabId];
-                    changed = true;
+                    changed = true; 
                 }
                 if (states.sessionTabTranslations && states.sessionTabTranslations[tabId]) {
                     delete states.sessionTabTranslations[tabId];
@@ -132,9 +132,43 @@ class TabStateManager {
                 if (changed) {
                     console.log(`[TabStateManager] Cleaned up state for closed tab ${tabId}.`);
                 }
+                if (states.injectedFrames && states.injectedFrames[tabId]) {
+                    delete states.injectedFrames[tabId];
+                    console.log(`[TabStateManager] Cleaned up injection state for closed tab ${tabId}.`);
+                }
                 return states;
             });
         });
+    }
+
+    /**
+     * (新) 标记一个框架为已注入脚本。
+     * @param {number} tabId
+     * @param {number} frameId
+     */
+    async markFrameAsInjected(tabId, frameId) {
+        return this.#enqueueWrite(() => {
+            return this.#readModifyWrite('injectedFrames', states => {
+                if (!states[tabId]) {
+                    states[tabId] = [];
+                }
+                if (!states[tabId].includes(frameId)) {
+                    states[tabId].push(frameId);
+                }
+                return states;
+            });
+        });
+    }
+
+    /**
+     * (新) 检查一个框架是否已被标记为已注入。
+     * @param {number} tabId
+     * @param {number} frameId
+     * @returns {Promise<boolean>}
+     */
+    async isFrameInjected(tabId, frameId) {
+        const { injectedFrames } = await browser.storage.session.get('injectedFrames');
+        return !!(injectedFrames?.[tabId]?.includes(frameId));
     }
 
     /**
