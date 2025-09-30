@@ -509,23 +509,10 @@ class PageTranslationJob {
                     // 忽略由本扩展自身UI（如 tooltip）或已翻译内容引起的突变。
                     if (node.closest('[data-translation-id], .foxlate-panel')) continue;
 
-                    // (新) 修复：正确跳过由脚本自身生成的包裹元素。
                     if (node.dataset.foxlateGenerated === 'true') continue;
 
-                    // (优化) 使用与 DOMWalker 中相同的、分层且高效的可见性检查模式。
-                    // 这是一个快速的预过滤，只执行无重排（reflow）的检查，以避免在处理高频DOM变化时
-                    // 引入性能瓶颈。最终的、更昂贵的可见性检查将在 DOMWalker.create 中进行。
-                    const style = getStyle(node);
-                    if (style.display === 'none' || style.visibility === 'hidden') {
+                    if (!DOMWalker.isPotentiallyVisible(node, getStyle)) {
                         continue;
-                    }
-                    // `offsetParent` 为 null 通常意味着元素是不可见的。
-                    if (node.offsetParent === null) {
-                        // 但我们需要处理那些 `offsetParent` 为 null 但元素仍然可见的例外情况，
-                        // 例如固定/粘性定位的元素。
-                        if (style.position !== 'fixed' && style.position !== 'sticky') {
-                            continue;
-                        }
                     }
 
                     this.mutationQueue.add(node);

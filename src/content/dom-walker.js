@@ -69,6 +69,29 @@ export class DOMWalker {
     }
 
     /**
+     * (新) 执行一个轻量级的、无重排的可见性预检查。
+     * 此方法用于在高频场景（如 MutationObserver）中快速过滤掉明显不可见的元素。
+     * @param {HTMLElement} element - 要检查的元素。
+     * @param {function(HTMLElement): CSSStyleDeclaration} getCachedStyle - 用于获取缓存样式的函数。
+     * @returns {boolean} 如果元素可能是可见的，则返回 true。
+     */
+    static isPotentiallyVisible(element, getCachedStyle) {
+        const style = getCachedStyle(element);
+        if (style.display === 'none' || style.visibility === 'hidden') {
+            return false;
+        }
+
+        if (element.offsetParent === null) {
+            const tagName = element.tagName.toUpperCase();
+            if (tagName !== 'HTML' && tagName !== 'BODY' && style.position !== 'fixed' && style.position !== 'sticky') {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * @private
      * @static
      * 使用混合方法确定元素的追加类型 ('inline' 或 'block')。
