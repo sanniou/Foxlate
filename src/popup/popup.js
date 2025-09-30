@@ -116,7 +116,6 @@ document.addEventListener('DOMContentLoaded', () => {
         delete targetLangs.auto;
         populateSelect(elements.targetLanguageSelect, targetLangs, finalRule.targetLanguage);
         elements.displayModeSelect.value = finalRule.displayMode;
-
         elements.autoTranslateCheckbox.disabled = !currentHostname;
         elements.autoTranslateCheckbox.checked = finalRule.autoTranslate === 'always';
         

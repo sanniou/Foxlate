@@ -329,6 +329,16 @@ export class SettingsManager {
         // Start with global settings as the base and merge the domain rule
         const effectiveSettings = { ...settings, ...domainRule, source: ruleSource };
 
+        // (已优化) 解析所有值为 'default' 的规则属性，将其替换为全局设置的实际值。
+        // 这确保了 getEffectiveSettings 的调用者永远不会收到 'default' 字符串。
+        const keysToResolve = ['autoTranslate', 'translatorEngine', 'targetLanguage', 'sourceLanguage', 'displayMode'];
+        for (const key of keysToResolve) {
+            if (effectiveSettings[key] === 'default') {
+                // 从原始的全局设置 (settings) 中获取回退值
+                effectiveSettings[key] = settings[key];
+            }
+        }
+
         // --- 字幕和选择器逻辑 (已重构) ---
         effectiveSettings.subtitleSettings = SettingsManager.#calculateEffectiveSubtitleSettings(hostname, domainRule);
 
