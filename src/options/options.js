@@ -165,6 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'SET_FULL_STATE':
                 return action.payload;
             case 'SET_TRANSLATOR_ENGINE':
+                if (currentState.translatorEngine === action.payload) return currentState;
                 return { ...currentState, translatorEngine: action.payload };
             case 'SET_TARGET_LANGUAGE':
                 return { ...currentState, targetLanguage: action.payload };
@@ -172,9 +173,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 return { ...currentState, displayMode: action.payload };
             case 'SET_DEEPLX_URL':
                 return { ...currentState, deeplxApiUrl: action.payload };
-            case 'SET_CACHE_SIZE':
+            case 'SET_CACHE_SIZE': {
                 const size = parseInt(action.payload, 10);
-                return { ...currentState, cacheSize: !isNaN(size) && size >= 0 ? size : Constants.DEFAULT_SETTINGS.cacheSize };
+                const newSize = !isNaN(size) && size >= 0 ? size : Constants.DEFAULT_SETTINGS.cacheSize;
+                if (currentState.cacheSize === newSize) return currentState;
+                return { ...currentState, cacheSize: newSize };
+            }
             case 'SET_SYNC_ENABLED':
                 return { ...currentState, syncEnabled: action.payload };
             case 'SET_DEFAULT_SELECTOR':
@@ -185,17 +189,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         default: { ...currentState.translationSelector.default, [action.payload.key]: action.payload.value }
                     }
                 };
-            case 'UPDATE_PRECHECK_RULE':
+            case 'UPDATE_PRECHECK_RULE': {
                 const { category, index, key, value } = action.payload;
                 const newPrecheckRules = JSON.parse(JSON.stringify(currentState.precheckRules));
                 if (newPrecheckRules[category]?.[index]) {
                     newPrecheckRules[category][index][key] = value;
                 }
                 return { ...currentState, precheckRules: newPrecheckRules };
+            }
             case 'ADD_PRECHECK_RULE': {
                 const newRules = JSON.parse(JSON.stringify(currentState.precheckRules));
                 if (!newRules[action.payload.category]) newRules[action.payload.category] = [];
-                newRules[action.payload.category].push({ name: '', regex: '', mode: 'blacklist', enabled: true, flags: '' });
+                newRules[action.payload.category].push({ name: '', regex: '', mode: 'blacklist', enabled: true, flags: '', isNew: true }); // 标记为新规则
                 return { ...currentState, precheckRules: newRules };
             }
             case 'REMOVE_PRECHECK_RULE': {
@@ -211,13 +216,15 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     /**
-     * (新) 比较新旧状态，返回发生变化的顶级键。
+     * (已优化) 比较新旧状态，返回发生变化的顶级键。
      * @param {object} oldState
      * @param {object} newState
      * @returns {Set<string>} 包含已更改键的 Set。
      */
     const diffState = (oldState, newState) => {
         const changes = new Set();
+        if (!oldState) return new Set(Object.keys(newState)); // 初始渲染
+
         const allKeys = new Set([...Object.keys(oldState), ...Object.keys(newState)]);
         for (const key of allKeys) {
             // 使用 JSON.stringify 进行深比较，简单有效
@@ -229,17 +236,17 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     /**
-     * (重构) 局部渲染引擎。
-     * @param {Set<string>} changes - 一个包含已更改状态键的 Set。如果为空，则为初始渲染。
+     * (重构) 局部渲染引擎。此函数现在只处理非 PrecheckRules 的渲染。
+     * @param {Set<string>} changes - 一个包含已更改状态键的 Set。
      */
-    const render = (changes = new Set()) => {
-        console.log('[Options] Rendering UI from state.');
-
-        const isInitialRender = changes.size === 0;
+    const render = (changes) => {
+        const isInitialRender = !initialSettingsSnapshot;
 
         // 1. 更新主表单字段
-        populateEngineSelect(elements.translatorEngine, { allEngines: state.aiEngines });
-        elements.translatorEngine.value = state.translatorEngine;
+        if (isInitialRender || changes.has('aiEngines') || changes.has('translatorEngine')) {
+            populateEngineSelect(elements.translatorEngine, { allEngines: state.aiEngines });
+            elements.translatorEngine.value = state.translatorEngine;
+        }
         elements.targetLanguage.value = state.targetLanguage;
         const defaultSelector = state.translationSelector.default || {};
         elements.defaultContentSelector.value = defaultSelector.content || '';
@@ -262,11 +269,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderDomainRules();
         }
 
-        if (isInitialRender || changes.has('precheckRules')) {
-            renderPrecheckRulesUI();
-        }
-
-        if (isInitialRender || changes.has('aiEngines')) {
+        if (changes.has('aiEngines')) {
             if (aiEngineModal?.isOpen()) aiEngineModal.updateEngines(state.aiEngines);
             if (domainRuleModal?.isOpen()) domainRuleModal.updateEngines(state.aiEngines);
         }
@@ -514,6 +517,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // 2. 然后，使用一个深拷贝的副本去更新应用的状态。
             //    这可以防止因对象引用而意外修改 `initialSettingsSnapshot`。
             dispatch({ type: 'SET_FULL_STATE', payload: JSON.parse(initialSettingsSnapshot) });
+            initializePrecheckRulesUI(); // 初始构建 Precheck UI
             await updateCacheInfo();
         } catch (error) {
             console.error("Failed to load and validate settings:", error);
@@ -574,7 +578,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    function renderPrecheckRulesUI() {
+    /**
+     * (重构) 仅在页面加载时调用一次，用于构建 Precheck UI 的静态骨架（标签页和面板）。
+     */
+    function initializePrecheckRulesUI() {
         const container = document.getElementById('precheck-rules-container');
         if (!container) return;
         container.innerHTML = '';
@@ -582,47 +589,108 @@ document.addEventListener('DOMContentLoaded', () => {
         const tabButtons = document.createElement('div');
         tabButtons.className = 'tab-buttons';
         const tabContent = document.createElement('div');
-        tabContent.className = 'tab-content';
 
-        const categories = Object.keys(state.precheckRules || {});
+        const categories = Object.keys(SettingsManager.generateDefaultPrecheckRules());
         const sortedCategories = ['general', ...categories.filter(c => c !== 'general').sort()];
 
-        sortedCategories.forEach((category, index) => {
+        sortedCategories.forEach((category, i) => {
             const tabButton = document.createElement('button');
-            tabButton.className = 'tab-button';
+            tabButton.className = `tab-button ${i === 0 ? 'active' : ''}`;
             tabButton.textContent = browser.i18n.getMessage(`precheckTab_${category}`) || category;
             tabButton.dataset.category = category;
             tabButtons.appendChild(tabButton);
 
             const panel = document.createElement('div');
-            panel.className = 'tab-panel';
+            panel.className = `tab-panel ${i === 0 ? 'active' : ''}`;
             panel.id = `panel-${category}`;
             panel.dataset.category = category;
 
             const ruleList = document.createElement('div');
             ruleList.className = 'rule-list';
-            if (state.precheckRules[category]) {
-                state.precheckRules[category].forEach((rule, ruleIndex) => {
-                    ruleList.appendChild(createRuleItemElement(rule, category, ruleIndex));
-                });
-            }
             panel.appendChild(ruleList);
 
             const addRuleBtn = document.createElement('button');
             addRuleBtn.textContent = browser.i18n.getMessage('addPrecheckRule');
             addRuleBtn.className = 'add-rule-btn m3-button filled-tonal';
             panel.appendChild(addRuleBtn);
-
             tabContent.appendChild(panel);
-
-            if (index === 0) {
-                tabButton.classList.add('active');
-                panel.classList.add('active');
-            }
         });
 
         container.appendChild(tabButtons);
         container.appendChild(tabContent);
+
+        // 初始渲染所有规则列表
+        sortedCategories.forEach(category => {
+            renderRuleList(category, state.precheckRules[category] || []);
+        });
+    }
+
+    /**
+     * (重构) 渲染或更新指定分类的规则列表，实现 DOM diffing。
+     * @param {string} category - 规则分类。
+     * @param {Array} rules - 该分类的规则数组。
+     */
+    function renderRuleList(category, rules) {
+        const panel = document.getElementById(`panel-${category}`);
+        if (!panel) return;
+        const ruleListContainer = panel.querySelector('.rule-list');
+
+        // 1. 标记现有节点以便识别
+        ruleListContainer.childNodes.forEach(node => {
+            if (node.nodeType === Node.ELEMENT_NODE) node.dataset.markedForRemoval = 'true';
+        });
+
+        let lastFocusedElement = null;
+
+        // 2. 遍历新规则，更新或创建节点
+        rules.forEach((rule, index) => {
+            const existingItem = ruleListContainer.querySelector(`.rule-item[data-index="${index}"]`);
+
+            if (existingItem) {
+                // 更新现有项
+                updateRuleItemElement(existingItem, rule);
+                delete existingItem.dataset.markedForRemoval;
+            } else {
+                // 创建新项
+                const newItem = createRuleItemElement(rule, category, index);
+                ruleListContainer.appendChild(newItem);
+                if (rule.isNew) {
+                    lastFocusedElement = newItem.querySelector('.rule-name');
+                    delete rule.isNew; // 移除标记
+                }
+            }
+        });
+
+        // 3. 移除不再需要的旧节点
+        ruleListContainer.querySelectorAll('[data-marked-for-removal="true"]').forEach(node => node.remove());
+
+        // 4. 恢复焦点
+        if (lastFocusedElement) {
+            lastFocusedElement.focus();
+        }
+    }
+
+    /**
+     * (新) 更新一个已存在的规则项元素。
+     * @param {HTMLElement} item - 要更新的规则项元素。
+     * @param {object} rule - 最新的规则数据。
+     */
+    function updateRuleItemElement(item, rule) {
+        // 仅当值不同时才更新，避免不必要的DOM操作和焦点丢失
+        const nameInput = item.querySelector('.rule-name');
+        if (nameInput.value !== (rule.name || '')) nameInput.value = rule.name || '';
+
+        const regexInput = item.querySelector('.rule-regex');
+        if (regexInput.value !== (rule.regex || '')) regexInput.value = rule.regex || '';
+
+        const flagsInput = item.querySelector('.rule-flags');
+        if (flagsInput.value !== (rule.flags || '')) flagsInput.value = rule.flags || '';
+
+        const modeSelect = item.querySelector('.rule-mode');
+        if (modeSelect.value !== rule.mode) modeSelect.value = rule.mode;
+
+        const enabledCheckbox = item.querySelector('.rule-enabled-checkbox');
+        if (enabledCheckbox.checked !== rule.enabled) enabledCheckbox.checked = rule.enabled;
     }
 
     function applyTranslationsToFragment(fragment) {
@@ -632,6 +700,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    /**
+     * (重构) 创建一个新的规则项元素，不再负责更新。
+     * @param {object} rule - 规则数据。
+     * @param {string} category - 规则分类。
+     * @param {number} index - 规则索引。
+     * @returns {HTMLElement} 创建的规则项元素。
+     */
     function createRuleItemElement(rule, category, index) {
         const template = document.getElementById('precheck-rule-template');
         if (!template) return document.createElement('div');
@@ -675,8 +750,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function addRuleToCategory(category) {
         const newRule = { name: '', regex: '', mode: 'blacklist', enabled: true, flags: '' };
-        dispatch({ type: 'ADD_PRECHECK_RULE', payload: { category } });
-        render();
+        dispatch({ type: 'ADD_PRECHECK_RULE', payload: { category } }); // Reducer 会标记 isNew: true
         const newRulePanel = document.querySelector(`#panel-${category} .rule-item:last-child`);
         if (newRulePanel) newRulePanel.querySelector('.rule-name').focus();
     }
@@ -1040,8 +1114,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'remove-rule-btn': (btn) => {
                 const item = btn.closest('.rule-item');
                 const { category, index } = item.dataset;
-                dispatch({ type: 'REMOVE_PRECHECK_RULE', payload: { category, index } });
-                render({ changes: new Set(['precheckRules']) }); // 局部渲染
+                dispatch({ type: 'REMOVE_PRECHECK_RULE', payload: { category, index: parseInt(index, 10) } });
             },
             'test-rule-btn': (btn) => {
                 const item = btn.closest('.rule-item');
@@ -1079,14 +1152,20 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- 动态前置检查规则 ---
         const precheckItem = target.closest('.rule-item[data-category][data-index]');
         if (precheckItem) {
+            let key;
+            if (target.classList.contains('rule-name')) key = 'name';
+            else if (target.classList.contains('rule-regex')) key = 'regex';
+            else if (target.classList.contains('rule-flags')) key = 'flags';
+
+            if (!key) return;
+
             const payload = {
                 category: precheckItem.dataset.category,
                 index: parseInt(precheckItem.dataset.index, 10),
-                key: target.dataset.key,
+                key: key,
                 value: target.value
             };
             dispatch({ type: 'UPDATE_PRECHECK_RULE', payload });
-            return;
         }
         
         // --- 其他输入框 ---
@@ -1119,8 +1198,24 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- 动态前置检查规则 ---
         const precheckItem = target.closest('.rule-item[data-category][data-index]');
         if (precheckItem) {
-            const payload = { category: precheckItem.dataset.category, index: parseInt(precheckItem.dataset.index, 10), key: target.dataset.key, value };
+            let key;
+            if (target.classList.contains('rule-mode')) key = 'mode';
+            else if (target.classList.contains('rule-enabled-checkbox')) key = 'enabled';
+
+            if (!key) return;
+
+            const payload = {
+                category: precheckItem.dataset.category,
+                index: parseInt(precheckItem.dataset.index, 10),
+                key: key,
+                value
+            };
             dispatch({ type: 'UPDATE_PRECHECK_RULE', payload });
+
+            // 验证相关输入框
+            const regexInput = precheckItem.querySelector('.rule-regex');
+            const flagsInput = precheckItem.querySelector('.rule-flags');
+            validateRegexInput(regexInput, flagsInput);
             return;
         }
         
@@ -1244,6 +1339,11 @@ document.addEventListener('DOMContentLoaded', () => {
             // 2. 然后，使用一个深拷贝的副本更新 UI 状态。
             //    这样可以确保 `updateSaveButtonState` 在比较时，两者是相同的，从而正确地隐藏保存按钮。
             dispatch({ type: 'SET_FULL_STATE', payload: JSON.parse(initialSettingsSnapshot) });
+
+            // (新) 如果 Precheck UI 已经初始化，则仅更新规则列表
+            if (document.getElementById('precheck-rules-container').hasChildNodes()) {
+                Object.keys(newValue.precheckRules).forEach(category => renderRuleList(category, newValue.precheckRules[category]));
+            }
         });
 
         window.addEventListener('beforeunload', (e) => {
