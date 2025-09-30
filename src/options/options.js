@@ -129,32 +129,113 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 状态管理 ---
     let state = {}; // 整个选项页的唯一状态源
-    let initialSettingsSnapshot = ''; // 用于比较变化的快照
+    let initialSettingsSnapshot;
+
+    // --- (新) 状态管理与渲染引擎 ---
 
     /**
-     * (重构) 使用给定的设置对象更新全局状态并重新渲染UI。
-     * @param {object} newSettings - 最新的设置对象。
+     * (新) 状态更新分发器。所有状态变更都必须通过此函数。
+     * @param {object} action - 描述状态变更的动作对象，例如 { type: 'SET_TRANSLATOR_ENGINE', payload: 'google' }
      */
-    const updateStateAndRender = (newSettings) => {
-        console.log('[Options] Settings changed, updating state and re-rendering.', newSettings);
-        
-        const currentUiState = state.ui || { 
-            // isDomainRuleModalOpen: false, // Managed by DomainRuleModal
-            // editingRule: null, // Managed by DomainRuleModal
-            // originalDomain: null, // Managed by DomainRuleModal
-        };
+    const dispatch = (action) => {
+        // 1. 计算新状态 (不可变更新)
+        const newState = rootReducer(state, action);
 
-        state = JSON.parse(JSON.stringify(newSettings));
-        state.ui = currentUiState;
-        
-        render();
-    }
+        // 2. 比较新旧状态，找出需要更新的部分
+        const changes = diffState(state, newState);
+
+        // 3. 更新全局状态
+        state = newState;
+
+        // 4. 执行局部渲染
+        render(changes);
+
+        // 5. 更新保存按钮状态
+        updateSaveButtonState();
+    };
 
     /**
-     * (重构) 从 state 对象渲染整个 UI。这是唯一的 UI 更新入口。
+     * (新) 根 Reducer，根据动作计算新状态。
+     * @param {object} currentState - 当前状态。
+     * @param {object} action - 动作对象。
+     * @returns {object} 新的状态对象。
      */
-    const render = () => {
+    const rootReducer = (currentState, action) => {
+        switch (action.type) {
+            case 'SET_FULL_STATE':
+                return action.payload;
+            case 'SET_TRANSLATOR_ENGINE':
+                return { ...currentState, translatorEngine: action.payload };
+            case 'SET_TARGET_LANGUAGE':
+                return { ...currentState, targetLanguage: action.payload };
+            case 'SET_DISPLAY_MODE':
+                return { ...currentState, displayMode: action.payload };
+            case 'SET_DEEPLX_URL':
+                return { ...currentState, deeplxApiUrl: action.payload };
+            case 'SET_CACHE_SIZE':
+                const size = parseInt(action.payload, 10);
+                return { ...currentState, cacheSize: !isNaN(size) && size >= 0 ? size : Constants.DEFAULT_SETTINGS.cacheSize };
+            case 'SET_SYNC_ENABLED':
+                return { ...currentState, syncEnabled: action.payload };
+            case 'SET_DEFAULT_SELECTOR':
+                return {
+                    ...currentState,
+                    translationSelector: {
+                        ...currentState.translationSelector,
+                        default: { ...currentState.translationSelector.default, [action.payload.key]: action.payload.value }
+                    }
+                };
+            case 'UPDATE_PRECHECK_RULE':
+                const { category, index, key, value } = action.payload;
+                const newPrecheckRules = JSON.parse(JSON.stringify(currentState.precheckRules));
+                if (newPrecheckRules[category]?.[index]) {
+                    newPrecheckRules[category][index][key] = value;
+                }
+                return { ...currentState, precheckRules: newPrecheckRules };
+            case 'ADD_PRECHECK_RULE': {
+                const newRules = JSON.parse(JSON.stringify(currentState.precheckRules));
+                if (!newRules[action.payload.category]) newRules[action.payload.category] = [];
+                newRules[action.payload.category].push({ name: '', regex: '', mode: 'blacklist', enabled: true, flags: '' });
+                return { ...currentState, precheckRules: newRules };
+            }
+            case 'REMOVE_PRECHECK_RULE': {
+                const newRules = JSON.parse(JSON.stringify(currentState.precheckRules));
+                newRules[action.payload.category].splice(action.payload.index, 1);
+                return { ...currentState, precheckRules: newRules };
+            }
+            case 'SET_DOMAIN_RULES':
+                return { ...currentState, domainRules: action.payload };
+            default:
+                return currentState;
+        }
+    };
+
+    /**
+     * (新) 比较新旧状态，返回发生变化的顶级键。
+     * @param {object} oldState
+     * @param {object} newState
+     * @returns {Set<string>} 包含已更改键的 Set。
+     */
+    const diffState = (oldState, newState) => {
+        const changes = new Set();
+        const allKeys = new Set([...Object.keys(oldState), ...Object.keys(newState)]);
+        for (const key of allKeys) {
+            // 使用 JSON.stringify 进行深比较，简单有效
+            if (JSON.stringify(oldState[key]) !== JSON.stringify(newState[key])) {
+                changes.add(key);
+            }
+        }
+        return changes;
+    };
+
+    /**
+     * (重构) 局部渲染引擎。
+     * @param {Set<string>} changes - 一个包含已更改状态键的 Set。如果为空，则为初始渲染。
+     */
+    const render = (changes = new Set()) => {
         console.log('[Options] Rendering UI from state.');
+
+        const isInitialRender = changes.size === 0;
 
         // 1. 更新主表单字段
         populateEngineSelect(elements.translatorEngine, { allEngines: state.aiEngines });
@@ -168,49 +249,43 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.cacheSizeInput.value = state.cacheSize ?? Constants.DEFAULT_SETTINGS.cacheSize;
         elements.syncEnabled.checked = !!state.syncEnabled;
 
-        // Update components if they are open
-        if (aiEngineModal && aiEngineModal.isOpen()) {
-            aiEngineModal.updateEngines(state.aiEngines);
-        }
-        // 2. 重新渲染动态列表和模态框
-        updateApiFieldsVisibility();
-        updateSyncControlsVisibility();
-        renderDomainRules();
-        renderPrecheckRulesUI();
-        checkDefaultEngineAvailability();
-
-        // Update components if they are open
-        if (aiEngineModal && aiEngineModal.isOpen()) {
-            aiEngineModal.updateEngines(state.aiEngines);
-        }
-        if (domainRuleModal && domainRuleModal.isOpen()) {
-            domainRuleModal.updateEngines(state); // (已修改) 传递整个 state 对象
+        if (isInitialRender || changes.has('translatorEngine') || changes.has('aiEngines')) {
+            updateApiFieldsVisibility();
+            checkDefaultEngineAvailability();
         }
 
-        // 3. 更新快照并重置保存按钮状态
-        initialSettingsSnapshot = JSON.stringify(getSettingsFromUI());
-        updateSaveButtonState();
+        if (isInitialRender || changes.has('syncEnabled')) {
+            updateSyncControlsVisibility();
+        }
+
+        if (isInitialRender || changes.has('domainRules')) {
+            renderDomainRules();
+        }
+
+        if (isInitialRender || changes.has('precheckRules')) {
+            renderPrecheckRulesUI();
+        }
+
+        if (isInitialRender || changes.has('aiEngines')) {
+            if (aiEngineModal?.isOpen()) aiEngineModal.updateEngines(state.aiEngines);
+            if (domainRuleModal?.isOpen()) domainRuleModal.updateEngines(state.aiEngines);
+        }
     };
 
     /**
      * (重构) 从 state 获取设置。这是获取当前设置的唯一来源。
      * @returns {object} 当前的设置对象。
      */
-    const getSettingsFromUI = () => {
-        const settingsToSave = JSON.parse(JSON.stringify(state));
-        delete settingsToSave.ui; // 从要保存的设置中移除 UI 状态
+    const getCurrentSettingsState = () => {
+        // 从 state 中解构，移除任何不应被保存或比较的瞬时 UI 状态
+        const { ...settingsToSave } = state;
         return settingsToSave;
     };
 
     const updateSaveButtonState = () => {
-        const currentSettingsString = JSON.stringify(getSettingsFromUI());
+        const currentSettingsString = JSON.stringify(getCurrentSettingsState());
         const hasChanges = currentSettingsString !== initialSettingsSnapshot;
         elements.saveSettingsBtn.classList.toggle('visible', hasChanges);
-    };
-
-    const updateSnapshotAndHideSaveButton = () => {
-        initialSettingsSnapshot = JSON.stringify(getSettingsFromUI());
-        updateSaveButtonState();
     };
 
     function testRegex(regexInput, flagsInput, resultElement) {
@@ -433,7 +508,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const loadSettings = async () => {
         try {
             const initialSettings = await SettingsManager.getValidatedSettings();
-            updateStateAndRender(initialSettings);
+            // 1. 首先，为加载的设置创建一个独立的、序列化的快照。
+            //    这确保了 `initialSettingsSnapshot` 是一个在任何状态更新之前的、真正的“初始”记录。
+            initialSettingsSnapshot = JSON.stringify(initialSettings);
+            // 2. 然后，使用一个深拷贝的副本去更新应用的状态。
+            //    这可以防止因对象引用而意外修改 `initialSettingsSnapshot`。
+            dispatch({ type: 'SET_FULL_STATE', payload: JSON.parse(initialSettingsSnapshot) });
             await updateCacheInfo();
         } catch (error) {
             console.error("Failed to load and validate settings:", error);
@@ -443,7 +523,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const saveSettings = async () => {
         elements.saveSettingsBtn.dataset.state = 'loading';
-        const settingsToSave = getSettingsFromUI();
+        const settingsToSave = getCurrentSettingsState();
         const hasInvalidRegex = !!document.querySelector('.rule-item .m3-form-field.is-invalid');
         const isContentValid = validateCssSelectorInput(elements.defaultContentSelector);
         const isExcludeValid = validateCssSelectorInput(elements.defaultExcludeSelector);
@@ -461,6 +541,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             await SettingsManager.saveLocalSettings(settingsToSave);
+            initialSettingsSnapshot = JSON.stringify(getCurrentSettingsState());
             elements.saveSettingsBtn.dataset.state = 'success';
             setTimeout(() => {
                 updateSaveButtonState();
@@ -481,6 +562,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (confirmed) {
             try {
                 const defaultSettings = SettingsManager.generateDefaultSettings();
+                // (已重构) 重置后，将默认设置设为新的快照基线，
+                // 然后通过保存和随后的 'settingsChanged' 事件来更新 UI 状态。
+                initialSettingsSnapshot = JSON.stringify(defaultSettings);
                 await SettingsManager.saveLocalSettings(defaultSettings);
                 showStatusMessage(browser.i18n.getMessage('resetSettingsSuccess'));
             } catch (error) {
@@ -591,10 +675,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function addRuleToCategory(category) {
         const newRule = { name: '', regex: '', mode: 'blacklist', enabled: true, flags: '' };
-        if (!state.precheckRules[category]) {
-            state.precheckRules[category] = [];
-        }
-        state.precheckRules[category].push(newRule);
+        dispatch({ type: 'ADD_PRECHECK_RULE', payload: { category } });
         render();
         const newRulePanel = document.querySelector(`#panel-${category} .rule-item:last-child`);
         if (newRulePanel) newRulePanel.querySelector('.rule-name').focus();
@@ -636,7 +717,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (confirmed) {
             try {
                 delete state.domainRules[domainToRemove];
-                await SettingsManager.saveLocalSettings(getSettingsFromUI());
+                await SettingsManager.saveLocalSettings(getCurrentSettingsState());
                 showStatusMessage(browser.i18n.getMessage('removeRuleSuccess'));
             } catch (error) {
                 console.error("Failed to remove domain rule:", error);
@@ -647,11 +728,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const editDomainRule = (domain) => {
         const ruleData = state.domainRules[domain] || {};
-        domainRuleModal.open(domain, ruleData, state);
+        domainRuleModal.open(domain, ruleData, state.aiEngines);
     };
 
     const exportSettings = async () => {
-        const settingsJson = JSON.stringify(getSettingsFromUI(), null, 2);
+        const settingsJson = JSON.stringify(getCurrentSettingsState(), null, 2);
         const blob = new Blob([settingsJson], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -671,6 +752,9 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.onload = async (e) => {
             try {
                 const settings = JSON.parse(e.target.result);
+                // (已重构) 导入新设置后，立即将其设为新的快照基线，
+                // 然后通过保存和随后的 'settingsChanged' 事件来更新 UI 状态。
+                initialSettingsSnapshot = JSON.stringify(settings);
                 await SettingsManager.saveLocalSettings(settings);
                 showStatusMessage(browser.i18n.getMessage('importSuccess'));
             } catch (error) {
@@ -842,7 +926,7 @@ document.addEventListener('DOMContentLoaded', () => {
         );
         if (confirmed) {
             try {
-                const settingsToUpload = getSettingsFromUI();
+                const settingsToUpload = getCurrentSettingsState();
                 await browser.runtime.sendMessage({ type: 'UPLOAD_SETTINGS_TO_CLOUD', payload: settingsToUpload });
                 showStatusMessage(browser.i18n.getMessage("settingsUploadedSuccess"));
                 renderCloudDataList();
@@ -955,8 +1039,9 @@ document.addEventListener('DOMContentLoaded', () => {
             'add-rule-btn': (btn) => addRuleToCategory(btn.closest('.tab-panel').dataset.category),
             'remove-rule-btn': (btn) => {
                 const item = btn.closest('.rule-item');
-                state.precheckRules[item.dataset.category].splice(item.dataset.index, 1);
-                render();
+                const { category, index } = item.dataset;
+                dispatch({ type: 'REMOVE_PRECHECK_RULE', payload: { category, index } });
+                render({ changes: new Set(['precheckRules']) }); // 局部渲染
             },
             'test-rule-btn': (btn) => {
                 const item = btn.closest('.rule-item');
@@ -981,32 +1066,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- 主设置表单 ---
         const simpleStateUpdaters = {
-            [ELEMENT_IDS.DEFAULT_CONTENT_SELECTOR]: (val) => state.translationSelector.default.content = val,
-            [ELEMENT_IDS.DEFAULT_EXCLUDE_SELECTOR]: (val) => state.translationSelector.default.exclude = val,
-            [ELEMENT_IDS.DEEPLX_API_URL]: (val) => state.deeplxApiUrl = val,
-            [ELEMENT_IDS.CACHE_SIZE_INPUT]: (val) => {
-                const size = parseInt(val, 10);
-                state.cacheSize = !isNaN(size) && size >= 0 ? size : Constants.DEFAULT_SETTINGS.cacheSize;
-            }
+            [ELEMENT_IDS.DEFAULT_CONTENT_SELECTOR]: (val) => dispatch({ type: 'SET_DEFAULT_SELECTOR', payload: { key: 'content', value: val } }),
+            [ELEMENT_IDS.DEFAULT_EXCLUDE_SELECTOR]: (val) => dispatch({ type: 'SET_DEFAULT_SELECTOR', payload: { key: 'exclude', value: val } }),
+            [ELEMENT_IDS.DEEPLX_API_URL]: (val) => dispatch({ type: 'SET_DEEPLX_URL', payload: val }),
+            [ELEMENT_IDS.CACHE_SIZE_INPUT]: (val) => dispatch({ type: 'SET_CACHE_SIZE', payload: val }),
         };
         if (simpleStateUpdaters[id]) {
             simpleStateUpdaters[id](target.value);
-            updateSaveButtonState();
             return;
         }
 
         // --- 动态前置检查规则 ---
         const precheckItem = target.closest('.rule-item[data-category][data-index]');
         if (precheckItem) {
-            const { category, index } = precheckItem.dataset;
-            const rule = state.precheckRules[category]?.[index];
-            if (rule) {
-                const inputClass = target.className;
-                if (inputClass.includes('rule-name')) rule.name = target.value;
-                else if (inputClass.includes('rule-regex')) rule.regex = target.value;
-                else if (inputClass.includes('rule-flags')) rule.flags = target.value;
-                updateSaveButtonState();
-            }
+            const payload = {
+                category: precheckItem.dataset.category,
+                index: parseInt(precheckItem.dataset.index, 10),
+                key: target.dataset.key,
+                value: target.value
+            };
+            dispatch({ type: 'UPDATE_PRECHECK_RULE', payload });
             return;
         }
         
@@ -1027,30 +1106,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- 主设置表单 ---
         const stateUpdaters = {
-            [ELEMENT_IDS.TRANSLATOR_ENGINE]: (val) => { state.translatorEngine = val; updateApiFieldsVisibility(); },
-            [ELEMENT_IDS.DISPLAY_MODE_SELECT]: (val) => state.displayMode = val,
-            [ELEMENT_IDS.TARGET_LANGUAGE]: (val) => state.targetLanguage = val,
-            [ELEMENT_IDS.SYNC_ENABLED]: (val) => { 
-                state.syncEnabled = val;
-                updateSyncControlsVisibility();
-            },
+            [ELEMENT_IDS.TRANSLATOR_ENGINE]: (val) => dispatch({ type: 'SET_TRANSLATOR_ENGINE', payload: val }),
+            [ELEMENT_IDS.DISPLAY_MODE_SELECT]: (val) => dispatch({ type: 'SET_DISPLAY_MODE', payload: val }),
+            [ELEMENT_IDS.TARGET_LANGUAGE]: (val) => dispatch({ type: 'SET_TARGET_LANGUAGE', payload: val }),
+            [ELEMENT_IDS.SYNC_ENABLED]: (val) => dispatch({ type: 'SET_SYNC_ENABLED', payload: val }),
         };
         if (stateUpdaters[id]) {
             stateUpdaters[id](value);
-            updateSaveButtonState();
             return;
         }
 
         // --- 动态前置检查规则 ---
         const precheckItem = target.closest('.rule-item[data-category][data-index]');
         if (precheckItem) {
-            const { category, index } = precheckItem.dataset;
-            const rule = state.precheckRules[category]?.[index];
-            if (rule) {
-                if (target.matches('.rule-mode')) rule.mode = value;
-                else if (target.matches('.rule-enabled-checkbox')) rule.enabled = value;
-                updateSaveButtonState();
-            }
+            const payload = { category: precheckItem.dataset.category, index: parseInt(precheckItem.dataset.index, 10), key: target.dataset.key, value };
+            dispatch({ type: 'UPDATE_PRECHECK_RULE', payload });
             return;
         }
         
@@ -1058,7 +1128,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const checkDefaultEngineAvailability = () => {
-        const settings = getSettingsFromUI();
+        const settings = getCurrentSettingsState();
         if (!settings.translatorEngine || !settings.translatorEngine.startsWith('ai:')) {
             hideDefaultEngineWarning();
             return true;
@@ -1147,11 +1217,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         domainRuleModal.on('save', async ({ rule, originalDomain }) => {
             try {
+                const newDomainRules = { ...state.domainRules };
                 if (originalDomain) {
-                    delete state.domainRules[originalDomain];
+                    delete newDomainRules[originalDomain];
                 }
-                state.domainRules[rule.domain] = rule;
-                await SettingsManager.saveLocalSettings(getSettingsFromUI());
+                newDomainRules[rule.domain] = rule;
+                // 直接保存，让 settingsChanged 事件来更新 state 和 UI
+                await SettingsManager.saveLocalSettings({ ...state, domainRules: newDomainRules });
                 showStatusMessage(browser.i18n.getMessage('saveRuleSuccess') || 'Rule saved successfully.');
             } catch (error) {
                 console.error("Failed to save domain rule:", error);
@@ -1164,11 +1236,18 @@ document.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('change', handleGlobalChange);
         document.addEventListener('focusin', handleGlobalFocusIn);
         document.addEventListener('keydown', handleKeyDown);
-
-        SettingsManager.on('settingsChanged', ({ newValue }) => updateStateAndRender(newValue));
+        // (已重构) 监听设置变更，并使用 dispatch 更新状态
+        SettingsManager.on('settingsChanged', ({ newValue }) => {
+            // (已重构) 当设置从外部（如后台同步、其他标签页）更改时：
+            // 1. 首先，将这个新的外部状态设置为我们的“未修改”基线快照。
+            initialSettingsSnapshot = JSON.stringify(newValue);
+            // 2. 然后，使用一个深拷贝的副本更新 UI 状态。
+            //    这样可以确保 `updateSaveButtonState` 在比较时，两者是相同的，从而正确地隐藏保存按钮。
+            dispatch({ type: 'SET_FULL_STATE', payload: JSON.parse(initialSettingsSnapshot) });
+        });
 
         window.addEventListener('beforeunload', (e) => {
-            const currentSettingsString = JSON.stringify(getSettingsFromUI());
+            const currentSettingsString = JSON.stringify(getCurrentSettingsState());
             if (currentSettingsString !== initialSettingsSnapshot) {
                 e.preventDefault();
                 e.returnValue = '';

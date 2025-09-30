@@ -44,7 +44,7 @@ body.modal-open {
     height: 100%; /* Explicitly take full height of grid row */
     min-height: 0; /* Allow shrinking */
     overflow: hidden; /* Ensures content doesn't overflow this grid cell */
-    width: 80%;
+    width: 75%;
     margin: 0 auto;
 }
 
