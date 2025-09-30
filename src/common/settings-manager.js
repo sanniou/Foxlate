@@ -326,21 +326,10 @@ export class SettingsManager {
             }
         }
 
-        // 以全局设置为基础开始
-        const effectiveSettings = { ...settings };
-        effectiveSettings.source = ruleSource;
+        // Start with global settings as the base and merge the domain rule
+        const effectiveSettings = { ...settings, ...domainRule, source: ruleSource };
 
-        // 智能合并域名规则。如果规则值为 'default'，则忽略它，保留全局设置。
-        for (const key in domainRule) {
-            if (Object.prototype.hasOwnProperty.call(domainRule, key)) {
-                const value = domainRule[key];
-                // 检查 null 和 'default'，因为 'default' 是 "使用默认" 的值
-                if (value !== 'default' && value !== null && value !== undefined) {
-                    effectiveSettings[key] = value;
-                }
-            }
-        }
-
+        // --- 字幕和选择器逻辑 (已重构) ---
         effectiveSettings.subtitleSettings = SettingsManager.#calculateEffectiveSubtitleSettings(hostname, domainRule);
 
         effectiveSettings.translationSelector = SettingsManager.#calculateEffectiveSelectorSettings(
@@ -361,7 +350,6 @@ export class SettingsManager {
         const compiledSettings = SettingsManager.precompileRules(effectiveSettings.precheckRules);
         effectiveSettings.precheckRules = compiledSettings;
 
-        console.log('Effective settings for', hostname, ':', effectiveSettings);
         SettingsManager.#effectiveSettingsCache.set(hostname, structuredClone(effectiveSettings));
         return effectiveSettings;
     }
@@ -460,6 +448,34 @@ export class SettingsManager {
             settings.translatorEngine = firstAiEngine ? `ai:${firstAiEngine.id}` : 'google';
         }
 
+        await this.saveLocalSettings(settings);
+    }
+    /**
+     * (新) 保存单个域名规则的属性。
+     * 此方法封装了获取、修改和保存域名规则的逻辑。
+     * @param {string} domain - 要更新的域名。
+     * @param {string} key - 要更新的规则属性键。
+     * @param {*} value - 新的属性值。
+     */
+    static async saveDomainRuleProperty(domain, key, value) {
+        if (!domain) {
+            console.warn('[SettingsManager] Cannot save domain rule property without a domain.');
+            return;
+        }
+
+        const settings = await this.getValidatedSettings();
+        const rule = settings.domainRules[domain] || {};
+
+        // 将特殊业务逻辑封装在此处
+        if (key === 'subtitleDisplayMode') {
+            if (!rule.subtitleSettings) rule.subtitleSettings = {};
+            rule.subtitleSettings.enabled = true; // 启用字幕是更改显示模式的副作用
+            rule.subtitleSettings.displayMode = value;
+        } else {
+            rule[key] = value;
+        }
+
+        settings.domainRules[domain] = rule;
         await this.saveLocalSettings(settings);
     }
     /**

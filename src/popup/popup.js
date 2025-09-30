@@ -206,52 +206,36 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const saveChangeToRule = async (key, value) => {
-        console.log(`[Popup] Saving rule change: ${key} = ${value}`);
         if (!currentHostname) {
             console.warn("[Popup] Cannot save rule change, no active hostname.");
             return;
-        } 
-        const settings = await SettingsManager.getValidatedSettings();
-        const domainToUpdate = (currentRuleSource === 'default') ? currentHostname : currentRuleSource;
-        let rule = settings.domainRules[domainToUpdate] || {};
-
-        if (key === 'subtitleDisplayMode') {
-            if (!rule.subtitleSettings) rule.subtitleSettings = {};
-            rule.subtitleSettings.enabled = true;
-            rule.subtitleSettings.displayMode = value;
-        } else {
-            rule[key] = value;
         }
-        settings.domainRules[domainToUpdate] = rule;
-
-        await SettingsManager.saveLocalSettings(settings);
+        // (已重构) 将构建和保存规则的逻辑委托给 SettingsManager。
+        // 如果当前没有规则，则使用当前主机名创建新规则；否则，更新现有规则。
+        const domainToUpdate = (currentRuleSource === 'default') ? currentHostname : currentRuleSource;
+        console.log(`[Popup] Saving rule change for domain '${domainToUpdate}': ${key} = ${value}`);
+        await SettingsManager.saveDomainRuleProperty(domainToUpdate, key, value);
         // The settings will be reloaded automatically via the SETTINGS_UPDATED event listener.
     };
 
     async function handleTranslateButtonClick() {
-        if (!activeTabId || elements.translatePageBtn.disabled) return;
-        
-        // 在处理期间禁用按钮，防止用户快速重复点击
-        elements.translatePageBtn.disabled = true;
-
-        // 为了更好的用户体验，对“原始”状态进行乐观的 UI 更新。
-        if (elements.translatePageBtn.dataset.state === 'original') {
-            updateTranslateButtonState('loading');
-        }
+        if (!activeTabId) return;
 
         try {
+            // 禁用按钮以防止重复点击，直到收到状态更新。
+            elements.translatePageBtn.disabled = true;
+
             // 总是发送相同的切换请求。Service Worker 和 Content Script
             // 将根据页面的实际状态决定正确的操作。
             await browser.runtime.sendMessage({
                 type: 'TOGGLE_TRANSLATION_REQUEST',
                 payload: { tabId: activeTabId }
             });
-            // 请求操作后，再次查询内容脚本以获取最新的、权威的状态。
-            // 此函数还将处理按钮的启用/禁用状态。
-            await updateButtonStateFromContentScript();
+            // (已重构) 不再进行乐观UI更新或主动拉取状态。
+            // UI 将通过监听 TRANSLATION_STATUS_UPDATE 消息被动更新。
         } catch (error) {
             console.error("[Popup] Error during toggle translation request:", error);
-            // 如果发生错误，尝试从内容脚本重新获取真实状态
+            // 如果请求失败，重新获取状态以恢复UI。
             await updateButtonStateFromContentScript();
         }
     }
@@ -272,11 +256,14 @@ document.addEventListener('DOMContentLoaded', () => {
         await loadAndApplySettings();
 
         browser.runtime.onMessage.addListener((request) => {
-            // (已优化) 监听来自 service-worker 的设置更新广播，并直接使用附带的设置数据
             if (request.type === 'SETTINGS_UPDATED' || request.type === 'RELOAD_TRANSLATION_JOB') {
                 console.log(`[Popup] Received '${request.type}' message. Reloading settings and UI.`);
                 loadAndApplySettings(request.payload?.newValue);
-                // 也可以选择性地更新按钮状态，以提供更即时的反馈
+                updateButtonStateFromContentScript();
+            } else if (request.type === 'TRANSLATION_STATUS_UPDATE' && request.payload.tabId === activeTabId) {
+                // (新) 监听来自后台的状态更新，直接更新按钮状态。
+                console.log(`[Popup] Received 'TRANSLATION_STATUS_UPDATE' message. New state: ${request.payload.status}`);
+                setPageControlsEnabled(true); // 收到状态更新，重新启用按钮
                 updateButtonStateFromContentScript();
             }
        });
