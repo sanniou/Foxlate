@@ -114,6 +114,7 @@ export const ELEMENT_IDS = {
     RUN_GLOBAL_TEST_BTN: 'runGlobalTestBtn',
     TEST_TEXT_INPUT: 'testTextInput',
     TEST_TEXT_INPUT_ERROR: 'testTextInputError',
+    PRECHECK_RULES_EDITOR: 'precheck-rules-editor',
 
     // Global Test Area
     TEST_TRANSLATION_BTN: 'testTranslationBtn',

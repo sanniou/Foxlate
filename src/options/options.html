@@ -147,7 +147,9 @@
                         <small class="m3-helper-text" i18n-text="globalTestAreaDescription"></small>
                     </div>
                 </div>
-                <div id="precheck-rules-container"></div>
+                <!-- (重构) 旧的容器被新的 Lit Web Component 替换 -->
+                <precheck-rules-editor id="precheck-rules-editor"></precheck-rules-editor>
+
             </section>
 
             <!-- Cache Settings Panel -->
@@ -531,6 +533,7 @@
     <script src="components/BaseComponent.js" type="module"></script>
     <script src="ui-helpers.js" type="module"></script>
     <script src="components/ConfirmModal.js" type="module"></script>
+    <script src="components/PrecheckRulesEditor.js" type="module"></script> <!-- (新) 引入 Lit 组件 -->
     <script src="components/AIEngineModal.js" type="module"></script>
     <script src="components/DomainRuleModal.js" type="module"></script>
     <script src="options.js" type="module"></script>

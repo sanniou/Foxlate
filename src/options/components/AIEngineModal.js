@@ -41,10 +41,14 @@ export class AIEngineModal extends BaseComponent {
         this.#render();
     }
 
+    /**
+     * 更新模态框中显示的 AI 引擎列表。
+     * @param {Array<object>} newEngines - 最新的 AI 引擎数组。
+     */
     updateEngines(newEngines) {
-        // (已修改) 兼容接收整个 state 对象或仅引擎数组
-        this.#state.allEngines = Array.isArray(newEngines) ? newEngines : (newEngines.aiEngines || []);
+        this.#state.allEngines = newEngines || [];
         if (this.#state.isOpen) {
+            // 如果模态框是打开的，立即重新渲染引擎列表
             this.#renderEngineList(this.#state.allEngines);
             // Also re-populate the fallback engine select if the form is visible
             if (this.#state.isFormVisible && this.#elements.aiShortTextEngineSelect) {
