@@ -3,28 +3,24 @@ import { marked } from '../../lib/marked.esm.js';
 import { debounce } from '../../common/utils.js';
 import browser from '../../lib/browser-polyfill.js';
 
-// (修复) 使用顶层 await 同步加载 CSS，防止对话框出现时闪烁 (FOUC)。
-const commonCssPromise = fetch(browser.runtime.getURL('common/common.css')).then(r => r.ok ? r.text() : '');
-const summaryCssPromise = fetch(browser.runtime.getURL('content/summary/summary.css')).then(r => r.ok ? r.text() : '');
+// (优化) 将 CSS 加载移至组件定义之前，以完全避免 FOUC (无样式内容闪烁)。
+// 使用一个 Promise 来缓存加载操作，确保 CSS 只被获取一次。
+const loadCss = (url, componentName) => {
+    return fetch(browser.runtime.getURL(url))
+        .then(response => response.ok ? response.text() : Promise.reject(`Failed to fetch ${url}: ${response.statusText}`))
+        .then(cssText => unsafeCSS(cssText))
+        .catch(error => {
+            console.error(`[${componentName}] CSS loading failed for ${url}:`, error);
+            return unsafeCSS(`/* CSS FAILED TO LOAD: ${url} */`); // 提供回退样式
+        });
+};
+
+const commonCssPromise = loadCss('common/common.css', 'SummaryDialog');
+const summaryCssPromise = loadCss('content/summary/summary.css', 'SummaryDialog');
 
 export class SummaryDialog extends LitElement {
-    static styles = [
-        unsafeCSS(await commonCssPromise),
-        unsafeCSS(await summaryCssPromise),
-        css`
-            :host {
-                display: block;
-                position: fixed;
-                z-index: 2147483641;
-                visibility: hidden;
-            }
-            :host([open]) .foxlate-summary-dialog {
-                transform: scale(1);
-                opacity: 1;
-                visibility: visible;
-            }
-        `
-    ];
+    // 样式将在下面的 IIFE 中动态设置
+    static styles = [];
 
     static properties = {
         isOpen: { type: Boolean, reflect: true, attribute: 'open' },
@@ -353,4 +349,30 @@ export class SummaryDialog extends LitElement {
     }
 }
 
-customElements.define('summary-dialog', SummaryDialog);
+// 使用立即执行的异步函数来定义组件，以兼容不支持顶层 await 的环境。
+// 这样可以在定义组件前完成需要 await 的操作。
+(async () => {
+    // 等待外部 CSS 加载完成后，再定义组件。
+    const [commonCss, summaryCss] = await Promise.all([commonCssPromise, summaryCssPromise]);
+
+    // 将加载的外部样式与组件内联样式结合
+    SummaryDialog.styles = [
+        commonCss,
+        summaryCss,
+        css`
+            :host {
+                display: block;
+                position: fixed;
+                z-index: 2147483641;
+                visibility: hidden;
+            }
+            :host([open]) .foxlate-summary-dialog {
+                transform: scale(1);
+                opacity: 1;
+                visibility: visible;
+            }
+        `
+    ];
+
+    customElements.define('summary-dialog', SummaryDialog);
+})();
