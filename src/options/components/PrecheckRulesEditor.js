@@ -1,6 +1,16 @@
-import { LitElement, html, css } from '../../lib/lit.js';
+import { LitElement, html, css, unsafeCSS } from '../../lib/lit.js';
 import { escapeHtml } from '../../common/utils.js';
 import browser from '../../lib/browser-polyfill.js';
+
+// (优化) 将 CSS 加载移至组件定义之前，以完全避免 FOUC (无样式内容闪烁)。
+// 使用一个 Promise 来缓存加载操作，确保 CSS 只被获取一次。
+const externalCssPromise = fetch('options.css')
+    .then(response => response.ok ? response.text() : Promise.reject(`Failed to fetch options.css: ${response.statusText}`))
+    .then(cssText => unsafeCSS(cssText))
+    .catch(error => {
+        console.error("[PrecheckRulesEditor] CSS loading failed:", error);
+        return unsafeCSS("/* CSS FAILED TO LOAD */"); // 提供回退样式
+    });
 
 /**
  * (新) PrecheckRulesEditor
@@ -9,93 +19,10 @@ import browser from '../../lib/browser-polyfill.js';
  * 仅通过属性接收数据，并通过事件向上层发出变更通知。
  * 这解决了之前因全量重绘导致的 UI 状态丢失问题。
  */
-export class PrecheckRulesEditor extends LitElement {
-    static styles = css`
-        :host {
-            display: block;
-            margin-top: 16px;
-            font-family: var(--md-sys-font-family); /* (修复) 继承字体 */
-        }
-        .tab-buttons {
-            display: flex;
-            border-bottom: 1px solid var(--md-sys-color-outline-variant);
-            margin-bottom: 16px;
-            overflow-x: auto;
-        }
-        .tab-button {
-            padding: 8px 16px;
-            cursor: pointer;
-            border: none;
-            background: none;
-            border-bottom: 2px solid transparent;
-            color: var(--md-sys-color-on-surface-variant, #49454F);
-            font-size: 14px;
-            font-weight: 500;
-            white-space: nowrap;
-        }
-        .tab-button.active {
-            color: var(--md-sys-color-primary);
-            border-bottom-color: var(--md-sys-color-primary);
-        }
-        .tab-panel {
-            display: none;
-        }
-        .tab-panel.active {
-            display: block;
-        }
-        .rule-list {
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
-        }
-        .rule-item {
-            display: grid;
-            grid-template-columns: repeat(12, 1fr);
-            gap: 16px;
-            align-items: start; /* (修复) 顶部对齐以处理错误消息 */
-            border: 1px solid var(--md-sys-color-outline-variant);
-            padding: 16px;
-            border-radius: 12px;
-        }
-        .rule-name-field { grid-column: 1 / 5; }
-        .rule-regex-field { grid-column: 5 / 13; min-width: 0; } /* (修复) 允许收缩 */
-        .rule-flags-field { grid-column: 1 / 3; }
-        .rule-mode-field { grid-column: 3 / 6; }
-        .rule-item-controls {
-            grid-column: 6 / 13;
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            gap: 8px;
-        }
-        .rule-test-result {
-            grid-column: 1 / -1;
-            margin-top: 8px;
-            padding: 8px;
-            border-radius: 4px;
-            background-color: var(--md-sys-color-surface-container-low, #F7F2FA);
-            font-size: 12px;
-            display: none;
-        }
-        .rule-test-result.show {
-            display: block;
-        }
-        .regex-highlight {
-            background-color: var(--md-sys-color-tertiary-container);
-            color: var(--md-sys-color-on-tertiary-container);
-            border-radius: 3px;
-        }
-        .add-rule-btn {
-            margin-top: 24px;
-        }
-        @media (max-width: 768px) {
-            .rule-name-field { grid-column: 1 / 13; }
-            .rule-regex-field { grid-column: 1 / 13; }
-            .rule-flags-field { grid-column: 1 / 5; }
-            .rule-mode-field { grid-column: 5 / 13; }
-            .rule-item-controls { grid-column: 1 / 13; justify-content: flex-start; }
-        }
-    `;
+class PrecheckRulesEditor extends LitElement {
+    static styles = [
+        // 组件专属样式会在此处，但为了演示清晰，我们将在 IIFE 中动态设置
+    ];
 
     static properties = {
         rules: { type: Object },
@@ -339,7 +266,7 @@ export class PrecheckRulesEditor extends LitElement {
     }
 }
 
-customElements.define('precheck-rules-editor', PrecheckRulesEditor);
+export { PrecheckRulesEditor };
 
 /**
  * (新) 引入 lit.js
@@ -355,3 +282,20 @@ customElements.define('precheck-rules-editor', PrecheckRulesEditor);
  * - 保持了项目的极简构建流程，无需为 Lit 添加任何特殊的 esbuild 配置。
  * - 依赖是自包含的，便于版本控制和离线开发。
  */
+
+// 使用立即执行的异步函数来定义组件，以兼容不支持顶层 await 的环境。
+// 这样可以在定义组件前完成需要 await 的操作。
+(async () => {
+    // (优化) 等待外部 CSS 加载完成后，再定义组件。
+    const externalCss = await externalCssPromise;
+
+    // 将加载的外部样式与组件内联样式结合
+    PrecheckRulesEditor.styles = [
+        externalCss,
+        css`
+            :host { display: block; }
+        `
+    ];
+
+    customElements.define('precheck-rules-editor', PrecheckRulesEditor);
+})();

@@ -1,6 +1,5 @@
 import browser from '../lib/browser-polyfill.js';
 import { SettingsManager } from '../common/settings-manager.js';
-import { shouldTranslate } from '../common/precheck.js';
 import { escapeHtml } from '../common/utils.js';
 import * as Constants from '../common/constants.js';
 import { FormValidator } from './validator.js';
@@ -505,6 +504,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const performTestTranslation = async () => {
         const sourceText = document.getElementById('test-source-text').value.trim();
+        const { shouldTranslate } = await import('../common/precheck.js');
         const resultArea = document.getElementById('test-result-area');
         elements.aiTestResult.style.display = 'none';
         if (!sourceText) {
