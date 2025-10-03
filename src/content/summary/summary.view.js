@@ -144,22 +144,25 @@ export class SummaryDialog {
     }
 
     renderConversation(history, isLoading = false) {
+        // 确保 history 是一个有效的数组，如果不是，则重置视图
         if (!this.conversationArea) return;
+        if (!Array.isArray(history)) {
+            this.conversationArea.innerHTML = '';
+            this._renderedMessageCount = 0;
+            this._fullRerenderNeeded = false;
+            return;
+        }
 
-        if (!history || this._fullRerenderNeeded) {
+        // 如果需要完全重绘，或者 history 长度变短（例如撤销、删除），则清空并重绘所有消息
+        if (this._fullRerenderNeeded || history.length < this._renderedMessageCount) {
             this.conversationArea.innerHTML = '';
             this._renderedMessageCount = 0;
             this._fullRerenderNeeded = false;
         }
 
-        if (!history) return;
+        this.updateMessages(history);
 
-        for (let i = this._renderedMessageCount; i < history.length; i++) {
-            this.renderMessage(history[i], i);
-        }
-        this._renderedMessageCount = history.length;
-
-        const existingLoadingEl = this.conversationArea.querySelector('.foxlate-summary-message.assistant.loading');
+        const existingLoadingEl = this.conversationArea.querySelector('.foxlate-summary-message.loading');
         if (isLoading) {
             if (!existingLoadingEl) {
                 const loadingEl = document.createElement('div');
@@ -172,6 +175,28 @@ export class SummaryDialog {
         }
 
         this.conversationArea.scrollTop = this.conversationArea.scrollHeight;
+    }
+
+    updateMessages(history) {
+        // 移除已渲染但不再存在于 history 中的消息元素
+        const messageElements = this.conversationArea.querySelectorAll('.foxlate-summary-message:not(.loading)');
+        if (messageElements.length > history.length) {
+            for (let i = history.length; i < messageElements.length; i++) {
+                messageElements[i].remove();
+            }
+        }
+
+        // 遍历 history，更新或新增消息
+        history.forEach((message, index) => {
+            const existingEl = this.conversationArea.querySelector(`.foxlate-summary-message[data-index="${index}"]:not(.loading)`);
+            const newEl = this.createMessageElement(message, index);
+            if (existingEl) {
+                existingEl.replaceWith(newEl);
+            } else {
+                this.conversationArea.appendChild(newEl);
+            }
+        });
+        this._renderedMessageCount = history.length;
     }
 
     renderMessage(message, index) {
@@ -194,6 +219,27 @@ export class SummaryDialog {
         
         messageEl.innerHTML = `<div class="message-content">${marked.parse(content)}</div>${this.getActionsHtml(message)}`;
         this.conversationArea.appendChild(messageEl);
+    }
+
+    createMessageElement(message, index) {
+        const messageEl = document.createElement('div');
+        messageEl.className = `foxlate-summary-message ${message.role} ${message.isError ? 'error' : ''}`;
+        messageEl.dataset.index = index;
+        if (message.isHidden) {
+            messageEl.style.display = 'none';
+        }
+
+        let content;
+        if (message.role === 'user') {
+            content = message.content;
+        } else {
+            const contents = message.contents || [];
+            const activeIndex = message.activeContentIndex || 0;
+            content = contents[activeIndex] || ''; // 确保 content 有备用值
+        }
+
+        messageEl.innerHTML = `<div class="message-content">${marked.parse(content)}</div>${this.getActionsHtml(message)}`;
+        return messageEl;
     }
 
     getActionsHtml(message) {
