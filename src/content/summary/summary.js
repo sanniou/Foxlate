@@ -377,6 +377,7 @@ class SummaryModule {
     handleRefresh() {
         const activeTab = this.state.getActiveTab();
         if (!activeTab || activeTab.state === 'loading') return;
+        this.summaryDialog.setFullRerenderNeeded(true);
         this.fetchSummaryForTab(activeTab, activeTab.selectionText);
     }
 

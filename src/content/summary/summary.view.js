@@ -180,7 +180,18 @@ export class SummaryDialog {
         messageEl.className = `foxlate-summary-message ${message.role}`;
         messageEl.dataset.index = index;
         if (message.isError) messageEl.classList.add('error');
-        const content = message.role === 'user' ? message.content : message.contents[message.activeContentIndex];
+        
+        // 确保能正确获取内容，处理刷新后的数据结构
+        let content;
+        if (message.role === 'user') {
+            content = message.content;
+        } else {
+            // 确保 message.contents 存在且是数组
+            const contents = message.contents || [];
+            const activeIndex = message.activeContentIndex || 0;
+            content = contents[activeIndex];
+        }
+        
         messageEl.innerHTML = `<div class="message-content">${marked.parse(content)}</div>${this.getActionsHtml(message)}`;
         this.conversationArea.appendChild(messageEl);
     }
@@ -190,11 +201,14 @@ export class SummaryDialog {
         if (message.role === 'user') {
             buttons += `<button data-action="edit" aria-label="Edit">${this.getIcon('edit')}</button>`;
         } else if (!message.isError) {
-            if (message.contents.length > 1) {
+            // 确保 message.contents 存在且是数组
+            const contents = message.contents || [];
+            if (contents.length > 1) {
+                const activeIndex = message.activeContentIndex || 0;
                 buttons += `
-                    <button data-action="history-prev" ${message.activeContentIndex === 0 ? 'disabled' : ''}>${this.getIcon('prev')}</button>
-                    <span>${message.activeContentIndex + 1}/${message.contents.length}</span>
-                    <button data-action="history-next" ${message.activeContentIndex === message.contents.length - 1 ? 'disabled' : ''}>${this.getIcon('next')}</button>
+                    <button data-action="history-prev" ${activeIndex === 0 ? 'disabled' : ''}>${this.getIcon('prev')}</button>
+                    <span>${activeIndex + 1}/${contents.length}</span>
+                    <button data-action="history-next" ${activeIndex === contents.length - 1 ? 'disabled' : ''}>${this.getIcon('next')}</button>
                 `;
             }
             buttons += `<button data-action="reroll" aria-label="Reroll">${this.getIcon('reroll')}</button>`;
