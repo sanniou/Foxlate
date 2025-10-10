@@ -15,7 +15,8 @@ const ICONS = {
     check: '<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>',
     expand: '<path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>',
     collapse: '<path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6 1.41 1.41z"/>',
-    pin: '<path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/>'
+    pin: '<path d="M16 9V4h1V2H7v2h1v5l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/>', // 竖直图钉
+    unpin: '<path d="M20.3 5.7c-.39-.39-1.02-.39-1.41 0L17 7.59V4h-2v5.59l-1.59-1.59c-.39-.39-1.02-.39-1.41 0-.39.39-.39 1.02 0 1.41l4 4c.39.39 1.02.39 1.41 0l4-4c.39-.39.39-1.02 0-1.41zM7 2v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2V9.83l4.29-4.29c.39-.39.39-1.02 0-1.41L18.88 2.71c-.39-.39-1.02-.39-1.41 0L16 4.12V2H7z"/>' // 斜向图钉
 };
 
 function createIcon(iconName, size = 16) {
@@ -40,6 +41,7 @@ class EnhancedTooltipManager {
     #isPlaying = false;
     #currentLanguage = 'auto'; // 'auto', 'source', or 'target'
     #isPinned = false;
+    // 新增：用于拖动状态的属性
     #isDragging = false;
     #dragStartX = 0;
     #dragStartY = 0;
@@ -178,11 +180,10 @@ class EnhancedTooltipManager {
         title.className = 'foxlate-panel-title';
         title.textContent = 'Foxlate';
 
-        const pinBtn = this.#createIconButton('foxlate-pin-btn', 'pin', browser.i18n.getMessage('tooltipPin'));
-        const closeBtn = this.#createIconButton('foxlate-close-btn', 'close', browser.i18n.getMessage('tooltipClose'));
-
         const actions = document.createElement('div');
         actions.className = 'foxlate-panel-actions';
+        const pinBtn = this.#createIconButton('foxlate-pin-btn', 'pin', browser.i18n.getMessage('tooltipPin') || 'Pin');
+        const closeBtn = this.#createIconButton('foxlate-close-btn', 'close', browser.i18n.getMessage('tooltipClose'));
         actions.append(pinBtn, closeBtn);
 
         header.append(title, actions);
@@ -307,6 +308,7 @@ class EnhancedTooltipManager {
         const pinBtn = this.#tooltipEl.querySelector('.foxlate-pin-btn');
 
         this.#tooltipEl.querySelector('.foxlate-close-btn')?.addEventListener('click', (e) => {
+            // 确保关闭按钮总是能工作
             e.stopPropagation();
             this.#isPinned = false;
             onHide?.();
@@ -316,11 +318,14 @@ class EnhancedTooltipManager {
             e.stopPropagation();
             this.#isPinned = !this.#isPinned;
             this.#tooltipEl.classList.toggle('pinned', this.#isPinned);
+            // 钉住后，图标应变为“取消钉住”（斜向图钉），标题为“取消钉住”
+            const iconToShow = this.#isPinned ? 'unpin' : 'pin';
+            pinBtn.innerHTML = ''; // 清空旧图标
+            pinBtn.appendChild(createIcon(iconToShow));
             header.classList.toggle('draggable', this.#isPinned);
-            pinBtn.title = browser.i18n.getMessage(this.#isPinned ? 'tooltipUnpin' : 'tooltipPin');
-            if (!this.#isPinned) {
-                onHide?.();
-            }
+            pinBtn.title = browser.i18n.getMessage(this.#isPinned ? 'tooltipUnpin' : 'tooltipPin') || (this.#isPinned ? 'Unpin' : 'Pin');
+            // 取消固定时，工具提示不应主动消失
+            // if (!this.#isPinned) { onHide?.(); }
         });
 
         header?.addEventListener('mousedown', (e) => {
@@ -337,8 +342,20 @@ class EnhancedTooltipManager {
         document.addEventListener('mousemove', (e) => {
             if (!this.#isDragging || !this.#isPinned) return;
             e.preventDefault();
-            const x = e.clientX - this.#dragOffsetX;
-            const y = e.clientY - this.#dragOffsetY;
+
+            // 计算新的理想位置
+            let x = e.clientX - this.#dragOffsetX;
+            let y = e.clientY - this.#dragOffsetY;
+
+            // 获取视窗和工具提示的尺寸以进行边界检查
+            const tooltipRect = this.#tooltipEl.getBoundingClientRect();
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+
+            // 将位置限制在视窗内部
+            x = Math.max(0, Math.min(x, viewportWidth - tooltipRect.width));
+            y = Math.max(0, Math.min(y, viewportHeight - tooltipRect.height));
+
             this.#tooltipEl.style.left = `${x}px`;
             this.#tooltipEl.style.top = `${y}px`;
         });

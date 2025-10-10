@@ -1199,5 +1199,13 @@
   "tooltipCopied": {
     "message": "已复制",
     "description": "复制成功后显示的临时状态文本。"
+  },
+  "tooltipPin": {
+    "message": "钉住",
+    "description": "增强版工具提示上的钉住按钮标题。"
+  },
+  "tooltipUnpin": {
+    "message": "取消钉住",
+    "description": "增强版工具提示上的取消钉住按钮标题。"
   }
 }

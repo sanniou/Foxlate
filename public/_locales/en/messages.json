@@ -831,7 +831,6 @@
     "message": "Summary AI Model",
     "description": "Label for the AI model selection for content summary."
   },
-  
   "errorMainBodySelectorRequired": {
     "message": "Main Body Selector is required when summary is enabled.",
     "description": "Validation error message."
@@ -1195,5 +1194,13 @@
   "tooltipCopied": {
     "message": "Copied",
     "description": "Temporary status text shown after a successful copy action."
+  },
+  "tooltipPin": {
+    "message": "Pin",
+    "description": "Title for the pin button on the enhanced tooltip."
+  },
+  "tooltipUnpin": {
+    "message": "Unpin",
+    "description": "Title for the unpin button on the enhanced tooltip."
   }
 }
