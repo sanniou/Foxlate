@@ -518,12 +518,13 @@ export class PrecheckRulesEditor extends LitElement {
                 <div class="rule-item-controls">
                     <div class="m3-switch">
                         <input
+                            id="rule-enabled-${category}-${index}"
                             type="checkbox"
                             class="rule-enabled-checkbox"
                             .checked=${!!rule.enabled}
                             @change=${(e) => this._handleChange(e, category, index, 'enabled')}>
-                        <label class="switch-track"><span class="switch-thumb"></span></label>
-                        <label class="switch-label">${browser.i18n.getMessage('enabled')}</label>
+                        <label for="rule-enabled-${category}-${index}" class="switch-track"><span class="switch-thumb"></span></label>
+                        <label for="rule-enabled-${category}-${index}" class="switch-label">${browser.i18n.getMessage('enabled')}</label>
                     </div>
                     <button class="test-rule-btn m3-button text" @click=${() => this._handleTestRule(rule, category, index)}>${browser.i18n.getMessage('test')}</button>
                     <button class="remove-rule-btn m3-icon-button danger" @click=${() => this._handleRemoveRule(category, index)}>
