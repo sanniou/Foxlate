@@ -258,7 +258,7 @@ async function handleSelectionTranslation(tab, source, frameId) {
             };
         } else {
             // 预校验通过，继续进行翻译。
-            const result = await TranslatorManager.translateText(selectionText, effectiveRule.targetLanguage, 'auto', effectiveRule.translatorEngine);
+            const result = await TranslatorManager.translateText(selectionText, effectiveRule.targetLanguage, 'auto', effectiveRule.translatorEngine, tab.id);
             resultPayload = {
                 success: !result.error,
                 translatedText: result.text,
@@ -285,8 +285,8 @@ async function handleSelectionTranslation(tab, source, frameId) {
 const messageHandlers = {
     async TRANSLATE_TEXT(request, sender) {
         // 此处理器现在只服务于内容脚本的页面翻译请求。
-        const { text, targetLang, sourceLang, elementId, translatorEngine } = request.payload;
-        const originTabId = sender.tab?.id;
+        const { text, targetLang, sourceLang, elementId, translatorEngine, tabId } = request.payload;
+        const originTabId = sender.tab?.id || tabId;
 
         // 防御性检查，确保调用者是内容脚本
         if (!originTabId || !elementId) {
@@ -296,7 +296,7 @@ const messageHandlers = {
         }
 
         try {
-            const result = await TranslatorManager.translateText(text, targetLang, sourceLang, translatorEngine);
+            const result = await TranslatorManager.translateText(text, targetLang, sourceLang, translatorEngine, originTabId);
             await browser.tabs.sendMessage(originTabId, {
                 type: 'TRANSLATE_TEXT_RESULT',
                 payload: {
@@ -361,21 +361,24 @@ const messageHandlers = {
     },
 
     // (新) 处理内容总结请求
-    async SUMMARIZE_CONTENT(request) {
+    async SUMMARIZE_CONTENT(request, sender) {
         const { text, aiModel, targetLang } = request.payload;
-        return TranslatorManager.summarize(text, aiModel, targetLang);
+        const tabId = sender.tab?.id;
+        return TranslatorManager.summarize(text, aiModel, targetLang, tabId);
     },
 
     // (新) 处理与 AI 的通用对话请求
-    async CONVERSE_WITH_AI(request) {
+    async CONVERSE_WITH_AI(request, sender) {
         const { history, aiModel, targetLang } = request.payload;
-        return TranslatorManager.converse(history, aiModel, targetLang);
+        const tabId = sender.tab?.id;
+        return TranslatorManager.converse(history, aiModel, targetLang, tabId);
     },
 
     // (新) 处理 AI 建议请求
-    async INFER_SUGGESTIONS(request) {
+    async INFER_SUGGESTIONS(request, sender) {
         const { history, aiModel, targetLang } = request.payload;
-        const result = await TranslatorManager.inferSuggestions(history, aiModel, targetLang);
+        const tabId = sender.tab?.id;
+        const result = await TranslatorManager.inferSuggestions(history, aiModel, targetLang, tabId);
 
         if (!result.success) {
             return result;

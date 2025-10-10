@@ -643,9 +643,13 @@ function translateElement(element, effectiveSettings) {
     DisplayManager.displayLoading(element, effectiveSettings.displayMode, initialState);
 
     console.log(`[Foxlate] Sending text to translate for ${elementId}`, { textToTranslate });
-    browser.runtime.sendMessage({
-        type: 'TRANSLATE_TEXT',
-        payload: { text: textToTranslate, targetLang, sourceLang: 'auto', elementId, translatorEngine }
+    // 获取当前标签页ID
+    browser.runtime.sendMessage({ type: 'GET_TAB_ID' }).then(response => {
+        const tabId = response?.tabId;
+        return browser.runtime.sendMessage({
+            type: 'TRANSLATE_TEXT',
+            payload: { text: textToTranslate, targetLang, sourceLang: 'auto', elementId, translatorEngine, tabId }
+        });
     }).catch(e => {
         logError('translateElement (send message)', e);
         // 如果消息发送失败，我们需要手动回滚状态和计数器，

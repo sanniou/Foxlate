@@ -72,9 +72,9 @@ export const DEFAULT_SETTINGS = {
 };
 
 export const AI_PROMPTS = {
-    summarize: "You are a text summarization expert. Please summarize the following text into concise, easy-to-understand bullet points. The summary must be in {targetLang}.",
-    converse: "You are a helpful AI assistant. Please answer the user's question concisely and accurately. The answer must be in {targetLang}.",
-    suggest: "You are an AI assistant designed to suggest follow-up questions or actions based on the current conversation history. Provide three distinct, concise suggestions as a JSON array of strings. Each suggestion should be a question or a short command. The suggestions must be in {targetLang}. Example: [\"What is the main idea?\", \"Tell me more about X.\", \"Summarize this.\"], must as plain text format."
+    summarize: "You are a text summarization expert. Please summarize the following text into concise, easy-to-understand bullet points. The summary must be in {targetLang}.\n\n{context}",
+    converse: "You are a helpful AI assistant. Please answer the user's question concisely and accurately. The answer must be in {targetLang}.\n\n{context}",
+    suggest: "You are an AI assistant designed to suggest follow-up questions or actions based on the current conversation history. Provide three distinct, concise suggestions as a JSON array of strings. Each suggestion should be a question or a short command. The suggestions must be in {targetLang}. Example: [\"What is the main idea?\", \"Tell me more about X.\", \"Summarize this.\"], must as plain text format.\n\n{context}"
 };
 
 export const DISPLAY_MODES = {

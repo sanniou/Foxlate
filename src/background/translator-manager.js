@@ -115,7 +115,7 @@ export class TranslatorManager {
 
       (async () => {
           try {
-              const result = await this.#executeTranslation(task.text, task.targetLang, task.sourceLang, task.engine, task.controller.signal);
+              const result = await this.#executeTranslation(task.text, task.targetLang, task.sourceLang, task.engine, task.controller.signal, task.tabId);
               task.resolve(result);
           } catch (error) {
               task.reject(error);
@@ -205,7 +205,7 @@ export class TranslatorManager {
       return { translator, engine: resolvedInitialEngine, config: aiConfig };
   }
 
-  static async #executeTranslation(processedText, targetLang, sourceLang = 'auto', engine, signal) {
+  static async #executeTranslation(processedText, targetLang, sourceLang = 'auto', engine, signal, tabId) {
       const log = [];
       log.push(browser.i18n.getMessage('logEntryStart', [processedText, sourceLang, targetLang]));
           if (sourceLang !== 'auto' && sourceLang === targetLang) {
@@ -235,8 +235,21 @@ export class TranslatorManager {
           }
           log.push(browser.i18n.getMessage('logEntryEngineUsed', [translator.name, resolvedEngine]));
 
-          // 步骤 2: 使用解析出的翻译器执行翻译
-          const { text: translatedResult, log: translatorLog } = await translator.translate(processedText, targetLang, sourceLang, config, signal);
+          // 步骤 2: 准备配置，包含上下文信息
+          let finalConfig = config;
+          if (config && tabId && translator.name === 'AI') {
+            // 为AI翻译器添加上下文信息
+            try {
+              const { extractTabContext } = await import('../common/context-extractor.js');
+              const context = await extractTabContext(tabId);
+              finalConfig = { ...config, context };
+            } catch (error) {
+              console.warn('[TranslatorManager] Failed to extract context:', error);
+            }
+          }
+
+          // 步骤 3: 使用解析出的翻译器执行翻译
+          const { text: translatedResult, log: translatorLog } = await translator.translate(processedText, targetLang, sourceLang, finalConfig, signal);
           log.push(...translatorLog);
           log.push(browser.i18n.getMessage('logEntryTranslationSuccess'));
 
@@ -295,7 +308,7 @@ export class TranslatorManager {
    * @param {string} [sourceLang='auto'] - 源语言。
    * @returns {Promise<object>} 一个解析为翻译结果的 Promise。
    */
-  static translateText(text, targetLang, sourceLang = 'auto', engine) {
+  static translateText(text, targetLang, sourceLang = 'auto', engine, tabId) {
     const processedText = this.#preProcess(text);
     if (!processedText) {
       return Promise.resolve({ text: "", translated: false, log: [browser.i18n.getMessage('logEntryPrecheckNoTranslation')] });
@@ -332,6 +345,7 @@ export class TranslatorManager {
         targetLang,
         sourceLang,
         engine,
+        tabId, // 传递标签页ID用于提取上下文
         resolve,
         reject,
         controller // 将控制器与任务关联
@@ -355,9 +369,10 @@ export class TranslatorManager {
    * @param {string} aiModel - AI 模型 ID。
    * @param {string} targetLang - 目标语言。
    * @param {string} promptTemplate - 用于任务的提示词模板。
+   * @param {number} [tabId] - 标签页ID，用于提取上下文信息。
    * @returns {Promise<object>} - 包含结果或错误的 Promise。
    */
-  static async #executeAiTask(input, aiModel, targetLang, promptTemplate) {
+  static async #executeAiTask(input, aiModel, targetLang, promptTemplate, tabId) {
       if (!input || !aiModel) {
           return { success: false, error: "Input or AI model not provided for AI task." };
       }
@@ -371,7 +386,19 @@ export class TranslatorManager {
               throw new Error(`AI engine configuration not found for ID: ${engineId}`);
           }
 
-          const taskConfig = { ...aiConfig, customPrompt: promptTemplate };
+          let taskConfig = { ...aiConfig, customPrompt: promptTemplate };
+          
+          // 如果提供了tabId，尝试提取上下文信息
+          if (tabId) {
+              try {
+                  const { extractTabContext } = await import('../common/context-extractor.js');
+                  const context = await extractTabContext(tabId);
+                  taskConfig = { ...taskConfig, context };
+              } catch (error) {
+                  console.warn('[TranslatorManager] Failed to extract context for AI task:', error);
+              }
+          }
+          
           const aiTranslator = this.#translators.ai;
 
           // sourceLang 在这里不重要，设为 'auto'
@@ -395,8 +422,8 @@ export class TranslatorManager {
    * @param {string} targetLang - 总结的目标语言。
    * @returns {Promise<{success: boolean, summary?: string, error?: string}>}
    */
-  static async summarize(text, aiModel, targetLang) {
-      const result = await this.#executeAiTask(text, aiModel, targetLang, Constants.AI_PROMPTS.summarize);
+  static async summarize(text, aiModel, targetLang, tabId) {
+      const result = await this.#executeAiTask(text, aiModel, targetLang, Constants.AI_PROMPTS.summarize, tabId);
       return { ...result, summary: result.text };
   }
 
@@ -407,8 +434,8 @@ export class TranslatorManager {
    * @param {string} targetLang - 回复的目标语言。
    * @returns {Promise<{success: boolean, reply?: string, error?: string}>}
    */
-  static async converse(history, aiModel, targetLang) {
-      const result = await this.#executeAiTask(history, aiModel, targetLang, Constants.AI_PROMPTS.converse);
+  static async converse(history, aiModel, targetLang, tabId) {
+      const result = await this.#executeAiTask(history, aiModel, targetLang, Constants.AI_PROMPTS.converse, tabId);
       return { ...result, reply: result.text };
   }
 
@@ -419,9 +446,9 @@ export class TranslatorManager {
    * @param {string} targetLang - 建议的目标语言。
    * @returns {Promise<{success: boolean, suggestions?: string[], error?: string}>}
    */
-  static async inferSuggestions(history, aiModel, targetLang) {
+  static async inferSuggestions(history, aiModel, targetLang, tabId) {
       history.push({ "role": "user", "content": "continue" });
-      const result = await this.#executeAiTask(history, aiModel, targetLang, Constants.AI_PROMPTS.suggest);
+      const result = await this.#executeAiTask(history, aiModel, targetLang, Constants.AI_PROMPTS.suggest, tabId);
 
       if (!result.success) {
           return result;

@@ -1,5 +1,6 @@
 import browser from '../../lib/browser-polyfill.js';
 import { BaseTranslator } from './base-translator.js';
+import { formatContextString } from '../../common/context-extractor.js';
 
 export class AITranslator extends BaseTranslator {
   constructor() {
@@ -32,7 +33,8 @@ export class AITranslator extends BaseTranslator {
     const placeholderMap = {
       '{targetLang}': targetLang,
       '{sourceLang}': sourceLang,
-      '{context}': context || ''
+      '{context}': context ? (typeof context === 'string' ? context : formatContextString(context)) : '',
+      '{textToTranslate}': Array.isArray(text) ? JSON.stringify(text) : text
     };
 
     // 替换所有支持的占位符
