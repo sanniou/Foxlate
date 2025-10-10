@@ -4,6 +4,15 @@ import browser from '../../lib/browser-polyfill.js';
 import { SummaryState } from './summary.state.js';
 import { SummaryButton, SummaryDialog } from './summary.view.js';
 
+// 常量定义
+const CONSTANTS = {
+    MIN_SELECTION_LENGTH: 50,
+    DRAG_THRESHOLD: 5,
+    BUTTON_OFFSET: 10,
+    SELECTION_OFFSET_Y: -10,
+    DEBOUNCE_DELAY: 300
+};
+
 class SummaryModule {
     constructor(settings) {
         this.settings = settings;
@@ -70,7 +79,7 @@ class SummaryModule {
             const handleDragMove = (moveEvent) => {
                 moveEvent.preventDefault();
                 const dx = moveEvent.clientX - startX, dy = moveEvent.clientY - startY;
-                if (!hasDragged && Math.hypot(dx, dy) > 5) {
+                if (!hasDragged && Math.hypot(dx, dy) > CONSTANTS.DRAG_THRESHOLD) {
                     hasDragged = true;
                     this.isDragging = true;
                     this.summaryButton.element.classList.add('dragging'); // Bug 4 Fix
@@ -132,7 +141,7 @@ class SummaryModule {
         const selection = window.getSelection();
         const selectedText = selection.toString().trim();
 
-        if (selectedText.length > 50) {
+        if (selectedText.length > CONSTANTS.MIN_SELECTION_LENGTH) {
             if (this.summaryDialog.isOpen) {
                 this.summaryDialog.hide();
                 this.summaryButton.element.classList.remove('rotated');
@@ -140,8 +149,8 @@ class SummaryModule {
             const range = selection.getRangeAt(0);
             const rect = range.getBoundingClientRect();
             this.selectionContext = { text: selectedText, rect };
-            // Apply offset
-            this.summaryButton.setPosition(rect.right + 10, rect.top - 10);
+            // Apply offset using constants
+            this.summaryButton.setPosition(rect.right + CONSTANTS.BUTTON_OFFSET, rect.top + CONSTANTS.SELECTION_OFFSET_Y);
         } else {
             this.selectionContext = null;
             // Only reset position if not currently dragging the button
@@ -218,7 +227,9 @@ class SummaryModule {
             this.state.updateTab(tab.id, { history: newHistory, state: 'summarized' });
         } catch (error) {
             console.error('[Foxlate Summary] Error:', error);
-            this.state.addErrorMessageToTab(tab.id, `**Error:** ${error.message}`);
+            const errorMessage = this.generateUserFriendlyErrorMessage(error);
+            const retryCallback = () => this.fetchSummaryForTab(tab, text);
+            this.state.addErrorMessageToTab(tab.id, errorMessage, retryCallback);
         }
     }
 
@@ -302,7 +313,9 @@ class SummaryModule {
             this.state.updateTab(tab.id, { state: 'summarized' });
         } catch (error) {
             console.error('[Foxlate Summary] AI response error:', error);
-            this.state.addErrorMessageToTab(tab.id, `**Error:** ${error.message}`);
+            const errorMessage = this.generateUserFriendlyErrorMessage(error);
+            const retryCallback = () => this.getAIResponseForTab(tab, isReroll);
+            this.state.addErrorMessageToTab(tab.id, errorMessage, retryCallback);
         }
     }
 
@@ -343,6 +356,27 @@ class SummaryModule {
                 this.summaryDialog.setFullRerenderNeeded(true);
                 await this.getAIResponseForTab(activeTab, true);
                 break;
+            case 'retry':
+                // 处理重试操作
+                if (message.retryCallback && typeof message.retryCallback === 'function') {
+                    // 移除错误消息
+                    this.state.sliceTabHistory(activeTab.id, 0, index);
+                    this.summaryDialog.setFullRerenderNeeded(true);
+                    
+                    // 显示加载状态
+                    this.state.updateTab(activeTab.id, { state: 'loading' });
+                    this.summaryDialog.renderConversation(activeTab.history, true);
+                    
+                    try {
+                        await message.retryCallback();
+                    } catch (error) {
+                        console.error('[Foxlate Summary] Retry failed:', error);
+                        const errorMessage = this.generateUserFriendlyErrorMessage(error);
+                        const retryCallback = () => message.retryCallback();
+                        this.state.addErrorMessageToTab(activeTab.id, errorMessage, retryCallback);
+                    }
+                }
+                break;
             case 'save-edit':
                 this.state.sliceTabHistory(activeTab.id, 0, index);
                 this.summaryDialog.setFullRerenderNeeded(true);
@@ -351,6 +385,11 @@ class SummaryModule {
                 break;
             case 'copy':
                 navigator.clipboard.writeText(message.role === 'user' ? message.content : message.contents[message.activeContentIndex]);
+                break;
+            case 'copy-error':
+                // 复制错误消息
+                const errorContent = message.contents[message.activeContentIndex];
+                navigator.clipboard.writeText(errorContent);
                 break;
             case 'edit':
                 this.summaryDialog.enterEditMode(index, message.content);
@@ -388,6 +427,63 @@ class SummaryModule {
             this.summaryButton.element.classList.remove('rotated');
         }
         this.summaryDialog.resetSuggestions(); // Reset suggestion bar
+    }
+
+    /**
+     * 生成用户友好的错误消息
+     * @param {Error} error - 错误对象
+     * @returns {string} 格式化的错误消息
+     */
+    generateUserFriendlyErrorMessage(error) {
+        const errorType = this.classifyError(error);
+        const baseMessage = error.message || '未知错误';
+        
+        switch (errorType) {
+            case 'network':
+                return `**网络连接错误**\n\n无法连接到服务器。请检查您的网络连接，然后重试。\n\n详细信息：${baseMessage}`;
+            case 'timeout':
+                return `**请求超时**\n\n服务器响应时间过长。请稍后重试。\n\n详细信息：${baseMessage}`;
+            case 'auth':
+                return `**认证失败**\n\n请检查您的 API 密钥配置，然后重试。\n\n详细信息：${baseMessage}`;
+            case 'rate_limit':
+                return `**请求频率限制**\n\n请求过于频繁，请稍等片刻后重试。\n\n详细信息：${baseMessage}`;
+            case 'content_empty':
+                return `**内容为空**\n\n无法提取到有效内容进行总结。请尝试选择其他文本或刷新页面。\n\n详细信息：${baseMessage}`;
+            case 'server_error':
+                return `**服务器错误**\n\n服务器暂时无法处理请求。请稍后重试。\n\n详细信息：${baseMessage}`;
+            default:
+                return `**发生错误**\n\n处理请求时遇到了问题。请重试，如果问题持续存在，请联系支持。\n\n详细信息：${baseMessage}`;
+        }
+    }
+
+    /**
+     * 分类错误类型
+     * @param {Error} error - 错误对象
+     * @returns {string} 错误类型
+     */
+    classifyError(error) {
+        const message = error.message.toLowerCase();
+        
+        if (message.includes('network') || message.includes('fetch') || message.includes('connection')) {
+            return 'network';
+        }
+        if (message.includes('timeout') || message.includes('time out')) {
+            return 'timeout';
+        }
+        if (message.includes('unauthorized') || message.includes('auth') || message.includes('401') || message.includes('403')) {
+            return 'auth';
+        }
+        if (message.includes('rate limit') || message.includes('429') || message.includes('too many requests')) {
+            return 'rate_limit';
+        }
+        if (message.includes('empty') || message.includes('no content') || message.includes('failed to extract')) {
+            return 'content_empty';
+        }
+        if (message.includes('500') || message.includes('502') || message.includes('503') || message.includes('server error')) {
+            return 'server_error';
+        }
+        
+        return 'unknown';
     }
 
     destroy() {

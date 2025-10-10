@@ -95,9 +95,16 @@ export class SummaryState {
         this.notify();
     }
 
-    addErrorMessageToTab(tabId, errorMessage) {
+    addErrorMessageToTab(tabId, errorMessage, retryCallback = null) {
         this.updateTab(tabId, { state: 'error' });
-        this.pushToTabHistory(tabId, { role: 'assistant', contents: [errorMessage], activeContentIndex: 0, isError: true });
+        const errorPayload = {
+            role: 'assistant',
+            contents: [errorMessage],
+            activeContentIndex: 0,
+            isError: true,
+            retryCallback
+        };
+        this.pushToTabHistory(tabId, errorPayload);
     }
 
     updateMessageContentIndex(tabId, messageIndex, newContentIndex) {
