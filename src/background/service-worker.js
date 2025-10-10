@@ -6,7 +6,7 @@ import { TranslatorManager } from '../background/translator-manager.js';
 import * as Constants from '../common/constants.js';
 import TabStateManager from './tab-state-manager.js';
 import { SUBTITLE_STRATEGIES, SUBTITLE_MANAGER_SCRIPT, DEFAULT_STRATEGY_MAP } from '../content/subtitle/strategy-manifest.js';
-const CSS_FILES = ["content/style.css", "content/summary/summary.css"];
+const CSS_FILES = ["content/style.css", "content/enhanced-style.css", "content/summary/summary.css"];
 
 const CORE_SCRIPT_FILES = ["content/content-script.js"];
 
@@ -228,7 +228,7 @@ async function handleSelectionTranslation(tab, source, frameId) {
     const translationId = `sel-${Date.now()}`;
 
     // Create a base payload to reduce repetition.
-    const basePayload = { coords, source, translationId };
+    const basePayload = { coords, source, translationId, originalText: selectionText };
 
     // Immediately send "loading" state for better UX.
     browser.tabs.sendMessage(tab.id, {

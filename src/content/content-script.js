@@ -831,7 +831,14 @@ const messageHandlers = {
             console.log(`[Foxlate] 忽略了一个过时的划词翻译结果。ID: ${translationId}`);
             return { success: true, ignored: true };
         }
-        DisplayManager.handleEphemeralTranslation(request.payload, window.frameId);
+        
+        // 使用增强版的上下文菜单策略处理翻译
+        DisplayManager.handleEphemeralTranslation({
+            ...request.payload,
+            // 确保使用增强版的显示模式
+            displayMode: 'enhancedContextMenu'
+        }, window.frameId);
+        
         return { success: true };
     },
 

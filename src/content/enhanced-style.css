@@ -1,0 +1,330 @@
+@import url('../common/common.css');
+
+/* 增强版翻译面板样式 */
+.foxlate-enhanced-panel {
+    position: fixed;
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.15s ease-in-out, visibility 0s linear 0.15s, transform 0.15s ease-in-out;
+    background-color: var(--md-sys-color-surface-container-high, #E6E0E9);
+    color: var(--md-sys-color-on-surface, #1C1B1F);
+    border-radius: 12px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.3);
+    max-width: 340px;
+    min-width: 260px;
+    font-family: var(--md-sys-font-family);
+    font-size: var(--md-sys-typescale-body-small-font-size);
+    line-height: 1.4;
+    z-index: 2147483647;
+    border: 1px solid var(--md-sys-color-outline-variant, #CAC4D0);
+    overflow: hidden;
+    transform: translateY(-5px);
+}
+
+/* 显示状态 */
+.foxlate-enhanced-panel.visible {
+    visibility: visible;
+    opacity: 1;
+    transition: opacity 0.15s ease-in-out, transform 0.15s ease-in-out;
+    transform: translateY(0);
+}
+
+/* 面板内容容器 */
+.foxlate-panel-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+/* 面板头部 - 更紧凑 */
+.foxlate-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--md-sys-color-outline-variant, #CAC4D0);
+    background-color: var(--md-sys-color-surface-container, #F0EEF4);
+}
+
+.foxlate-panel-title {
+    font-size: var(--md-sys-typescale-body-medium-font-size);
+    font-weight: 500;
+    color: var(--md-sys-color-on-surface, #1C1B1F);
+}
+
+.foxlate-close-btn {
+    background: none;
+    border: none;
+    font-size: 14px;
+    color: var(--md-sys-color-on-surface-variant, #49454F);
+    cursor: pointer;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.foxlate-close-btn:hover {
+    background-color: var(--md-sys-color-surface-container-high, #E6E0E9);
+    color: var(--md-sys-color-on-surface, #1C1B1F);
+}
+
+/* 面板主体 - 更紧凑的布局 */
+.foxlate-panel-body {
+    padding: 4px 8px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+/* 加载状态 */
+.foxlate-loading-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    gap: 8px;
+}
+
+.foxlate-spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--md-sys-color-surface-container-highest, #E4E2E6);
+    border-top: 2px solid var(--md-sys-color-primary, #3964E8);
+    border-radius: 50%;
+    animation: foxlate-spin 0.75s linear infinite;
+}
+
+.foxlate-loading-text {
+    color: var(--md-sys-color-on-surface-variant, #49454F);
+    font-size: var(--md-sys-typescale-body-small-font-size);
+}
+
+/* 错误消息 */
+.foxlate-error-message {
+    color: var(--md-sys-color-error, #BA1A1A);
+    background-color: var(--md-sys-color-error-container, #F9DEDC);
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid var(--md-sys-color-error, #BA1A1A);
+    font-size: var(--md-sys-typescale-body-small-font-size);
+}
+
+/* 文本区域 - 更紧凑的间距 */
+.foxlate-text-section {
+    margin-bottom: 4px;
+}
+
+.foxlate-text-section:last-child {
+    margin-bottom: 0;
+}
+
+.foxlate-text-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2px;
+}
+
+.foxlate-text-label {
+    font-size: var(--md-sys-typescale-body-small-font-size);
+    font-weight: 500;
+    color: var(--md-sys-color-primary, #3964E8);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.foxlate-text-actions {
+    display: flex;
+    gap: 1px;
+}
+
+/* 小图标按钮 - 更紧凑的设计 */
+.foxlate-icon-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 1px;
+    border-radius: 4px;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s, transform 0.2s;
+    color: var(--md-sys-color-on-surface-variant, #49454F);
+    font-size: 10px;
+}
+
+/* 禁用状态 */
+.foxlate-icon-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.foxlate-icon-btn:disabled:hover {
+    background-color: transparent;
+    transform: none;
+}
+
+.foxlate-icon-btn:hover {
+    background-color: var(--md-sys-color-surface-container-highest, #E4E2E6);
+    transform: scale(1.1);
+}
+
+.foxlate-icon-btn:active {
+    transform: scale(0.95);
+}
+
+.foxlate-text-content {
+    background-color: var(--md-sys-color-surface-container-low, #F6F4F9);
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid var(--md-sys-color-outline-variant, #CAC4D0);
+    color: var(--md-sys-color-on-surface, #1C1B1F);
+    word-wrap: break-word;
+    line-height: 1.4;
+    font-size: var(--md-sys-typescale-body-small-font-size);
+    transition: max-height 0.2s ease-in-out;
+    overflow: hidden;
+}
+
+/* 收起状态 - 整个区域收起 */
+.foxlate-text-section.collapsed .foxlate-text-header {
+    margin-bottom: 0;
+    height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out, height 0.2s ease-in-out;
+}
+
+.foxlate-text-section.collapsed .foxlate-text-content {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    border: none;
+    transition: max-height 0.2s ease-in-out, padding 0.2s ease-in-out, margin 0.2s ease-in-out;
+}
+
+/* 原文区域默认完全隐藏 */
+.foxlate-text-section.source-section.collapsed {
+    margin-bottom: 0;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.2s ease-in-out;
+}
+
+/* 展开状态 - 显示标题和内容 */
+.foxlate-text-section:not(.collapsed) .foxlate-text-header {
+    opacity: 1;
+    height: auto;
+    transition: opacity 0.2s ease-in-out, height 0.2s ease-in-out;
+}
+
+/* 语音播放状态 */
+.foxlate-icon-btn.playing {
+    background-color: var(--md-sys-color-primary, #3964E8);
+    color: var(--md-sys-color-on-primary, #FFFFFF);
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(57, 100, 232, 0.4);
+    }
+    70% {
+        box-shadow: 0 0 0 4px rgba(57, 100, 232, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(57, 100, 232, 0);
+    }
+}
+
+/* 复制成功状态 */
+.foxlate-icon-btn.copied {
+    background-color: var(--md-sys-color-primary, #3964E8);
+    color: var(--md-sys-color-on-primary, #FFFFFF);
+}
+
+/* 滚动条样式 */
+.foxlate-panel-body::-webkit-scrollbar {
+    width: 4px;
+}
+
+.foxlate-panel-body::-webkit-scrollbar-track {
+    background: var(--md-sys-color-surface-container-low, #F6F4F9);
+    border-radius: 2px;
+}
+
+.foxlate-panel-body::-webkit-scrollbar-thumb {
+    background: var(--md-sys-color-on-surface-variant, #49454F);
+    border-radius: 2px;
+}
+
+.foxlate-panel-body::-webkit-scrollbar-thumb:hover {
+    background: var(--md-sys-color-on-surface, #1C1B1F);
+}
+
+/* 动画 */
+@keyframes foxlate-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* 响应式设计 */
+@media (max-width: 480px) {
+    .foxlate-enhanced-panel {
+        max-width: 90vw;
+        min-width: 260px;
+    }
+    
+    .foxlate-panel-body {
+        padding: 6px 10px;
+    }
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+    .foxlate-enhanced-panel {
+        background-color: var(--md-sys-color-surface-container-high, #36343B);
+        color: var(--md-sys-color-on-surface, #E6E0E9);
+        border-color: var(--md-sys-color-outline-variant, #49454F);
+    }
+    
+    .foxlate-panel-header {
+        background-color: var(--md-sys-color-surface-container, #2B2930);
+        border-color: var(--md-sys-color-outline-variant, #49454F);
+    }
+    
+    .foxlate-panel-title {
+        color: var(--md-sys-color-on-surface, #E6E0E9);
+    }
+    
+    .foxlate-close-btn {
+        color: var(--md-sys-color-on-surface-variant, #CAC4D0);
+    }
+    
+    .foxlate-close-btn:hover {
+        background-color: var(--md-sys-color-surface-container-high, #36343B);
+        color: var(--md-sys-color-on-surface, #E6E0E9);
+    }
+    
+    .foxlate-text-content {
+        background-color: var(--md-sys-color-surface-container-low, #2B2930);
+        border-color: var(--md-sys-color-outline-variant, #49454F);
+        color: var(--md-sys-color-on-surface, #E6E0E9);
+    }
+    
+    .foxlate-icon-btn {
+        color: var(--md-sys-color-on-surface-variant, #CAC4D0);
+    }
+    
+    .foxlate-icon-btn:hover {
+        background-color: var(--md-sys-color-surface-container-highest, #4A4458);
+    }
+}

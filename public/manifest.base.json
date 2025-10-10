@@ -53,7 +53,8 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "content/style.css"
+        "content/style.css",
+        "content/enhanced-style.css"
       ],
       "matches": [
         "<all_urls>"
