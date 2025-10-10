@@ -1,24 +1,25 @@
 import browser from '../../lib/browser-polyfill.js';
 import * as Constants from '../../common/constants.js';
 import { DisplayManager } from '../display-manager.js';
-import TooltipManager from '../tooltip-manager.js';
+import EnhancedTooltipManager from '../enhanced-tooltip-manager.js';
 
 class HoverStrategy {
     /**
      * 为元素添加悬停事件，以显示包含译文的工具提示。
      * @param {HTMLElement} element - 目标元素。
-     * @param {string} text - 要显示的文本（可以是译文或错误信息）。
+     * @param {string} originalText - 原始文本。
+     * @param {string} translatedText - 翻译后的文本。
      * @param {boolean} isError - 指示文本是否为错误信息。
      */
-    displayTranslation(element, text, isError = false) {
+    displayTranslation(element, originalText, translatedText, isError = false) {
         element.classList.add('foxlate-hover-highlight');
 
         const handleMouseEnter = () => {
-            TooltipManager.show(text, { targetElement: element, isError, type: 'hover' });
+            EnhancedTooltipManager.show(originalText, translatedText, { targetElement: element, isError });
         };
 
         const handleMouseLeave = () => {
-            TooltipManager.hide();
+            EnhancedTooltipManager.hide();
         };
 
         // 将处理函数附加到元素上，以便 revert 时可以精确移除
@@ -42,7 +43,7 @@ class HoverStrategy {
             delete element._foxlateHoverHandlers;
         }
         // 确保在恢复时，如果鼠标恰好还在元素上，工具提示也会被隐藏。
-        TooltipManager.hide();
+        EnhancedTooltipManager.hide();
     }
 
     /**
@@ -50,12 +51,14 @@ class HoverStrategy {
      * This ensures any visible hover tooltip is hidden during a full page revert.
      */
     globalCleanup() {
-        TooltipManager.hide();
+        EnhancedTooltipManager.hide();
     }
 
     updateUI(element, state) {
         // 在应用新状态前，先清理旧状态，确保元素处于干净状态。
         this.revert(element);
+
+        const data = DisplayManager.getElementData(element);
 
         switch (state) {
             case Constants.DISPLAY_MANAGER_STATES.ORIGINAL:
@@ -66,23 +69,18 @@ class HoverStrategy {
                 element.classList.add('foxlate-loading-highlight');
                 break;
             case Constants.DISPLAY_MANAGER_STATES.TRANSLATED:
-                const data = DisplayManager.getElementData(element);
-                // 使用由 DisplayManager 提供的、已清理的 plainText，
-                // 以避免显示内部的 <t_id> 格式标签。
-                if (data && data.plainText) {
-                    // TooltipManager 会处理 HTML 转义和换行符
-                    this.displayTranslation(element, data.plainText, false);
+                if (data && data.plainText && data.originalContent) {
+                    this.displayTranslation(element, data.originalContent, data.plainText, false);
                 } else {
                     this.revert(element);
                 }
                 break;
             case Constants.DISPLAY_MANAGER_STATES.ERROR:
-                const errorData = DisplayManager.getElementData(element);
                 const errorPrefix = browser.i18n.getMessage('contextMenuErrorPrefix') || 'Error';
-                const errorMessage = errorData?.errorMessage || 'Translation Error';
-                // TooltipManager 会处理 HTML 转义
+                const errorMessage = data?.errorMessage || 'Translation Error';
                 const fullErrorMessage = `⚠️ ${errorPrefix}: ${errorMessage}`;
-                this.displayTranslation(element, fullErrorMessage, true);
+                // 当发生错误时，原文和译文都显示错误信息
+                this.displayTranslation(element, data.originalContent, fullErrorMessage, true);
                 break;
             default:
                 console.warn(`[Hover Strategy] Unknown state: ${state}`);

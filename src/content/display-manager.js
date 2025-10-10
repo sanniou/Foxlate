@@ -1,7 +1,6 @@
 import * as Constants from '../common/constants.js';
 import replaceStrategy from './strategies/replace-strategy.js';
 import appendStrategy from './strategies/append-strategy.js';
-import contextMenuStrategy from './strategies/context-menu-strategy.js';
 import enhancedContextMenuStrategy from './strategies/enhanced-context-menu-strategy.js';
 import hoverStrategy from './strategies/hover-strategy.js';
 
@@ -13,7 +12,6 @@ export class DisplayManager {
     static _strategies = {
         replace: replaceStrategy,
         append: appendStrategy,
-        contextMenu: contextMenuStrategy,
         enhancedContextMenu: enhancedContextMenuStrategy,
         hover: hoverStrategy,
     };
@@ -210,7 +208,7 @@ export class DisplayManager {
      * @param {number} frameId - 当前框架的ID。
      */
     static handleEphemeralTranslation(payload, frameId) {
-        const { isLoading, success, translatedText, error, coords, source, originalText, displayMode = 'contextMenu' } = payload;
+        const { isLoading, success, translatedText, error, coords, source, originalText, displayMode = 'enhancedContextMenu' } = payload;
         let target;
         if (isLoading) {
             if (this.activeEphemeralTargets.has(displayMode)) {
