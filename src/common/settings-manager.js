@@ -197,6 +197,17 @@ export class SettingsManager {
 
         const validatedSettings = { ...defaultSettings, ...settingsToValidate };
 
+        // 为现有的域名规则添加时间戳（如果没有的话）
+        if (validatedSettings.domainRules) {
+            for (const domain in validatedSettings.domainRules) {
+                if (!validatedSettings.domainRules[domain].addedAt) {
+                    // 为现有规则分配一个基于域名哈希的时间戳，确保排序的一致性
+                    // 这样可以避免每次加载时都分配新的时间戳导致排序变化
+                    validatedSettings.domainRules[domain].addedAt = SettingsManager.#generateDomainTimestamp(domain);
+                }
+            }
+        }
+
         // Deep merge for translationSelector
         const storedDefaultSelector = settingsToValidate.translationSelector?.default;
         const defaultDefaultSelector = defaultSettings.translationSelector.default;
@@ -493,5 +504,23 @@ export class SettingsManager {
      */
     static clearCache() {
         SettingsManager.#effectiveSettingsCache.clear();
+    }
+
+    /**
+     * @private
+     * 为域名生成一个一致的时间戳，用于排序现有规则
+     * @param {string} domain - 域名
+     * @returns {number} 基于域名哈希的时间戳
+     */
+    static #generateDomainTimestamp(domain) {
+        // 使用简单的字符串哈希算法生成一致的数字
+        let hash = 0;
+        for (let i = 0; i < domain.length; i++) {
+            const char = domain.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // 转换为32位整数
+        }
+        // 将哈希值转换为正数，并加上一个基准时间戳，确保时间戳在合理范围内
+        return Math.abs(hash) + 1600000000000; // 2020年作为基准年
     }
 }

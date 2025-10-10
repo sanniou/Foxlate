@@ -406,6 +406,13 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // 按添加时间排序，如果没有时间戳则使用当前时间作为默认值
+        rulesArray.sort((a, b) => {
+            const timeA = a.addedAt || Date.now();
+            const timeB = b.addedAt || Date.now();
+            return timeA - timeB;
+        });
+
         rulesArray.forEach(rule => {
             const li = document.createElement('li');
             li.className = 'domain-rule-item';
@@ -977,7 +984,15 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const newDomainRules = { ...state.domainRules };
                 if (originalDomain) {
+                    // 如果是编辑现有规则，保留原有的添加时间
+                    if (newDomainRules[originalDomain] && newDomainRules[originalDomain].addedAt) {
+                        rule.addedAt = newDomainRules[originalDomain].addedAt;
+                    }
                     delete newDomainRules[originalDomain];
+                }
+                // 如果是新规则，添加时间戳
+                if (!rule.addedAt) {
+                    rule.addedAt = Date.now();
                 }
                 newDomainRules[rule.domain] = rule;
                 // 直接保存，让 settingsChanged 事件来更新 state 和 UI
