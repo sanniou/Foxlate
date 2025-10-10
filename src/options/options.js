@@ -83,25 +83,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         default: { ...currentState.translationSelector.default, [action.payload.key]: action.payload.value }
                     }
                 };
-            case 'UPDATE_PRECHECK_RULE': {
-                const { category, index, key, value } = action.payload;
-                const newPrecheckRules = JSON.parse(JSON.stringify(currentState.precheckRules));
-                if (newPrecheckRules[category]?.[index]) {
-                    newPrecheckRules[category][index][key] = value;
-                }
-                return { ...currentState, precheckRules: newPrecheckRules };
-            }
-            case 'ADD_PRECHECK_RULE': {
-                const newRules = JSON.parse(JSON.stringify(currentState.precheckRules));
-                if (!newRules[action.payload.category]) newRules[action.payload.category] = [];
-                newRules[action.payload.category].push({ name: '', regex: '', mode: 'blacklist', enabled: true, flags: '', isNew: true }); // 标记为新规则
-                return { ...currentState, precheckRules: newRules };
-            }
-            case 'REMOVE_PRECHECK_RULE': {
-                const newRules = JSON.parse(JSON.stringify(currentState.precheckRules));
-                newRules[action.payload.category].splice(action.payload.index, 1);
-                return { ...currentState, precheckRules: newRules };
-            }
             case 'SET_DOMAIN_RULES':
                 return { ...currentState, domainRules: action.payload };
             default:
@@ -134,14 +115,6 @@ document.addEventListener('DOMContentLoaded', () => {
      * @param {Set<string>} changes - 一个包含已更改状态键的 Set。
      */
     const render = (changes) => {
-        // (修复) 增加一个健壮性检查。如果在 Web Component 完全就绪前
-        // `render` 被意外调用，此检查可以防止因 `elements.precheckRulesEditor` 为 null 而导致的崩溃。
-        if (!elements.precheckRulesEditor) {
-            if (__DEBUG__) {
-                console.warn("`render` was called before `precheckRulesEditor` was initialized. Skipping this render pass.");
-            }
-            return;
-        }
         const isInitialRender = !initialSettingsSnapshot;
 
         // 1. 更新主表单字段
@@ -176,10 +149,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (domainRuleModal?.isOpen()) domainRuleModal.updateEngines(state.aiEngines);
         }
 
-        // 将 precheckRules 数据传递给 Lit 组件
-        if (isInitialRender || changes.has('precheckRules')) {
-            elements.precheckRulesEditor.rules = state.precheckRules;
-        }
     };
 
     function validateCssSelectorInput(inputElement) {
@@ -344,11 +313,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveSettings = async () => {
         elements.saveSettingsBtn.dataset.state = 'loading';
         const settingsToSave = getCurrentSettingsState();
-        const hasInvalidRegex = !!document.querySelector('.rule-item .m3-form-field.is-invalid');
         const isContentValid = validateCssSelectorInput(elements.defaultContentSelector);
         const isExcludeValid = validateCssSelectorInput(elements.defaultExcludeSelector);
 
-        if (hasInvalidRegex || !isContentValid || !isExcludeValid) {
+        if (!isContentValid || !isExcludeValid) {
             elements.saveSettingsBtn.dataset.state = 'error';
             const firstInvalidField = document.querySelector('.content-panel.active .m3-form-field.is-invalid');
             if (firstInvalidField) {
@@ -520,9 +488,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const compiledRules = SettingsManager.precompileRules(state.precheckRules);
-        const currentUiSettings = { targetLanguage: elements.targetLanguage.value, precheckRules: compiledRules };
-        const precheck = shouldTranslate(sourceText, currentUiSettings, true);
+        const precheck = shouldTranslate(sourceText, { targetLanguage: elements.targetLanguage.value }, true);
         elements.logContent.textContent = precheck.log.join('\n');
         document.getElementById('test-log-area').style.display = 'block';
         elements.toggleLogBtn.textContent = browser.i18n.getMessage('hideLogButton') || 'Hide Log';
@@ -557,24 +523,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const runGlobalPrecheckTest = () => {
-        const testText = elements.testTextInput.value;
-        const fieldContainer = elements.testTextInput.closest('.m3-form-field'); // This is now outside the component
-
-        if (!testText) {
-            fieldContainer.classList.add('is-invalid');
-            elements.testTextInputError.textContent = browser.i18n.getMessage('enterTestText');
-            elements.testTextInput.focus();
-            fieldContainer?.classList.add('error-shake');
-            setTimeout(() => fieldContainer?.classList.remove('error-shake'), 500);
-            return;
-        }
-
-        fieldContainer.classList.remove('is-invalid');
-        elements.testTextInputError.textContent = '';
-        // (重构) 调用 Lit 组件的公共方法来执行测试
-        elements.precheckRulesEditor.runAllTests();
-    };
 
     const renderCloudDataList = async () => {
         elements.cloudDataList.innerHTML = '';
@@ -713,7 +661,6 @@ document.addEventListener('DOMContentLoaded', () => {
             [ELEMENT_IDS.CLEAR_CACHE_BTN]: clearCache,
             [ELEMENT_IDS.MANAGE_AI_ENGINES_BTN]: () => aiEngineModal.open(state.aiEngines),
             [ELEMENT_IDS.ADD_DOMAIN_RULE_BTN]: () => domainRuleModal.open(null, {}, state),
-            [ELEMENT_IDS.RUN_GLOBAL_TEST_BTN]: runGlobalPrecheckTest,
             [ELEMENT_IDS.TEST_TRANSLATION_BTN]: toggleTestArea,
             [ELEMENT_IDS.MANUAL_TEST_TRANSLATE_BTN]: performTestTranslation,
             [ELEMENT_IDS.UPLOAD_SETTINGS_BTN]: uploadSettingsToCloud,
@@ -757,16 +704,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // --- 其他输入框 ---
-        if (target.id === 'testTextInput') {
-            // (新) 将测试文本传递给 Lit 组件
-            elements.precheckRulesEditor.testText = target.value;
-            const fieldContainer = target.closest('.m3-form-field');
-            if (fieldContainer.classList.contains('is-invalid')) {
-                fieldContainer.classList.remove('is-invalid');
-                elements.testTextInputError.textContent = '';
-            }
-        }
     };
 
     const handleGlobalChange = (e) => {
@@ -860,9 +797,6 @@ document.addEventListener('DOMContentLoaded', () => {
             manageAiEnginesBtn: document.getElementById(ELEMENT_IDS.MANAGE_AI_ENGINES_BTN),
             displayModeSelect: document.getElementById(ELEMENT_IDS.DISPLAY_MODE_SELECT),
             saveSettingsBtn: document.getElementById(ELEMENT_IDS.SAVE_SETTINGS_BTN),
-            runGlobalTestBtn: document.getElementById(ELEMENT_IDS.RUN_GLOBAL_TEST_BTN),
-            testTextInput: document.getElementById(ELEMENT_IDS.TEST_TEXT_INPUT),
-            testTextInputError: document.getElementById(ELEMENT_IDS.TEST_TEXT_INPUT_ERROR),
             cacheSizeInput: document.getElementById(ELEMENT_IDS.CACHE_SIZE_INPUT),
             cacheInfoDisplay: document.getElementById(ELEMENT_IDS.CACHE_INFO_DISPLAY),
             clearCacheBtn: document.getElementById(ELEMENT_IDS.CLEAR_CACHE_BTN),
@@ -940,11 +874,6 @@ document.addEventListener('DOMContentLoaded', () => {
         populateLanguageOptions(elements.targetLanguage);
         populateDisplayModeOptions(elements.displayModeSelect);
 
-        // --- 3. Web Component 初始化 (关键步骤) ---
-        // 必须在加载设置（这会触发首次渲染）之前，等待自定义元素完全定义并准备就绪。
-        await customElements.whenDefined('precheck-rules-editor');
-        // 只有在组件就绪后，才能通过 getElementById 获取到其实例。
-        elements.precheckRulesEditor = document.getElementById(ELEMENT_IDS.PRECHECK_RULES_EDITOR);
 
         // --- 4. 业务逻辑组件初始化 ---
         confirmModal = new ConfirmModal(elements);
@@ -1008,20 +937,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('input', handleGlobalInput);
         document.addEventListener('change', handleGlobalChange);
 
-        // (新) 监听来自 Lit 组件的自定义事件
-        elements.precheckRulesEditor.addEventListener('rule-update', (e) => {
-            dispatch({ type: 'UPDATE_PRECHECK_RULE', payload: e.detail });
-        });
-        elements.precheckRulesEditor.addEventListener('rule-add', (e) => {
-            const { category } = e.detail;
-            const newIndex = state.precheckRules[category]?.length || 0;
-            dispatch({ type: 'ADD_PRECHECK_RULE', payload: { category } });
-            // 请求组件在新规则渲染后聚焦
-            elements.precheckRulesEditor.focusNewRule(category, newIndex);
-        });
-        elements.precheckRulesEditor.addEventListener('rule-remove', (e) => {
-            dispatch({ type: 'REMOVE_PRECHECK_RULE', payload: e.detail });
-        });
 
         // (已重构) 监听设置变更，并使用 dispatch 更新状态
         SettingsManager.on('settingsChanged', ({ newValue }) => {

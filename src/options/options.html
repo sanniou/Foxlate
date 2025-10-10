@@ -18,7 +18,6 @@
                     <li><a href="#general" class="nav-link active" i18n-text="navGeneral">General</a></li>
                     <li><a href="#engine" class="nav-link" i18n-text="navEngine">Engine</a></li>
                     <li><a href="#rules" class="nav-link" i18n-text="navRules">Rules</a></li>
-                    <li><a href="#precheck" class="nav-link" i18n-text="navPreCheck">Pre-check</a></li>
                     <li><a href="#cache" class="nav-link" i18n-text="navCache">Cache</a></li>
                     <li><a href="#data" class="nav-link" i18n-text="navData">Data</a></li>
                 </ul>
@@ -130,27 +129,6 @@
                 </div>
             </section>
 
-            <!-- Pre-check Settings Panel -->
-            <section id="precheck" class="content-panel">
-                <h2 i18n-text="precheckRulesTitle">Translation Pre-check Rules</h2>
-                <small i18n-text="precheckRulesDescription"></small>
-                <div class="form-group">
-                    <div class="m3-form-field filled">
-                        <textarea id="testTextInput" rows="2" i18n-placeholder="testRegexInputPlaceholder" placeholder=" "></textarea>
-                        <label for="testTextInput" i18n-text="testRegexInputLabel"></label>
-                        <div class="error-message" id="testTextInputError"></div>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <div class="global-test-actions">
-                        <button id="runGlobalTestBtn" class="m3-button filled" i18n-text="runTestButton">Run Test</button>
-                        <small class="m3-helper-text" i18n-text="globalTestAreaDescription"></small>
-                    </div>
-                </div>
-                <!-- (重构) 旧的容器被新的 Lit Web Component 替换 -->
-                <precheck-rules-editor id="precheck-rules-editor"></precheck-rules-editor>
-
-            </section>
 
             <!-- Cache Settings Panel -->
             <section id="cache" class="content-panel">
@@ -508,44 +486,6 @@
         </div>
     </div>
 
-    <!-- Template for a single Pre-check Rule Item -->
-    <template id="precheck-rule-template">
-        <div class="rule-item">
-            <div class="m3-form-field filled rule-name-field">
-                <input type="text" class="rule-name" placeholder=" ">
-                <label i18n-text="ruleNamePlaceholder">Rule Name</label>
-            </div>
-            <div class="m3-form-field filled rule-regex-field">
-                <input type="text" class="rule-regex" placeholder=" ">
-                <label i18n-text="regexPlaceholder">Regular Expression</label>
-                <div class="error-message"></div>
-            </div>
-            <div class="m3-form-field filled rule-flags-field">
-                <input type="text" class="rule-flags" placeholder=" ">
-                <label i18n-text="flagsPlaceholder">flags</label>
-                <div class="error-message"></div>
-            </div>
-            <div class="m3-form-field filled rule-mode-field">
-                <select class="rule-mode">
-                    <option value="blacklist" i18n-text="blacklist">Blacklist</option>
-                    <option value="whitelist" i18n-text="whitelist">Whitelist</option>
-                </select>
-                <label i18n-text="rule">Rule</label>
-            </div>
-            <div class="rule-item-controls">
-                <div class="m3-switch">
-                    <input type="checkbox" class="rule-enabled-checkbox">
-                    <label class="switch-track"><span class="switch-thumb"></span></label>
-                    <label class="switch-label" i18n-text="enabled">Enabled</label>
-                </div>
-                <button class="test-rule-btn m3-button text" i18n-text="test">Test</button>
-                <button class="remove-rule-btn m3-icon-button danger">
-                    <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-                </button>
-            </div>
-            <div class="rule-test-result"></div>
-        </div>
-    </template>
 
     <!-- Scripts -->
     <script src="/common/precheck.js"></script>
@@ -553,7 +493,6 @@
     <script src="components/BaseComponent.js" type="module"></script>
     <script src="ui-helpers.js" type="module"></script>
     <script src="components/ConfirmModal.js" type="module"></script>
-    <script src="components/PrecheckRulesEditor.js" type="module"></script> <!-- (新) 引入 Lit 组件 -->
     <script src="components/AIEngineModal.js" type="module"></script>
     <script src="components/DomainRuleModal.js" type="module"></script>
     <script src="options.js" type="module"></script>
