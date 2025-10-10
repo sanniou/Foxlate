@@ -14,7 +14,8 @@ const ICONS = {
     copy: '<path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>',
     check: '<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>',
     expand: '<path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>',
-    collapse: '<path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6 1.41 1.41z"/>'
+    collapse: '<path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6 1.41 1.41z"/>',
+    pin: '<path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/>'
 };
 
 function createIcon(iconName, size = 16) {
@@ -38,6 +39,12 @@ class EnhancedTooltipManager {
     #currentUtterance = null;
     #isPlaying = false;
     #currentLanguage = 'auto'; // 'auto', 'source', or 'target'
+    #isPinned = false;
+    #isDragging = false;
+    #dragStartX = 0;
+    #dragStartY = 0;
+    #dragOffsetX = 0;
+    #dragOffsetY = 0;
 
     constructor() {
         if (!this.#speechSynthesis) {
@@ -54,7 +61,7 @@ class EnhancedTooltipManager {
     }
 
     #updatePosition({ coords, targetElement }) {
-        if (!this.#tooltipEl) return;
+        if (!this.#tooltipEl || this.#isPinned) return;
 
         const tooltipRect = this.#tooltipEl.getBoundingClientRect();
         let x, y;
@@ -88,6 +95,7 @@ class EnhancedTooltipManager {
     }
 
     hide() {
+        if (this.#isPinned) return;
         if (this.#tooltipEl) {
             this.#tooltipEl.classList.remove('visible');
         }
@@ -169,11 +177,15 @@ class EnhancedTooltipManager {
         const title = document.createElement('div');
         title.className = 'foxlate-panel-title';
         title.textContent = 'Foxlate';
-        const closeBtn = document.createElement('button');
-        closeBtn.className = 'foxlate-close-btn';
-        closeBtn.title = browser.i18n.getMessage('tooltipClose');
-        closeBtn.appendChild(createIcon('close'));
-        header.append(title, closeBtn);
+
+        const pinBtn = this.#createIconButton('foxlate-pin-btn', 'pin', browser.i18n.getMessage('tooltipPin'));
+        const closeBtn = this.#createIconButton('foxlate-close-btn', 'close', browser.i18n.getMessage('tooltipClose'));
+
+        const actions = document.createElement('div');
+        actions.className = 'foxlate-panel-actions';
+        actions.append(pinBtn, closeBtn);
+
+        header.append(title, actions);
 
         // Body
         const body = document.createElement('div');
@@ -260,6 +272,11 @@ class EnhancedTooltipManager {
         this.#createTooltip();
         if (!this.#tooltipEl) return;
 
+        if (this.#isPinned) {
+            this.#isPinned = false;
+            this.#tooltipEl.classList.remove('pinned');
+        }
+
         this.hide();
 
         this.#tooltipEl.innerHTML = ''; // Clear previous content
@@ -273,7 +290,7 @@ class EnhancedTooltipManager {
 
         if (onHide) {
             this.#activeHideHandler = (e) => {
-                if (!this.#tooltipEl || this.#tooltipEl.contains(e.target)) return;
+                if (this.#isPinned || !this.#tooltipEl || this.#tooltipEl.contains(e.target)) return;
                 onHide();
             };
             setTimeout(() => {
@@ -286,14 +303,56 @@ class EnhancedTooltipManager {
     #attachEventListeners(sourceText, translatedText, onHide) {
         if (!this.#tooltipEl) return;
 
+        const header = this.#tooltipEl.querySelector('.foxlate-panel-header');
+        const pinBtn = this.#tooltipEl.querySelector('.foxlate-pin-btn');
+
         this.#tooltipEl.querySelector('.foxlate-close-btn')?.addEventListener('click', (e) => {
             e.stopPropagation();
+            this.#isPinned = false;
             onHide?.();
+        });
+
+        pinBtn?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.#isPinned = !this.#isPinned;
+            this.#tooltipEl.classList.toggle('pinned', this.#isPinned);
+            header.classList.toggle('draggable', this.#isPinned);
+            pinBtn.title = browser.i18n.getMessage(this.#isPinned ? 'tooltipUnpin' : 'tooltipPin');
+            if (!this.#isPinned) {
+                onHide?.();
+            }
+        });
+
+        header?.addEventListener('mousedown', (e) => {
+            if (!this.#isPinned) return;
+            this.#isDragging = true;
+            const rect = this.#tooltipEl.getBoundingClientRect();
+            this.#dragStartX = e.clientX;
+            this.#dragStartY = e.clientY;
+            this.#dragOffsetX = e.clientX - rect.left;
+            this.#dragOffsetY = e.clientY - rect.top;
+            header.style.cursor = 'grabbing';
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!this.#isDragging || !this.#isPinned) return;
+            e.preventDefault();
+            const x = e.clientX - this.#dragOffsetX;
+            const y = e.clientY - this.#dragOffsetY;
+            this.#tooltipEl.style.left = `${x}px`;
+            this.#tooltipEl.style.top = `${y}px`;
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (!this.#isDragging) return;
+            this.#isDragging = false;
+            header.style.cursor = 'grab';
         });
 
         this.#attachSectionListeners('source', sourceText);
         this.#attachSectionListeners('target', translatedText);
     }
+
 
     #attachSectionListeners(type, text) {
         const section = this.#tooltipEl.querySelector(`.${type}-section`);
