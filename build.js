@@ -30,6 +30,13 @@ const LIBS_TO_CHECK = [
         versionRegex: null,
         latestVersionUrl: 'https://unpkg.com/${packageName}@${version}/Readability.js'
     },
+    {
+        name: 'franc.bundle.mjs',
+        type: 'esm_sh',
+        packageName: 'franc',
+        localPath: path.join(__dirname, 'src', 'lib', 'franc.bundle.mjs'),
+        versionRegex: /esm\.sh - franc@([\d\.]+)/,
+    },
 ];
 
 async function getLocalVersion(filePath, regex) {
@@ -90,6 +97,55 @@ function getLatestGitHubRelease(repo) {
     });
 }
 
+function getLatestESMVersion(packageName) {
+    return new Promise((resolve, reject) => {
+        const url = `https://esm.sh/${packageName}?bundle`;
+        https.get(url, (res) => {
+            let data = '';
+            res.on('data', (chunk) => { data += chunk; });
+            res.on('end', () => {
+                try {
+                    const match = data.match(new RegExp(`esm\\.sh - ${packageName}@([\\d\\.]+)`));
+                    if (match) {
+                        resolve(match[1]);
+                    } else {
+                        reject(`❌ Could not extract version from ESM response for ${packageName}.`);
+                    }
+                } catch (e) {
+                    reject(`❌ Failed to parse ESM data for ${packageName}: ${e.message}`);
+                }
+            });
+        }).on('error', (err) => {
+            reject(`❌ Failed to fetch ESM version for ${packageName}: ${err.message}`);
+        });
+    });
+}
+
+function downloadFrancBundle(version, localPath) {
+    return new Promise((resolve, reject) => {
+        const url = `https://esm.sh/franc@${version}/es2022/franc.bundle.mjs`;
+        https.get(url, (res) => {
+            if (res.statusCode !== 200) {
+                reject(`❌ Failed to download franc bundle: HTTP ${res.statusCode}`);
+                return;
+            }
+            let data = '';
+            res.on('data', (chunk) => { data += chunk; });
+            res.on('end', () => {
+                fs.writeFile(localPath, data, 'utf-8', (err) => {
+                    if (err) {
+                        reject(`❌ Failed to write franc bundle to ${localPath}: ${err.message}`);
+                    } else {
+                        resolve();
+                    }
+                });
+            });
+        }).on('error', (err) => {
+            reject(`❌ Failed to download franc bundle: ${err.message}`);
+        });
+    });
+}
+
 
 async function checkLibraryUpdates() {
     console.log('🔎 Checking for library updates...');
@@ -108,6 +164,8 @@ async function checkLibraryUpdates() {
                 latestVersion = await getLatestNPMVersion(lib.packageName);
             } else if (lib.type === 'github_release') {
                 latestVersion = await getLatestGitHubRelease(lib.repo);
+            } else if (lib.type === 'esm_sh') {
+                latestVersion = await getLatestESMVersion(lib.packageName);
             }
 
             if (!localVersion) {
@@ -128,6 +186,17 @@ async function checkLibraryUpdates() {
             if (localVersion !== latestVersion) {
                 console.log(`⬆️  Update available for ${lib.name}: ${localVersion} -> ${latestVersion}`);
                 updatesFound = true;
+
+                // Special handling for franc: download the latest bundle
+                if (lib.type === 'esm_sh' && lib.packageName === 'franc') {
+                    console.log(`📥 Downloading latest franc bundle...`);
+                    try {
+                        await downloadFrancBundle(latestVersion, lib.localPath);
+                        console.log(`✅ Downloaded franc bundle v${latestVersion}`);
+                    } catch (error) {
+                        console.error(`❌ Failed to download franc bundle: ${error}`);
+                    }
+                }
             }
         } catch (error) {
             console.error(error);
