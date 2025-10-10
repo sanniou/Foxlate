@@ -434,7 +434,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const editDomainRule = (domain) => {
         const ruleData = state.domainRules[domain] || {};
-        domainRuleModal.open(domain, ruleData, state.aiEngines);
+        domainRuleModal.open(domain, ruleData, state);
     };
 
     const exportSettings = async () => {
@@ -636,7 +636,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     showStatusMessage(browser.i18n.getMessage("settingsDownloadedSuccess"));
                     // Re-render the entire UI to reflect new settings
                     const newSettings = await SettingsManager.getValidatedSettings();
-                    updateStateAndRender(newSettings);
+                    initialSettingsSnapshot = JSON.stringify(newSettings);
+                    dispatch({ type: 'SET_FULL_STATE', payload: newSettings });
                 } else {
                     showStatusMessage(`Failed to download settings: ${response.error}`, true);
                 }
