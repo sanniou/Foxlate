@@ -191,15 +191,7 @@
     overflow: hidden;
 }
 
-/* 收起状态 - 整个区域收起 */
-.foxlate-text-section.collapsed .foxlate-text-header {
-    margin-bottom: 0;
-    height: 0;
-    overflow: hidden;
-    opacity: 0;
-    transition: opacity 0.2s ease-in-out, height 0.2s ease-in-out;
-}
-
+/* 收起状态 - 仅隐藏内容 */
 .foxlate-text-section.collapsed .foxlate-text-content {
     max-height: 0;
     padding-top: 0;
@@ -208,14 +200,6 @@
     margin-bottom: 0;
     border: none;
     transition: max-height 0.2s ease-in-out, padding 0.2s ease-in-out, margin 0.2s ease-in-out;
-}
-
-/* 原文区域默认完全隐藏 */
-.foxlate-text-section.source-section.collapsed {
-    margin-bottom: 0;
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.2s ease-in-out;
 }
 
 /* 展开状态 - 显示标题和内容 */

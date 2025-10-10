@@ -1143,5 +1143,57 @@
   "placeholderContext": {
     "message": "Translation context",
     "description": "Description for context placeholder."
+  },
+  "tooltipClose": {
+    "message": "Close",
+    "description": "Title for the close button on the enhanced tooltip."
+  },
+  "tooltipExpandSource": {
+    "message": "Expand Source",
+    "description": "Title for the button to expand the source text section."
+  },
+  "tooltipCollapseSource": {
+    "message": "Collapse Source",
+    "description": "Title for the button to collapse the source text section."
+  },
+  "tooltipReadSource": {
+    "message": "Read Source",
+    "description": "Title for the button to read the source text aloud."
+  },
+  "tooltipCopySource": {
+    "message": "Copy Source",
+    "description": "Title for the button to copy the source text."
+  },
+  "tooltipCollapseTarget": {
+    "message": "Collapse Target",
+    "description": "Title for the button to collapse the target text section."
+  },
+  "tooltipReadTarget": {
+    "message": "Read Target",
+    "description": "Title for the button to read the translated text aloud."
+  },
+  "tooltipCopyTarget": {
+    "message": "Copy Target",
+    "description": "Title for the button to copy the translated text."
+  },
+  "tooltipStopReading": {
+    "message": "Stop Reading",
+    "description": "Title for the button to stop the text-to-speech playback."
+  },
+  "tooltipTranslating": {
+    "message": "Translating...",
+    "description": "Loading text displayed while a translation is in progress."
+  },
+  "tooltipSourceText": {
+    "message": "Source",
+    "description": "Label for the source text section."
+  },
+  "tooltipTargetText": {
+    "message": "Translation",
+    "description": "Label for the translated text section."
+  },
+  "tooltipCopied": {
+    "message": "Copied",
+    "description": "Temporary status text shown after a successful copy action."
   }
 }
