@@ -8,7 +8,7 @@ export class AITranslator extends BaseTranslator {
 
   async translate(text, targetLang, sourceLang = 'auto', aiConfig = {}, signal) {
     const log = []; // 为当前翻译操作创建本地日志
-    const { apiKey, apiUrl, model, customPrompt: customPromptTemplate } = aiConfig;
+    const { apiKey, apiUrl, model, customPrompt: customPromptTemplate, context } = aiConfig;
     if (!apiKey || apiKey.trim() === '') {
       throw new Error(browser.i18n.getMessage('aiApiKeyMissingError'));
     }
@@ -28,12 +28,20 @@ export class AITranslator extends BaseTranslator {
     log.push(browser.i18n.getMessage('logEntryApiRequest', this.name));
     log.push(`[API URL] ${apiUrl}`); // 记录实际调用的 URL
 
-    // Replace both {targetLang} and {sourceLang} in the custom prompt
-    const systemPrompt = customPromptTemplate
-      .replace('{targetLang}', targetLang)
-      .replace('{sourceLang}', sourceLang);
+    // 构建占位符替换映射
+    const placeholderMap = {
+      '{targetLang}': targetLang,
+      '{sourceLang}': sourceLang,
+      '{context}': context || ''
+    };
 
-    // (新) 根据输入类型构建消息
+    // 替换所有支持的占位符
+    let systemPrompt = customPromptTemplate;
+    for (const [placeholder, value] of Object.entries(placeholderMap)) {
+      systemPrompt = systemPrompt.replace(new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g'), value);
+    }
+
+    // 根据输入类型构建消息
     let userMessages;
     if (Array.isArray(text)) {
         // 如果输入是数组（对话历史），直接使用

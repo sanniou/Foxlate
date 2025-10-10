@@ -1361,3 +1361,83 @@ hr.divider {
 .page-footer a:hover {
     text-decoration: underline;
 }
+
+/* Prompt placeholder help styles */
+.prompt-placeholder-help {
+    margin: 16px 0;
+    padding: 16px;
+    background-color: var(--md-sys-color-surface-container-highest);
+    border-radius: 12px;
+    border: 1px solid var(--md-sys-color-outline-variant);
+    font-size: var(--md-sys-typescale-body-small-font-size);
+}
+
+.prompt-placeholder-help h4 {
+    margin: 0 0 12px 0;
+    font-size: var(--md-sys-typescale-title-small-font-size);
+    color: var(--md-sys-color-on-surface);
+    font-weight: 500;
+}
+
+.prompt-placeholder-help ul {
+    margin: 0 0 16px 0;
+    padding-left: 20px;
+}
+
+.prompt-placeholder-help li {
+    margin-bottom: 6px;
+    line-height: 1.4;
+}
+
+.prompt-placeholder-help code {
+    background-color: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+}
+
+.prompt-examples {
+    margin-top: 16px;
+}
+
+.prompt-examples h5 {
+    margin: 0 0 8px 0;
+    font-size: var(--md-sys-typescale-body-medium-font-size);
+    color: var(--md-sys-color-on-surface-variant);
+    font-weight: 500;
+}
+
+.example-template {
+    background-color: var(--md-sys-color-surface-container);
+    padding: 12px;
+    border-radius: 8px;
+    border-left: 3px solid var(--md-sys-color-primary);
+}
+
+.example-template strong {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--md-sys-color-on-surface);
+    font-weight: 500;
+}
+
+.example-template code {
+    display: block;
+    white-space: pre-wrap;
+    line-height: 1.5;
+    background-color: transparent;
+    color: var(--md-sys-color-on-surface-variant);
+    padding: 0;
+}
+
+/* Helper text inline styles */
+.m3-helper-text small code {
+    background-color: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+}

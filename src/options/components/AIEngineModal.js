@@ -180,7 +180,10 @@ export class AIEngineModal extends BaseComponent {
             [this.#elements.aiApiKeyInput.id]: (val) => this.#state.editingEngine.apiKey = val,
             [this.#elements.aiApiUrlInput.id]: (val) => this.#state.editingEngine.apiUrl = val,
             [this.#elements.aiModelNameInput.id]: (val) => this.#state.editingEngine.model = val,
-            [this.#elements.aiCustomPromptInput.id]: (val) => this.#state.editingEngine.customPrompt = val,
+            [this.#elements.aiCustomPromptInput.id]: (val) => {
+                this.#state.editingEngine.customPrompt = val;
+                this.#validatePromptTemplate(val);
+            },
             [this.#elements.aiShortTextThresholdInput.id]: (val) => this.#state.editingEngine.wordCountThreshold = parseInt(val, 10) || 0,
             [this.#elements.aiShortTextEngineSelect.id]: (val) => this.#state.editingEngine.fallbackEngine = val
         }[target.id];
@@ -189,8 +192,57 @@ export class AIEngineModal extends BaseComponent {
         }
     }
 
+    #validatePromptTemplate(template) {
+        const errorElement = document.getElementById('aiCustomPromptError');
+        const formField = this.#elements.aiCustomPromptInput.closest('.m3-form-field');
+        
+        if (!template || template.trim() === '') {
+            this.#showPromptError('Custom prompt cannot be empty');
+            return false;
+        }
+
+        // 检查是否包含至少一个有效的占位符
+        const validPlaceholders = ['{targetLang}', '{sourceLang}', '{context}'];
+        const hasValidPlaceholder = validPlaceholders.some(placeholder => template.includes(placeholder));
+        
+        if (!hasValidPlaceholder) {
+            this.#showPromptError('Prompt must contain at least one placeholder: {targetLang}, {sourceLang}, or {context}');
+            return false;
+        }
+
+        // 检查占位符格式是否正确
+        const placeholderRegex = /\{[^}]+\}/g;
+        const placeholders = template.match(placeholderRegex) || [];
+        const invalidPlaceholders = placeholders.filter(p => !validPlaceholders.includes(p));
+        
+        if (invalidPlaceholders.length > 0) {
+            this.#showPromptError(`Invalid placeholders found: ${invalidPlaceholders.join(', ')}. Valid placeholders are: {targetLang}, {sourceLang}, {context}`);
+            return false;
+        }
+
+        // 清除错误状态
+        formField.classList.remove('is-invalid');
+        errorElement.textContent = '';
+        return true;
+    }
+
+    #showPromptError(message) {
+        const errorElement = document.getElementById('aiCustomPromptError');
+        const formField = this.#elements.aiCustomPromptInput.closest('.m3-form-field');
+        
+        errorElement.textContent = message;
+        formField.classList.add('is-invalid');
+    }
+
     async #saveEngine() {
         if (!this.#validator.validate()) return;
+        
+        // 验证prompt模板
+        const promptTemplate = this.#state.editingEngine.customPrompt;
+        if (!this.#validatePromptTemplate(promptTemplate)) {
+            return;
+        }
+        
         this.emit('save', this.#state.editingEngine);
         this.#hideForm();
     }
@@ -320,6 +372,18 @@ export class AIEngineModal extends BaseComponent {
 
         this.#elements.aiEngineForm.addEventListener('input', (e) => this.#handleFormInputChange(e));
         this.#elements.aiEngineForm.addEventListener('change', (e) => this.#handleFormInputChange(e));
+        
+        // Prompt help button event
+        const promptHelpBtn = document.getElementById('promptHelpBtn');
+        const promptPlaceholderHelp = document.getElementById('promptPlaceholderHelp');
+        
+        if (promptHelpBtn && promptPlaceholderHelp) {
+            promptHelpBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const isVisible = promptPlaceholderHelp.style.display !== 'none';
+                promptPlaceholderHelp.style.display = isVisible ? 'none' : 'block';
+            });
+        }
 
         // Import modal events
         this.#elements.importAiEngineModal.addEventListener('click', (e) => {
