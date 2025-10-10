@@ -13,63 +13,297 @@ export class PrecheckRulesEditor extends LitElement {
     static styles = css`
         :host {
             display: block;
-            margin-top: 16px;
-            font-family: var(--md-sys-font-family); /* (修复) 继承字体 */
+            margin-top: 24px;
+            font-family: var(--md-sys-font-family);
         }
+        
+        /* M3 Form Field 样式 - 从全局样式复制 */
+        .m3-form-field {
+            position: relative;
+        }
+        
+        .m3-form-field.filled {
+            border-radius: 4px 4px 0 0;
+            background-color: var(--md-sys-color-surface-container-highest);
+        }
+        
+        .m3-form-field.filled:hover {
+            background-color: color-mix(in srgb, var(--md-sys-color-surface-container-highest), var(--md-sys-color-on-surface) 4%);
+        }
+        
+        .m3-form-field.filled input,
+        .m3-form-field.filled textarea,
+        .m3-form-field.filled select {
+            width: 100%;
+            padding: 24px 16px 8px;
+            border: none;
+            border-bottom: 1px solid var(--md-sys-color-outline);
+            border-radius: 4px 4px 0 0;
+            font-size: var(--md-sys-typescale-body-large-font-size);
+            background-color: transparent;
+            color: var(--md-sys-color-on-surface);
+            box-sizing: border-box;
+            line-height: 1.2;
+            transition: border-color 0.2s ease, padding-bottom 0.2s ease, border-width 0.2s ease;
+        }
+        
+        .m3-form-field.filled select {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2345464F'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+            background-size: 24px;
+            padding-right: 48px;
+        }
+        
+        .m3-form-field.filled label {
+            position: absolute;
+            left: 16px;
+            top: 24px;
+            font-size: var(--md-sys-typescale-body-large-font-size);
+            color: var(--md-sys-color-on-surface-variant);
+            pointer-events: none;
+            transition: top 0.3s ease, font-size 0.3s ease, color 0.3s ease;
+            display: block;
+            margin-bottom: 0;
+            padding-left: 0;
+        }
+        
+        .m3-form-field.filled select + label {
+            top: 18px;
+        }
+        
+        .m3-form-field.filled input:focus + label,
+        .m3-form-field.filled textarea:focus + label,
+        .m3-form-field.filled select:focus + label,
+        .m3-form-field.filled input:not(:placeholder-shown) + label,
+        .m3-form-field.filled textarea:not(:placeholder-shown) + label,
+        .m3-form-field.filled.is-filled > label {
+            top: 8px;
+            font-size: var(--md-sys-typescale-body-small-font-size);
+            color: var(--md-sys-color-primary);
+        }
+        
+        .m3-form-field.filled input::placeholder,
+        .m3-form-field.filled textarea::placeholder {
+            color: transparent;
+            transition: color 0.3s ease;
+        }
+        
+        .m3-form-field.filled input:focus::placeholder,
+        .m3-form-field.filled textarea:focus::placeholder {
+            color: var(--md-sys-color-on-surface-variant);
+        }
+        
+        .m3-form-field.is-invalid input,
+        .m3-form-field.is-invalid textarea,
+        .m3-form-field.is-invalid select {
+            border-bottom-color: var(--md-sys-color-error);
+            box-shadow: 0 1px 0 0 var(--md-sys-color-error);
+        }
+        
+        .m3-form-field.filled input:focus,
+        .m3-form-field.filled textarea:focus,
+        .m3-form-field.filled select:focus {
+            outline: none;
+            border-bottom-color: var(--md-sys-color-primary);
+            box-shadow: 0 1px 0 0 var(--md-sys-color-primary);
+        }
+        
+        .m3-form-field.is-invalid label {
+            color: var(--md-sys-color-error);
+        }
+        
+        .m3-form-field .error-message {
+            color: var(--md-sys-color-error);
+            font-size: var(--md-sys-typescale-body-small-font-size);
+            margin-top: 4px;
+            padding-left: 16px;
+            display: none;
+        }
+        
+        .m3-form-field.is-invalid .error-message {
+            display: block;
+        }
+        
+        /* M3 Button 样式 - 从全局样式复制 */
+        button, .m3-button {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: var(--md-sys-typescale-label-large-font-size);
+            font-weight: 600;
+            transition: background-color 0.2s, box-shadow 0.2s, transform 0.1s;
+            flex-shrink: 0;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .m3-button.filled {
+            background-color: var(--md-sys-color-primary);
+            color: var(--md-sys-color-on-primary);
+        }
+        
+        .m3-button.filled:hover {
+            background-color: color-mix(in srgb, var(--md-sys-color-primary), var(--md-sys-state-hover-on-primary));
+            box-shadow: 0 1px 3px 1px rgba(0,0,0,0.15);
+        }
+        
+        .m3-button.text {
+            background-color: transparent;
+            color: var(--md-sys-color-primary);
+            padding: 6px 8px;
+        }
+        
+        .m3-button.text:hover {
+            background-color: var(--md-sys-state-hover-on-surface);
+        }
+        
+        .m3-button.text.danger {
+            color: var(--md-sys-color-error);
+            background-color: transparent;
+        }
+        
+        .m3-button.text.danger:hover {
+            background-color: rgba(var(--md-sys-color-error-rgb), 0.08);
+        }
+        
+        .m3-button.filled-tonal {
+            background-color: var(--md-sys-color-primary-container);
+            color: var(--md-sys-color-on-primary-container);
+        }
+        
+        .m3-button.filled-tonal:hover {
+            background-color: color-mix(in srgb, var(--md-sys-color-primary-container), var(--md-sys-color-on-primary-container) 8%);
+        }
+        
+        /* 标签按钮样式 - 与全局样式保持一致 */
         .tab-buttons {
             display: flex;
+            margin-bottom: 20px;
             border-bottom: 1px solid var(--md-sys-color-outline-variant);
-            margin-bottom: 16px;
             overflow-x: auto;
         }
+        
         .tab-button {
-            padding: 8px 16px;
+            position: relative;
+            padding: 12px 20px;
             cursor: pointer;
             border: none;
-            background: none;
-            border-bottom: 2px solid transparent;
-            color: var(--md-sys-color-on-surface-variant, #49454F);
-            font-size: 14px;
-            font-weight: 500;
+            background-color: transparent;
+            font-size: var(--md-sys-typescale-label-large-font-size);
+            font-weight: 600;
+            color: var(--md-sys-color-on-surface-variant);
+            border-radius: 8px 8px 0 0;
+            transition: color 0.3s ease, background-color 0.3s ease;
             white-space: nowrap;
         }
+        
+        .tab-button::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background-color: var(--md-sys-color-primary);
+            border-radius: 3px 3px 0 0;
+            transform: scaleX(0);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
         .tab-button.active {
             color: var(--md-sys-color-primary);
-            border-bottom-color: var(--md-sys-color-primary);
+            background-color: var(--md-sys-state-hover-on-surface);
         }
+        
+        .tab-button.active::after {
+            transform: scaleX(1);
+        }
+        
+        .tab-button:hover:not(.active) {
+            background-color: var(--md-sys-state-hover-on-surface);
+        }
+        
+        .tab-button:focus-visible {
+            outline: 2px solid var(--md-sys-color-primary);
+            outline-offset: -2px;
+        }
+        
         .tab-panel {
             display: none;
         }
+        
         .tab-panel.active {
             display: block;
         }
+        
         .rule-list {
             display: flex;
             flex-direction: column;
-            gap: 24px;
+            gap: 15px;
         }
+        
         .rule-item {
             display: grid;
-            grid-template-columns: repeat(12, 1fr);
-            gap: 16px;
-            align-items: start; /* (修复) 顶部对齐以处理错误消息 */
-            border: 1px solid var(--md-sys-color-outline-variant);
-            padding: 16px;
-            border-radius: 12px;
-        }
-        .rule-name-field { grid-column: 1 / 5; }
-        .rule-regex-field { grid-column: 5 / 13; min-width: 0; } /* (修复) 允许收缩 */
-        .rule-flags-field { grid-column: 1 / 3; }
-        .rule-mode-field { grid-column: 3 / 6; }
-        .rule-item-controls {
-            grid-column: 6 / 13;
-            display: flex;
+            grid-template-columns: 1.2fr 2.5fr 0.8fr 1fr 1.5fr;
+            grid-template-areas:
+                "name regex flags mode controls"
+                "result result result result result";
+            gap: 12px;
             align-items: center;
-            justify-content: flex-end;
-            gap: 8px;
+            padding: 12px 16px;
+            border-radius: 12px;
+            background-color: var(--md-sys-color-surface-container-highest);
+            border: 1px solid var(--md-sys-color-outline-variant);
         }
+        
+        /* 表单字段样式调整 */
+        .rule-item .m3-form-field > label {
+            top: 20px;
+            left: 12px;
+        }
+        
+        .rule-item .m3-form-field.filled input,
+        .rule-item .m3-form-field.filled select {
+            padding: 20px 12px 6px;
+            font-size: var(--md-sys-typescale-body-medium-font-size);
+            border-bottom: 1px solid var(--md-sys-color-outline);
+        }
+        
+        .rule-item .m3-form-field.filled select {
+            background-position: right 10px center;
+            padding-right: 32px;
+        }
+        
+        .rule-item .m3-form-field.filled select + label {
+            top: 10px;
+        }
+        
+        .rule-item .m3-form-field.filled select:focus + label,
+        .rule-item .m3-form-field.filled.is-filled > label {
+            top: 4px;
+        }
+        
+        .rule-name-field { grid-area: name; }
+        .rule-regex-field { grid-area: regex; min-width: 0; }
+        .rule-flags-field { grid-area: flags; }
+        .rule-mode-field { grid-area: mode; }
+        .rule-item-controls { grid-area: controls; }
+        .rule-test-result { grid-area: result; }
+        
+        .rule-item-controls {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 8px;
+            padding-bottom: 0;
+        }
+        
         .rule-test-result {
-            grid-column: 1 / -1;
             margin-top: 8px;
             padding: 8px;
             border-radius: 4px;
@@ -77,23 +311,119 @@ export class PrecheckRulesEditor extends LitElement {
             font-size: 12px;
             display: none;
         }
+        
         .rule-test-result.show {
             display: block;
         }
+        
         .regex-highlight {
-            background-color: var(--md-sys-color-tertiary-container);
-            color: var(--md-sys-color-on-tertiary-container);
-            border-radius: 3px;
+            background-color: var(--md-sys-color-primary-container);
+            color: var(--md-sys-color-on-primary-container);
+            font-weight: bold;
+            padding: 1px 4px;
+            border-radius: 4px;
         }
+        
         .add-rule-btn {
-            margin-top: 24px;
+            margin-top: 15px;
         }
+        
+        /* 图标按钮样式 */
+        button.m3-icon-button {
+            background-color: transparent;
+            border: none;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            padding: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--md-sys-color-on-surface-variant);
+            transition: background-color 0.2s;
+        }
+        
+        button.m3-icon-button:hover {
+            background-color: var(--md-sys-state-hover-on-surface);
+        }
+        
+        button.m3-icon-button.danger:hover {
+            background-color: rgba(186, 26, 26, 0.08);
+        }
+        
+        button.m3-icon-button.danger {
+            color: var(--md-sys-color-error);
+        }
+        
+        /* 开关样式 */
+        .m3-switch {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+        }
+        
+        .m3-switch .switch-label {
+            font-size: var(--md-sys-typescale-body-medium-font-size);
+            color: var(--md-sys-color-on-surface-variant);
+            user-select: none;
+            white-space: nowrap;
+        }
+        
+        .m3-switch input[type="checkbox"] {
+            display: none;
+        }
+        
+        .m3-switch .switch-track {
+            position: relative;
+            width: 40px;
+            height: 24px;
+            background-color: var(--md-sys-color-surface-variant);
+            border: 2px solid var(--md-sys-color-outline);
+            border-radius: 12px;
+            transition: background-color 0.2s, border-color 0.2s;
+            display: flex;
+            align-items: center;
+        }
+        
+        .m3-switch .switch-thumb {
+            position: absolute;
+            left: 3px;
+            width: 12px;
+            height: 12px;
+            background-color: var(--md-sys-color-outline);
+            border-radius: 50%;
+            transition: transform 0.2s ease, width 0.2s ease, height 0.2s ease, background-color 0.2s ease;
+        }
+        
+        .m3-switch input:checked + .switch-track {
+            background-color: var(--md-sys-color-primary);
+            border-color: var(--md-sys-color-primary);
+        }
+        
+        .m3-switch input:checked + .switch-track .switch-thumb {
+            transform: translateX(16px);
+            width: 18px;
+            height: 18px;
+            background-color: var(--md-sys-color-on-primary);
+        }
+        
         @media (max-width: 768px) {
-            .rule-name-field { grid-column: 1 / 13; }
-            .rule-regex-field { grid-column: 1 / 13; }
-            .rule-flags-field { grid-column: 1 / 5; }
-            .rule-mode-field { grid-column: 5 / 13; }
-            .rule-item-controls { grid-column: 1 / 13; justify-content: flex-start; }
+            .rule-item {
+                grid-template-columns: 1fr;
+                grid-template-areas:
+                    "name"
+                    "regex"
+                    "flags"
+                    "mode"
+                    "controls"
+                    "result";
+            }
+            
+            .rule-item-controls {
+                justify-content: flex-start;
+            }
         }
     `;
 
