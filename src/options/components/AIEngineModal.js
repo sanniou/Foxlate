@@ -206,7 +206,7 @@ export class AIEngineModal extends BaseComponent {
         const hasValidPlaceholder = validPlaceholders.some(placeholder => template.includes(placeholder));
         
         if (!hasValidPlaceholder) {
-            this.#showPromptError('Prompt must contain at least one placeholder: {targetLang}, {sourceLang}, or {context}');
+            this.#showPromptError(browser.i18n.getMessage('promptValidationError'));
             return false;
         }
 
@@ -216,7 +216,8 @@ export class AIEngineModal extends BaseComponent {
         const invalidPlaceholders = placeholders.filter(p => !validPlaceholders.includes(p));
         
         if (invalidPlaceholders.length > 0) {
-            this.#showPromptError(`Invalid placeholders found: ${invalidPlaceholders.join(', ')}. Valid placeholders are: {targetLang}, {sourceLang}, {context}`);
+            const errorMessage = browser.i18n.getMessage('invalidPlaceholderError', [invalidPlaceholders.join(', ')]);
+            this.#showPromptError(errorMessage);
             return false;
         }
 

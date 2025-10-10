@@ -1103,5 +1103,45 @@
   "appearanceSettings": {
     "message": "Appearance Settings",
     "description": "Section heading for appearance settings."
+  },
+  "promptPlaceholders": {
+    "message": "Supported placeholders:",
+    "description": "Label for placeholder help text."
+  },
+  "viewPromptExamples": {
+    "message": "View Examples",
+    "description": "Button text to view prompt examples."
+  },
+  "promptPlaceholderHelpTitle": {
+    "message": "Supported Placeholders",
+    "description": "Title for placeholder help."
+  },
+  "promptExampleTitle": {
+    "message": "Example Templates",
+    "description": "Title for example templates."
+  },
+  "professionalTranslation": {
+    "message": "Professional Translation:",
+    "description": "Label for professional translation example."
+  },
+  "promptValidationError": {
+    "message": "Prompt must contain at least one placeholder: {targetLang}, {sourceLang}, or {context}",
+    "description": "Prompt validation error message."
+  },
+  "invalidPlaceholderError": {
+    "message": "Invalid placeholders found: $1. Valid placeholders are: {targetLang}, {sourceLang}, {context}",
+    "description": "Invalid placeholder error message."
+  },
+  "placeholderTargetLang": {
+    "message": "Target language",
+    "description": "Description for target language placeholder."
+  },
+  "placeholderSourceLang": {
+    "message": "Source language",
+    "description": "Description for source language placeholder."
+  },
+  "placeholderContext": {
+    "message": "Translation context",
+    "description": "Description for context placeholder."
   }
 }

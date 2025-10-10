@@ -1107,5 +1107,45 @@
   "dataManagement": {
     "message": "数据管理",
     "description": "数据管理部分标题。"
+  },
+  "promptPlaceholders": {
+    "message": "支持的占位符：",
+    "description": "占位符帮助文本的标签。"
+  },
+  "viewPromptExamples": {
+    "message": "查看示例",
+    "description": "查看prompt示例的按钮文本。"
+  },
+  "promptPlaceholderHelpTitle": {
+    "message": "支持的占位符",
+    "description": "占位符帮助标题。"
+  },
+  "promptExampleTitle": {
+    "message": "示例模板",
+    "description": "示例模板标题。"
+  },
+  "professionalTranslation": {
+    "message": "专业翻译：",
+    "description": "专业翻译示例标签。"
+  },
+  "promptValidationError": {
+    "message": "Prompt必须包含至少一个占位符：{targetLang}、{sourceLang}或{context}",
+    "description": "Prompt验证错误信息。"
+  },
+  "invalidPlaceholderError": {
+    "message": "发现无效占位符：$1。有效占位符为：{targetLang}、{sourceLang}、{context}",
+    "description": "无效占位符错误信息。"
+  },
+  "placeholderTargetLang": {
+    "message": "目标语言",
+    "description": "目标语言占位符说明。"
+  },
+  "placeholderSourceLang": {
+    "message": "源语言",
+    "description": "源语言占位符说明。"
+  },
+  "placeholderContext": {
+    "message": "翻译上下文",
+    "description": "上下文占位符说明。"
   }
 }

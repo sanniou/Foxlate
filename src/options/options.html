@@ -274,20 +274,21 @@
                         <div class="error-message" id="aiCustomPromptError"></div>
                     </div>
                     <div class="m3-helper-text">
-                        <small>支持的占位符：<code>{targetLang}</code> <code>{sourceLang}</code> <code>{context}</code></small>
-                        <button type="button" id="promptHelpBtn" class="m3-button text" style="margin-left: 8px;">查看示例</button>
+                        <small i18n-text="promptPlaceholders">Supported placeholders:</small>
+                        <small><code>{targetLang}</code> <code>{sourceLang}</code> <code>{context}</code></small>
+                        <button type="button" id="promptHelpBtn" class="m3-button text" style="margin-left: 8px;" i18n-text="viewPromptExamples">View Examples</button>
                     </div>
                     <div id="promptPlaceholderHelp" class="prompt-placeholder-help" style="display: none;">
-                        <h4>支持的占位符</h4>
+                        <h4 i18n-text="promptPlaceholderHelpTitle">Supported Placeholders</h4>
                         <ul>
-                            <li><code>{targetLang}</code> - 目标语言</li>
-                            <li><code>{sourceLang}</code> - 源语言</li>
-                            <li><code>{context}</code> - 翻译上下文</li>
+                            <li><code>{targetLang}</code> - <span i18n-text="placeholderTargetLang">Target language</span></li>
+                            <li><code>{sourceLang}</code> - <span i18n-text="placeholderSourceLang">Source language</span></li>
+                            <li><code>{context}</code> - <span i18n-text="placeholderContext">Translation context</span></li>
                         </ul>
                         <div class="prompt-examples">
-                            <h5>示例模板</h5>
+                            <h5 i18n-text="promptExampleTitle">Example Templates</h5>
                             <div class="example-template">
-                                <strong>专业翻译：</strong>
+                                <strong i18n-text="professionalTranslation">Professional Translation:</strong>
                                 <code>翻译至：{targetLang}<br>要求：专业，地道，流畅<br>上下文：{context}<br>输出：仅译文</code>
                             </div>
                         </div>
