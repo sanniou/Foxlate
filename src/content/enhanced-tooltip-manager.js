@@ -1,5 +1,4 @@
-import { franc } from '../lib/franc.bundle.mjs';
-import { escapeHtml } from '../common/utils.js';
+import { escapeHtml, detectSpeechLang } from '../common/utils.js';
 import browser from '../lib/browser-polyfill.js';
 
 // --- Constants ---
@@ -40,6 +39,8 @@ class EnhancedTooltipManager {
     #currentUtterance = null;
     #isPlaying = false;
     #currentLanguage = 'auto'; // 'auto', 'source', or 'target'
+    #sourceLang = 'auto'; // 将由 franc 检测
+    #targetLang = null; // 目标语言，必须通过 show 方法的选项进行配置
     #isPinned = false;
     // 新增：用于拖动状态的属性
     #isDragging = false;
@@ -127,7 +128,14 @@ class EnhancedTooltipManager {
         if (!text || !text.trim() || !this.#speechSynthesis) return;
 
         this.#currentUtterance = new SpeechSynthesisUtterance(text);
-        this.#currentUtterance.lang = language === 'target' ? 'zh-CN' : franc(text);
+        
+        // 根据类型（'source' 或 'target'）设置正确的语言代码
+        if (language === 'target') {
+            this.#currentUtterance.lang = this.#targetLang;
+        } else {
+            // 对于源文本，如果未提供语言，则动态检测
+            this.#currentUtterance.lang = this.#sourceLang === 'auto' ? detectSpeechLang(text) : this.#sourceLang;
+        }
 
         this.#currentUtterance.onstart = () => {
             this.#isPlaying = true;
@@ -268,10 +276,19 @@ class EnhancedTooltipManager {
     }
 
     show(sourceText, translatedText, options = {}) {
-        const { coords, targetElement, isLoading = false, isError = false, onHide } = options;
+        const { coords, targetElement, isLoading = false, isError = false, onHide, sourceLang, targetLang } = options;
+
+        // 强制要求调用者提供语言参数，移除内部默认值
+        if (!sourceLang || !targetLang) {
+            console.error('[EnhancedTooltipManager] `sourceLang` and `targetLang` must be provided in options.');
+            return; // 或者 throw new Error(...) 以更严格地中断流程
+        }
 
         this.#createTooltip();
         if (!this.#tooltipEl) return;
+
+        this.#sourceLang = sourceLang;
+        this.#targetLang = targetLang;
 
         if (this.#isPinned) {
             this.#isPinned = false;

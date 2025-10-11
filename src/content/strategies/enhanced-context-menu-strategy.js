@@ -1,6 +1,6 @@
 import browser from '../../lib/browser-polyfill.js';
 import * as Constants from '../../common/constants.js';
-import { DisplayManager } from '../display-manager.js';
+import { getSpeechCode } from '../../common/utils.js';
 import EnhancedTooltipManager from '../enhanced-tooltip-manager.js';
 
 class EnhancedContextMenuStrategy {
@@ -32,12 +32,12 @@ class EnhancedContextMenuStrategy {
         EnhancedTooltipManager.hide();
     }
 
-    updateUI(element, state, displayManager) {
+    async updateUI(element, state, displayManager) {
         // For this strategy, 'element' is a plain state object, not a DOM element.
         const target = element;
         this.#currentTarget = target; // Keep track of the current target for event handlers.
 
-        const data = DisplayManager.getElementData(target);
+        const data = displayManager.constructor.getElementData(target);
         const coords = {
             clientX: parseFloat(target.dataset.clientX),
             clientY: parseFloat(target.dataset.clientY),
@@ -48,6 +48,18 @@ class EnhancedContextMenuStrategy {
         // the DisplayManager reverts the state, which in turn calls this strategy's
         // revert() method, cleaning up the #currentTarget.
         const onHideCallback = () => displayManager.revert(this.#currentTarget);
+
+        // 从 background 获取当前设置
+        const settings = await browser.runtime.sendMessage({ type: Constants.MSG_GET_SETTINGS });
+        const sourceLang = getSpeechCode(settings.sourceLanguage);
+        const targetLang = getSpeechCode(settings.targetLanguage);
+
+        // 如果无法从设置中获取有效的语言代码，则不显示工具提示，以避免传递无效参数
+        if (!sourceLang || !targetLang) {
+            console.error('[EnhancedContextMenuStrategy] Could not determine valid source/target language codes from settings.', settings);
+            this.revert(target);
+            return;
+        }
 
         switch (state) {
             case Constants.DISPLAY_MANAGER_STATES.ORIGINAL:
@@ -61,7 +73,9 @@ class EnhancedContextMenuStrategy {
                     isLoading: true, 
                     source, 
                     type: 'context', 
-                    onHide: onHideCallback
+                    onHide: onHideCallback,
+                    sourceLang,
+                    targetLang
                 });
                 break;
 
@@ -76,7 +90,9 @@ class EnhancedContextMenuStrategy {
                         coords, 
                         source, 
                         type: 'context', 
-                        onHide: onHideCallback
+                        onHide: onHideCallback,
+                        sourceLang,
+                        targetLang
                     });
                 } else {
                     this.revert(target);
@@ -93,7 +109,9 @@ class EnhancedContextMenuStrategy {
                     isError: true, 
                     source, 
                     type: 'context', 
-                    onHide: onHideCallback
+                    onHide: onHideCallback,
+                    sourceLang,
+                    targetLang
                 });
                 break;
 

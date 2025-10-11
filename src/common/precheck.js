@@ -1,20 +1,5 @@
 import browser from '../lib/browser-polyfill.js';
-import { franc } from '../lib/franc.bundle.mjs';
-
-// Mapping from franc language codes to project language codes
-const FRANC_TO_PROJECT_LANG = {
-    'eng': 'EN',
-    'cmn': 'ZH',
-    'jpn': 'JA',
-    'kor': 'KO',
-    'fra': 'FR',
-    'deu': 'DE',
-    'spa': 'ES',
-    'rus': 'RU'
-};
-
-// Whitelist for franc detection
-const FRANC_WHITELIST = Object.keys(FRANC_TO_PROJECT_LANG);
+import { detectProjectLang } from './utils.js';
 
 /**
  * Determines if a text string should be translated based on pre-check rules.
@@ -42,16 +27,15 @@ export function shouldTranslate(text, settings, enableLog = false) {
         return { result: false, reason, log };
     }
 
-    // Use franc for language detection with options
-    const detected = franc(text, { minLength: 10, whitelist: FRANC_WHITELIST });
-    const detectedLang = FRANC_TO_PROJECT_LANG[detected];
+    // 使用专用的项目语言检测函数
+    const { rawCode, projectCode } = detectProjectLang(text);
 
     if (enableLog) {
-        log.push(`Detected language: ${detected} (mapped to ${detectedLang || 'unknown'})`);
+        log.push(`Detected language: ${rawCode} (mapped to ${projectCode || 'unsupported'})`);
     }
 
     // If language is undetectable or not supported, skip translation
-    if (detected === 'und' || !detectedLang) {
+    if (!projectCode) {
         const reason = 'Language undetectable or unsupported.';
         if (enableLog) {
             log.push(browser.i18n.getMessage('logEntryPrecheckNoTranslation') || 'Decision: Do not translate.');
@@ -59,9 +43,9 @@ export function shouldTranslate(text, settings, enableLog = false) {
         return { result: false, reason, log };
     }
 
-    if (detectedLang !== targetLang) {
+    if (projectCode !== targetLang) {
         if (enableLog) {
-            log.push(browser.i18n.getMessage('logEntryPrecheckFinalCheck', [text]) || `Text needs translation from ${detectedLang} to ${targetLang}`);
+            log.push(browser.i18n.getMessage('logEntryPrecheckFinalCheck', [text]) || `Text needs translation from ${projectCode} to ${targetLang}`);
         }
         return { result: true, reason: '', log };
     } else {
