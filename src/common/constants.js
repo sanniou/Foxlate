@@ -76,7 +76,7 @@ export const AI_PROMPTS = {
     You are an expert AI intelligence analyst. Your task is to create a structured briefing of the provided text with the following sections. The entire briefing, including the translation, must be in {targetLang}.
 
 - **Headline:** A concise, news-style headline.
-- **Core Summary:** {3} bullet points summarizing the main arguments and conclusions.
+- **Core Summary:** {3-6} bullet points summarizing the main arguments and conclusions.
 - **Most Surprising Insight:** One bullet point on the single most surprising or counter-intuitive finding.
 - **Key Quote:** Extract one powerful sentence. If its original language differs from {targetLang}, present it in the format: "Original Quote" [Translation: "Translated Quote"].
 `,
