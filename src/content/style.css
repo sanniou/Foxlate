@@ -113,6 +113,41 @@
     line-height: 0.5; /* 调整换行后的间距 */
 }
 
+/* (新) 追加模式的加载状态样式 */
+.foxlate-appended-text.loading {
+    /* 移除 JS 设置的 '...' 文本，完全由 CSS 控制加载动画 */
+    font-size: 0;
+    /* 调整内边距以容纳加载动画 */
+    padding-left: 20px;
+}
+
+.foxlate-appended-text.loading::before {
+    /* 覆盖原有的引用线样式，替换为 MD3 风格的加载动画 */
+    all: unset; /* 重置所有继承的样式 */
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--md-sys-color-surface-variant, #c5c6d0);
+    border-radius: 50%;
+    border-top-color: var(--md-sys-color-primary, #3964e8);
+    animation: md3-circular-progress 1s linear infinite;
+}
+
+/* (新) 追加模式的错误状态样式 */
+.foxlate-appended-text.error {
+    color: var(--md-sys-color-on-error-container, #410E0B);
+}
+
+.foxlate-appended-text.error::before {
+    /* 将引用线颜色改为错误状态颜色 */
+    background-color: var(--md-sys-color-error, #B3261E);
+}
+
 /* 为已处理并可悬停翻译的文本元素提供高亮样式 */
 .foxlate-hover-highlight {
     background-color: rgba(var(--md-sys-color-primary-rgb, 57, 100, 232), 0.08);
@@ -131,7 +166,17 @@
     opacity: 0.7;
 }
 
-/* 加载动画的 Keyframes */
+/* MD3 风格的圆形进度条动画 */
+@keyframes md3-circular-progress {
+    0% {
+        transform: translateY(-50%) rotate(0deg);
+    }
+    100% {
+        transform: translateY(-50%) rotate(360deg);
+    }
+}
+
+/* 保留原有的旋转动画，用于面板加载状态 */
 @keyframes foxlate-spin {
     to {
         transform: rotate(360deg);

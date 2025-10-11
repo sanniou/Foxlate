@@ -77,7 +77,7 @@ class AppendStrategy {
                 const errorMessage = errorData?.errorMessage || 'Translation Error';
 
                 const errorElement = this.#createAppendWrapper(appendType, ['error']);
-                errorElement.textContent = `⚠️ ${errorPrefix}: ${errorMessage}`; // 使用 textContent 更安全，因为前缀是固定的，错误信息已在前面处理过，或者假设其为纯文本。
+                errorElement.textContent = `${errorPrefix}: ${errorMessage}`; // (优化) 移除 '⚠️' 表情符号，改用 CSS 伪元素实现图标，以获得更好的一致性和外观。
                 element.appendChild(errorElement);
                 break;
 
