@@ -447,7 +447,7 @@ export class TranslatorManager {
    * @returns {Promise<{success: boolean, suggestions?: string[], error?: string}>}
    */
   static async inferSuggestions(history, aiModel, targetLang, tabId) {
-      history.push({ "role": "user", "content": "continue" });
+      history.push({ "role": "user", "content": Constants.AI_PROMPTS.suggestUserMessage });
       const result = await this.#executeAiTask(history, aiModel, targetLang, Constants.AI_PROMPTS.suggest, tabId);
 
       if (!result.success) {
