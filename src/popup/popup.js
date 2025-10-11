@@ -288,9 +288,26 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.engineSelect.addEventListener('change', (e) => saveChangeToRule('translatorEngine', e.target.value));
         elements.targetLanguageSelect.addEventListener('change', (e) => saveChangeToRule('targetLanguage', e.target.value));
         elements.displayModeSelect.addEventListener('change', async (e) => {
-            // 逻辑已简化。现在只负责保存设置。
-            // 后台脚本将广播 SETTINGS_UPDATED，内容脚本将处理UI更新。
-            await saveChangeToRule('displayMode', e.target.value);
+            const newDisplayMode = e.target.value;
+            // 1. 立即保存规则，这会通过后台脚本通知所有上下文，作为最终一致性的保证。
+            await saveChangeToRule('displayMode', newDisplayMode);
+
+            // 2. (优化) 为了即时响应，直接向当前活动标签页的内容脚本发送消息，
+            //    要求它立即更新显示模式，无需等待后台的广播。
+            if (activeTabId) {
+                try {
+                    await browser.tabs.sendMessage(activeTabId, {
+                        type: 'UPDATE_DISPLAY_MODE',
+                        payload: { displayMode: newDisplayMode }
+                    });
+                } catch (error) {
+                    // 如果内容脚本不存在或无法通信，这通常不是一个严重错误（例如，在 about:blank 页面）。
+                    // 仅在调试时记录警告，因为设置已经保存，页面加载时会应用正确模式。
+                    if (!error.message.includes("Receiving end does not exist")) {
+                        console.warn(`[Popup] Could not immediately update display mode on tab ${activeTabId}:`, error);
+                    }
+                }
+            }
         });
 
         elements.subtitleDisplayModeSelect.addEventListener('change', async (e) => {
