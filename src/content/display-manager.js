@@ -48,16 +48,44 @@ export class DisplayManager {
         this.updateElementUI(element, newState);
     }
 
-    static updateElementUI(element, state) {
+    static async updateElementUI(element, state) {
         const displayMode = element.dataset.translationStrategy;
         if (!displayMode) {
             console.error("[DisplayManager] Cannot update UI. Element is missing 'data-translation-strategy'.", element);
             return;
         }
 
+        let options = {};
+        // 仅当策略是增强型右键菜单时，才获取语言配置
+        if (displayMode === 'enhancedContextMenu') {
+            try {
+                // window.getEffectiveSettings 由 content-script.js 暴露
+                const settings = await window.getEffectiveSettings();
+                // 仅当源语言不是 'auto' 时，才需要获取其 speechCode。
+                // 'auto' 本身对于工具提示是一个有效值，用于表示自动检测。
+                if (!settings.sourceLanguage || settings.sourceLanguage === 'auto') {
+                    const { getSpeechCode } = await import('../common/utils.js');
+                    options.langConfig = {
+                        sourceLang: 'auto',
+                        targetLang: getSpeechCode(settings.targetLanguage)
+                    };
+                } else {
+                    // 如果源语言是 'auto'，则不应有此逻辑分支，因为划词翻译的源语言总是 'auto'。
+                    // 但作为防御性编程，我们保留此逻辑。
+                    const { getSpeechCode } = await import('../common/utils.js');
+                    options.langConfig = {
+                        sourceLang: getSpeechCode(settings.sourceLanguage),
+                        targetLang: getSpeechCode(settings.targetLanguage)
+                    };
+                }
+            } catch (error) {
+                console.error('[DisplayManager] Failed to get effective settings for enhanced context menu.', error);
+            }
+        }
+
         const strategy = this.getStrategy(displayMode);
         if (strategy && strategy.updateUI) {
-            strategy.updateUI(element, state, this); // 将 DisplayManager 实例传递给策略
+            strategy.updateUI(element, state, this, options); // 将 DisplayManager 实例和选项传递给策略
         } else {
             console.error(`[DisplayManager] Strategy "${displayMode}" not found or does not have an updateUI method.`);
         }

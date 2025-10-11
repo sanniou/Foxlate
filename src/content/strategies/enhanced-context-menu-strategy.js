@@ -1,6 +1,7 @@
 import browser from '../../lib/browser-polyfill.js';
 import * as Constants from '../../common/constants.js';
 import { getSpeechCode } from '../../common/utils.js';
+import { DisplayManager } from '../display-manager.js';
 import EnhancedTooltipManager from '../enhanced-tooltip-manager.js';
 
 class EnhancedContextMenuStrategy {
@@ -32,12 +33,20 @@ class EnhancedContextMenuStrategy {
         EnhancedTooltipManager.hide();
     }
 
-    async updateUI(element, state, displayManager) {
+    /**
+     * 更新UI以响应状态变化。
+     * @param {object} element - 状态对象，而非DOM元素。
+     * @param {string} state - 当前状态 (e.g., 'LOADING', 'TRANSLATED')。
+     * @param {object} displayManager - DisplayManager的实例。
+     * @param {object} options - 包含额外配置的对象。
+     * @param {object} options.langConfig - 语言配置 { sourceLang, targetLang }。
+     */
+    updateUI(element, state, displayManager, { langConfig }) {
         // For this strategy, 'element' is a plain state object, not a DOM element.
         const target = element;
         this.#currentTarget = target; // Keep track of the current target for event handlers.
 
-        const data = displayManager.constructor.getElementData(target);
+        const data = DisplayManager.getElementData(target);
         const coords = {
             clientX: parseFloat(target.dataset.clientX),
             clientY: parseFloat(target.dataset.clientY),
@@ -48,16 +57,11 @@ class EnhancedContextMenuStrategy {
         // the DisplayManager reverts the state, which in turn calls this strategy's
         // revert() method, cleaning up the #currentTarget.
         const onHideCallback = () => displayManager.revert(this.#currentTarget);
-
-        // 从 background 获取当前设置
-        const settings = await browser.runtime.sendMessage({ type: Constants.MSG_GET_SETTINGS });
-        // 特殊处理 'auto'，因为它不是一个标准的项目语言代码，但对于语音合成是有效选项
-        const sourceLang = settings.sourceLanguage === 'auto' ? 'auto' : getSpeechCode(settings.sourceLanguage);
-        const targetLang = getSpeechCode(settings.targetLanguage);
+        const { sourceLang, targetLang } = langConfig || {};
 
         // 如果无法从设置中获取有效的语言代码，则不显示工具提示，以避免传递无效参数
         if (!sourceLang || !targetLang) {
-            console.error('[EnhancedContextMenuStrategy] Could not determine valid source/target language codes from settings.', settings);
+            console.error('[EnhancedContextMenuStrategy] Invalid langConfig provided.', langConfig);
             this.revert(target);
             return;
         }
