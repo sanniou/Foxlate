@@ -40,7 +40,7 @@ export const DEFAULT_PRECHECK_RULES = {
         { nameKey: 'precheckRuleWhitespace', name: 'Whitespace only', regex: '^\\s*$', mode: 'blacklist', enabled: true, flags: '' },
         { nameKey: 'precheckRulePunctuation', name: 'Numbers, Punctuation, Symbols', regex: '^[\\d\\s\\p{P}\\p{S}]+$', mode: 'blacklist', enabled: true, flags: 'u' },
         { nameKey: 'precheckRuleEmoji', name: 'Single Emoji', regex: '^\\p{Extended_Pictographic}$', mode: 'blacklist', enabled: true, flags: 'u' },
-        { nameKey: 'precheckRuleSingleWord', name: 'Single English Letter', regex: '^[A-Za-z]$', mode: 'blacklist', enabled: true, flags: '' },        
+        { nameKey: 'precheckRuleSingleWord', name: 'Single English Letter', regex: '^[A-Za-z]$', mode: 'blacklist', enabled: true, flags: '' },
         { nameKey: 'precheckRuleEmail', name: 'Email Address', regex: '\\b[\\w.%+-]+@[\\w.-]+\\.[a-zA-Z]{2,}\\b', mode: 'blacklist', enabled: true, flags: 'i' },
         { nameKey: 'precheckRuleUrl', name: 'URL', regex: '^(https?|ftp)://[\\w\\-]+(\\.[\\w\\-]+)+([\\w\\-\\.,@?^=%&:/~\\+#]*[\\w\\-\\@?^=%&/~\\+#])?$', mode: 'blacklist', enabled: true, flags: 'i' },
         { nameKey: 'precheckRuleAcronymsGeneral', name: 'General Acronyms', regex: '\\b(OK|DIY|FAQ|ID|PIN|SIM|SMS|TV|ASAP|AKA|FYI|etc|vs|am|pm)\\b', mode: 'blacklist', enabled: true, flags: 'i' },
@@ -72,10 +72,17 @@ export const DEFAULT_SETTINGS = {
 };
 
 export const AI_PROMPTS = {
-    summarize: "context: {context}.You are a text summarization expert. Please summarize the following text into concise, easy-to-understand bullet points. The summary must be in {targetLang}.",
+    summarize: `context: {context}.
+    You are an expert AI intelligence analyst. Your task is to create a structured briefing of the provided text with the following sections. The entire briefing, including the translation, must be in {targetLang}.
+
+- **Headline:** A concise, news-style headline.
+- **Core Summary:** {3} bullet points summarizing the main arguments and conclusions.
+- **Most Surprising Insight:** One bullet point on the single most surprising or counter-intuitive finding.
+- **Key Quote:** Extract one powerful sentence. If its original language differs from {targetLang}, present it in the format: "Original Quote" [Translation: "Translated Quote"].
+`,
     converse: "context: {context}. You are a helpful AI assistant. Please answer the user's question concisely and accurately. The answer must be in {targetLang}.",
-    suggest: "context: {context}. You are an AI assistant designed to suggest follow-up questions or actions based on the current conversation history. Provide three distinct, concise suggestions as a JSON array of strings. Each suggestion should be a question or a short command. The suggestions must be in {targetLang}. Example: [\"What is the main idea?\", \"Tell me more about X.\", \"Summarize this.\"].",
-    suggestUserMessage: "You are an AI assistant designed to suggest follow-up questions or actions based on the current conversation history. Provide three distinct, concise suggestions as a JSON array of strings. Each suggestion should be a question or a short command. The suggestions must be in {targetLang}. Example: [\"What is the main idea?\", \"Tell me more about X.\", \"Summarize this.\"]."
+    suggest: "context: {context}. You are an AI conversationalist with a talent for making discussions more dynamic, insightful, and memorable. Your task is to generate three follow-up suggestions based on our conversation, ensuring each has a distinct intent. Provide them as a JSON array of strings.\n\nThe suggestions must be distinct in their purpose:\n1. One for CREATIVITY: Push the boundaries of the topic (e.g., a \"what if\" scenario, a new metaphor, an unexpected connection).\n2. One for VALUE: Focus on practical application or deeper understanding (e.g., a real-world use case, a key takeaway, a next step for learning).\n3. One for ENTERTAINMENT: Make the conversation more enjoyable (e.g., a fun fact, a related joke, a philosophical puzzle).\n\nThe suggestions must be concise, engaging, and in {targetLang}.\n\nExample: [\"What if this technology existed in the Middle Ages?\", \"What is the single most important skill to learn for this?\", \"Did you know the inventor of the Pringles can is now buried in one?\"]",
+    suggestUserMessage: "很有趣。基于我们刚才的对话，给我一些建议吧。"
 };
 
 export const DISPLAY_MODES = {
