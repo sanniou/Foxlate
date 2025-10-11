@@ -455,10 +455,11 @@ export class TranslatorManager {
       }
 
       // AI 应该返回一个 JSON 字符串数组，我们需要解析它。
-      // (新) 兼容 AI 可能返回 markdown 代码块的情况。
+      // (已优化) 使用正则表达式兼容 AI 可能返回的、包含换行符的 markdown 代码块。
       let jsonText = result.text.trim();
-      if (jsonText.startsWith('```json') && jsonText.endsWith('```')) {
-          jsonText = jsonText.substring(7, jsonText.length - 3).trim();
+      const match = jsonText.match(/^```json\s*([\s\S]*?)```$/);
+      if (match) {
+          jsonText = match[1].trim();
       }
 
       try {
