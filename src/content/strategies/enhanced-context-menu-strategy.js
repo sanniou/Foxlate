@@ -51,7 +51,8 @@ class EnhancedContextMenuStrategy {
 
         // 从 background 获取当前设置
         const settings = await browser.runtime.sendMessage({ type: Constants.MSG_GET_SETTINGS });
-        const sourceLang = getSpeechCode(settings.sourceLanguage);
+        // 特殊处理 'auto'，因为它不是一个标准的项目语言代码，但对于语音合成是有效选项
+        const sourceLang = settings.sourceLanguage === 'auto' ? 'auto' : getSpeechCode(settings.sourceLanguage);
         const targetLang = getSpeechCode(settings.targetLanguage);
 
         // 如果无法从设置中获取有效的语言代码，则不显示工具提示，以避免传递无效参数
