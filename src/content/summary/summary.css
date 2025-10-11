@@ -14,6 +14,9 @@
     z-index: 2147483640;
     transition: all 0.2s ease-in-out;
     user-select: none;
+    /* 防止被自动翻译 */
+    -webkit-user-modify: read-only;
+    user-modify: read-only;
 }
 .foxlate-summary-button.dragging {
     transition: none; /* Disable transition during drag */
@@ -44,6 +47,9 @@
     opacity: 0;
     transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease-in-out;
     visibility: hidden;
+    /* 防止被自动翻译 */
+    -webkit-user-modify: read-only;
+    user-modify: read-only;
 }
 .foxlate-summary-dialog.visible { transform: scale(1); opacity: 1; visibility: visible; }
 .foxlate-summary-dialog.loading .send-button { opacity: 0.5; cursor: wait; }

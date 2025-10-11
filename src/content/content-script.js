@@ -507,7 +507,7 @@ class PageTranslationJob {
                     if (node.nodeType !== Node.ELEMENT_NODE) continue;
 
                     // 忽略由本扩展自身UI（如 tooltip）或已翻译内容引起的突变。
-                    if (node.closest('[data-translation-id], .foxlate-panel')) continue;
+                    if (node.closest('[data-translation-id], .foxlate-panel, .foxlate-summary-dialog, .foxlate-summary-button')) continue;
 
                     if (node.dataset.foxlateGenerated === 'true') continue;
 

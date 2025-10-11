@@ -243,7 +243,7 @@ export class DOMWalker {
                             // 错误已在顶层处理，此处静默失败以避免控制台垃圾信息。
                         }
                     }
-                    if (child.matches('.notranslate, [lang]:not([lang=""])')) continue;
+                    if (child.matches('.notranslate, [lang]:not([lang=""]), .foxlate-summary-dialog, .foxlate-summary-button')) continue;
 
                     // (新) 检查 aria-hidden 属性。如果一个子元素被标记为对辅助技术隐藏，
                     // 那么它在语义上也是不可见的，应该被跳过。
