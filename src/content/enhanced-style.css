@@ -52,6 +52,11 @@
     color: var(--md-sys-color-on-surface, #1C1B1F);
 }
 
+.foxlate-panel-actions {
+    display: flex;
+    gap: 4px;
+}
+
 .foxlate-close-btn {
     background: none;
     border: none;
@@ -126,6 +131,7 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 2px;
+    cursor: pointer;
 }
 
 .foxlate-text-label {

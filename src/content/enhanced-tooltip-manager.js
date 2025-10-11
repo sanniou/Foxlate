@@ -16,7 +16,7 @@ const ICONS = {
     expand: '<path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>',
     collapse: '<path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6 1.41 1.41z"/>',
     pin: '<path d="M16 9V4h1V2H7v2h1v5l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/>', // 竖直图钉
-    unpin: '<path d="M20.3 5.7c-.39-.39-1.02-.39-1.41 0L17 7.59V4h-2v5.59l-1.59-1.59c-.39-.39-1.02-.39-1.41 0-.39.39-.39 1.02 0 1.41l4 4c.39.39 1.02.39 1.41 0l4-4c.39-.39.39-1.02 0-1.41zM7 2v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2V9.83l4.29-4.29c.39-.39.39-1.02 0-1.41L18.88 2.71c-.39-.39-1.02-.39-1.41 0L16 4.12V2H7z"/>' // 斜向图钉
+    unpin: '<path d="M7 2v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2V9.83l4.29-4.29c.39-.39.39-1.02 0-1.41L18.88 2.71c-.39-.39-1.02-.39-1.41 0L16 4.12V2H7z"/>' // 斜向图钉
 };
 
 function createIcon(iconName, size = 16) {
@@ -375,17 +375,25 @@ class EnhancedTooltipManager {
         const section = this.#tooltipEl.querySelector(`.${type}-section`);
         if (!section) return;
 
-        // Toggle button
+        // Toggle button and header click
         const toggleBtn = section.querySelector('.toggle-btn');
-        toggleBtn?.addEventListener('click', (e) => {
+        const header = section.querySelector('.foxlate-text-header');
+
+        const toggleCollapse = (e) => {
             e.stopPropagation();
             const isCollapsed = section.classList.toggle('collapsed');
             toggleBtn.innerHTML = '';
             toggleBtn.appendChild(createIcon(isCollapsed ? 'expand' : 'collapse'));
             toggleBtn.title = browser.i18n.getMessage(isCollapsed ? 'tooltipExpandSource' : 'tooltipCollapseSource');
-            
-            section.querySelectorAll('.source-speech-btn, .copy-source-btn')
+
+            section.querySelectorAll(`.${type}-speech-btn, .${type}-copy-btn`)
                 .forEach(btn => btn.disabled = isCollapsed);
+        };
+
+        toggleBtn?.addEventListener('click', toggleCollapse);
+        header?.addEventListener('click', (e) => {
+            if (e.target.closest('.foxlate-icon-btn')) return; // 避免点击按钮时重复触发
+            toggleCollapse(e);
         });
 
         // Speech button
