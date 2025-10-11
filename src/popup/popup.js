@@ -90,23 +90,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const loadAndApplySettings = async (settingsFromMessage = null) => {
+    const loadAndApplySettings = async () => {
         const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
         if (!tab) return;
         activeTabId = tab.id;
 
         currentHostname = getHostname(tab.url);
-        const finalRule = settingsFromMessage || await browser.runtime.sendMessage({
+        // (重构) 始终调用 GET_EFFECTIVE_SETTINGS 来获取权威的、完整的规则。
+        // 这确保了 finalRule 总是包含 'source' 属性，从而消除了对消息负载结构的依赖，
+        // 根除了因 SETTINGS_UPDATED 消息不含 'source' 而导致 currentRuleSource 状态不一致的问题。
+        const finalRule = await browser.runtime.sendMessage({
              type: 'GET_EFFECTIVE_SETTINGS',
              payload: { hostname: currentHostname }
          });
 
-        // The 'source' property is now reliably provided by getEffectiveSettings.
         currentRuleSource = finalRule.source;
 
         // (优化) 移除对 GET_VALIDATED_SETTINGS 的冗余调用。
-        // getEffectiveSettings 返回的结果 (finalRule) 已经包含了完整的全局设置，
-        // 包括 aiEngines 列表。通过消除这次不必要的跨进程通信，可以加快弹窗的加载速度。
         const allSupportedEngines = { ...Constants.SUPPORTED_ENGINES, ...(finalRule.aiEngines || []).reduce((acc, eng) => ({...acc, [`ai:${eng.id}`]: eng.name}), {}) };
 
         // 使用生效的规则 (finalRule) 填充UI元素
@@ -257,7 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
         browser.runtime.onMessage.addListener((request) => {
             if (request.type === 'SETTINGS_UPDATED' || request.type === 'RELOAD_TRANSLATION_JOB') {
                 console.log(`[Popup] Received '${request.type}' message. Reloading settings and UI.`);
-                loadAndApplySettings(request.payload?.newValue);
+                loadAndApplySettings();
                 updateButtonStateFromContentScript();
             } else if (request.type === 'TRANSLATION_STATUS_UPDATE' && request.payload.tabId === activeTabId) {
                 // (新) 监听来自后台的状态更新，直接更新按钮状态。
