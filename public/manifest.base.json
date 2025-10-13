@@ -44,6 +44,9 @@
         "default": "Alt+X"
       },
       "description": "__MSG_commandToggleDisplayMode__"
+    },
+    "toggle-summary": {
+      "description": "__MSG_commandToggleSummary__"
     }
   },
   "options_ui": {

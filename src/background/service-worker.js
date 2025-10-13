@@ -689,6 +689,30 @@ browser.commands.onCommand.addListener(async (command, tab) => {
             logError('onCommand (toggle-display-mode)', e);
         }
     }
+
+    if (command === "toggle-summary") {
+        // Pre-flight check
+        if (!tab || !tab.id || !tab.url || tab.url.startsWith('about:') || tab.url.startsWith('moz-extension:') || tab.url.startsWith('chrome:')) {
+            console.log(`[Foxlate] Command '${command}' ignored on protected page: ${tab?.url}`);
+            return;
+        }
+        try {
+            // 确保核心内容脚本已准备好
+            const scriptsReady = await ensureScriptsInjected(tab.id, 0, [...CSS_FILES, ...CORE_SCRIPT_FILES]);
+            if (!scriptsReady) {
+                logError('onCommand (toggle-summary)', new Error(`Failed to inject scripts into tab ${tab.id}.`));
+                return;
+            }
+            
+            // 发送消息到内容脚本处理 summary 切换
+            await browser.tabs.sendMessage(tab.id, {
+                type: 'TOGGLE_SUMMARY_REQUEST',
+                payload: { tabId: tab.id }
+            });
+        } catch (e) {
+            logError('onCommand (toggle-summary)', e);
+        }
+    }
 });
 
 browser.contextMenus.onClicked.addListener((info, tab) => {

@@ -856,6 +856,53 @@ const messageHandlers = {
             return Promise.resolve(window.subtitleManager.getStatus());
         }
         return Promise.resolve({ isSupported: false, isEnabled: false });
+    },
+
+    async TOGGLE_SUMMARY_REQUEST() {
+        // 获取当前设置
+        const settings = await getEffectiveSettings();
+        
+        // 如果 summary 功能未启用，临时启用它并使用默认设置
+        let tempSettings = settings;
+        if (!settings.summarySettings?.enabled) {
+            console.log("[Foxlate] Summary feature is not enabled in settings, temporarily enabling for shortcut.");
+            tempSettings = {
+                ...settings,
+                summarySettings: {
+                    enabled: true,
+                    aiModel: settings.aiEngines && settings.aiEngines.length > 0
+                        ? settings.aiEngines[0].id
+                        : null,
+                    mainBodySelector: settings.summarySettings?.mainBodySelector || 'article, .content, .post, main'
+                }
+            };
+        }
+
+        // 如果 summary 模块实例不存在，先初始化
+        if (!window.summaryModuleInstance) {
+            initializeSummary(tempSettings);
+        }
+
+        // 如果 summary 模块实例仍然不存在，说明初始化失败
+        if (!window.summaryModuleInstance) {
+            console.log("[Foxlate] Failed to initialize summary module.");
+            return { success: false, error: "Failed to initialize summary module" };
+        }
+
+        // 触发 summary 功能
+        try {
+            // 如果有选中的文本，先清除选区上下文
+            if (window.getSelection().toString().trim()) {
+                window.summaryModuleInstance.selectionContext = null;
+            }
+            
+            // 切换页面总结对话框
+            await window.summaryModuleInstance.togglePageSummaryDialog();
+            return { success: true };
+        } catch (error) {
+            logError('TOGGLE_SUMMARY_REQUEST', error);
+            return { success: false, error: error.message };
+        }
     }
 };
 

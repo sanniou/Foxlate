@@ -759,6 +759,10 @@
     "message": "Toggle Page Display Mode",
     "description": "Command to toggle the display mode for page translation."
   },
+  "commandToggleSummary": {
+    "message": "Toggle Content Summary",
+    "description": "Command to toggle the content summary feature."
+  },
   "enterRegex": {
     "message": "Please enter a regex",
     "description": "Prompt for entering a regular expression."

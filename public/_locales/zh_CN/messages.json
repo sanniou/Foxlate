@@ -771,6 +771,10 @@
     "message": "切换页面翻译显示模式",
     "description": "用于切换页面翻译显示模式的命令描述。"
   },
+  "commandToggleSummary": {
+    "message": "切换内容总结",
+    "description": "用于切换内容总结的命令描述。"
+  },
   "enterRegex": {
     "message": "请输入正则表达式",
     "description": "提示用户输入正则表达式。"

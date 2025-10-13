@@ -503,6 +503,10 @@ export function initializeSummary(settings) {
     if (summaryModuleInstance) summaryModuleInstance.destroy();
     if (settings?.summarySettings?.enabled) {
         summaryModuleInstance = new SummaryModule(settings);
+        // 将实例暴露到全局，以便快捷键可以访问
+        window.summaryModuleInstance = summaryModuleInstance;
+    } else {
+        window.summaryModuleInstance = null;
     }
 }
 
@@ -510,5 +514,6 @@ export function destroySummary() {
     if (summaryModuleInstance) {
         summaryModuleInstance.destroy();
         summaryModuleInstance = null;
+        window.summaryModuleInstance = null;
     }
 }
