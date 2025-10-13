@@ -256,7 +256,11 @@ class SummaryModule {
                 this.preProcessDOM(doc); // 预处理DOM
                 const reader = new Readability(doc);
                 const article = reader.parse();
-                return article?.textContent || '';
+                if (!article?.textContent) {
+                    return '';
+                }
+                // 优化：将多个连续的空白行和换行符替换为单个换行符，以保留段落结构
+                return article.textContent.replace(/(\s*\n\s*){2,}/g, '\n').trim();
             } catch (e) {
                 console.warn('[Foxlate Summary] Readability processing failed.', e);
                 return '';
