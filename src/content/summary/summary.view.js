@@ -27,6 +27,11 @@ export class SummaryDialog {
     // 定义常量
     static MARGIN = 16;
     static DEBOUNCE_DELAY = 100; // ms
+    static FIXED_WIDTH = 500;
+    static MIN_HEIGHT = 200;
+    static MAX_HEIGHT = 80; // vh
+    static GROWTH_ANIMATION_DURATION = 200; // ms
+    static CONTENT_PADDING = 32; // 对话框内边距总和
 
     constructor() {
         this.isOpen = false;
@@ -34,6 +39,9 @@ export class SummaryDialog {
         this._fullRerenderNeeded = false;
         this.lastButtonRect = null; // 用于存储上次 show 时的 buttonRect
         this.lastButtonElement = null; // 用于存储按钮元素，以便在滚动时重新获取位置
+        this.currentQuadrant = null; // 当前象限
+        this.targetDimensions = { width: 0, height: 0 }; // 目标尺寸
+        this.isAnimating = false; // 是否正在动画中
 
         // 绑定事件处理函数，以便在移除时使用
         this.boundHandleSendMessage = () => {
@@ -504,46 +512,327 @@ export class SummaryDialog {
         }
         this.element.style.visibility = 'visible';
 
-        this.repositionDialog(); // 调用重定位方法
+        // 初始化尺寸为最小值，准备动画
+        this.element.style.width = `${SummaryDialog.FIXED_WIDTH}px`;
+        this.element.style.maxHeight = `${SummaryDialog.MIN_HEIGHT}px`;
+        this.element.classList.add('visible');
+
+        // 延迟执行重定位，确保DOM已更新
+        requestAnimationFrame(() => {
+            this.repositionDialog(); // 调用重定位方法
+            this.textarea.focus();
+        });
 
         // 添加窗口大小和滚动监听器
         window.addEventListener('resize', this.debouncedHandleResizeAndScroll);
         window.addEventListener('scroll', this.debouncedHandleResizeAndScroll, true); // 捕获阶段监听，确保能捕获到所有滚动事件
 
-        this.element.classList.add('visible');
-        this.textarea.focus();
+        // 添加内容变化观察器
+        this.setupContentObserver();
     }
 
     repositionDialog() {
         if (!this.isOpen || !this.lastButtonRect) return; // 如果对话框未打开或没有 buttonRect，则不重定位
 
-        const dialogWidth = this.element.offsetWidth;
-        const dialogHeight = this.element.offsetHeight;
         const { top, left, right, bottom } = this.lastButtonRect;
         const winWidth = window.innerWidth;
         const winHeight = window.innerHeight;
-        const MARGIN = SummaryDialog.MARGIN; // 使用常量
+        const MARGIN = SummaryDialog.MARGIN;
 
-        const quadrants = [
-            { name: 'bottomAlignLeft', score: Math.min(dialogWidth, winWidth - left - MARGIN) * Math.min(dialogHeight, winHeight - bottom - MARGIN), origin: 'top left', top: `${bottom + 8}px`, left: `${left}px` },
-            { name: 'bottomAlignRight', score: Math.min(dialogWidth, right - MARGIN) * Math.min(dialogHeight, winHeight - bottom - MARGIN), origin: 'top right', top: `${bottom + 8}px`, right: `${winWidth - right}px` },
-            { name: 'topAlignLeft', score: Math.min(dialogWidth, winWidth - left - MARGIN) * Math.min(dialogHeight, top - MARGIN), origin: 'bottom left', bottom: `${winHeight - top + 8}px`, left: `${left}px` },
-            { name: 'topAlignRight', score: Math.min(dialogWidth, right - MARGIN) * Math.min(dialogHeight, top - MARGIN), origin: 'bottom right', bottom: `${winHeight - top + 8}px`, right: `${winWidth - right}px` },
-            { name: 'rightTop', score: Math.min(dialogWidth, winWidth - right - MARGIN) * Math.min(dialogHeight, winHeight - top - MARGIN), origin: 'top left', top: `${top}px`, left: `${right + 8}px` },
-            { name: 'rightBottom', score: Math.min(dialogWidth, winWidth - right - MARGIN) * Math.min(dialogHeight, bottom - MARGIN), origin: 'bottom left', bottom: `${winHeight - bottom}px`, left: `${right + 8}px` },
-            { name: 'leftTop', score: Math.min(dialogWidth, left - MARGIN) * Math.min(dialogHeight, winHeight - top - MARGIN), origin: 'top right', top: `${top}px`, right: `${winWidth - left + 8}px` },
-            { name: 'leftBottom', score: Math.min(dialogWidth, left - MARGIN) * Math.min(dialogHeight, bottom - MARGIN), origin: 'bottom right', bottom: `${winHeight - bottom}px`, right: `${winWidth - left + 8}px` },
+        // 计算八个方向的可用空间
+        const spaces = this.calculateAvailableSpaces(top, left, right, bottom, winWidth, winHeight, MARGIN);
+        
+        // 选择最佳方向并计算最优尺寸
+        const bestDirection = this.selectBestDirection(spaces);
+        const optimalSize = this.calculateOptimalSize(bestDirection, spaces);
+        
+        // 应用尺寸和位置
+        this.applyDialogSize(optimalSize, bestDirection);
+        this.applyDialogPosition(bestDirection, top, left, right, bottom, winWidth, winHeight, MARGIN);
+        
+        this.currentQuadrant = bestDirection.name;
+    }
+
+    /**
+     * 计算八个方向的可用空间
+     */
+    calculateAvailableSpaces(top, left, right, bottom, winWidth, winHeight, margin) {
+        return {
+            top: { width: winWidth - 2 * margin, height: top - margin - 8 },
+            bottom: { width: winWidth - 2 * margin, height: winHeight - bottom - margin - 8 },
+            left: { width: left - margin - 8, height: winHeight - 2 * margin },
+            right: { width: winWidth - right - margin - 8, height: winHeight - 2 * margin },
+            topLeft: { width: left - margin - 8, height: top - margin - 8 },
+            topRight: { width: winWidth - right - margin - 8, height: top - margin - 8 },
+            bottomLeft: { width: left - margin - 8, height: winHeight - bottom - margin - 8 },
+            bottomRight: { width: winWidth - right - margin - 8, height: winHeight - bottom - margin - 8 }
+        };
+    }
+
+    /**
+     * 选择最佳方向
+     */
+    selectBestDirection(spaces) {
+        const directions = [
+            { name: 'bottom', space: spaces.bottom, origin: 'top left', anchorPoint: { x: 'left', y: 'bottom' } },
+            { name: 'top', space: spaces.top, origin: 'bottom left', anchorPoint: { x: 'left', y: 'top' } },
+            { name: 'right', space: spaces.right, origin: 'top left', anchorPoint: { x: 'right', y: 'top' } },
+            { name: 'left', space: spaces.left, origin: 'top right', anchorPoint: { x: 'left', y: 'top' } },
+            { name: 'bottomRight', space: spaces.bottomRight, origin: 'top left', anchorPoint: { x: 'right', y: 'bottom' } },
+            { name: 'bottomLeft', space: spaces.bottomLeft, origin: 'top right', anchorPoint: { x: 'left', y: 'bottom' } },
+            { name: 'topRight', space: spaces.topRight, origin: 'bottom left', anchorPoint: { x: 'right', y: 'top' } },
+            { name: 'topLeft', space: spaces.topLeft, origin: 'bottom right', anchorPoint: { x: 'left', y: 'top' } }
         ];
 
-        let bestQuadrant = quadrants.sort((a, b) => b.score - a.score)[0];
+        // 计算每个方向的得分（可用面积）
+        const scoredDirections = directions.map(dir => ({
+            ...dir,
+            score: dir.space.width * dir.space.height
+        }));
 
-        // 清除旧的定位属性，避免冲突
+        // 按得分排序
+        scoredDirections.sort((a, b) => b.score - a.score);
+        
+        // 获取最佳方向
+        let bestDirection = scoredDirections[0];
+        
+        return bestDirection;
+    }
+
+    /**
+     * 计算最优尺寸
+     */
+    calculateOptimalSize(direction, spaces) {
+        const { space } = direction;
+        
+        // 边界情况处理：确保可用空间至少等于最小尺寸
+        const availableHeight = Math.max(space.height, SummaryDialog.MIN_HEIGHT);
+        
+        const maxHeight = Math.min(
+            SummaryDialog.MAX_HEIGHT * window.innerHeight / 100, // 转换vh为px
+            availableHeight
+        );
+
+        // 根据内容计算最小所需尺寸
+        const contentSize = this.estimateContentSize();
+        
+        // 宽度固定，高度根据内容调整
+        const width = SummaryDialog.FIXED_WIDTH;
+        
+        const height = Math.max(
+            SummaryDialog.MIN_HEIGHT,
+            Math.min(maxHeight, Math.max(contentSize.height, SummaryDialog.MIN_HEIGHT))
+        );
+
+        return { width, height };
+    }
+
+    /**
+     * 估算内容所需尺寸
+     */
+    estimateContentSize() {
+        try {
+            // 基于当前对话内容估算所需尺寸
+            const messages = this.conversationArea.querySelectorAll('.foxlate-summary-message');
+            let estimatedHeight = SummaryDialog.CONTENT_PADDING; // 基础padding
+            
+            if (messages.length > 0) {
+                // 如果已有消息，基于现有内容估算
+                estimatedHeight += this.conversationArea.scrollHeight;
+            } else {
+                // 初始尺寸估算
+                estimatedHeight += 150; // 基础高度
+            }
+
+            // 添加其他固定元素的高度
+            const header = this.element.querySelector('.foxlate-summary-header');
+            const tabs = this.element.querySelector('.foxlate-summary-tabs');
+            const menubar = this.element.querySelector('.foxlate-summary-menubar');
+            const footer = this.element.querySelector('.foxlate-summary-footer');
+            
+            if (header) estimatedHeight += header.offsetHeight;
+            if (tabs && tabs.style.display !== 'none') estimatedHeight += tabs.offsetHeight;
+            if (menubar) estimatedHeight += menubar.offsetHeight;
+            if (footer) estimatedHeight += footer.offsetHeight;
+
+            // 边界情况处理：确保估算高度在合理范围内
+            const maxHeight = window.innerHeight * 0.9; // 最大不超过视窗高度的90%
+            estimatedHeight = Math.min(estimatedHeight, maxHeight);
+
+            return {
+                width: SummaryDialog.FIXED_WIDTH,
+                height: Math.max(estimatedHeight, SummaryDialog.MIN_HEIGHT)
+            };
+        } catch (error) {
+            console.error('[Foxlate Summary] Error estimating content size:', error);
+            // 返回安全的默认尺寸
+            return {
+                width: SummaryDialog.FIXED_WIDTH,
+                height: SummaryDialog.MIN_HEIGHT
+            };
+        }
+    }
+
+    /**
+     * 应用对话框尺寸
+     */
+    applyDialogSize(size, direction) {
+        this.targetDimensions = size;
+        
+        // 如果正在动画中，直接更新目标尺寸
+        if (this.isAnimating) {
+            return;
+        }
+
+        // 检查是否需要动画
+        const currentWidth = this.element.offsetWidth;
+        const currentHeight = this.element.offsetHeight;
+        
+        if (Math.abs(currentWidth - size.width) > 5 || Math.abs(currentHeight - size.height) > 5) {
+            this.animateSizeChange(currentWidth, currentHeight, size.width, size.height);
+        } else {
+            // 直接应用尺寸
+            this.element.style.width = `${size.width}px`;
+            this.element.style.maxHeight = `${size.height}px`;
+        }
+    }
+
+    /**
+     * 动画尺寸变化
+     */
+    animateSizeChange(fromWidth, fromHeight, toWidth, toHeight) {
+        if (this.isAnimating) return;
+        
+        // 边界情况处理：确保尺寸值有效
+        const safeFromWidth = fromWidth || SummaryDialog.FIXED_WIDTH;
+        const safeFromHeight = Math.max(SummaryDialog.MIN_HEIGHT, fromHeight || SummaryDialog.MIN_HEIGHT);
+        const safeToWidth = toWidth || SummaryDialog.FIXED_WIDTH;
+        const safeToHeight = Math.max(SummaryDialog.MIN_HEIGHT, toHeight || SummaryDialog.MIN_HEIGHT);
+        
+        this.isAnimating = true;
+        this.element.classList.add('growing');
+        const startTime = performance.now();
+        const duration = SummaryDialog.GROWTH_ANIMATION_DURATION;
+
+        const animate = (currentTime) => {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            
+            // 使用缓动函数
+            const easeProgress = this.easeOutCubic(progress);
+            
+            const currentWidth = safeFromWidth + (safeToWidth - safeFromWidth) * easeProgress;
+            const currentHeight = safeFromHeight + (safeToHeight - safeFromHeight) * easeProgress;
+            
+            this.element.style.width = `${currentWidth}px`;
+            this.element.style.maxHeight = `${currentHeight}px`;
+            
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            } else {
+                this.isAnimating = false;
+                this.element.classList.remove('growing');
+                // 如果在动画过程中目标尺寸发生变化，重新开始动画
+                if (this.targetDimensions.width !== safeToWidth || this.targetDimensions.height !== safeToHeight) {
+                    this.applyDialogSize(this.targetDimensions, this.currentQuadrant);
+                }
+            }
+        };
+        
+        requestAnimationFrame(animate);
+    }
+
+    /**
+     * 缓动函数：三次方缓出
+     */
+    easeOutCubic(t) {
+        return 1 - Math.pow(1 - t, 3);
+    }
+
+    /**
+     * 应用对话框位置
+     */
+    applyDialogPosition(direction, top, left, right, bottom, winWidth, winHeight, margin) {
+        // 清除旧的定位属性
         this.element.style.top = '';
         this.element.style.left = '';
         this.element.style.bottom = '';
         this.element.style.right = '';
 
-        Object.assign(this.element.style, { transformOrigin: bestQuadrant.origin, top: bestQuadrant.top || '', left: bestQuadrant.left || '', bottom: bestQuadrant.bottom || '', right: bestQuadrant.right || '' });
+        const position = {};
+        position.transformOrigin = direction.origin;
+
+        // 边界情况处理：确保所有坐标值都是有效的
+        const safeTop = Math.max(0, Math.min(top, winHeight));
+        const safeLeft = Math.max(0, Math.min(left, winWidth));
+        const safeRight = Math.max(0, Math.min(right, winWidth));
+        const safeBottom = Math.max(0, Math.min(bottom, winHeight));
+        const safeWidth = this.targetDimensions.width || SummaryDialog.FIXED_WIDTH;
+        const safeHeight = Math.max(SummaryDialog.MIN_HEIGHT, this.targetDimensions.height || SummaryDialog.MIN_HEIGHT);
+
+        switch (direction.name) {
+            case 'bottom':
+                position.top = `${safeBottom + 8}px`;
+                position.left = `${Math.max(margin, Math.min(safeLeft, winWidth - safeWidth - margin))}px`;
+                break;
+            case 'top':
+                position.bottom = `${winHeight - safeTop + 8}px`;
+                position.left = `${Math.max(margin, Math.min(safeLeft, winWidth - safeWidth - margin))}px`;
+                break;
+            case 'right':
+                position.top = `${safeTop}px`;
+                position.left = `${safeRight + 8}px`;
+                // 确保右侧不会超出屏幕
+                if (safeRight + 8 + safeWidth > winWidth) {
+                    position.left = `${winWidth - safeWidth - margin}px`;
+                }
+                break;
+            case 'left':
+                position.top = `${safeTop}px`;
+                position.right = `${winWidth - safeLeft + 8}px`;
+                // 确保左侧不会超出屏幕
+                if (safeLeft - 8 - safeWidth < 0) {
+                    position.left = `${margin}px`;
+                    position.right = '';
+                }
+                break;
+            case 'bottomRight':
+                position.top = `${safeBottom + 8}px`;
+                position.left = `${safeRight + 8}px`;
+                // 确保不会超出屏幕边界
+                if (safeRight + 8 + safeWidth > winWidth) {
+                    position.left = `${winWidth - safeWidth - margin}px`;
+                }
+                break;
+            case 'bottomLeft':
+                position.top = `${safeBottom + 8}px`;
+                position.right = `${winWidth - safeLeft + 8}px`;
+                // 确保不会超出屏幕边界
+                if (safeLeft - 8 - safeWidth < 0) {
+                    position.left = `${margin}px`;
+                    position.right = '';
+                }
+                break;
+            case 'topRight':
+                position.bottom = `${winHeight - safeTop + 8}px`;
+                position.left = `${safeRight + 8}px`;
+                // 确保不会超出屏幕边界
+                if (safeRight + 8 + safeWidth > winWidth) {
+                    position.left = `${winWidth - safeWidth - margin}px`;
+                }
+                break;
+            case 'topLeft':
+                position.bottom = `${winHeight - safeTop + 8}px`;
+                position.right = `${winWidth - safeLeft + 8}px`;
+                // 确保不会超出屏幕边界
+                if (safeLeft - 8 - safeWidth < 0) {
+                    position.left = `${margin}px`;
+                    position.right = '';
+                }
+                break;
+        }
+
+        Object.assign(this.element.style, position);
     }
 
     handleWindowResizeAndScroll() {
@@ -552,6 +841,65 @@ export class SummaryDialog {
             this.lastButtonRect = this.lastButtonElement.getBoundingClientRect();
         }
         this.repositionDialog();
+    }
+
+    /**
+     * 设置内容变化观察器，用于自动调整对话框尺寸
+     */
+    setupContentObserver() {
+        // 如果已有观察器，先断开
+        if (this.contentObserver) {
+            this.contentObserver.disconnect();
+        }
+
+        // 创建MutationObserver监听对话内容变化
+        this.contentObserver = new MutationObserver(() => {
+            if (this.isOpen) {
+                // 延迟执行，确保DOM更新完成
+                requestAnimationFrame(() => {
+                    this.adjustSizeToContent();
+                });
+            }
+        });
+
+        // 开始观察对话区域
+        this.contentObserver.observe(this.conversationArea, {
+            childList: true,
+            subtree: true,
+            characterData: true
+        });
+    }
+
+    /**
+     * 根据内容调整对话框尺寸
+     */
+    adjustSizeToContent() {
+        if (!this.isOpen || !this.currentQuadrant) return;
+
+        // 重新计算内容所需尺寸
+        const contentSize = this.estimateContentSize();
+        
+        // 获取当前可用空间
+        const { top, left, right, bottom } = this.lastButtonRect;
+        const winWidth = window.innerWidth;
+        const winHeight = window.innerHeight;
+        const MARGIN = SummaryDialog.MARGIN;
+        const spaces = this.calculateAvailableSpaces(top, left, right, bottom, winWidth, winHeight, MARGIN);
+        
+        // 找到当前方向的可用空间
+        const currentDirection = this.selectBestDirection(spaces);
+        
+        // 计算新的最优尺寸
+        const newSize = this.calculateOptimalSize(currentDirection, spaces);
+        
+        // 如果尺寸有显著变化，应用新尺寸
+        const currentWidth = this.element.offsetWidth;
+        const currentHeight = this.element.offsetHeight;
+        
+        if (Math.abs(currentWidth - newSize.width) > 10 || Math.abs(currentHeight - newSize.height) > 10) {
+            this.targetDimensions = newSize;
+            this.applyDialogSize(newSize, currentDirection);
+        }
     }
 
     hide() {
@@ -595,10 +943,18 @@ export class SummaryDialog {
         window.removeEventListener('resize', this.debouncedHandleResizeAndScroll);
         window.removeEventListener('scroll', this.debouncedHandleResizeAndScroll, true);
 
+        // 断开内容观察器
+        if (this.contentObserver) {
+            this.contentObserver.disconnect();
+            this.contentObserver = null;
+        }
+
         // 清理缓存
         this._loadingEl = null;
         this.lastButtonRect = null;
         this.lastButtonElement = null;
+        this.currentQuadrant = null;
+        this.targetDimensions = { width: 0, height: 0 };
 
         this.element?.remove();
     }
