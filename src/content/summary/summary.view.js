@@ -599,16 +599,30 @@ export class SummaryDialog {
         // 计算每个方向的得分（可用面积）
         const scoredDirections = directions.map(dir => ({
             ...dir,
-            score: dir.space.width * dir.space.height
+            score: dir.space.width * dir.space.height,
+            // 添加可用性检查：只有宽度和高度都大于最小尺寸的方向才可用
+            isUsable: dir.space.width >= SummaryDialog.FIXED_WIDTH && dir.space.height >= SummaryDialog.MIN_HEIGHT
         }));
 
-        // 按得分排序
-        scoredDirections.sort((a, b) => b.score - a.score);
+        // 优先考虑可用方向，按得分排序
+        const usableDirections = scoredDirections.filter(dir => dir.isUsable);
+        const allDirections = usableDirections.length > 0 ? usableDirections : scoredDirections;
         
-        // 获取最佳方向
-        let bestDirection = scoredDirections[0];
+        allDirections.sort((a, b) => b.score - a.score);
         
-        return bestDirection;
+        // 如果当前方向仍然可用且得分不是最低，保持当前方向以避免跳动
+        if (this.currentQuadrant) {
+            const currentDirection = allDirections.find(dir => dir.name === this.currentQuadrant);
+            if (currentDirection && currentDirection.isUsable) {
+                // 检查当前方向得分是否合理（不低于最佳方向得分的70%）
+                const bestScore = allDirections[0].score;
+                if (currentDirection.score >= bestScore * 0.7) {
+                    return currentDirection;
+                }
+            }
+        }
+        
+        return allDirections[0];
     }
 
     /**
@@ -617,23 +631,26 @@ export class SummaryDialog {
     calculateOptimalSize(direction, spaces) {
         const { space } = direction;
         
-        // 边界情况处理：确保可用空间至少等于最小尺寸
-        const availableHeight = Math.max(space.height, SummaryDialog.MIN_HEIGHT);
+        // 修正：不要强制扩大可用空间，而是使用实际可用空间
+        const availableHeight = space.height;
+        const availableWidth = space.width;
         
+        // 确保对话框不会超出可用空间
         const maxHeight = Math.min(
             SummaryDialog.MAX_HEIGHT * window.innerHeight / 100, // 转换vh为px
-            availableHeight
+            Math.max(availableHeight, SummaryDialog.MIN_HEIGHT) // 至少保证最小高度
         );
+        
+        // 确保宽度不超过可用空间
+        const width = Math.min(SummaryDialog.FIXED_WIDTH, availableWidth);
 
         // 根据内容计算最小所需尺寸
         const contentSize = this.estimateContentSize();
         
-        // 宽度固定，高度根据内容调整
-        const width = SummaryDialog.FIXED_WIDTH;
-        
+        // 高度根据内容调整，但不超过可用空间
         const height = Math.max(
             SummaryDialog.MIN_HEIGHT,
-            Math.min(maxHeight, Math.max(contentSize.height, SummaryDialog.MIN_HEIGHT))
+            Math.min(maxHeight, contentSize.height)
         );
 
         return { width, height };
@@ -801,11 +818,12 @@ export class SummaryDialog {
                 break;
             case 'left':
                 position.top = `${safeTop}px`;
-                position.right = `${winWidth - safeLeft + 8}px`;
-                // 确保左侧不会超出屏幕
-                if (safeLeft - 8 - safeWidth < 0) {
+                // 修正：不要同时设置left和right，优先使用right定位
+                if (safeLeft - 8 - safeWidth >= margin) {
+                    position.right = `${winWidth - safeLeft + 8}px`;
+                } else {
+                    // 如果空间不足，使用left定位并添加margin
                     position.left = `${margin}px`;
-                    position.right = '';
                 }
                 break;
             case 'bottomRight':
@@ -818,11 +836,12 @@ export class SummaryDialog {
                 break;
             case 'bottomLeft':
                 position.top = `${safeBottom + 8}px`;
-                position.right = `${winWidth - safeLeft + 8}px`;
-                // 确保不会超出屏幕边界
-                if (safeLeft - 8 - safeWidth < 0) {
+                // 修正：不要同时设置left和right，优先使用right定位
+                if (safeLeft - 8 - safeWidth >= margin) {
+                    position.right = `${winWidth - safeLeft + 8}px`;
+                } else {
+                    // 如果空间不足，使用left定位并添加margin
                     position.left = `${margin}px`;
-                    position.right = '';
                 }
                 break;
             case 'topRight':
@@ -835,11 +854,12 @@ export class SummaryDialog {
                 break;
             case 'topLeft':
                 position.bottom = `${winHeight - safeTop + 8}px`;
-                position.right = `${winWidth - safeLeft + 8}px`;
-                // 确保不会超出屏幕边界
-                if (safeLeft - 8 - safeWidth < 0) {
+                // 修正：不要同时设置left和right，优先使用right定位
+                if (safeLeft - 8 - safeWidth >= margin) {
+                    position.right = `${winWidth - safeLeft + 8}px`;
+                } else {
+                    // 如果空间不足，使用left定位并添加margin
                     position.left = `${margin}px`;
-                    position.right = '';
                 }
                 break;
         }
@@ -849,8 +869,13 @@ export class SummaryDialog {
 
     handleWindowResizeAndScroll() {
         // 重新获取 summaryButton 的位置，因为滚动和resize会改变其位置
-        if (this.lastButtonElement) {
-            this.lastButtonRect = this.lastButtonElement.getBoundingClientRect();
+        if (this.lastButtonElement && document.contains(this.lastButtonElement)) {
+            // 确保按钮元素仍然存在于DOM中
+            const newRect = this.lastButtonElement.getBoundingClientRect();
+            // 只有当矩形有效时才更新
+            if (newRect.width > 0 && newRect.height > 0) {
+                this.lastButtonRect = newRect;
+            }
         }
         this.repositionDialog();
     }
