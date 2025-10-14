@@ -49,6 +49,9 @@
     transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease-in-out;
     visibility: hidden;
     overflow: hidden;
+    /* 防止滚动事件穿透 */
+    overscroll-behavior: contain;
+    touch-action: pan-y pinch-zoom;
     /* 防止被自动翻译 */
     -webkit-user-modify: read-only;
     user-modify: read-only;
@@ -167,7 +170,17 @@
 }
 
 
-.foxlate-summary-conversation { flex-grow: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+.foxlate-summary-conversation {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    /* 防止滚动事件穿透 */
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
 
 .foxlate-summary-message { display: flex; flex-direction: column; gap: 4px; max-width: 95%; }
 .foxlate-summary-message .message-content { padding: 10px 14px; border-radius: 18px; line-height: 1.5; word-wrap: break-word; }

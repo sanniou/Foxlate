@@ -92,6 +92,14 @@ export class SummaryDialog {
         // 动态重定位相关
         this.boundRepositionDialog = this.repositionDialog.bind(this);
         this.debouncedHandleResizeAndScroll = debounce(this.handleWindowResizeAndScroll.bind(this), SummaryDialog.DEBOUNCE_DELAY);
+        
+        // 阻止滚动事件传播的处理函数
+        this.boundPreventScrollPropagation = (e) => {
+            // 只阻止来自对话框内部的滚动事件
+            if (this.element.contains(e.target)) {
+                e.stopPropagation();
+            }
+        };
 
         this.create();
     }
@@ -526,6 +534,10 @@ export class SummaryDialog {
         // 添加窗口大小和滚动监听器
         window.addEventListener('resize', this.debouncedHandleResizeAndScroll);
         window.addEventListener('scroll', this.debouncedHandleResizeAndScroll, true); // 捕获阶段监听，确保能捕获到所有滚动事件
+        
+        // 添加对话框内的滚动事件监听器，阻止事件传播到主页面
+        this.element.addEventListener('wheel', this.boundPreventScrollPropagation, { passive: false });
+        this.element.addEventListener('touchmove', this.boundPreventScrollPropagation, { passive: false });
 
         // 添加内容变化观察器
         this.setupContentObserver();
@@ -910,6 +922,10 @@ export class SummaryDialog {
         // 移除窗口大小和滚动监听器
         window.removeEventListener('resize', this.debouncedHandleResizeAndScroll);
         window.removeEventListener('scroll', this.debouncedHandleResizeAndScroll, true);
+        
+        // 移除对话框内的滚动事件监听器
+        this.element.removeEventListener('wheel', this.boundPreventScrollPropagation);
+        this.element.removeEventListener('touchmove', this.boundPreventScrollPropagation);
     }
 
     resetSuggestions() {
@@ -942,6 +958,10 @@ export class SummaryDialog {
         // 移除窗口大小和滚动监听器 (确保在 hide() 之后再次调用 destroy() 时也能清理)
         window.removeEventListener('resize', this.debouncedHandleResizeAndScroll);
         window.removeEventListener('scroll', this.debouncedHandleResizeAndScroll, true);
+        
+        // 移除对话框内的滚动事件监听器
+        this.element.removeEventListener('wheel', this.boundPreventScrollPropagation);
+        this.element.removeEventListener('touchmove', this.boundPreventScrollPropagation);
 
         // 断开内容观察器
         if (this.contentObserver) {
