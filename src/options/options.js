@@ -397,7 +397,13 @@ document.addEventListener('DOMContentLoaded', () => {
         );
         if (confirmed) {
             try {
-                delete state.domainRules[domainToRemove];
+                // 创建新的 domainRules 对象而不是直接修改 state
+                const newDomainRules = { ...state.domainRules };
+                delete newDomainRules[domainToRemove];
+                
+                // 使用 dispatch 更新状态
+                dispatch({ type: 'SET_DOMAIN_RULES', payload: newDomainRules });
+                
                 await SettingsManager.saveLocalSettings(getCurrentSettingsState());
                 showStatusMessage(browser.i18n.getMessage('removeRuleSuccess'));
             } catch (error) {
