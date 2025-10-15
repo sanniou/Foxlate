@@ -6,6 +6,7 @@ import { SettingsManager } from '../common/settings-manager.js';
 import { DOMWalker } from './dom-walker.js';
 import { SKIPPED_TAGS } from '../common/constants.js';
 import { initializeSummary } from './summary/summary.js';
+import { initializeInputHandler } from './input-handler.js';
 
 /**
  * 集中式错误记录器，用于内容脚本。
@@ -948,6 +949,9 @@ async function initializeContentScript() {
     if (settings.summarySettings?.enabled) {
         initializeSummary(settings);
     }
+
+    // (新) 初始化输入框翻译功能
+    initializeInputHandler();
 
 
     browser.runtime.onMessage.addListener(handleMessage);

@@ -398,6 +398,39 @@ const messageHandlers = {
         }
     },
 
+    // (新) 处理输入框翻译请求
+    async translateInputText(request, sender) {
+        const { text } = request.payload;
+        const tab = sender.tab;
+
+        if (!tab || !tab.url) {
+            logError('translateInputText', new Error('Request must come from a tab with a URL.'));
+            return { success: false, error: 'Invalid sender context.' };
+        }
+
+        try {
+            const hostname = new URL(tab.url).hostname;
+            const effectiveRule = await SettingsManager.getEffectiveSettings(hostname);
+
+            const result = await TranslatorManager.translateText(
+                text,
+                effectiveRule.targetLanguage,
+                'auto',
+                effectiveRule.translatorEngine,
+                tab.id
+            );
+
+            return {
+                success: !result.error,
+                translatedText: result.text,
+                error: result.error || null
+            };
+        } catch (error) {
+            logError('translateInputText (execution)', error);
+            return { success: false, error: error.message };
+        }
+    },
+
     async TEST_CONNECTION(request) {
         const { engine, settings, text } = request.payload;
         if (engine !== 'ai') {
