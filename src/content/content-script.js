@@ -947,6 +947,10 @@ async function initializeContentScript() {
     // 关键修复：必须先将 getEffectiveSettings 暴露到 window 对象，
     // 因为后续的初始化函数（如 initializeInputHandler）依赖于它。
     window.getEffectiveSettings = getEffectiveSettings;
+    // (新) 同时暴露支持的语言列表，供 input-handler 使用
+    const supportedLangs = Object.keys(Constants.SUPPORTED_LANGUAGES).filter(lang => lang !== 'auto');
+    window.foxlateSupportedLanguages = supportedLangs;
+
     console.log('[Foxlate] Content script: getEffectiveSettings exposed to window');
 
     // (新) 独立初始化总结功能

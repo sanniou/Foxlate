@@ -143,17 +143,24 @@ class InputHandler {
         // 示例: "some text //ja-fox" 或 "hello //fox world"
         const regex = new RegExp(`^(.*?)\s*\/\/(?:([\w-]+)-)?(${this.escapeRegex(triggerWord)})(?:\\s|$)`);
         const match = currentText.match(regex);
-
+        
         console.log('[Foxlate] Magic word regex match:', match);
 
         if (match) {
             const textToTranslate = (match[1] || '').trim();
-            const langAlias = match[2];
+            const langAlias = match[2]?.toUpperCase(); // 转换为大写以便于映射
             
-            let targetLangOverride = null;
-            if (langAlias && this.settings.languageMapping) {
-                // 优先完全匹配，然后尝试部分匹配（例如 '中文' 匹配 '中文繁体'）
-                targetLangOverride = this.settings.languageMapping[langAlias];
+           let targetLangOverride = null; // 默认为 null，表示使用默认设置
+            if (langAlias) {
+                // 1. 检查语言别名映射
+                if (this.settings.languageMapping && this.settings.languageMapping[langAlias]) {
+                    targetLangOverride = this.settings.languageMapping[langAlias];
+                } 
+                // 2. 如果映射中没有，检查它本身是否是一个有效的项目语言代码
+                else if (window.foxlateSupportedLanguages && window.foxlateSupportedLanguages.includes(langAlias)) {
+                    targetLangOverride = langAlias;
+                }
+                // 3. 如果都不是，targetLangOverride 保持为 null，后台将使用默认语言
             }
 
             // 从输入框中移除魔法词及其后的可选分隔符
