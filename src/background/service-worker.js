@@ -400,7 +400,7 @@ const messageHandlers = {
 
     // (新) 处理输入框翻译请求
     async translateInputText(request, sender) {
-        const { text } = request.payload;
+        const { text, targetLang } = request.payload; // 从 payload 中解构出 targetLang
         const tab = sender.tab;
 
         if (!tab || !tab.url) {
@@ -412,9 +412,12 @@ const messageHandlers = {
             const hostname = new URL(tab.url).hostname;
             const effectiveRule = await SettingsManager.getEffectiveSettings(hostname);
 
+            // 如果提供了 targetLang，则使用它，否则回退到有效规则中的语言
+            const finalTargetLang = targetLang || effectiveRule.targetLanguage;
+
             const result = await TranslatorManager.translateText(
                 text,
-                effectiveRule.targetLanguage,
+                finalTargetLang, // 使用最终确定的目标语言
                 'auto',
                 effectiveRule.translatorEngine,
                 tab.id

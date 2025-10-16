@@ -85,6 +85,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
             case 'SET_DOMAIN_RULES':
                 return { ...currentState, domainRules: action.payload };
+            case 'SET_INPUT_TRANSLATION_SETTING': {
+                const { key, value } = action.payload;
+                const newSettings = { ...currentState.inputTranslationSettings, [key]: value };
+                return { ...currentState, inputTranslationSettings: newSettings };
+            }
             default:
                 return currentState;
         }
@@ -142,6 +147,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (isInitialRender || changes.has('domainRules')) {
             renderDomainRules();
+        }
+
+        if (isInitialRender || changes.has('inputTranslationSettings')) {
+            const inputSettings = state.inputTranslationSettings || {};
+            elements.inputTranslationEnabled.checked = !!inputSettings.enabled;
+            elements.inputTriggerWord.value = inputSettings.triggerWord || '';
+            elements.inputKeyTriggerEnabled.checked = !!inputSettings.keyTriggerEnabled;
+            elements.inputConsecutiveKey.value = inputSettings.consecutiveKey || '';
+            elements.inputConsecutiveKeyPresses.value = inputSettings.consecutiveKeyPresses || 3;
+            elements.inputBlacklist.value = (inputSettings.blacklist || []).join('\n');
         }
 
         if (changes.has('aiEngines')) {
@@ -710,6 +725,17 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        const inputTranslationUpdaters = {
+            [ELEMENT_IDS.INPUT_TRIGGER_WORD]: (val) => dispatch({ type: 'SET_INPUT_TRANSLATION_SETTING', payload: { key: 'triggerWord', value: val } }),
+            [ELEMENT_IDS.INPUT_CONSECUTIVE_KEY]: (val) => dispatch({ type: 'SET_INPUT_TRANSLATION_SETTING', payload: { key: 'consecutiveKey', value: val } }),
+            [ELEMENT_IDS.INPUT_CONSECUTIVE_KEY_PRESSES]: (val) => dispatch({ type: 'SET_INPUT_TRANSLATION_SETTING', payload: { key: 'consecutiveKeyPresses', value: parseInt(val, 10) || 3 } }),
+            [ELEMENT_IDS.INPUT_BLACKLIST]: (val) => dispatch({ type: 'SET_INPUT_TRANSLATION_SETTING', payload: { key: 'blacklist', value: val.split('\n').map(s => s.trim()).filter(Boolean) } }),
+        };
+        if (inputTranslationUpdaters[id]) {
+            inputTranslationUpdaters[id](target.value);
+            return;
+        }
+
     };
 
     const handleGlobalChange = (e) => {
@@ -726,6 +752,16 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         if (stateUpdaters[id]) {
             stateUpdaters[id](value);
+            return;
+        }
+
+        const inputTranslationSwitchers = {
+            [ELEMENT_IDS.INPUT_TRANSLATION_ENABLED]: (val) => dispatch({ type: 'SET_INPUT_TRANSLATION_SETTING', payload: { key: 'enabled', value: val } }),
+            [ELEMENT_IDS.INPUT_KEY_TRIGGER_ENABLED]: (val) => dispatch({ type: 'SET_INPUT_TRANSLATION_SETTING', payload: { key: 'keyTriggerEnabled', value: val } }),
+        };
+
+        if (inputTranslationSwitchers[id]) {
+            inputTranslationSwitchers[id](value);
             return;
         }
 
@@ -872,6 +908,14 @@ document.addEventListener('DOMContentLoaded', () => {
             settingsNav: document.getElementById('settings-nav'),
             toggleLogBtn: document.getElementById('toggleLogBtn'),
             logContent: document.getElementById('log-content'),
+
+            // Input Translation Settings
+            inputTranslationEnabled: document.getElementById(ELEMENT_IDS.INPUT_TRANSLATION_ENABLED),
+            inputTriggerWord: document.getElementById(ELEMENT_IDS.INPUT_TRIGGER_WORD),
+            inputKeyTriggerEnabled: document.getElementById(ELEMENT_IDS.INPUT_KEY_TRIGGER_ENABLED),
+            inputConsecutiveKey: document.getElementById(ELEMENT_IDS.INPUT_CONSECUTIVE_KEY),
+            inputConsecutiveKeyPresses: document.getElementById(ELEMENT_IDS.INPUT_CONSECUTIVE_KEY_PRESSES),
+            inputBlacklist: document.getElementById(ELEMENT_IDS.INPUT_BLACKLIST),
         });
 
         // --- 2. 初始 UI 设置 ---

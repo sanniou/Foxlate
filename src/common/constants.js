@@ -69,6 +69,23 @@ export const DEFAULT_SETTINGS = {
     parallelRequests: 5, // Number of parallel translation requests
     summarySettings: {},
     syncEnabled: false, // Whether cloud sync is enabled
+    inputTranslationSettings: {
+      enabled: true, // 全局启用
+      triggerWord: 'fox', // 自定义触发词
+      consecutiveKey: 'Space', // 连续按键的键值
+      consecutiveKeyPresses: 3, // 连续按键的次数
+      keyTriggerEnabled: true, // 是否启用快捷键
+      blacklist: [], // 黑名单域名
+      languageMapping: { // 语言别名映射
+          '中文': 'ZH',
+          '英文': 'EN',
+          '日文': 'JA',
+          '韩文': 'KO',
+          '法文': 'FR',
+          '德文': 'DE',
+          '西班牙文': 'ES'
+      }
+    }
 };
 
 export const AI_PROMPTS = {

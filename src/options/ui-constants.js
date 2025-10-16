@@ -127,4 +127,12 @@ export const ELEMENT_IDS = {
     CLOUD_DATA_LIST_SECTION: 'cloudDataListSection',
     REFRESH_CLOUD_DATA_BTN: 'refreshCloudDataBtn',
     CLOUD_DATA_LIST: 'cloudDataList',
+
+    // Input Translation Settings
+    INPUT_TRANSLATION_ENABLED: 'inputTranslationEnabled',
+    INPUT_TRIGGER_WORD: 'inputTriggerWord',
+    INPUT_KEY_TRIGGER_ENABLED: 'inputKeyTriggerEnabled',
+    INPUT_CONSECUTIVE_KEY: 'inputConsecutiveKey',
+    INPUT_CONSECUTIVE_KEY_PRESSES: 'inputConsecutiveKeyPresses',
+    INPUT_BLACKLIST: 'inputBlacklist',
 };

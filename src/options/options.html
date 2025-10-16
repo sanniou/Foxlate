@@ -20,6 +20,7 @@
                     <li><a href="#rules" class="nav-link" i18n-text="navRules">Rules</a></li>
                     <li><a href="#cache" class="nav-link" i18n-text="navCache">Cache</a></li>
                     <li><a href="#data" class="nav-link" i18n-text="navData">Data</a></li>
+                    <li><a href="#input-translation" class="nav-link" i18n-text="navInputTranslation">Input Translation</a></li>
                 </ul>
             </nav>
         </aside>
@@ -42,6 +43,68 @@
                             <!-- Options will be populated by JS -->
                         </select>
                         <label for="displayModeSelect" i18n-text="displayMode">Display Mode:</label>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Input Translation Settings Panel -->
+            <section id="input-translation" class="content-panel">
+                <h2 i18n-text="inputTranslationSettings">Input Translation Settings</h2>
+
+                <div class="form-group">
+                    <div class="m3-switch">
+                        <input type="checkbox" id="inputTranslationEnabled">
+                        <label for="inputTranslationEnabled" class="switch-track"><span class="switch-thumb"></span></label>
+                        <label for="inputTranslationEnabled" class="switch-label" i18n-text="inputTranslationEnableLabel">Enable Input Translation</label>
+                    </div>
+                    <div class="m3-helper-text">
+                        <small i18n-text="inputTranslationEnableDescription">Translate text directly in input fields.</small>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="m3-form-field filled">
+                        <input type="text" id="inputTriggerWord" placeholder=" ">
+                        <label for="inputTriggerWord" i18n-text="inputTriggerWordLabel">Magic Word</label>
+                    </div>
+                    <div class="m3-helper-text">
+                        <small i18n-text="inputTriggerWordDescription">Type text followed by "//[lang-]" + Magic Word to translate. E.g., "hello //ja-fox".</small>
+                    </div>
+                </div>
+
+                <hr class="divider">
+
+                <div class="form-group">
+                    <div class="m3-switch">
+                        <input type="checkbox" id="inputKeyTriggerEnabled">
+                        <label for="inputKeyTriggerEnabled" class="switch-track"><span class="switch-thumb"></span></label>
+                        <label for="inputKeyTriggerEnabled" class="switch-label" i18n-text="inputKeyTriggerEnableLabel">Enable Key-press Trigger</label>
+                    </div>
+                </div>
+
+                <div class="form-grid-2col">
+                    <div class="m3-form-field filled">
+                        <input type="text" id="inputConsecutiveKey" placeholder="e.g., Space, ControlLeft">
+                        <label for="inputConsecutiveKey" i18n-text="inputConsecutiveKeyLabel">Trigger Key</label>
+                    </div>
+                    <div class="m3-form-field filled">
+                        <input type="number" id="inputConsecutiveKeyPresses" min="2" max="5" placeholder=" ">
+                        <label for="inputConsecutiveKeyPresses" i18n-text="inputConsecutiveKeyPressesLabel">Presses</label>
+                    </div>
+                </div>
+                 <div class="m3-helper-text">
+                    <small i18n-text="inputKeyTriggerDescription">Press a key multiple times to trigger translation. Use values from `event.code`.</small>
+                </div>
+
+                <hr class="divider">
+
+                <div class="form-group">
+                    <div class="m3-form-field filled">
+                        <textarea id="inputBlacklist" rows="4" placeholder=" "></textarea>
+                        <label for="inputBlacklist" i18n-text="inputBlacklistLabel">Blacklisted Domains</label>
+                    </div>
+                    <div class="m3-helper-text">
+                        <small i18n-text="inputBlacklistDescription">Disable input translation on these websites. One domain per line, e.g., "example.com".</small>
                     </div>
                 </div>
             </section>
