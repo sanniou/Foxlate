@@ -150,19 +150,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (isInitialRender || changes.has('inputTranslationSettings')) {
+            // 填充并设置输入翻译的下拉菜单
+            populateLanguageOptions(elements.inputTargetLanguage, { includeAuto: false }); // 目标语言不应有“自动”
+            populateEngineSelect(elements.inputTranslatorEngine, { includeDefault: true, allEngines: state.aiEngines });
+
             const inputSettings = state.inputTranslationSettings || {};
             elements.inputTranslationEnabled.checked = !!inputSettings.enabled;
-            elements.inputTargetLanguage.value = inputSettings.targetLanguage || 'auto';
+            elements.inputTargetLanguage.value = inputSettings.targetLanguage || browser.i18n.getUILanguage().split('-')[0];
             elements.inputTranslatorEngine.value = inputSettings.translatorEngine || 'default';
             elements.inputTriggerWord.value = inputSettings.triggerWord || '';
             elements.inputKeyTriggerEnabled.checked = !!inputSettings.keyTriggerEnabled;
             elements.inputConsecutiveKey.value = inputSettings.consecutiveKey || '';
             elements.inputConsecutiveKeyPresses.value = inputSettings.consecutiveKeyPresses || 3;
             elements.inputBlacklist.value = (inputSettings.blacklist || []).join('\n');
-
-            // 填充并设置输入翻译的下拉菜单
-            populateLanguageOptions(elements.inputTargetLanguage, { includeAuto: true });
-            populateEngineSelect(elements.inputTranslatorEngine, { includeDefault: true, allEngines: state.aiEngines });
         }
 
         if (changes.has('aiEngines')) {

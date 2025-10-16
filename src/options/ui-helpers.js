@@ -49,7 +49,8 @@ export function populateEngineSelect(selectElement, { includeDefault = false, ex
  * @param {boolean} [options.includeAuto=false] - Whether to include an "Auto-detect" option.
  */
 export function populateLanguageOptions(selectElement, { includeDefault = false, includeAuto = false } = {}) {
-    if (!selectElement) return;
+    if (!selectElement) return;    
+    const currentValue = selectElement.value;
     selectElement.innerHTML = '';
 
     if (includeDefault) {
@@ -62,6 +63,12 @@ export function populateLanguageOptions(selectElement, { includeDefault = false,
     for (const code in Constants.SUPPORTED_LANGUAGES) {
         if (code === 'auto') continue;
         addOption(selectElement, browser.i18n.getMessage(Constants.SUPPORTED_LANGUAGES[code]) || code, code);
+    }
+
+    if (Array.from(selectElement.options).some(opt => opt.value === currentValue)) {
+        selectElement.value = currentValue;
+    } else if (selectElement.options.length > 0) {
+        selectElement.value = selectElement.options[0].value;
     }
 }
 
