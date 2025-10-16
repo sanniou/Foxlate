@@ -401,26 +401,31 @@ const messageHandlers = {
     // (新) 处理输入框翻译请求
     async translateInputText(request, sender) {
         const { text, targetLang } = request.payload; // 从 payload 中解构出 targetLang
-        const tab = sender.tab;
+        const tabId = sender.tab?.id;
+        const tabUrl = sender.tab?.url;
 
-        if (!tab || !tab.url) {
+        if (!tabId || !tabUrl) {
             logError('translateInputText', new Error('Request must come from a tab with a URL.'));
             return { success: false, error: 'Invalid sender context.' };
         }
 
         try {
-            const hostname = new URL(tab.url).hostname;
+            const hostname = new URL(tabUrl).hostname;
             const effectiveRule = await SettingsManager.getEffectiveSettings(hostname);
+            const inputSettings = effectiveRule.inputTranslationSettings || {};
 
-            // 如果提供了 targetLang，则使用它，否则回退到有效规则中的语言
-            const finalTargetLang = targetLang || effectiveRule.targetLanguage;
+            // 优先级: 魔法词指定 > 输入设置 > 全局设置
+            const finalTargetLang = targetLang || (inputSettings.targetLanguage !== 'auto' ? inputSettings.targetLanguage : effectiveRule.targetLanguage);
+            
+            // 优先级: 输入设置 > 全局设置
+            const finalEngine = (inputSettings.translatorEngine !== 'default' ? inputSettings.translatorEngine : effectiveRule.translatorEngine);
 
             const result = await TranslatorManager.translateText(
                 text,
                 finalTargetLang, // 使用最终确定的目标语言
                 'auto',
-                effectiveRule.translatorEngine,
-                tab.id
+                finalEngine,
+                tabId
             );
 
             return {

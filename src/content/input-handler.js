@@ -1,4 +1,5 @@
 import browser from '../lib/browser-polyfill.js';
+import { InputIndicator } from './input-indicator.js';
 
 // content-script.js 会将 getEffectiveSettings 暴露在 window 对象上
 const getEffectiveSettings = window.getEffectiveSettings;
@@ -9,45 +10,87 @@ class InputHandler {
         this.keyPressCount = 0;
         this.lastKeypressTime = 0;
         this.isInitialized = false;
+        this.indicator = new InputIndicator();
+        console.log('[Foxlate] InputHandler constructor called');
     }
 
     async init() {
-        if (this.isInitialized || !getEffectiveSettings) return;
-
-        const effectiveSettings = await getEffectiveSettings();
-        this.settings = effectiveSettings.inputTranslationSettings;
-
-        if (!this.settings || !this.settings.enabled) {
-            console.log('[Foxlate] Input handler disabled globally.');
+        console.log('[Foxlate] InputHandler.init() called, isInitialized:', this.isInitialized);
+        if (this.isInitialized) {
+            console.log('[Foxlate] InputHandler already initialized, skipping');
+            return;
+        }
+        
+        // 直接使用 window.getEffectiveSettings，因为它是全局暴露的
+        if (!window.getEffectiveSettings) {
+            console.log('[Foxlate] window.getEffectiveSettings not available');
             return;
         }
 
-        const isBlacklisted = this.settings.blacklist && this.settings.blacklist.some(domain => window.location.hostname.includes(domain));
-        if (isBlacklisted) {
-            console.log(`[Foxlate] Input handler disabled on blacklisted domain: ${window.location.hostname}`);
-            return;
-        }
+        try {
+            const effectiveSettings = await window.getEffectiveSettings();
+            console.log('[Foxlate] Effective settings received:', effectiveSettings);
+            
+            this.settings = effectiveSettings.inputTranslationSettings;
+            console.log('[Foxlate] Input handler settings:', this.settings);
 
-        this.attachEventListeners();
-        this.isInitialized = true;
-        console.log('[Foxlate] Input handler initialized with settings:', this.settings);
+            if (!this.settings) {
+                console.log('[Foxlate] Input handler settings not found');
+                return;
+            }
+            
+            if (!this.settings.enabled) {
+                console.log('[Foxlate] Input handler disabled globally.');
+                return;
+            }
+
+            const isBlacklisted = this.settings.blacklist && this.settings.blacklist.some(domain => window.location.hostname.includes(domain));
+            if (isBlacklisted) {
+                console.log(`[Foxlate] Input handler disabled on blacklisted domain: ${window.location.hostname}`);
+                return;
+            }
+
+            this.attachEventListeners();
+            this.isInitialized = true;
+            console.log('[Foxlate] Input handler initialized successfully');
+        } catch (error) {
+            console.error('[Foxlate] Error initializing input handler:', error);
+        }
     }
 
     attachEventListeners() {
-        // 使用箭头函数以保留 'this' 上下文
-        this.boundHandleKeydown = (e) => this.handleConsecutiveKeyPress(e);
-        this.boundHandleInput = (e) => this.handleMagicWord(e);
+        console.log('[Foxlate] Attaching event listeners');
+        this.boundHandleKeydown = this.handleKeydown.bind(this);
+        document.addEventListener('keydown', this.boundHandleKeydown, true);
+        console.log('[Foxlate] Event listeners attached');
+    }
 
+    handleKeydown(event) {
+        console.log('[Foxlate] Keydown event:', event.key, event.code, 'target:', event.target.tagName, 'value:', event.target.value || event.target.textContent);
+        
+        // 1. 处理连续按键触发
         if (this.settings.keyTriggerEnabled) {
-            document.addEventListener('keydown', this.boundHandleKeydown, true);
+            this.handleConsecutiveKeyPress(event);
         }
-        // 如果功能启用，“魔法词”触发器始终开启
-        document.addEventListener('input', this.boundHandleInput, true);
+
+        // 如果事件已被处理（例如，被连续按键触发），则不再继续处理魔法词
+        if (event.defaultPrevented) {
+            return;
+        }
+
+        // 2. 处理魔法词触发
+        // 使用 requestAnimationFrame 延迟检查，以确保在按键事件后输入框的值已更新
+        requestAnimationFrame(() => {
+            this.handleMagicWord(event.target);
+        });
     }
 
     handleConsecutiveKeyPress(event) {
         const { consecutiveKey, consecutiveKeyPresses } = this.settings;
-        if (event.code !== consecutiveKey) {
+        console.log('[Foxlate] Consecutive key check:', 'event.key:', event.key, 'event.code:', event.code, 'expected:', consecutiveKey, 'count:', this.keyPressCount);
+        
+        // 修复：同时检查 event.code 和 event.key，以兼容不同设置
+        if (event.code !== consecutiveKey && event.key !== consecutiveKey) {
             this.keyPressCount = 0;
             return;
         }
@@ -67,44 +110,62 @@ class InputHandler {
         }
         this.lastKeypressTime = currentTime;
 
+        console.log('[Foxlate] Key press count:', this.keyPressCount, 'required:', consecutiveKeyPresses);
+
         if (this.keyPressCount >= consecutiveKeyPresses) {
             this.keyPressCount = 0;
+            
+            // (修复) 在调用 preventDefault 之前获取文本，并手动追加触发字符。
+            // `preventDefault` 会阻止空格等字符被输入，因此我们需要在翻译前手动将其添加到文本中。
+            let text = target.isContentEditable ? target.textContent : target.value;
+            if (event.key.length === 1) { // 只追加可打印字符
+                text += event.key;
+            }
+            
+            console.log('[Foxlate] Triggering translation via consecutive key, text:', text);
             event.preventDefault();
-            const text = target.isContentEditable ? target.textContent : target.value;
             this.triggerTranslation(target, text);
         }
     }
 
-    handleMagicWord(event) {
+    handleMagicWord(target) {
         const triggerWord = this.settings.triggerWord;
         if (!triggerWord) return;
 
-        const target = event.target;
-        const isEditable = target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
+        const isEditable = target && (target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA');
         if (!isEditable) return;
 
         const currentText = target.isContentEditable ? target.textContent : target.value;
+        console.log('[Foxlate] Magic word check:', 'currentText:', currentText, 'triggerWord:', triggerWord);
         
-        // 正则表达式匹配: (文本) //(语言-)(触发词)
-        // 示例: "some text //ja-fox"
-        const regex = new RegExp(`(.*?)\s*\/\/(?:([\w-]+)-)?(${this.escapeRegex(triggerWord)})$`);
+        // 修复：改进正则表达式匹配，允许魔法词后跟其他内容
+        // 正则表达式匹配: (文本) //(语言-)(触发词)(可选分隔符)
+        // 示例: "some text //ja-fox" 或 "hello //fox world"
+        const regex = new RegExp(`^(.*?)\s*\/\/(?:([\w-]+)-)?(${this.escapeRegex(triggerWord)})(?:\\s|$)`);
         const match = currentText.match(regex);
 
+        console.log('[Foxlate] Magic word regex match:', match);
+
         if (match) {
-            const textToTranslate = match[1].trim();
+            const textToTranslate = (match[1] || '').trim();
             const langAlias = match[2];
             
             let targetLangOverride = null;
             if (langAlias && this.settings.languageMapping) {
-                // 优先完全匹配，然后尝试部分匹配（例如 ‘中文’ 匹配 ‘中文繁体’）
+                // 优先完全匹配，然后尝试部分匹配（例如 '中文' 匹配 '中文繁体'）
                 targetLangOverride = this.settings.languageMapping[langAlias];
             }
 
-            // 从输入框中移除魔法词
+            // 从输入框中移除魔法词及其后的可选分隔符
+            const afterMatch = currentText.substring(match[0].length);
+            const newText = textToTranslate + (afterMatch ? ' ' + afterMatch : '');
+            
+            console.log('[Foxlate] Triggering translation via magic word, text:', textToTranslate, 'langAlias:', langAlias);
+            
             if (target.isContentEditable) {
-                target.textContent = textToTranslate;
+                target.textContent = newText;
             } else {
-                target.value = textToTranslate;
+                target.value = newText;
             }
 
             this.triggerTranslation(target, textToTranslate, targetLangOverride);
@@ -116,8 +177,7 @@ class InputHandler {
             return;
         }
 
-        const originalBackgroundColor = target.style.backgroundColor;
-        target.style.backgroundColor = '#f0f8ff'; // 视觉指示器
+        this.indicator.show(target);
 
         try {
             const payload = { text };
@@ -140,7 +200,7 @@ class InputHandler {
         } catch (error) {
             console.error('Foxlate: Input translation failed.', error);
         } finally {
-            target.style.backgroundColor = originalBackgroundColor;
+            this.indicator.hide();
         }
     }
     
@@ -150,8 +210,10 @@ class InputHandler {
 }
 
 export function initializeInputHandler() {
+    console.log('[Foxlate] Initializing input handler...');
     // content-script.js 应该已经在 window 上暴露了 getEffectiveSettings
     if (window.getEffectiveSettings) {
+        console.log('[Foxlate] getEffectiveSettings is available, creating handler...');
         const handler = new InputHandler();
         handler.init();
     } else {

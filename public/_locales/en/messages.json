@@ -1206,5 +1206,54 @@
   "tooltipUnpin": {
     "message": "Unpin",
     "description": "Title for the unpin button on the enhanced tooltip."
+  },
+  "inputTranslationSettings": {
+    "message": "Input Translation Settings",
+    "description": "Section heading for input translation settings."
+  },
+  "inputTranslationEnableLabel": {
+    "message": "Enable Input Translation",
+    "description": "Label for the switch to enable input translation."
+  },
+  "inputTranslationEnableDescription": {
+    "message": "Translate text directly in input fields.",
+    "description": "Helper text for the input translation enable switch."
+  },
+  "inputTriggerWordLabel": {
+    "message": "Magic Word",
+    "description": "Label for the input trigger word."
+  },
+  "inputTriggerWordDescription": {
+    "message": "Type text followed by \"//[lang-]\" + Magic Word to translate. E.g., \"hello //ja-fox\"."
+  },
+  "inputKeyTriggerEnableLabel": {
+    "message": "Enable Key-press Trigger",
+    "description": "Label for the switch to enable key-press trigger."
+  },
+  "inputConsecutiveKeyLabel": {
+    "message": "Trigger Key",
+    "description": "Label for the trigger key input."
+  },
+  "inputConsecutiveKeyPressesLabel": {
+    "message": "Presses",
+    "description": "Label for the number of presses input."
+  },
+  "inputKeyTriggerDescription": {
+    "message": "Press a key multiple times to trigger translation. Use values from `event.code`."
+  },
+  "inputBlacklistLabel": {
+    "message": "Blacklisted Domains",
+    "description": "Label for the input blacklist textarea."
+  },
+  "inputBlacklistDescription": {
+    "message": "Disable input translation on these websites. One domain per line, e.g., \"example.com\"."
+  },
+  "engineFollowGlobal": {
+    "message": "Follow Global Setting",
+    "description": "Option to follow the global engine setting."
+  },
+  "navInputTranslation": {
+    "message": "Input Translation",
+    "description": "Navigation link for Input Translation settings."
   }
 }

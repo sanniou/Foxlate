@@ -152,11 +152,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isInitialRender || changes.has('inputTranslationSettings')) {
             const inputSettings = state.inputTranslationSettings || {};
             elements.inputTranslationEnabled.checked = !!inputSettings.enabled;
+            elements.inputTargetLanguage.value = inputSettings.targetLanguage || 'auto';
+            elements.inputTranslatorEngine.value = inputSettings.translatorEngine || 'default';
             elements.inputTriggerWord.value = inputSettings.triggerWord || '';
             elements.inputKeyTriggerEnabled.checked = !!inputSettings.keyTriggerEnabled;
             elements.inputConsecutiveKey.value = inputSettings.consecutiveKey || '';
             elements.inputConsecutiveKeyPresses.value = inputSettings.consecutiveKeyPresses || 3;
             elements.inputBlacklist.value = (inputSettings.blacklist || []).join('\n');
+
+            // 填充并设置输入翻译的下拉菜单
+            populateLanguageOptions(elements.inputTargetLanguage, { includeAuto: true });
+            populateEngineSelect(elements.inputTranslatorEngine, { includeDefault: true, allEngines: state.aiEngines });
         }
 
         if (changes.has('aiEngines')) {
@@ -758,6 +764,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const inputTranslationSwitchers = {
             [ELEMENT_IDS.INPUT_TRANSLATION_ENABLED]: (val) => dispatch({ type: 'SET_INPUT_TRANSLATION_SETTING', payload: { key: 'enabled', value: val } }),
             [ELEMENT_IDS.INPUT_KEY_TRIGGER_ENABLED]: (val) => dispatch({ type: 'SET_INPUT_TRANSLATION_SETTING', payload: { key: 'keyTriggerEnabled', value: val } }),
+            [ELEMENT_IDS.INPUT_TARGET_LANGUAGE]: (val) => dispatch({ type: 'SET_INPUT_TRANSLATION_SETTING', payload: { key: 'targetLanguage', value: val } }),
+            [ELEMENT_IDS.INPUT_TRANSLATOR_ENGINE]: (val) => dispatch({ type: 'SET_INPUT_TRANSLATION_SETTING', payload: { key: 'translatorEngine', value: val } }),
         };
 
         if (inputTranslationSwitchers[id]) {
@@ -916,6 +924,8 @@ document.addEventListener('DOMContentLoaded', () => {
             inputConsecutiveKey: document.getElementById(ELEMENT_IDS.INPUT_CONSECUTIVE_KEY),
             inputConsecutiveKeyPresses: document.getElementById(ELEMENT_IDS.INPUT_CONSECUTIVE_KEY_PRESSES),
             inputBlacklist: document.getElementById(ELEMENT_IDS.INPUT_BLACKLIST),
+            inputTargetLanguage: document.getElementById(ELEMENT_IDS.INPUT_TARGET_LANGUAGE),
+            inputTranslatorEngine: document.getElementById(ELEMENT_IDS.INPUT_TRANSLATOR_ENGINE),
         });
 
         // --- 2. 初始 UI 设置 ---

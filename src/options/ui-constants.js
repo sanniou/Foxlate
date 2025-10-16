@@ -135,4 +135,8 @@ export const ELEMENT_IDS = {
     INPUT_CONSECUTIVE_KEY: 'inputConsecutiveKey',
     INPUT_CONSECUTIVE_KEY_PRESSES: 'inputConsecutiveKeyPresses',
     INPUT_BLACKLIST: 'inputBlacklist',
+    INPUT_TARGET_LANGUAGE: 'inputTargetLanguage',
+    INPUT_TRANSLATOR_ENGINE: 'inputTranslatorEngine',
+
+    // ... other constants
 };

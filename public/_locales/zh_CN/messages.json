@@ -1211,5 +1211,56 @@
   "tooltipUnpin": {
     "message": "取消钉住",
     "description": "增强版工具提示上的取消钉住按钮标题。"
+  },
+  "inputTranslationSettings": {
+    "message": "输入框翻译设置",
+    "description": "输入框翻译设置的部分标题。"
+  },
+  "inputTranslationEnableLabel": {
+    "message": "启用输入框翻译",
+    "description": "启用输入框翻译的开关标签。"
+  },
+  "inputTranslationEnableDescription": {
+    "message": "直接在输入字段中翻译文本。",
+    "description": "启用输入框翻译开关的辅助文本。"
+  },
+  "inputTriggerWordLabel": {
+    "message": "魔法词",
+    "description": "输入触发词的标签。"
+  },
+  "inputTriggerWordDescription": {
+    "message": "输入文本后跟“//[lang-]”+ 魔法词进行翻译。例如，“你好 //en-fox”。"
+  },
+  "inputKeyTriggerEnableLabel": {
+    "message": "启用按键触发",
+    "description": "启用按键触发的开关标签。"
+  },
+  "inputConsecutiveKeyLabel": {
+    "message": "触发键",
+    "description": "触发键输入的标签。"
+  },
+  "inputConsecutiveKeyPressesLabel": {
+    "message": "按键次数",
+    "description": "按键次数输入的标签。"
+  },
+  "inputKeyTriggerDescription": {
+    "message": "多次按下一个键以触发翻译。请使用 `event.code` 的值。",
+    "description": "按键触发的辅助文本。"
+  },
+  "inputBlacklistLabel": {
+    "message": "黑名单域名",
+    "description": "输入黑名单文本区域的标签。"
+  },
+  "inputBlacklistDescription": {
+    "message": "在这些网站上禁用输入框翻译。每行一个域名，例如，“example.com”。",
+    "description": "输入黑名单的辅助文本。"
+  },
+  "engineFollowGlobal": {
+    "message": "跟随全局设置",
+    "description": "跟随全局引擎设置的选项。"
+  },
+  "navInputTranslation": {
+    "message": "输入框翻译",
+    "description": "输入框翻译设置的导航链接。"
   }
 }

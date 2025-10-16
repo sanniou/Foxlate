@@ -71,6 +71,8 @@ export const DEFAULT_SETTINGS = {
     syncEnabled: false, // Whether cloud sync is enabled
     inputTranslationSettings: {
       enabled: true, // 全局启用
+      targetLanguage: 'auto', // 'auto' 表示跟随浏览器语言或全局设置
+      translatorEngine: 'default', // 'default' 表示跟随全局引擎
       triggerWord: 'fox', // 自定义触发词
       consecutiveKey: 'Space', // 连续按键的键值
       consecutiveKeyPresses: 3, // 连续按键的次数
