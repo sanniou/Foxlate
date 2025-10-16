@@ -156,11 +156,7 @@ class InputHandler {
                 if (this.settings.languageMapping && this.settings.languageMapping[langAlias]) {
                     targetLangOverride = this.settings.languageMapping[langAlias];
                 } 
-                // 2. 如果映射中没有，检查它本身是否是一个有效的项目语言代码
-                else if (window.foxlateSupportedLanguages && window.foxlateSupportedLanguages.includes(langAlias)) {
-                    targetLangOverride = langAlias;
-                }
-                // 3. 如果都不是，targetLangOverride 保持为 null，后台将使用默认语言
+                // 如果都不是，targetLangOverride 保持为 null，后台将使用默认语言
             }
 
             // 从输入框中移除魔法词及其后的可选分隔符
