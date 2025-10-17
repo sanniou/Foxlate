@@ -466,6 +466,11 @@ async function main() {
         },
     };
 
+    // 生产构建时移除 console 和 debugger
+    if (!isWatchMode) {
+        buildOptions.drop = ['console', 'debugger'];
+    }
+
     async function run() {
         if (entryPoints.length === 0) {
             console.error('❌ No entry points found. Check your `src` directory and glob pattern in `build.js`.');
