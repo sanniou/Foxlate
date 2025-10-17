@@ -9,6 +9,7 @@ class InputHandler {
         this.settings = null;
         this.keyPressCount = 0;
         this.lastKeypressTime = 0;
+        this.lastKeyPressed = null;
         this.isInitialized = false;
         this.indicator = new InputIndicator();
         console.log('[Foxlate] InputHandler constructor called');
@@ -89,9 +90,11 @@ class InputHandler {
         const { consecutiveKey, consecutiveKeyPresses } = this.settings;
         console.log('[Foxlate] Consecutive key check:', 'event.key:', event.key, 'event.code:', event.code, 'expected:', consecutiveKey, 'count:', this.keyPressCount);
         
-        // 修复：同时检查 event.code 和 event.key，以兼容不同设置
-        if (event.code !== consecutiveKey && event.key !== consecutiveKey) {
+        // 检查是否为指定的触发键
+        const isTriggerKey = event.code === consecutiveKey || event.key === consecutiveKey;
+        if (!isTriggerKey) {
             this.keyPressCount = 0;
+            this.lastKeyPressed = null;
             return;
         }
 
@@ -99,21 +102,29 @@ class InputHandler {
         const isEditable = target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
         if (!isEditable) {
             this.keyPressCount = 0;
+            this.lastKeyPressed = null;
             return;
         }
 
         const currentTime = Date.now();
-        if (currentTime - this.lastKeypressTime > 500) { // 500ms 间隔
-            this.keyPressCount = 1;
-        } else {
+        
+        // 检查是否为连续按下的同一个键
+        if (this.lastKeyPressed === consecutiveKey && currentTime - this.lastKeypressTime <= 500) {
+            // 在500ms内按下同一个键，增加计数
             this.keyPressCount++;
+        } else {
+            // 重置计数，开始新的连续按键序列
+            this.keyPressCount = 1;
         }
+        
         this.lastKeypressTime = currentTime;
+        this.lastKeyPressed = consecutiveKey;
 
         console.log('[Foxlate] Key press count:', this.keyPressCount, 'required:', consecutiveKeyPresses);
 
         if (this.keyPressCount >= consecutiveKeyPresses) {
             this.keyPressCount = 0;
+            this.lastKeyPressed = null;
             
             // (修复) 在调用 preventDefault 之前获取文本，并手动追加触发字符。
             // `preventDefault` 会阻止空格等字符被输入，因此我们需要在翻译前手动将其添加到文本中。
