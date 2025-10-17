@@ -56,94 +56,57 @@ async function getLocalVersion(filePath, regex) {
     }
 }
 
-function getLatestNPMVersion(packageName) {
+/**
+ * 通用的网络请求函数
+ * @param {string|URL} url 请求的 URL
+ * @param {object} options 选项, { json: boolean } 表示是否解析为 JSON
+ * @returns {Promise<string|object>}
+ */
+function fetchURL(url, options = {}) {
     return new Promise((resolve, reject) => {
-        exec(`npm view ${packageName} version`, (error, stdout, stderr) => {
-            if (error) {
-                reject(`❌ Failed to get latest version for ${packageName}: ${stderr}`);
-                return;
-            }
-            resolve(stdout.trim());
-        });
-    });
-}
-
-function getLatestGitHubRelease(repo) {
-    return new Promise((resolve, reject) => {
-        const options = {
-            hostname: 'api.github.com',
-            path: `/repos/${repo}/releases/latest`,
-            headers: { 'User-Agent': 'Node.js' }
+        const requestOptions = {
+            headers: { 'User-Agent': 'Node.js', ...options.headers },
         };
-        https.get(options, (res) => {
-            let data = '';
-            res.on('data', (chunk) => { data += chunk; });
-            res.on('end', () => {
-                try {
-                    const release = JSON.parse(data);
-                    if (release.tag_name) {
-                        // 去掉 'v' 前缀
-                        resolve(release.tag_name.replace(/^v/, ''));
-                    } else {
-                        reject(`❌ Could not find tag_name in GitHub release response for ${repo}.`);
-                    }
-                } catch (e) {
-                    reject(`❌ Failed to parse GitHub release data for ${repo}: ${e.message}`);
-                }
-            });
-        }).on('error', (err) => {
-            reject(`❌ Failed to fetch GitHub release for ${repo}: ${err.message}`);
-        });
-    });
-}
 
-function getLatestESMVersion(packageName) {
-    return new Promise((resolve, reject) => {
-        const url = `https://esm.sh/${packageName}?bundle`;
-        https.get(url, (res) => {
-            let data = '';
-            res.on('data', (chunk) => { data += chunk; });
-            res.on('end', () => {
-                try {
-                    const match = data.match(new RegExp(`esm\\.sh - ${packageName}@([\\d\\.]+)`));
-                    if (match) {
-                        resolve(match[1]);
-                    } else {
-                        reject(`❌ Could not extract version from ESM response for ${packageName}.`);
-                    }
-                } catch (e) {
-                    reject(`❌ Failed to parse ESM data for ${packageName}: ${e.message}`);
-                }
-            });
-        }).on('error', (err) => {
-            reject(`❌ Failed to fetch ESM version for ${packageName}: ${err.message}`);
-        });
-    });
-}
-
-function downloadFrancBundle(version, localPath) {
-    return new Promise((resolve, reject) => {
-        const url = `https://esm.sh/franc@${version}/es2022/franc.bundle.mjs`;
-        https.get(url, (res) => {
-            if (res.statusCode !== 200) {
-                reject(`❌ Failed to download franc bundle: HTTP ${res.statusCode}`);
-                return;
+        https.get(url, requestOptions, (res) => {
+            // 处理重定向
+            if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+                return fetchURL(res.headers.location, options).then(resolve, reject);
             }
+            if (res.statusCode < 200 || res.statusCode >= 300) {
+                return reject(new Error(`请求失败 ${url}: HTTP 状态码 ${res.statusCode}`));
+            }
+
             let data = '';
+            res.setEncoding('utf8');
             res.on('data', (chunk) => { data += chunk; });
             res.on('end', () => {
-                fs.writeFile(localPath, data, 'utf-8', (err) => {
-                    if (err) {
-                        reject(`❌ Failed to write franc bundle to ${localPath}: ${err.message}`);
+                try {
+                    if (options.json) {
+                        resolve(JSON.parse(data));
                     } else {
-                        resolve();
+                        resolve(data);
                     }
-                });
+                } catch (e) {
+                    reject(new Error(`解析响应失败 ${url}: ${e.message}`));
+                }
             });
         }).on('error', (err) => {
-            reject(`❌ Failed to download franc bundle: ${err.message}`);
+            reject(new Error(`请求失败 ${url}: ${err.message}`));
         });
     });
+}
+
+async function getLatestNPMVersion(packageName) {
+    const data = await fetchURL(`https://registry.npmjs.org/${packageName}/latest`, { json: true });
+    if (!data.version) throw new Error(`在 npm registry 响应中未找到版本号: ${packageName}`);
+    return data.version;
+}
+
+async function getLatestGitHubRelease(repo) {
+    const data = await fetchURL(`https://api.github.com/repos/${repo}/releases/latest`, { json: true });
+    if (!data.tag_name) throw new Error(`在 GitHub API 响应中未找到 tag_name: ${repo}`);
+    return data.tag_name.replace(/^v/, ''); // 去掉 'v' 前缀
 }
 
 
@@ -165,7 +128,11 @@ async function checkLibraryUpdates() {
             } else if (lib.type === 'github_release') {
                 latestVersion = await getLatestGitHubRelease(lib.repo);
             } else if (lib.type === 'esm_sh') {
-                latestVersion = await getLatestESMVersion(lib.packageName);
+                // esm.sh 会在 bundle 注释中包含版本号，我们直接从那里提取
+                const content = await fetchURL(`https://esm.sh/${lib.packageName}?bundle`);
+                const match = content.match(new RegExp(`esm\\.sh - ${lib.packageName}@([\\d\\.]+)`));
+                if (!match) throw new Error(`无法从 esm.sh 响应中提取版本: ${lib.packageName}`);
+                latestVersion = match[1];
             }
 
             if (!localVersion) {
@@ -191,7 +158,8 @@ async function checkLibraryUpdates() {
                 if (lib.type === 'esm_sh' && lib.packageName === 'franc') {
                     console.log(`📥 Downloading latest franc bundle...`);
                     try {
-                        await downloadFrancBundle(latestVersion, lib.localPath);
+                        const bundleContent = await fetchURL(`https://esm.sh/franc@${latestVersion}/es2022/franc.bundle.mjs`);
+                        await fs.writeFile(lib.localPath, bundleContent, 'utf-8');
                         console.log(`✅ Downloaded franc bundle v${latestVersion}`);
                     } catch (error) {
                         console.error(`❌ Failed to download franc bundle: ${error}`);
