@@ -104,25 +104,26 @@ export class DOMWalker {
      * @param {function(HTMLElement): CSSStyleDeclaration} getCachedStyle - (修改) 用于获取缓存样式的函数。。
      * @returns {'inline' | 'block'} - 确定的追加类型。
      */
-    static #determineAppendType(element,config, getCachedStyle) {
-        // 1. 启发式分析：检查子元素或文本长度
+    static #determineAppendType(element, config, getCachedStyle) {
+        // 1. 优先基于计算样式，因为它是最权威的布局信息源。
+        const style = getCachedStyle(element);
+        const display = style.display;
+
+        // 任何非 'inline' 的显示类型（如 block, flex, grid, list-item 等）
+        // 通常都会在布局中产生一个断点，应被视为块级。
+        if (display !== 'inline') {
+            return 'block';
+        }
+
+        // 2. 对于 `display: inline` 的元素，应用启发式规则作为补充。
+        //    - 如果一个内联元素包含任何块级子元素，它在结构上应被视为块级。
+        //    - 如果一个内联元素包含非常长的文本，为了在追加翻译时获得更好的可读性和布局，
+        //      也应将其提升为块级处理（例如，用 <div> 包裹而不是 <span>）。
         if (element.querySelector(BLOCK_CHILD_SELECTORS) || (element.textContent || '').trim().length > BLOCK_TEXT_LENGTH_THRESHOLD) {
             return 'block';
         }
 
-        // 2. 基于计算样式
-        const style = getCachedStyle(element);
-        const display = style.display;
-
-        if (['block', 'flex', 'grid', 'table', 'list-item'].includes(display) || style.float !== 'none') {
-            return 'block';
-        }
-
-        if (display.startsWith('inline')) {
-            return 'inline';
-        }
-
-        // 3. 安全的默认值
+        // 3. 如果以上条件都不满足，则安全地将其视为内联元素。
         return 'inline';
     }
     /**
