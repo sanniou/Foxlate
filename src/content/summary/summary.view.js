@@ -66,6 +66,8 @@ export class SummaryDialog {
         this.boundHandleTextareaInput = () => {
             this.textarea.style.height = 'auto';
             this.textarea.style.height = `${this.textarea.scrollHeight}px`;
+            // 根据输入内容启用/禁用发送按钮
+            this.updateSendButtonState();
         };
         this.boundHandleConversationClick = (e) => {
             const target = e.target.closest('[data-action]');
@@ -144,6 +146,9 @@ export class SummaryDialog {
         this.textarea.addEventListener('input', this.boundHandleTextareaInput);
         this.conversationArea.addEventListener('click', this.boundHandleConversationClick);
         this.tabsArea.addEventListener('click', this.boundHandleTabsAreaClick);
+        
+        // 初始化发送按钮状态（输入框为空时禁用）
+        this.updateSendButtonState();
     }
 
     renderTabs(tabs, activeTabId) {
@@ -174,6 +179,8 @@ export class SummaryDialog {
     clearInput() {
         this.textarea.value = '';
         this.textarea.style.height = 'auto';
+        // 清空输入后更新发送按钮状态
+        this.updateSendButtonState();
         // 确保输入框保持焦点
         requestAnimationFrame(() => {
             this.textarea.focus();
@@ -379,15 +386,29 @@ export class SummaryDialog {
         textarea.focus();
         textarea.style.height = 'auto';
         textarea.style.height = `${textarea.scrollHeight}px`;
+        // 为编辑模式的输入框添加输入事件监听，以更新发送按钮状态
+        textarea.addEventListener('input', () => {
+            this.updateSendButtonState();
+        });
     }
 
     setLoading(isLoading) {
-        this.sendButton.disabled = isLoading;
         // 不再禁用输入框，保持用户可以随时输入
         // this.textarea.disabled = isLoading;
         this.element.classList.toggle('loading', isLoading);
         this.suggestButton.disabled = isLoading;
         this.suggestButton.classList.toggle('loading', isLoading);
+        // 更新发送按钮状态，考虑加载状态和输入内容
+        this.updateSendButtonState(isLoading);
+    }
+
+    /**
+     * 更新发送按钮状态
+     * @param {boolean} isLoading - 是否正在加载
+     */
+    updateSendButtonState(isLoading = false) {
+        const hasContent = this.textarea.value.trim().length > 0;
+        this.sendButton.disabled = isLoading || !hasContent;
     }
 
     toggleSuggestions() {
@@ -474,6 +495,8 @@ export class SummaryDialog {
                     this.textarea.value = suggestion;
                     this.textarea.style.height = 'auto';
                     this.textarea.style.height = `${this.textarea.scrollHeight}px`;
+                    // 更新发送按钮状态，因为现在有内容了
+                    this.updateSendButtonState();
                     this.textarea.focus();
                     this.toggleSuggestions();
                 } else if (suggestionItem) {
@@ -535,6 +558,8 @@ export class SummaryDialog {
         requestAnimationFrame(() => {
             this.repositionDialog(); // 调用重定位方法
             this.textarea.focus();
+            // 确保发送按钮状态正确（输入框为空时禁用）
+            this.updateSendButtonState();
         });
 
         // 添加窗口大小和滚动监听器
