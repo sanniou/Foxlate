@@ -383,7 +383,8 @@ export class SummaryDialog {
 
     setLoading(isLoading) {
         this.sendButton.disabled = isLoading;
-        this.textarea.disabled = isLoading;
+        // 不再禁用输入框，保持用户可以随时输入
+        // this.textarea.disabled = isLoading;
         this.element.classList.toggle('loading', isLoading);
         this.suggestButton.disabled = isLoading;
         this.suggestButton.classList.toggle('loading', isLoading);
@@ -401,6 +402,7 @@ export class SummaryDialog {
                     <span>${browser.i18n.getMessage('summaryLoadingSuggestions') || 'Loading suggestions...'}</span>
                 </div>
             `;
+            // 只禁用建议按钮，不禁用发送按钮和输入框
             this.suggestButton.disabled = true;
             this.suggestButton.classList.add('loading');
             this.dispatchEvent('infer-suggestions');
@@ -412,6 +414,10 @@ export class SummaryDialog {
         this.suggestionsArea.innerHTML = '';
         this.suggestButton.disabled = false;
         this.suggestButton.classList.remove('loading');
+
+        // 确保发送按钮在建议加载完成后保持启用状态
+        // 建议过程不应该影响发送按钮状态，只有在 AI 回复时才禁用
+        // 这里不直接修改发送按钮状态，让 updateDialogUI 来统一管理
 
         let parsedSuggestions = [];
         if (suggestions && suggestions.length > 0) {
@@ -958,6 +964,7 @@ export class SummaryDialog {
         this.suggestionsArea.innerHTML = '';
         this.suggestButton.disabled = false;
         this.suggestButton.classList.remove('loading');
+        // 重置建议时不影响发送按钮状态，让 updateDialogUI 统一管理
     }
 
     setFullRerenderNeeded(needed) {

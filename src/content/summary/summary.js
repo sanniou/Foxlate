@@ -184,6 +184,7 @@ class SummaryModule {
         }
         this.summaryDialog.renderTabs(tabs, activeTabId);
         this.summaryDialog.renderConversation(activeTab.history, activeTab.state === 'loading');
+        // 只有在 AI 回复时才禁用发送按钮，建议过程不影响
         this.summaryDialog.setLoading(activeTab.state === 'loading');
     }
 
@@ -326,7 +327,8 @@ class SummaryModule {
     async handleInferSuggestions() {
         const activeTab = this.state.getActiveTab();
         if (!activeTab) return;
-        this.summaryDialog.setLoading(true);
+        // 不再调用 setLoading，避免禁用发送按钮和输入框
+        // this.summaryDialog.setLoading(true);
         try {
             const historyForAI = activeTab.history.map(msg => ({
                 role: msg.role,
