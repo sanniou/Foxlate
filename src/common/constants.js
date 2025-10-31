@@ -146,7 +146,7 @@ export const AI_PROMPTS = {
 
 示例:
 ["如果这项技术存在于中世纪会怎样？", "学习这个最重要的单项技能是什么？", "你知道品客薯片发明者现在被埋在自己的发明品里吗？"]`,
-    suggestUserMessage: "很有趣。基于我们刚才的对话，给我一些建议吧。"
+    suggestUserMessage: "很有趣。基于我们刚才的对话，给我一些建议吧。请直接返回JSON数组格式，不要添加任何解释文字。"
 };
 
 export const DISPLAY_MODES = {
