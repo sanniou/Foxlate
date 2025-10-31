@@ -85,7 +85,8 @@ export const DEFAULT_SETTINGS = {
           '韩文': 'KO',
           '法文': 'FR',
           '德文': 'DE',
-          '西班牙文': 'ES'
+          '西班牙文': 'ES',
+          '俄文': 'RU'
       }
     }
 };

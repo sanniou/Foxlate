@@ -1,5 +1,6 @@
 import browser from '../lib/browser-polyfill.js';
 import { InputIndicator } from './input-indicator.js';
+import * as Constants from '../common/constants.js';
 
 // content-script.js 会将 getEffectiveSettings 暴露在 window 对象上
 const getEffectiveSettings = window.getEffectiveSettings;
@@ -212,6 +213,20 @@ class InputHandler {
                 // 1. 检查语言别名映射
                 if (this.settings.languageMapping && this.settings.languageMapping[langAlias]) {
                     targetLangOverride = this.settings.languageMapping[langAlias];
+                }
+                // 2. 如果别名映射中没有，检查是否为标准语言代码
+                else if (Constants.SUPPORTED_LANGUAGES[langAlias]) {
+                    targetLangOverride = langAlias;
+                }
+                // 3. 检查是否为语言值的映射（如 'EN' 对应 'langEN'）
+                else if (Object.values(Constants.SUPPORTED_LANGUAGES).includes(langAlias)) {
+                    // 查找语言代码对应的键
+                    const langCode = Object.keys(Constants.SUPPORTED_LANGUAGES).find(
+                        key => Constants.SUPPORTED_LANGUAGES[key] === langAlias
+                    );
+                    if (langCode) {
+                        targetLangOverride = langCode;
+                    }
                 }
                 // 如果都不是，targetLangOverride 保持为 null，后台将使用默认语言
             }
