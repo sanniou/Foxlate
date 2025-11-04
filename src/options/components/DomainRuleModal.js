@@ -345,6 +345,7 @@ export class DomainRuleModal extends BaseComponent {
         modalElement.style.display = 'flex';
         modalElement.offsetWidth; // Trigger reflow
         modalElement.classList.add('is-visible');
+        this._addEscKeyHandler();
         const scrollableContent = modalElement.querySelector('#domainRuleForm, .modal-scroll-content');
         if (scrollableContent) scrollableContent.scrollTop = 0;
         else modalElement.scrollTop = 0;
@@ -359,9 +360,20 @@ export class DomainRuleModal extends BaseComponent {
             modalElement.removeEventListener('transitionend', onTransitionEnd);
             if (document.querySelectorAll('.modal.is-visible').length === 0) {
                 document.body.classList.remove('modal-open');
+                this._removeEscKeyHandler();
             }
         };
         modalElement.addEventListener('transitionend', onTransitionEnd);
+    }
+
+    /**
+     * 处理 ESC 键按下事件
+     * @protected
+     */
+    _handleEscKey() {
+        if (this.#state.isOpen) {
+            this.close();
+        }
     }
 
     #initializeSelectLabel(selectEl) {

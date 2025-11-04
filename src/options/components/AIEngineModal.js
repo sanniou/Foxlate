@@ -404,6 +404,7 @@ export class AIEngineModal extends BaseComponent {
         modalElement.style.display = 'flex';
         modalElement.offsetWidth; // Trigger reflow
         modalElement.classList.add('is-visible');
+        this._addEscKeyHandler();
     }
 
     #closeModal(modalElement) {
@@ -415,8 +416,23 @@ export class AIEngineModal extends BaseComponent {
             modalElement.removeEventListener('transitionend', onTransitionEnd);
             if (document.querySelectorAll('.modal.is-visible').length === 0) {
                 document.body.classList.remove('modal-open');
+                this._removeEscKeyHandler();
             }
         };
         modalElement.addEventListener('transitionend', onTransitionEnd);
+    }
+
+    /**
+     * 处理 ESC 键按下事件
+     * @protected
+     */
+    _handleEscKey() {
+        if (this.#state.isImportModalOpen) {
+            this.#closeImportModal();
+        } else if (this.#state.isFormVisible) {
+            this.#hideForm();
+        } else if (this.#state.isOpen) {
+            this.close();
+        }
     }
 }

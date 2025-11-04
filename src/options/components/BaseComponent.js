@@ -3,6 +3,7 @@
  */
 export class BaseComponent {
     #listeners = new Map();
+    #escKeyHandler = null;
 
     constructor() {
         if (new.target === BaseComponent) {
@@ -47,5 +48,40 @@ export class BaseComponent {
         if (this.#listeners.has(eventName)) {
             this.#listeners.get(eventName).forEach(callback => callback(data));
         }
+    }
+
+    /**
+     * 添加 ESC 键事件监听器
+     * @protected
+     */
+    _addEscKeyHandler() {
+        if (this.#escKeyHandler) return; // 避免重复添加
+        
+        this.#escKeyHandler = (e) => {
+            if (e.key === 'Escape') {
+                this._handleEscKey();
+            }
+        };
+        
+        document.addEventListener('keydown', this.#escKeyHandler);
+    }
+
+    /**
+     * 移除 ESC 键事件监听器
+     * @protected
+     */
+    _removeEscKeyHandler() {
+        if (this.#escKeyHandler) {
+            document.removeEventListener('keydown', this.#escKeyHandler);
+            this.#escKeyHandler = null;
+        }
+    }
+
+    /**
+     * 处理 ESC 键按下事件，子类需要重写此方法
+     * @protected
+     */
+    _handleEscKey() {
+        // 子类需要重写此方法来实现具体的关闭逻辑
     }
 }
