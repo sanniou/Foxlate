@@ -56,6 +56,8 @@ export class SummaryDialog {
         this.boundHandleTextareaKeydown = (e) => {
             if (e.key === 'Enter' && e.ctrlKey) {
                 e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
                 const query = this.textarea.value.trim();
                 if (query && !this.sendButton.disabled) {
                     this.dispatchEvent('send-message', { query });
@@ -142,7 +144,7 @@ export class SummaryDialog {
         this.sendButton.addEventListener('click', this.boundHandleSendMessage);
         this.refreshButton.addEventListener('click', this.boundHandleRefresh);
         this.suggestButton.addEventListener('click', this.boundToggleSuggestions);
-        this.textarea.addEventListener('keydown', this.boundHandleTextareaKeydown);
+        this.textarea.addEventListener('keydown', this.boundHandleTextareaKeydown, true);
         this.textarea.addEventListener('input', this.boundHandleTextareaInput);
         this.conversationArea.addEventListener('click', this.boundHandleConversationClick);
         this.tabsArea.addEventListener('click', this.boundHandleTabsAreaClick);
@@ -1001,7 +1003,7 @@ export class SummaryDialog {
         this.sendButton?.removeEventListener('click', this.boundHandleSendMessage);
         this.refreshButton?.removeEventListener('click', this.boundHandleRefresh);
         this.suggestButton?.removeEventListener('click', this.boundToggleSuggestions);
-        this.textarea?.removeEventListener('keydown', this.boundHandleTextareaKeydown);
+        this.textarea?.removeEventListener('keydown', this.boundHandleTextareaKeydown, true);
         this.textarea?.removeEventListener('input', this.boundHandleTextareaInput);
         this.conversationArea?.removeEventListener('click', this.boundHandleConversationClick);
         this.tabsArea?.removeEventListener('click', this.boundHandleTabsAreaClick);
