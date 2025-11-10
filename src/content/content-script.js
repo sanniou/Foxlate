@@ -46,11 +46,6 @@ async function getEffectiveSettings() {
         payload: { hostname: window.location.hostname }
     });
 
-    // 2. 在内容脚本的上下文中预编译正则表达式
-    if (rawSettings && rawSettings.precheckRules) {
-        rawSettings.precheckRules = SettingsManager.precompileRules(rawSettings.precheckRules);
-    }
-
     return rawSettings;
 }
 

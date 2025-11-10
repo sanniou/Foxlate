@@ -242,10 +242,9 @@ async function handleSelectionTranslation(tab, source, frameId) {
         const hostname = new URL(tab.url).hostname;
         const effectiveRule = await SettingsManager.getEffectiveSettings(hostname);
 
-        // --- 新增：应用预校验规则 ---
-        // 在使用前编译规则
-        effectiveRule.precheckRules = SettingsManager.precompileRules(effectiveRule.precheckRules);
-        const precheckResult = shouldTranslate(selectionText, effectiveRule);
+        // (已重构) shouldTranslate 现在使用内置规则，不再需要 precheckRules。
+        // 此处启用日志记录，以便在调试时查看预检决策。
+        const precheckResult = shouldTranslate(selectionText, effectiveRule, true);
 
         if (!precheckResult.result) {
             // 如果预校验失败，则不进行翻译。
