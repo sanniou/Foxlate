@@ -143,10 +143,6 @@
     "message": "总是翻译",
     "description": "总是翻译规则的选项。"
   },
-  "addPrecheckRule": {
-    "message": "添加预检查规则",
-    "description": "添加新预检查规则的按钮文本。"
-  },
   "edit": {
     "message": "编辑",
     "description": "通用编辑按钮文本。"
@@ -373,10 +369,6 @@
   "testing": {
     "message": "测试中..."
   },
-  "invalidRegexWarning": {
-    "message": "部分预检查规则包含无效的正则表达式。请在保存前修正它们。",
-    "description": "Warning message when pre-check rules have invalid regexes."
-  },
   "resetSettings": {
     "message": "重置设置",
     "description": "Button text to reset all settings to default."
@@ -527,82 +519,6 @@
   "langRU": {
     "message": "俄语"
   },
-  "precheckRulesTitle": {
-    "message": "翻译预检查规则",
-    "description": "Title for the Pre-check Rules section."
-  },
-  "precheckRulesDescription": {
-    "message": "配置规则以包含（白名单）或排除（黑名单）文本的翻译。黑名单规则优先执行。文本必须匹配一个已启用的语言白名单规则才会被翻译。",
-    "description": "Description for the Pre-check Rules section."
-  },
-  "precheckTab_general": {
-    "message": "通用",
-    "description": "Tab title for general pre-check rules."
-  },
-  "precheckRuleWhitespace": {
-    "message": "仅空白字符",
-    "description": "Name of the default rule that matches whitespace."
-  },
-  "precheckRuleEmoji": {
-    "message": "单个表情符号",
-    "description": "Name of the default rule that matches a single emoji."
-  },
-  "precheckRuleSingleWord": {
-    "message": "单个英文字母",
-    "description": "Name of the default rule that matches a single English letter."
-  },
-  "precheckRuleEmail": {
-    "message": "电子邮件地址",
-    "description": "匹配电子邮件地址的默认规则。"
-  },
-  "precheckRuleAcronymsGeneral": {
-    "message": "通用缩写词",
-    "description": "匹配常用通用缩写词的默认规则。"
-  },
-  "precheckRuleAcronymsTech": {
-    "message": "科技缩写词",
-    "description": "匹配常用技术和计算领域缩写词的默认规则。"
-  },
-  "precheckRuleAcronymsBusiness": {
-    "message": "商业缩写词",
-    "description": "匹配常用商业相关缩写词的默认规则。"
-  },
-  "precheckRuleAcronymsGov": {
-    "message": "政府及组织缩写词",
-    "description": "匹配政府和组织缩写词的默认规则。"
-  },
-  "precheckRuleContains": {
-    "message": "包含",
-    "description": "Prefix for language-specific rules, e.g., 'Contains English'."
-  },
-  "ruleNamePlaceholder": {
-    "message": "规则名称",
-    "description": "Placeholder for the rule name input."
-  },
-  "regexPlaceholder": {
-    "message": "正则表达式",
-    "description": "Placeholder for the regex input."
-  },
-  "flagsPlaceholder": {
-    "message": "标志",
-    "description": "Placeholder for the regex flags input."
-  },
-  "blacklist": {
-    "message": "黑名单",
-    "description": "Option for blacklist mode in a rule."
-  },
-  "whitelist": {
-    "message": "白名单",
-    "description": "Option for whitelist mode in a rule."
-  },
-  "enabled": {
-    "message": "启用",
-    "description": "Checkbox label to enable a rule."
-  },
-  "collapseTest": {
-    "message": "收起",
-    "description": "Button text to collapse the test area."
-  },
   "testSourcePlaceholder": {
     "message": "在此输入要翻译的文本...",
     "description": "Placeholder for the test translation source text area."
@@ -610,10 +526,6 @@
   "testSourceEmpty": {
     "message": "请输入要翻译的文本。",
     "description": "Error message when the test source text is empty."
-  },
-  "testNotTranslated": {
-    "message": "原文（未翻译，未通过预检查）：",
-    "description": "Message for test translation when text is not translated due to pre-check rules or same language."
   },
   "translateButtonText": {
     "message": "翻译",
@@ -623,14 +535,6 @@
     "message": "[预检查] 规则 \"$1\" 错误：$2",
     "description": "Log entry for error during pre-check rule application. Placeholders: [ruleName, errorMessage]"
   },
-  "logEntryPrecheckNoWhitelistRule": {
-    "message": "[预检查] 未找到目标语言 $1 的启用白名单规则。将继续翻译。",
-    "description": "Log entry when no whitelist rule is found for the target language."
-  },
-  "logEntryCacheHit": {
-    "message": "[缓存] 翻译结果在缓存中找到。",
-    "description": "Log entry for cache hit."
-  },
   "logEntryCacheMiss": {
     "message": "[缓存] 翻译结果未在缓存中找到。将进行 API 调用。",
     "description": "Log entry for cache miss."
@@ -638,14 +542,6 @@
   "logEntryNoTranslator": {
     "message": "[错误] 未选择或初始化有效的翻译器。",
     "description": "Log entry when no translator is available."
-  },
-  "precheckRuleSameLanguage": {
-    "message": "相同语言",
-    "description": "Name for the pre-check rule: source and target language are the same."
-  },
-  "precheckRulePunctuation": {
-    "message": "数字、标点、符号",
-    "description": "Name of the default rule that matches numbers, punctuation, and symbols."
   },
   "hideLogButton": {
     "message": "隐藏日志",
@@ -666,26 +562,6 @@
   "logEntryPrecheckStart": {
     "message": "[预检查] 开始评估预检查规则。",
     "description": "Log entry for the start of pre-check rules."
-  },
-  "logEntryPrecheckMatch": {
-    "message": "[预检查] 规则 \"$1\" ($2) 匹配。文本将不被翻译。",
-    "description": "Log entry when a pre-check rule matches and prevents translation. Placeholders: [ruleName, ruleMode]"
-  },
-  "logEntryPrecheckNoMatch": {
-    "message": "[预检查] 规则 \"$1\" ($2) 未匹配。",
-    "description": "Log entry when a pre-check rule does not match. Placeholders: [ruleName, ruleMode]"
-  },
-  "logEntryPrecheckEraserUsed": {
-    "message": "[预检查] 规则 \"$1\" ($2) 作为橡皮擦使用，移除了匹配部分。",
-    "description": "Log entry when a pre-check rule is used as an eraser. Placeholders: [ruleName, ruleMode]"
-  },
-  "logEntryPrecheckEraserUsedCombined": {
-    "message": "使用合并后的黑名单规则擦除了内容。",
-    "description": "当多个预检查黑名单规则被合并并用作橡皮擦时的日志条目。"
-  },
-  "logEntryPrecheckNeutralRemoved": {
-    "message": "[预检查] 中性字符（数字、空格、标点、符号）已被移除。",
-    "description": "Log entry when neutral characters are removed during pre-check."
   },
   "logEntryPrecheckFinalCheck": {
     "message": "[预检查] 所有擦除操作后剩余文本: \"$1\"",
@@ -775,49 +651,9 @@
     "message": "切换内容总结",
     "description": "用于切换内容总结的命令描述。"
   },
-  "enterRegex": {
-    "message": "请输入正则表达式",
-    "description": "提示用户输入正则表达式。"
-  },
-  "invalidRegex": {
-    "message": "无效的正则表达式",
-    "description": "提示用户输入的正则表达式无效。"
-  },
-  "regexTestNoMatch": {
-    "message": "不匹配",
-    "description": "当正则表达式测试没有匹配项时显示的消息。"
-  },
-  "invalidRegexFlags": {
-    "message": "无效的正则表达式标志",
-    "description": "提示用户输入的正则表达式标志无效。"
-  },
-  "invalidCssSelector": {
-    "message": "无效的 CSS 选择器",
-    "description": "当用户输入的 CSS 选择器无效时显示的错误消息。"
-  },
-  "testRegexInputLabel": {
-    "message": "测试文本:",
-    "description": "预检查规则部分中测试文本输入框的标签。"
-  },
-  "testRegexInputDescription": {
-    "message": "在此输入文本以测试您的正则表达式规则。",
-    "description": "测试文本输入框的辅助文本。"
-  },
-  "globalTestAreaDescription": {
-    "message": "输入文本以同时测试所有已启用的预检查规则。",
-    "description": "全局预检查测试按钮的辅助文本。"
-  },
-  "testRegexInputPlaceholder": {
-    "message": "输入文本以测试正则表达式...",
-    "description": "测试文本输入框的占位符。"
-  },
   "runTestButton": {
     "message": "运行测试",
     "description": "The button text for running the global pre-check test."
-  },
-  "precheckRuleUrl": {
-    "message": "URL",
-    "description": "匹配 URL 的默认规则。"
   },
   "subtitleSettingsTitle": {
     "message": "字幕设置",
@@ -1087,10 +923,6 @@
   "navRules": {
     "message": "规则",
     "description": "规则管理的导航链接。"
-  },
-  "navPreCheck": {
-    "message": "预检查",
-    "description": "预检查规则的导航链接。"
   },
   "navCache": {
     "message": "缓存",

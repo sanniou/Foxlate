@@ -9,9 +9,6 @@ export class SettingsManager {
 
     static #effectiveSettingsCache = new Map();
 
-    //缓存默认预检规则
-    static #defaultPrecheckRules = null;
-
     // --- (新) 事件监听器 ---
     static #listeners = new Map();
 
@@ -28,8 +25,6 @@ export class SettingsManager {
             }
         });
 
-        // 直接使用类名进行初始化，以确保在任何环境下都能正确工作。
-        SettingsManager.#defaultPrecheckRules = SettingsManager.generateDefaultPrecheckRules();
     }
 
     /**
@@ -114,66 +109,11 @@ export class SettingsManager {
     }
 
     /**
-     * 预编译 precheck 规则中的正则表达式字符串，提高性能。
-     * @param {object} rules - precheck 规则对象。
-     * @returns {object} 规则对象，每个规则都添加了 `compiledRegex` 属性。
-     */
-
-    static precompileRules(rules) {
-        if (!rules) return {};
-        const compiledRules = structuredClone(rules);
-        for (const category in compiledRules) {
-            if (Array.isArray(compiledRules[category])) {
-                compiledRules[category].forEach(rule => {
-                    try {
-                        const flags = rule.flags ? [...new Set(rule.flags + 'g')].join('') : 'g';
-                        rule.compiledRegex = new RegExp(rule.regex, flags);
-                    } catch (e) {
-                        rule.compiledRegex = null;
-                        console.error(`Invalid regex for rule "${rule.name}": /${rule.regex}/${rule.flags}`, e);
-                    }
-                });
-            }
-        }
-        return compiledRules;
-    }
-
-    /**
-     * 生成完整的默认预检规则集，包括国际化的名称。
-     * @returns {object} 完整的默认预检规则对象。
-     */
-
-
-    static generateDefaultPrecheckRules() {
-        const defaultRules = structuredClone(Constants.DEFAULT_PRECHECK_RULES);
-        if (defaultRules.general) {
-            defaultRules.general.forEach(rule => {
-                rule.name = browser.i18n.getMessage(rule.nameKey) || rule.name;
-                delete rule.nameKey;
-            });
-        }
-        for (const langCode in Constants.LANG_REGEX_MAP) {
-            if (Constants.SUPPORTED_LANGUAGES[langCode]) {
-                const langName = browser.i18n.getMessage(Constants.SUPPORTED_LANGUAGES[langCode]) || langCode;
-                defaultRules[langCode] = [{
-                    name: `${browser.i18n.getMessage('precheckRuleContains') || 'Contains '} ${langName}`,
-                    regex: Constants.LANG_REGEX_MAP[langCode].regex,
-                    mode: 'whitelist',
-                    enabled: true,
-                    flags: Constants.LANG_REGEX_MAP[langCode].flags,
-                }];
-            }
-        }
-        return defaultRules;
-    }
-
-    /**
      * (新) 生成一个完整的默认设置对象，包括动态生成的预检规则。
      * @returns {object} 默认设置对象。
      */
     static generateDefaultSettings() {
         const defaultSettings = structuredClone(Constants.DEFAULT_SETTINGS);
-        defaultSettings.precheckRules = SettingsManager.generateDefaultPrecheckRules();
         return defaultSettings;
     }
 
@@ -217,10 +157,6 @@ export class SettingsManager {
         } else {
             validatedSettings.translationSelector.default = defaultDefaultSelector;
         }
-
-        validatedSettings.precheckRules = settingsToValidate.precheckRules && Object.keys(settingsToValidate.precheckRules).length > 0
-            ? settingsToValidate.precheckRules
-            : defaultSettings.precheckRules;
 
         SettingsManager.#validatedSettingsCache = structuredClone(validatedSettings); // 缓存未编译但已验证的设置
         return validatedSettings;
@@ -359,18 +295,6 @@ export class SettingsManager {
             domainRule.cssSelectorOverride || false
         );
 
-        // 如果存在特定于域的预检查规则，则使用它们，否则使用全局规则。
-        // 注意：编译步骤已从此函数中移除，应由调用者处理。
-        if (domainRule.precheckRules) {
-            effectiveSettings.precheckRules = domainRule.precheckRules;
-        }
-        else {
-            effectiveSettings.precheckRules = SettingsManager.#defaultPrecheckRules;
-        }
-
-        const compiledSettings = SettingsManager.precompileRules(effectiveSettings.precheckRules);
-        effectiveSettings.precheckRules = compiledSettings;
-
         SettingsManager.#effectiveSettingsCache.set(hostname, structuredClone(effectiveSettings));
         return effectiveSettings;
     }
@@ -389,17 +313,6 @@ export class SettingsManager {
         const settingsToSave = structuredClone(settings);
         delete settingsToSave.source;
 
-        // 清理 precheckRules 中的 compiledRegex
-        if (settingsToSave.precheckRules) {
-            for (const category in settingsToSave.precheckRules) {
-                if (Array.isArray(settingsToSave.precheckRules[category])) {
-                    settingsToSave.precheckRules[category].forEach(rule => {
-                        delete rule.compiledRegex;
-                    });
-                }
-            }
-        }
-
         await browser.storage.local.set({ settings: settingsToSave });
 
         await SettingsManager.notifySettingsChanged(settingsToSave, oldSettings);
@@ -412,17 +325,6 @@ export class SettingsManager {
     static async uploadSettingsToCloud(settings) {
         const settingsToUpload = structuredClone(settings);
         delete settingsToUpload.source;
-
-        // 清理 precheckRules 中的 compiledRegex
-        if (settingsToUpload.precheckRules) {
-            for (const category in settingsToUpload.precheckRules) {
-                if (Array.isArray(settingsToUpload.precheckRules[category])) {
-                    settingsToUpload.precheckRules[category].forEach(rule => {
-                        delete rule.compiledRegex;
-                    });
-                }
-            }
-        }
 
         // 尝试保存到 sync
         try {

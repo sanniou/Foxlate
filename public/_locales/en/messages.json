@@ -370,10 +370,6 @@
     "message": "Remove",
     "description": "Button text to remove an AI engine profile."
   },
-  "invalidRegexWarning": {
-    "message": "Some pre-check rules contain invalid regular expressions. Please fix them before saving.",
-    "description": "Warning message when pre-check rules have invalid regexes."
-  },
   "resetSettings": {
     "message": "Reset Settings",
     "description": "Button text to reset all settings to default."
@@ -515,82 +511,6 @@
   "langRU": {
     "message": "Russian"
   },
-  "precheckRulesTitle": {
-    "message": "Translation Pre-check Rules",
-    "description": "Title for the Pre-check Rules section."
-  },
-  "precheckRulesDescription": {
-    "message": "Configure rules to include (whitelist) or exclude (blacklist) text from translation. Blacklist rules are checked first. Text must match an enabled language whitelist rule to be translated.",
-    "description": "Description for the Pre-check Rules section."
-  },
-  "precheckTab_general": {
-    "message": "General",
-    "description": "Tab title for general pre-check rules."
-  },
-  "precheckRuleWhitespace": {
-    "message": "Whitespace only",
-    "description": "Name of the default rule that matches whitespace."
-  },
-  "precheckRuleEmoji": {
-    "message": "Single Emoji",
-    "description": "Name of the default rule that matches a single emoji."
-  },
-  "precheckRuleSingleWord": {
-    "message": "Single English Letter",
-    "description": "Name of the default rule that matches a single English letter."
-  },
-  "precheckRuleEmail": {
-    "message": "Email Address",
-    "description": "Default rule to match email addresses."
-  },
-  "precheckRuleAcronymsGeneral": {
-    "message": "General Acronyms",
-    "description": "Name of the default rule that matches common general-purpose acronyms."
-  },
-  "precheckRuleAcronymsTech": {
-    "message": "Tech Acronyms",
-    "description": "Name of the default rule that matches common technology and computing acronyms."
-  },
-  "precheckRuleAcronymsBusiness": {
-    "message": "Business Acronyms",
-    "description": "Name of the default rule that matches common business-related acronyms."
-  },
-  "precheckRuleAcronymsGov": {
-    "message": "Government & Org Acronyms",
-    "description": "Name of the default rule that matches acronyms for governments and organizations."
-  },
-  "precheckRuleContains": {
-    "message": "Contains",
-    "description": "Prefix for language-specific rules, e.g., 'Contains English'."
-  },
-  "ruleNamePlaceholder": {
-    "message": "Rule Name",
-    "description": "Placeholder for the rule name input."
-  },
-  "regexPlaceholder": {
-    "message": "Regular Expression",
-    "description": "Placeholder for the regex input."
-  },
-  "flagsPlaceholder": {
-    "message": "flags",
-    "description": "Placeholder for the regex flags input."
-  },
-  "blacklist": {
-    "message": "Blacklist",
-    "description": "Option for blacklist mode in a rule."
-  },
-  "whitelist": {
-    "message": "Whitelist",
-    "description": "Option for whitelist mode in a rule."
-  },
-  "enabled": {
-    "message": "Enabled",
-    "description": "Checkbox label to enable a rule."
-  },
-  "collapseTest": {
-    "message": "Collapse",
-    "description": "Button text to collapse the test area."
-  },
   "testSourcePlaceholder": {
     "message": "Enter text to translate here...",
     "description": "Placeholder for the test translation source text area."
@@ -598,10 +518,6 @@
   "testSourceEmpty": {
     "message": "Please enter text to translate.",
     "description": "Error message when the test source text is empty."
-  },
-  "testNotTranslated": {
-    "message": "Original text (not translated due to pre-check rule):",
-    "description": "Message for test translation when text is not translated due to pre-check rules or same language."
   },
   "translateButtonText": {
     "message": "Translate",
@@ -611,14 +527,6 @@
     "message": "[Pre-check] Error in rule \"$1\": $2",
     "description": "Log entry for error during pre-check rule application. Placeholders: [ruleName, errorMessage]"
   },
-  "logEntryPrecheckNoWhitelistRule": {
-    "message": "[Pre-check] No enabled whitelist rule found for target language $1. Translation will proceed.",
-    "description": "Log entry when no whitelist rule is found for the target language."
-  },
-  "logEntryCacheHit": {
-    "message": "[Cache] Translation found in cache.",
-    "description": "Log entry for cache hit."
-  },
   "logEntryCacheMiss": {
     "message": "[Cache] Translation not found in cache. Proceeding with API call.",
     "description": "Log entry for cache miss."
@@ -626,14 +534,6 @@
   "logEntryNoTranslator": {
     "message": "[Error] No valid translator selected or initialized.",
     "description": "Log entry when no translator is available."
-  },
-  "precheckRuleSameLanguage": {
-    "message": "Same Language",
-    "description": "Name for the pre-check rule: source and target language are the same."
-  },
-  "precheckRulePunctuation": {
-    "message": "Numbers, Punctuation, Symbols",
-    "description": "Name of the default rule that matches numbers, punctuation, and symbols."
   },
   "hideLogButton": {
     "message": "Hide Log",
@@ -654,26 +554,6 @@
   "logEntryPrecheckStart": {
     "message": "[Pre-check] Starting pre-check rules evaluation.",
     "description": "Log entry for the start of pre-check rules."
-  },
-  "logEntryPrecheckMatch": {
-    "message": "[Pre-check] Rule \"$1\" ($2) matched. Text will not be translated.",
-    "description": "Log entry when a pre-check rule matches and prevents translation. Placeholders: [ruleName, ruleMode]"
-  },
-  "logEntryPrecheckNoMatch": {
-    "message": "[Pre-check] Rule \"$1\" ($2) did not match.",
-    "description": "Log entry when a pre-check rule does not match. Placeholders: [ruleName, ruleMode]"
-  },
-  "logEntryPrecheckEraserUsed": {
-    "message": "[Pre-check] Rule \"$1\" ($2) was used as an eraser, removing matched parts.",
-    "description": "Log entry when a pre-check rule is used as an eraser. Placeholders: [ruleName, ruleMode]"
-  },
-  "logEntryPrecheckEraserUsedCombined": {
-    "message": "Erased content using combined blacklist rules.",
-    "description": "Log entry when multiple pre-check blacklist rules are combined and used as an eraser."
-  },
-  "logEntryPrecheckNeutralRemoved": {
-    "message": "[Pre-check] Neutral characters (digits, spaces, punctuation, symbols) were removed.",
-    "description": "Log entry when neutral characters are removed during pre-check."
   },
   "logEntryPrecheckFinalCheck": {
     "message": "[Pre-check] Text after all erasures: \"$1\"",
@@ -763,42 +643,6 @@
     "message": "Toggle Content Summary",
     "description": "Command to toggle the content summary feature."
   },
-  "enterRegex": {
-    "message": "Please enter a regex",
-    "description": "Prompt for entering a regular expression."
-  },
-  "invalidRegex": {
-    "message": "Invalid regex",
-    "description": "Message indicating an invalid regular expression."
-  },
-  "regexTestNoMatch": {
-    "message": "No match",
-    "description": "Message displayed when a regex test results in no matches."
-  },
-  "invalidRegexFlags": {
-    "message": "Invalid regex flags",
-    "description": "Message indicating invalid regular expression flags."
-  },
-  "invalidCssSelector": {
-    "message": "Invalid CSS selector",
-    "description": "Error message when the user-provided CSS selector is invalid."
-  },
-  "testRegexInputLabel": {
-    "message": "Test Text:",
-    "description": "Label for the test text input field in the pre-check rules section."
-  },
-  "testRegexInputDescription": {
-    "message": "Enter text here to test your regular expression rules.",
-    "description": "Helper text for the test text input field."
-  },
-  "globalTestAreaDescription": {
-    "message": "Enter text to test against all enabled pre-check rules simultaneously.",
-    "description": "Helper text for the global pre-check test button."
-  },
-  "testRegexInputPlaceholder": {
-    "message": "Enter text to test against the regex...",
-    "description": "Placeholder for the test text input field."
-  },
   "runTestButton": {
     "message": "Run Test",
     "description": "The button text for running the global pre-check test."
@@ -806,10 +650,6 @@
   "addPrecheckRule": {
     "message": "Add Pre-check Rule",
     "description": "Button text to add a new pre-check rule."
-  },
-  "precheckRuleUrl": {
-    "message": "URL",
-    "description": "Default rule to match URLs."
   },
   "subtitleSettingsTitle": {
     "message": "Subtitle Settings",
@@ -1082,10 +922,6 @@
   "navRules": {
     "message": "Rules",
     "description": "Navigation link for Rule Management."
-  },
-  "navPreCheck": {
-    "message": "Pre-check",
-    "description": "Navigation link for Pre-check Rules."
   },
   "navCache": {
     "message": "Cache",
