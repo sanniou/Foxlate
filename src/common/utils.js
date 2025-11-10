@@ -28,13 +28,48 @@ export const LANGUAGE_CONFIG = {
  * @param {string[]} [options.whitelist] - 语言代码白名单 (ISO 639-3)。
  * @returns {string} 三字母 ISO 639-3 语言代码 (例如, 'eng', 'cmn', 'und')。
  */
-export function detectLang(text, options = {}) {
-    const { minLength = 10, whitelist = undefined } = options;
-    // 文本过短时 franc 可能不准，直接返回未确定
-    if (!text || text.trim().length < minLength) {
-        return 'und'; // Undetermined
+export function detectLang(text, options = {}) {    
+    // (优化) 移除 minLength 硬编码，让 franc 自行处理。
+    // franc 对短文本可能不准，但直接放弃会错失很多可识别的短语。
+    if (!text || !text.trim()) {
+        return 'und';
     }
-    return franc(text, { whitelist });
+
+    let lang = franc(text, options);
+
+    // (优化) 当 franc 无法确定时，增加基于字符集的补充判断，以提高对短文本的识别率。
+    // 这对于特征明显的语言（如韩语、日语）尤其有效。
+    if (lang === 'und') {
+        if (/[가-힣]/.test(text)) { // 韩文音节
+            return 'kor';
+        } else if (/[ぁ-んァ-ン]/.test(text)) { // 日文平假名和片假名
+            return 'jpn';
+        } else if (/[\u0400-\u04FF]/.test(text)) { // 西里尔字母 (俄语等)
+            return 'rus';
+        } else if (/[ñ]/.test(text)) { // 西班牙语特有字符
+            return 'spa';
+        } else if (/[æœ]/.test(text)) { // 法语特有字符 (æ, œ 是高置信度标志)
+            return 'fra';
+        } else if (/[ãõ]/.test(text)) { // 葡萄牙语特有字符 (ã, õ 是高置信度标志)
+            return 'por';
+        } else if (/[ìò]/.test(text) && !/[áéíóú]/.test(text)) { // 意大利语特征字符 (ì, ò 较独特)
+            return 'ita';
+        } else if (/[äöüß]/.test(text)) { // 德语特有字符 (ß, ä, ö, ü)
+            return 'deu';
+        } else if (/\bij\b/i.test(text)) { // 荷兰语特有双字母 (ij)
+            return 'nld';
+        } else if (/^[\u4e00-\u9fa5\s\p{P}]+$/u.test(text)) { // 仅包含汉字、空格和标点
+            return 'cmn';
+        } else if (/^[a-zA-Z0-9\s\p{P}]+$/u.test(text)) { // 仅包含基础拉丁字符、数字、空格和标点
+            return 'eng';
+        }
+        // 注意：
+        // 1. 规则顺序经过精心设计，将高置信度、无歧义的规则（如韩文、日文假名）前置。
+        // 2. 对于共享字符集的语言（如法语、意大利语），优先匹配其独有字符（如 œ, ì）。
+        // 3. 英语和纯汉字的判断作为最后的后备规则，以覆盖最常见但特征不明显的场景。
+    }
+
+    return lang;
 }
 
 /**
