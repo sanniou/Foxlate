@@ -171,6 +171,12 @@ export class DOMWalker {
             }
         }
 
+        // (新) 检查元素是否属于 Foxlate 内部组件，如果是则跳过。
+        // 这可以防止扩展自身的UI（如摘要对话框）被错误地翻译。
+        if (rootElement.closest('[class^="foxlate-"], [class*=" foxlate-"]')) {
+            return null;
+        }
+
         // 5. 检查内容：如果元素（及其后代）根本不包含任何有意义的文本，则无需处理。
         //    textContent 的成本可变，但它是一个非常有效的过滤器，可以避免对空容器进行最昂贵的可见性检查。
         if (!rootElement.textContent.trim()) {
@@ -244,7 +250,9 @@ export class DOMWalker {
                             // 错误已在顶层处理，此处静默失败以避免控制台垃圾信息。
                         }
                     }
-                    if (child.matches('.notranslate, [lang]:not([lang=""]), .foxlate-summary-dialog, .foxlate-summary-button')) continue;
+                    // (优化) 使用更通用的选择器来排除所有 Foxlate 内部组件，而不仅仅是摘要对话框。
+                    // 这提高了可维护性，并确保未来添加的新组件也能被自动排除。
+                    if (child.closest('.notranslate, [lang]:not([lang=""]), [class^="foxlate-"], [class*=" foxlate-"]')) continue;
 
                     // (新) 检查 aria-hidden 属性。如果一个子元素被标记为对辅助技术隐藏，
                     // 那么它在语义上也是不可见的，应该被跳过。
