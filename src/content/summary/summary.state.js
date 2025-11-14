@@ -47,7 +47,9 @@ export class SummaryState {
             history: [],
             type,
             state: 'idle',
-            selectionText
+            selectionText,
+            originalContent: selectionText,
+            isOriginalTextVisible: false
         };
         this.tabs.push(newTab);
         this.activeTabId = newTab.id;
@@ -119,6 +121,14 @@ export class SummaryState {
         if (this.activeTabId === tabId) return;
         this.activeTabId = tabId;
         this.notify();
+    }
+
+    toggleOriginalTextVisibility(tabId) {
+        const tab = this.tabs.find(t => t.id === tabId);
+        if (tab) {
+            tab.isOriginalTextVisible = !tab.isOriginalTextVisible;
+            this.notify();
+        }
     }
 
     closeTab(tabId) {

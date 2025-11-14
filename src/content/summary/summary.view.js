@@ -88,6 +88,8 @@ export class SummaryDialog {
             const tabId = parseInt(tabEl.dataset.tabId, 10);
             if (e.target.closest('.foxlate-summary-tab-close')) {
                 this.dispatchEvent('tab-close', { tabId });
+            } else if (tabEl.classList.contains('active')) {
+               this.dispatchEvent('tab-toggle-original', { tabId });
             } else {
                 this.dispatchEvent('tab-switch', { tabId });
             }
@@ -122,7 +124,10 @@ export class SummaryDialog {
                 <button class="refresh-button" aria-label="Refresh">${this.getIcon('refresh')}</button>
             </div>
             <div class="foxlate-summary-tabs"></div>
-            <div class="foxlate-summary-conversation"></div>
+            <div class="foxlate-summary-content-wrapper">
+               <div class="foxlate-summary-original-text"></div>
+               <div class="foxlate-summary-conversation"></div>
+            </div>
             <div class="foxlate-summary-menubar">
                 <button class="suggest-button" aria-label="Suggest">${this.getIcon('suggest')} ${browser.i18n.getMessage('summarySuggestButton')}</button>
             </div>
@@ -133,6 +138,8 @@ export class SummaryDialog {
             </div>
         `;
         this.tabsArea = this.element.querySelector('.foxlate-summary-tabs');
+        this.contentWrapper = this.element.querySelector('.foxlate-summary-content-wrapper');
+        this.originalTextArea = this.element.querySelector('.foxlate-summary-original-text');
         this.conversationArea = this.element.querySelector('.foxlate-summary-conversation');
         this.suggestionsArea = this.element.querySelector('.foxlate-summary-suggestions');
         this.suggestButton = this.element.querySelector('.suggest-button');
@@ -190,47 +197,43 @@ export class SummaryDialog {
     }
 
     renderConversation(history, isLoading = false) {
-        // 确保 history 是一个有效的数组，如果不是，则重置视图
         if (!this.conversationArea) return;
-        if (!Array.isArray(history)) {
+
+        // 确保 history 是一个数组
+        const validHistory = Array.isArray(history) ? history : [];
+        const messageCountChanged = validHistory.length !== this._renderedMessageCount;
+
+        // 完全重绘逻辑
+        if (this._fullRerenderNeeded || validHistory.length < this._renderedMessageCount) {
             this.conversationArea.innerHTML = '';
             this._renderedMessageCount = 0;
             this._fullRerenderNeeded = false;
-            return;
         }
 
-        // 如果需要完全重绘，或者 history 长度变短（例如撤销、删除），则清空并重绘所有消息
-        if (this._fullRerenderNeeded || history.length < this._renderedMessageCount) {
-            this.conversationArea.innerHTML = '';
-            this._renderedMessageCount = 0;
-            this._fullRerenderNeeded = false;
-        }
+        // 从历史记录更新消息
+        this.updateMessages(validHistory);
 
-        this.updateMessages(history);
-
-        // 优化：使用缓存的选择器避免重复查询
-        if (!this._loadingEl) {
-            this._loadingEl = this.conversationArea.querySelector('.foxlate-summary-message.loading');
-        }
-        
+        // 处理加载指示器
+        const loadingEl = this.conversationArea.querySelector('.foxlate-summary-message.loading');
         if (isLoading) {
-            if (!this._loadingEl) {
-                this._loadingEl = document.createElement('div');
-                this._loadingEl.className = 'foxlate-summary-message assistant loading';
-                this._loadingEl.innerHTML = `<div class="loading-indicator"></div>`;
-                this.conversationArea.appendChild(this._loadingEl);
+            if (!loadingEl) {
+                const indicator = document.createElement('div');
+                indicator.className = 'foxlate-summary-message assistant loading';
+                indicator.innerHTML = `<div class="loading-indicator"></div>`;
+                this.conversationArea.appendChild(indicator);
             }
         } else {
-            if (this._loadingEl) {
-                this._loadingEl.remove();
-                this._loadingEl = null;
+            if (loadingEl) {
+                loadingEl.remove();
             }
         }
 
-        // 优化：使用 requestAnimationFrame 确保滚动在下一帧执行
-        requestAnimationFrame(() => {
-            this.conversationArea.scrollTop = this.conversationArea.scrollHeight;
-        });
+        // 仅在加载中或消息数量变化时滚动到底部
+        if (isLoading || messageCountChanged) {
+            requestAnimationFrame(() => {
+                this.conversationArea.scrollTop = this.conversationArea.scrollHeight;
+            });
+        }
     }
 
     updateMessages(history) {
@@ -996,6 +999,15 @@ export class SummaryDialog {
 
     setFullRerenderNeeded(needed) {
         this._fullRerenderNeeded = needed;
+    }
+
+    renderOriginalText(tab) {
+        if (tab && tab.isOriginalTextVisible && tab.originalContent) {
+            this.originalTextArea.textContent = tab.originalContent;
+            this.originalTextArea.classList.add('is-visible');
+        } else {
+            this.originalTextArea.classList.remove('is-visible');
+        }
     }
 
     destroy() {

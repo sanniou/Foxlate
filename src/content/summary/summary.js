@@ -123,6 +123,14 @@ class SummaryModule {
             this.state.switchTab(e.detail.tabId);
         });
         this.summaryDialog.element.addEventListener('tab-close', e => this.handleTabClose(e.detail.tabId));
+        this.summaryDialog.element.addEventListener('tab-toggle-original', e => this.handleTabToggleOriginal(e.detail.tabId));
+    }
+
+    handleTabToggleOriginal(tabId) {
+        const activeTab = this.state.getActiveTab();
+        if (activeTab && activeTab.id === tabId) {
+            this.state.toggleOriginalTextVisibility(tabId);
+        }
     }
 
     // 原始的事件处理器，现在由 setupEventListeners 中的监听器调用
@@ -183,6 +191,7 @@ class SummaryModule {
             return;
         }
         this.summaryDialog.renderTabs(tabs, activeTabId);
+        this.summaryDialog.renderOriginalText(activeTab);
         this.summaryDialog.renderConversation(activeTab.history, activeTab.state === 'loading');
         // 只有在 AI 回复时才禁用发送按钮，建议过程不影响
         this.summaryDialog.setLoading(activeTab.state === 'loading');
@@ -213,6 +222,12 @@ class SummaryModule {
         try {
             let content = text;
             if (!content) content = await this.extractPageContent();
+
+            // 更新状态中的原文内容
+            if (tab.originalContent !== content) {
+                this.state.updateTab(tab.id, { originalContent: content });
+            }
+
             if (!content.trim()) throw new Error('Failed to extract any meaningful content.');
 
             const response = await browser.runtime.sendMessage({
