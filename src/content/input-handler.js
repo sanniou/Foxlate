@@ -37,7 +37,7 @@ class InputHandler {
             console.log('[Foxlate] InputHandler already initialized, skipping');
             return;
         }
-        
+
         // 直接使用 window.getEffectiveSettings，因为它是全局暴露的
         if (!window.getEffectiveSettings) {
             console.log('[Foxlate] window.getEffectiveSettings not available');
@@ -47,7 +47,7 @@ class InputHandler {
         try {
             const effectiveSettings = await window.getEffectiveSettings();
             console.log('[Foxlate] Effective settings received:', effectiveSettings);
-            
+
             this.settings = effectiveSettings.inputTranslationSettings;
             console.log('[Foxlate] Input handler settings:', this.settings);
 
@@ -55,7 +55,7 @@ class InputHandler {
                 console.log('[Foxlate] Input handler settings not found');
                 return;
             }
-            
+
             if (!this.settings.enabled) {
                 console.log('[Foxlate] Input handler disabled globally.');
                 return;
@@ -79,7 +79,7 @@ class InputHandler {
         console.log('[Foxlate] Attaching event listeners');
         this.boundHandleKeydown = this.handleKeydown.bind(this);
         document.addEventListener('keydown', this.boundHandleKeydown, true);
-        
+
         // 添加清理事件监听器的能力
         this.boundDestroy = this.destroy.bind(this);
         console.log('[Foxlate] Event listeners attached');
@@ -90,7 +90,14 @@ class InputHandler {
         if (this.settings.debugMode) {
             console.log('[Foxlate] Keydown event:', event.key, event.code, 'target:', event.target.tagName);
         }
-        
+
+        // 0. 仅支持纯文本输入框 (Input/Textarea)，忽略富文本编辑器 (contentEditable)
+        // 这是为了防止在富文本编辑器中直接替换文本导致格式丢失
+        const isSupportedElement = event.target && (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA');
+        if (!isSupportedElement) {
+            return;
+        }
+
         // 1. 处理连续按键触发
         if (this.settings.keyTriggerEnabled) {
             this.handleConsecutiveKeyPress(event);
@@ -102,23 +109,16 @@ class InputHandler {
         }
 
         // 2. 处理魔法词触发 - 使用防抖优化性能
-        // 只对可编辑元素进行处理
-        const isEditable = event.target && (event.target.isContentEditable ||
-                           event.target.tagName === 'INPUT' ||
-                           event.target.tagName === 'TEXTAREA');
-        
-        if (isEditable) {
-            this.debounceMagicWord(event.target);
-        }
+        this.debounceMagicWord(event.target);
     }
 
     handleConsecutiveKeyPress(event) {
         const { consecutiveKey, consecutiveKeyPresses } = this.settings;
-        
+
         if (this.settings.debugMode) {
             console.log('[Foxlate] Consecutive key check:', 'event.key:', event.key, 'expected:', consecutiveKey, 'count:', this.keyPressCount);
         }
-        
+
         // 检查是否为指定的触发键
         const isTriggerKey = event.code === consecutiveKey || event.key === consecutiveKey;
         if (!isTriggerKey) {
@@ -128,15 +128,16 @@ class InputHandler {
         }
 
         const target = event.target;
-        const isEditable = target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
-        if (!isEditable) {
+        // 双重检查，虽然 handleKeydown 已经检查过了
+        const isSupportedElement = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
+        if (!isSupportedElement) {
             this.keyPressCount = 0;
             this.lastKeyPressed = null;
             return;
         }
 
         const currentTime = Date.now();
-        
+
         // 检查是否为连续按下的同一个键
         if (this.lastKeyPressed === consecutiveKey && currentTime - this.lastKeypressTime <= 500) {
             // 在500ms内按下同一个键，增加计数
@@ -145,7 +146,7 @@ class InputHandler {
             // 重置计数，开始新的连续按键序列
             this.keyPressCount = 1;
         }
-        
+
         this.lastKeypressTime = currentTime;
         this.lastKeyPressed = consecutiveKey;
 
@@ -156,20 +157,28 @@ class InputHandler {
         if (this.keyPressCount >= consecutiveKeyPresses) {
             this.keyPressCount = 0;
             this.lastKeyPressed = null;
-            
+
             // 获取文本内容，改进对富文本编辑器的支持
-            let text = this.getTextContent(target);
-            
+            let fullText = this.getTextContent(target);
+
             // 改进：更精确地处理特殊键（如空格、回车等）
             if (this.shouldAppendKey(event.key)) {
-                text += this.getKeyRepresentation(event.key);
+                fullText += this.getKeyRepresentation(event.key);
             }
-            
+
+            // 获取最后一句
+            const { text: lastSentence, index: startIndex } = this.getLastSentence(fullText);
+
             if (this.settings.debugMode) {
-                console.log('[Foxlate] Triggering translation via consecutive key, text:', text);
+                console.log('[Foxlate] Triggering translation via consecutive key, lastSentence:', lastSentence);
             }
             event.preventDefault();
-            this.triggerTranslation(target, text);
+
+            // 触发翻译，指定替换范围
+            // 注意：因为 preventDefault 阻止了当前按键上屏，所以 target.value 的长度就是我们要替换的终点
+            // 如果 lastSentence 包含了当前按键（例如空格），它会被翻译。
+            // 替换范围是从 lastSentence 的起始位置到当前输入框内容的末尾。
+            this.triggerTranslation(target, lastSentence, null, { start: startIndex, end: target.value.length });
         }
     }
 
@@ -177,26 +186,27 @@ class InputHandler {
         const triggerWord = this.settings.triggerWord;
         if (!triggerWord) return;
 
-        const isEditable = target && (target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA');
-        if (!isEditable) return;
+        const isSupportedElement = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA');
+        if (!isSupportedElement) return;
 
         // 防止重复处理同一个输入框
         if (this.activeTargets.has(target)) {
             return;
         }
 
-        const currentText = this.getTextContent(target);
-        
+        const fullText = this.getTextContent(target);
+        const { text: lastSentence, index: startIndex } = this.getLastSentence(fullText);
+
         if (this.settings.debugMode) {
-            console.log('[Foxlate] Magic word check:', 'currentText:', currentText, 'triggerWord:', triggerWord);
+            console.log('[Foxlate] Magic word check:', 'lastSentence:', lastSentence, 'triggerWord:', triggerWord);
         }
-        
+
         // 改进：更灵活的正则表达式匹配，支持多种分隔符
         // 正则表达式匹配: (文本) (分隔符) (语言-)(触发词)(可选分隔符)
         // 示例: "some text //ja-fox" 或 "hello //fox world"
         const regex = new RegExp(`^(.*?)\\s*(?:\\/\\/|##)(?:\\s*([\\w-]+)\\s*-\\s*)?(${this.escapeRegex(triggerWord)})(?:\\s|$)`, 'i');
-        const match = currentText.match(regex);
-        
+        const match = lastSentence.match(regex);
+
         if (this.settings.debugMode) {
             console.log('[Foxlate] Magic word regex match:', match);
         }
@@ -204,10 +214,10 @@ class InputHandler {
         if (match) {
             // 标记正在处理
             this.activeTargets.add(target);
-            
+
             const textToTranslate = (match[1] || '').trim();
             const langAlias = match[2]?.toUpperCase(); // 转换为大写以便于映射
-            
+
             let targetLangOverride = null; // 默认为 null，表示使用默认设置
             if (langAlias) {
                 // 1. 检查语言别名映射
@@ -231,17 +241,22 @@ class InputHandler {
                 // 如果都不是，targetLangOverride 保持为 null，后台将使用默认语言
             }
 
-            // 从输入框中移除魔法词及其后的可选分隔符
-            const afterMatch = currentText.substring(match[0].length);
-            const newText = textToTranslate + (afterMatch ? ' ' + afterMatch : '');
-            
+            // 计算替换范围
+            // match[0] 是匹配到的整个字符串（包含魔法词）
+            // 它的起始位置相对于 lastSentence 是 match.index
+            // 它的起始位置相对于 fullText 是 startIndex + match.index
+            const replaceStart = startIndex + match.index;
+            const replaceEnd = replaceStart + match[0].length;
+
             if (this.settings.debugMode) {
                 console.log('[Foxlate] Triggering translation via magic word, text:', textToTranslate, 'langAlias:', langAlias);
             }
-            
-            this.setTextContent(target, newText);
-            this.triggerTranslation(target, textToTranslate, targetLangOverride);
-            
+
+            // 不再立即移除魔法词，而是等待翻译完成后整体替换
+            // this.setTextContent(target, newText);
+
+            this.triggerTranslation(target, textToTranslate, targetLangOverride, { start: replaceStart, end: replaceEnd });
+
             // 处理完成后清除标记
             setTimeout(() => {
                 this.activeTargets.delete(target);
@@ -249,7 +264,7 @@ class InputHandler {
         }
     }
 
-    async triggerTranslation(target, text, targetLangOverride = null) {
+    async triggerTranslation(target, text, targetLangOverride = null, replaceRange = null) {
         if (!text || !text.trim()) {
             return;
         }
@@ -278,8 +293,8 @@ class InputHandler {
             });
 
             if (result && result.translatedText) {
-                this.setTextContent(target, result.translatedText);
-                
+                this.replaceTextContent(target, result.translatedText, replaceRange);
+
                 // 触发自定义事件，允许其他组件响应翻译完成
                 const translationEvent = new CustomEvent('foxlate:inputTranslated', {
                     detail: {
@@ -299,43 +314,58 @@ class InputHandler {
             this.indicator.hide();
         }
     }
-    
+
     escapeRegex(string) {
         return string.replace(/[.*+?^${}()|[\\\]]/g, '\\$&');
     }
 
     // 新增：统一的文本内容获取方法，支持更多输入类型
-    getTextContent(target) {
-        if (target.isContentEditable) {
-            return target.textContent || target.innerText || '';
+    // 新增：获取最后一句
+    getLastSentence(fullText) {
+        // 查找最后一个句号的位置（支持中英文）
+        // 注意：这里假设句号后面就是新句子的开始（或者结束）
+        const lastPeriodIndex = Math.max(
+            fullText.lastIndexOf('.'),
+            fullText.lastIndexOf('。')
+        );
+
+        if (lastPeriodIndex === -1) {
+            return { text: fullText, index: 0 };
         }
+
+        // 返回句号之后的内容（不包含句号）
+        return {
+            text: fullText.substring(lastPeriodIndex + 1),
+            index: lastPeriodIndex + 1
+        };
+    }
+
+    // 新增：统一的文本内容获取方法，支持更多输入类型
+    getTextContent(target) {
         if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
             return target.value || '';
         }
         return '';
     }
 
-    // 新增：统一的文本内容设置方法，支持更多输入类型
-    setTextContent(target, text) {
-        if (target.isContentEditable) {
-            // 保持光标位置
-            const selection = window.getSelection();
-            const range = selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
-            const wasFocused = target === document.activeElement;
-            
-            target.textContent = text;
-            
-            // 恢复焦点和光标位置
-            if (wasFocused && range) {
+    // 新增：替换文本内容，支持指定范围
+    replaceTextContent(target, text, range = null) {
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+            if (range && typeof range.start === 'number' && typeof range.end === 'number') {
+                // 使用 setRangeText 替换指定范围的文本
+                // selectMode 'end' 会将光标移动到替换后的文本末尾
                 try {
-                    selection.removeAllRanges();
-                    selection.addRange(range);
+                    target.setRangeText(text, range.start, range.end, 'end');
                 } catch (e) {
-                    // 忽略光标恢复错误
+                    console.error('[Foxlate] Failed to set range text:', e);
+                    // 降级处理：如果 setRangeText 失败，尝试手动拼接
+                    const original = target.value;
+                    target.value = original.substring(0, range.start) + text + original.substring(range.end);
                 }
+            } else {
+                // 全量替换
+                target.value = text;
             }
-        } else if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
-            target.value = text;
         }
     }
 
