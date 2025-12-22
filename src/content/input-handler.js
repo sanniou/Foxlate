@@ -24,6 +24,8 @@ class InputHandler {
         this.keyPressCount = 0;
         this.lastKeypressTime = 0;
         this.lastKeyPressed = null;
+        this.lastEventTarget = null;
+        this.lastSelectionIndex = null;
         this.isInitialized = false;
         this.indicator = new InputIndicator();
         this.debounceMagicWord = debounce(this.handleMagicWord.bind(this), 300);
@@ -124,6 +126,8 @@ class InputHandler {
         if (!isTriggerKey) {
             this.keyPressCount = 0;
             this.lastKeyPressed = null;
+            this.lastEventTarget = null;
+            this.lastSelectionIndex = null;
             return;
         }
 
@@ -133,14 +137,33 @@ class InputHandler {
         if (!isSupportedElement) {
             this.keyPressCount = 0;
             this.lastKeyPressed = null;
+            this.lastEventTarget = null;
+            this.lastSelectionIndex = null;
             return;
         }
 
         const currentTime = Date.now();
+        let currentSelectionStart = null;
+        try {
+            currentSelectionStart = target.selectionStart;
+        } catch (e) {
+            // Some input types do not support selectionStart
+        }
 
         // 检查是否为连续按下的同一个键
-        if (this.lastKeyPressed === consecutiveKey && currentTime - this.lastKeypressTime <= 500) {
-            // 在500ms内按下同一个键，增加计数
+        const isSameKey = this.lastKeyPressed === consecutiveKey;
+        const isWithinTime = currentTime - this.lastKeypressTime <= 500;
+        const isSameTarget = this.lastEventTarget === target;
+
+        // 检查光标位置是否连续 (假设每次按键光标前进1位)
+        let isConsecutivePosition = true;
+        // 只有当能够获取到光标位置时才检查
+        if (currentSelectionStart !== null && this.lastSelectionIndex !== null) {
+            isConsecutivePosition = currentSelectionStart === this.lastSelectionIndex + 1;
+        }
+
+        if (isSameKey && isWithinTime && isSameTarget && isConsecutivePosition) {
+            // 在500ms内按下同一个键，且在同一个输入框，且光标连续，增加计数
             this.keyPressCount++;
         } else {
             // 重置计数，开始新的连续按键序列
@@ -149,6 +172,8 @@ class InputHandler {
 
         this.lastKeypressTime = currentTime;
         this.lastKeyPressed = consecutiveKey;
+        this.lastEventTarget = target;
+        this.lastSelectionIndex = currentSelectionStart;
 
         if (this.settings.debugMode) {
             console.log('[Foxlate] Key press count:', this.keyPressCount, 'required:', consecutiveKeyPresses);
@@ -157,6 +182,8 @@ class InputHandler {
         if (this.keyPressCount >= consecutiveKeyPresses) {
             this.keyPressCount = 0;
             this.lastKeyPressed = null;
+            this.lastEventTarget = null;
+            this.lastSelectionIndex = null;
 
             // 获取文本内容，改进对富文本编辑器的支持
             let fullText = this.getTextContent(target);
