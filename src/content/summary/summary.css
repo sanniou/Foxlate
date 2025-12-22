@@ -58,8 +58,9 @@
     --fs-radius: 16px;
 
     position: fixed;
-    width: clamp(360px, 40vw, 520px);
-    min-height: 300px;
+    width: 400px; /* 默认宽度 */
+    height: 500px; /* 默认高度 */
+    max-width: 90vw;
     max-height: 85vh;
     background-color: var(--fs-surface);
     border: 1px solid var(--fs-border);
@@ -73,9 +74,16 @@
     
     /* Animation State */
     opacity: 0;
-    transform: scale(0.95);
+    transform: scale(0.9);
     visibility: hidden;
-    transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s 0.2s;
+    transition:
+        opacity 0.2s ease,
+        transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), /* 弹性动画 */
+        width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+        height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+        top 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+        left 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+        visibility 0s 0.2s;
     overflow: hidden;
     
     /* Scroll & Touch Behavior */
@@ -90,11 +98,6 @@
     transform: scale(1);
     visibility: visible;
     transition-delay: 0s;
-}
-
-.foxlate-summary-dialog.growing {
-    transition: max-height 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-                transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .foxlate-summary-dialog.loading .send-button {
@@ -226,6 +229,7 @@
 .foxlate-summary-conversation {
     height: 100%;
     overflow-y: auto;
+    overscroll-behavior: contain;
     padding: 20px;
     display: flex;
     flex-direction: column;
@@ -396,6 +400,7 @@
     resize: none;
     outline: none;
     max-height: 120px;
+    overflow-y: hidden;
     background-color: var(--fs-surface-dim);
     transition: border-color 0.2s, background-color 0.2s;
 }
@@ -533,5 +538,33 @@
     
     .foxlate-summary-tab:hover {
         background-color: rgba(255,255,255,0.05);
+    }
+}
+
+/* Custom Scrollbar */
+.foxlate-summary-dialog ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.foxlate-summary-dialog ::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.foxlate-summary-dialog ::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+}
+
+.foxlate-summary-dialog ::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(0, 0, 0, 0.3);
+}
+
+@media (prefers-color-scheme: dark) {
+    .foxlate-summary-dialog ::-webkit-scrollbar-thumb {
+        background-color: rgba(255, 255, 255, 0.2);
+    }
+    .foxlate-summary-dialog ::-webkit-scrollbar-thumb:hover {
+        background-color: rgba(255, 255, 255, 0.3);
     }
 }
