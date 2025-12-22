@@ -1,129 +1,193 @@
-@import url('../common/common.css');
+/* 
+  Foxlate Content Script Styles
+  -----------------------------
+  Contains styles for:
+  1. Floating Panel (Popup/Tooltip)
+  2. Inline Translations (Appended Text)
+  3. Error Indicators
+  4. Hover Highlights
+  
+  NOTE: This file is self-contained. DO NOT @import global styles to avoid polluting the host page.
+*/
+
+/* --- Shared Design Tokens (Scoped to Foxlate elements) --- */
+.foxlate-panel,
+.foxlate-appended-text,
+.foxlate-error-underline,
+.foxlate-hover-highlight {
+    /* Light Mode Tokens */
+    --fl-sys-color-primary: #4f46e5;
+    --fl-sys-color-on-primary: #ffffff;
+    --fl-sys-color-surface: #ffffff;
+    --fl-sys-color-surface-dim: #f8fafc;
+    --fl-sys-color-on-surface: #0f172a;
+    --fl-sys-color-text-secondary: #475569;
+    --fl-sys-color-outline: #e2e8f0;
+    --fl-sys-color-error: #ef4444;
+    --fl-sys-color-error-container: #fef2f2;
+    --fl-sys-color-on-error-container: #991b1b;
+    
+    /* Animation & Layout */
+    --fl-sys-elevation-3: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --fl-sys-font-sans: "Roboto", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+/* Dark Mode Overrides */
+@media (prefers-color-scheme: dark) {
+    .foxlate-panel,
+    .foxlate-appended-text,
+    .foxlate-error-underline,
+    .foxlate-hover-highlight {
+        --fl-sys-color-primary: #818cf8;
+        --fl-sys-color-surface: #1e293b;
+        --fl-sys-color-surface-dim: #0f172a;
+        --fl-sys-color-on-surface: #f8fafc;
+        --fl-sys-color-text-secondary: #94a3b8;
+        --fl-sys-color-outline: #334155;
+        --fl-sys-color-error: #f87171;
+        --fl-sys-color-error-container: #450a0a;
+        --fl-sys-color-on-error-container: #fca5a5;
+        
+        --fl-sys-elevation-3: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+    }
+}
 
 /* 
-  为 Foxlate 注入的所有浮动 UI 元素（如划词翻译、悬停提示）提供统一的 MD3 风格面板。
+  ========================================
+  1. Floating Panel
+  ========================================
 */
 .foxlate-panel {
-    position: fixed; /* 使用 fixed 定位，使其不受页面滚动影响 */
-    /* 使用 opacity 和 visibility 来控制显隐，以便添加过渡动画 */
+    position: fixed;
     visibility: hidden;
     opacity: 0;
     transition: opacity 0.15s ease-in-out, visibility 0s linear 0.15s;
-    background-color: var(--md-sys-color-surface-container-high, #E6E0E9); /* 使用 MD3 颜色变量，并提供备用值 */
-    color: var(--md-sys-color-on-surface, #1C1B1F);
-    border-radius: 12px; /* MD3 中等尺寸圆角 */
+    
+    background-color: var(--fl-sys-color-surface);
+    color: var(--fl-sys-color-on-surface);
+    border: 1px solid var(--fl-sys-color-outline);
+    border-radius: 12px;
+    
     padding: 12px 16px;
     font-size: 14px;
-    font-family: "Roboto", "Segoe UI", sans-serif; /* 保持字体一致 */
-    z-index: 2147483647; /* 最高层级 */
-    box-shadow: 0 3px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.3); /* 模拟 MD3 Elevation 3 阴影 */
+    font-family: var(--fl-sys-font-sans);
+    line-height: 1.5;
+    
+    z-index: 2147483647;
+    box-shadow: var(--fl-sys-elevation-3);
     max-width: 350px;
     word-wrap: break-word;
-    line-height: 1.5;
-    pointer-events: auto; /* 默认允许交互（用于右键菜单面板） */
-    border: 1px solid var(--md-sys-color-outline-variant, #CAC4D0);
+    pointer-events: auto;
+    
+    /* Strict Box Model Reset for Panel Root */
+    box-sizing: border-box;
 }
 
-/* 用于显示面板的类 */
+/* Internal Reset: Protect panel content from host page styles */
+.foxlate-panel *,
+.foxlate-panel *::before,
+.foxlate-panel *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
 .foxlate-panel.visible {
     visibility: visible;
     opacity: 1;
     transition: opacity 0.15s ease-in-out;
 }
 
-/* 悬停提示的特殊样式，不允许鼠标交互 */
 .foxlate-panel.hover-tooltip {
     pointer-events: none;
 }
 
-/* 
-  下面是加载指示器的实现。
-  核心技术是使用 SVG Mask，它可以确保指示器的形状（圆形弧线）在任何情况下都不会被拉伸或变形。
-  动画则通过复用一个简单的 CSS keyframe 动画来实现。
-*/
-
-/* 面板的加载状态 */
+/* Loading State */
 .foxlate-panel.loading {
-    /* 使用 Flexbox 进行可靠的对齐和间距 */
     display: flex;
     align-items: center;
     gap: 8px;
 }
+
 .foxlate-panel.loading::before {
     content: '';
     display: inline-block;
     width: 1em;
     height: 1em;
-    flex-shrink: 0; /* 在 flex 布局中防止被压缩 */
-    color: var(--md-sys-color-primary, #3B64E8);
+    flex-shrink: 0;
+    color: var(--fl-sys-color-primary);
     background-color: currentColor;
+    
     -webkit-mask-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3e%3cpath fill='currentColor' d='M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z'/%3e%3c/svg%3e");
     mask-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3e%3cpath fill='currentColor' d='M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z'/%3e%3c/svg%3e");
+    
     -webkit-mask-repeat: no-repeat;
     mask-repeat: no-repeat;
     -webkit-mask-position: center;
     mask-position: center;
     -webkit-mask-size: contain;
     mask-size: contain;
+    
     animation: foxlate-spin 0.75s linear infinite;
 }
 
-/* 面板的错误状态 */
+/* Error State */
 .foxlate-panel.error {
-    background-color: var(--md-sys-color-error-container, #F9DEDC);
-    color: var(--md-sys-color-on-error-container, #410E0B);
-    border-color: var(--md-sys-color-error, #B3261E);
+    background-color: var(--fl-sys-color-error-container);
+    color: var(--fl-sys-color-on-error-container);
+    border-color: var(--fl-sys-color-error);
 }
 
-/* 标记翻译失败的文本节点的波浪线样式 */
+/* 
+  ========================================
+  2. Error Indicators (Inline)
+  ========================================
+*/
 .foxlate-error-underline {
-    text-decoration: var(--md-sys-color-error, #B3261E) wavy underline;
+    text-decoration: var(--fl-sys-color-error) wavy underline;
     text-decoration-skip-ink: none;
     cursor: help;
 }
 
-/* 追加模式的样式 */
+/* 
+  ========================================
+  3. Appended Text (Inline Translation)
+  ========================================
+*/
 .foxlate-appended-text {
-    /* 使用 position: relative，以便为其 ::before 伪元素提供定位上下文。 */
     position: relative;
     display: inline-block;
-    /* 移除 border-left，因为引用线现在由伪元素处理。 */
-    /* 新的 padding-left 为引用线（2px）和间距（8px）留出空间。 */
     padding-left: 10px;
 }
 
-/* 使用 ::before 伪元素来创建引用线，这样可以独立控制其样式。 */
+/* Reference Line */
 .foxlate-appended-text::before {
     content: '';
     position: absolute;
     left: 0;
-    /* 通过调整 top 和 bottom 值，可以独立控制引用线的高度和垂直位置。 */
-    /* 例如，使用 em 单位可以使其与文本大小成比例地缩进，看起来更精致。 */
     top: 0.15em;
     bottom: 0.15em;
-    width: 2px; /* 引用线的宽度 */
-    background-color: var(--md-sys-color-outline-variant, #CAC4D0);
-    border-radius: 1px; /* 为线条添加轻微的圆角，使其看起来更柔和。 */
-}
-/* 当追加的翻译处于块级上下文时，在其前面添加换行 */
-.foxlate-appended-block::before {
-    content: '\A'; /* CSS中的换行符 */
-    white-space: pre; /* 确保换行符被正确渲染 */
-    display: block; /* 确保伪元素自己是块级，以容纳换行 */
-    line-height: 0.5; /* 调整换行后的间距 */
+    width: 2px;
+    background-color: var(--fl-sys-color-outline);
+    border-radius: 1px;
 }
 
-/* (新) 追加模式的加载状态样式 */
+/* Block Context Formatting */
+.foxlate-appended-block::before {
+    content: '\A';
+    white-space: pre;
+    display: block;
+    line-height: 0.5;
+}
+
+/* Appended Text - Loading State */
 .foxlate-appended-text.loading {
-    /* 移除 JS 设置的 '...' 文本，完全由 CSS 控制加载动画 */
-    font-size: 0;
-    /* 调整内边距以容纳加载动画 */
+    font-size: 0; /* Hide '...' text */
     padding-left: 20px;
 }
 
 .foxlate-appended-text.loading::before {
-    /* 覆盖原有的引用线样式，替换为 MD3 风格的加载动画 */
-    all: unset; /* 重置所有继承的样式 */
+    all: unset;
     content: '';
     position: absolute;
     left: 0;
@@ -132,53 +196,56 @@
     display: inline-block;
     width: 16px;
     height: 16px;
-    border: 2px solid var(--md-sys-color-surface-variant, #c5c6d0);
+    border: 2px solid var(--fl-sys-color-outline);
     border-radius: 50%;
-    border-top-color: var(--md-sys-color-primary, #3964e8);
-    animation: md3-circular-progress 1s linear infinite;
+    border-top-color: var(--fl-sys-color-primary);
+    animation: foxlate-circular-progress 1s linear infinite;
 }
 
-/* (新) 追加模式的错误状态样式 */
+/* Appended Text - Error State */
 .foxlate-appended-text.error {
-    color: var(--md-sys-color-on-error-container, #410E0B);
+    color: var(--fl-sys-color-on-error-container);
 }
 
 .foxlate-appended-text.error::before {
-    /* 将引用线颜色改为错误状态颜色 */
-    background-color: var(--md-sys-color-error, #B3261E);
+    background-color: var(--fl-sys-color-error);
 }
 
-/* 为已处理并可悬停翻译的文本元素提供高亮样式 */
+/* 
+  ========================================
+  4. Hover Highlights
+  ========================================
+*/
 .foxlate-hover-highlight {
-    background-color: rgba(var(--md-sys-color-primary-rgb, 57, 100, 232), 0.08);
+    background-color: rgba(79, 70, 229, 0.1); /* Fallback based on Primary #4f46e5 */
     border-radius: 4px;
     padding: 0 2px;
     transition: background-color 0.2s ease-in-out;
 }
 
-/* 鼠标悬停在高亮文本上时，加深背景色以提供反馈 */
 .foxlate-hover-highlight:hover {
-    background-color: rgba(var(--md-sys-color-primary-rgb, 57, 100, 232), 0.16);
+    background-color: rgba(79, 70, 229, 0.2);
 }
 
-/* “替换”模式下，文本正在加载翻译时的样式 */
+/* 
+  ========================================
+  5. Replacement Mode
+  ========================================
+*/
 .foxlate-replacing {
     opacity: 0.7;
 }
 
-/* MD3 风格的圆形进度条动画 */
-@keyframes md3-circular-progress {
-    0% {
-        transform: translateY(-50%) rotate(0deg);
-    }
-    100% {
-        transform: translateY(-50%) rotate(360deg);
-    }
+/* 
+  ========================================
+  Animations
+  ========================================
+*/
+@keyframes foxlate-circular-progress {
+    0% { transform: translateY(-50%) rotate(0deg); }
+    100% { transform: translateY(-50%) rotate(360deg); }
 }
 
-/* 保留原有的旋转动画，用于面板加载状态 */
 @keyframes foxlate-spin {
-    to {
-        transform: rotate(360deg);
-    }
+    to { transform: rotate(360deg); }
 }
