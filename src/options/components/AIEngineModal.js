@@ -41,19 +41,13 @@ export class AIEngineModal extends BaseComponent {
         this.#render();
     }
 
-    /**
-     * 更新模态框中显示的 AI 引擎列表。
-     * @param {Array<object>} newEngines - 最新的 AI 引擎数组。
-     */
     updateEngines(newEngines) {
         this.#state.allEngines = newEngines || [];
         if (this.#state.isOpen) {
-            // 如果模态框是打开的，立即重新渲染引擎列表
             this.#renderEngineList(this.#state.allEngines);
-            // Also re-populate the fallback engine select if the form is visible
             if (this.#state.isFormVisible && this.#elements.aiShortTextEngineSelect) {
                 populateEngineSelect(this.#elements.aiShortTextEngineSelect, {
-                    includeDefault: false, // 备用引擎不应为“默认”
+                    includeDefault: false,
                     excludeId: this.#state.editingEngine?.id,
                     allEngines: this.#state.allEngines
                 });
@@ -71,7 +65,8 @@ export class AIEngineModal extends BaseComponent {
     #openImportModal() {
         this.#elements.importAiEngineConfigText.value = '';
         this.#elements.importAiEngineErrorText.textContent = '';
-        this.#elements.importAiEngineConfigText.closest('.m3-form-field').classList.remove('is-invalid');
+        const group = this.#elements.importAiEngineConfigText.closest('.input-group');
+        if (group) group.classList.remove('is-invalid');
         this.#state.isImportModalOpen = true;
         this.#render();
         this.#elements.importAiEngineConfigText.focus();
@@ -148,13 +143,14 @@ export class AIEngineModal extends BaseComponent {
 
     #renderEngineList(engines) {
         const listEl = this.#elements.aiEngineList;
-        listEl.innerHTML = ''; // Clear previous content
+        listEl.innerHTML = ''; 
         if (!engines || engines.length === 0) {
             listEl.innerHTML = `<p>${browser.i18n.getMessage('noAiEnginesFound') || 'No AI engines configured.'}</p>`;
             return;
         }
 
         const ul = document.createElement('ul');
+        ul.className = 'item-list'; // Ensure class compatibility
         engines.forEach(engine => {
             const li = document.createElement('li');
             li.dataset.id = engine.id;
@@ -162,10 +158,10 @@ export class AIEngineModal extends BaseComponent {
                 <div class="engine-info">
                     <span class="engine-name">${escapeHtml(engine.name)}</span>
                 </div>
-                <div class="actions">
-                    <button class="m3-button text copy-ai-engine-btn">${browser.i18n.getMessage('copy')}</button>
-                    <button class="m3-button text edit-ai-engine-btn">${browser.i18n.getMessage('edit')}</button>
-                    <button class="m3-button text danger remove-ai-engine-btn">${browser.i18n.getMessage('removeAiEngine')}</button>
+                <div class="actions flex-row">
+                    <button class="btn btn-text btn-sm copy-ai-engine-btn">${browser.i18n.getMessage('copy')}</button>
+                    <button class="btn btn-text btn-sm edit-ai-engine-btn">${browser.i18n.getMessage('edit')}</button>
+                    <button class="btn btn-text btn-sm text-error remove-ai-engine-btn">${browser.i18n.getMessage('removeAiEngine')}</button>
                 </div>`;
             ul.appendChild(li);
         });
@@ -194,14 +190,13 @@ export class AIEngineModal extends BaseComponent {
 
     #validatePromptTemplate(template) {
         const errorElement = document.getElementById('aiCustomPromptError');
-        const formField = this.#elements.aiCustomPromptInput.closest('.m3-form-field');
+        const formField = this.#elements.aiCustomPromptInput.closest('.input-group');
         
         if (!template || template.trim() === '') {
             this.#showPromptError('Custom prompt cannot be empty');
             return false;
         }
 
-        // 检查是否包含至少一个有效的占位符
         const validPlaceholders = ['{targetLang}', '{sourceLang}', '{context}'];
         const hasValidPlaceholder = validPlaceholders.some(placeholder => template.includes(placeholder));
         
@@ -210,7 +205,6 @@ export class AIEngineModal extends BaseComponent {
             return false;
         }
 
-        // 检查占位符格式是否正确
         const placeholderRegex = /\{[^}]+\}/g;
         const placeholders = template.match(placeholderRegex) || [];
         const invalidPlaceholders = placeholders.filter(p => !validPlaceholders.includes(p));
@@ -221,24 +215,22 @@ export class AIEngineModal extends BaseComponent {
             return false;
         }
 
-        // 清除错误状态
-        formField.classList.remove('is-invalid');
-        errorElement.textContent = '';
+        if(formField) formField.classList.remove('is-invalid');
+        if(errorElement) errorElement.textContent = '';
         return true;
     }
 
     #showPromptError(message) {
         const errorElement = document.getElementById('aiCustomPromptError');
-        const formField = this.#elements.aiCustomPromptInput.closest('.m3-form-field');
+        const formField = this.#elements.aiCustomPromptInput.closest('.input-group');
         
-        errorElement.textContent = message;
-        formField.classList.add('is-invalid');
+        if(errorElement) errorElement.textContent = message;
+        if(formField) formField.classList.add('is-invalid');
     }
 
     async #saveEngine() {
         if (!this.#validator.validate()) return;
         
-        // 验证prompt模板
         const promptTemplate = this.#state.editingEngine.customPrompt;
         if (!this.#validatePromptTemplate(promptTemplate)) {
             return;
@@ -274,16 +266,16 @@ export class AIEngineModal extends BaseComponent {
     }
 
     #handleConfirmImport() {
-        const formField = this.#elements.importAiEngineConfigText.closest('.m3-form-field');
+        const formField = this.#elements.importAiEngineConfigText.closest('.input-group');
         const errorEl = this.#elements.importAiEngineErrorText;
         const configText = this.#elements.importAiEngineConfigText.value.trim();
 
-        formField.classList.remove('is-invalid');
+        if(formField) formField.classList.remove('is-invalid');
         errorEl.textContent = '';
 
         if (!configText) {
             errorEl.textContent = browser.i18n.getMessage('pasteConfigRequired');
-            formField.classList.add('is-invalid');
+            if(formField) formField.classList.add('is-invalid');
             return;
         }
 
@@ -303,7 +295,7 @@ export class AIEngineModal extends BaseComponent {
             this.emit('showStatus', browser.i18n.getMessage('importedAiEngineSuccess'));
         } catch (err) {
             errorEl.textContent = err.message;
-            formField.classList.add('is-invalid');
+            if(formField) formField.classList.add('is-invalid');
             console.error('Failed to import AI Engine:', err);
         }
     }
@@ -318,7 +310,8 @@ export class AIEngineModal extends BaseComponent {
         const resultEl = this.#elements.aiTestResult;
 
         resultEl.textContent = browser.i18n.getMessage('testing') || 'Testing...';
-        resultEl.classList.remove('success', 'error');
+        resultEl.classList.remove('success', 'error', 'alert-error', 'alert-success');
+        resultEl.classList.add('alert'); 
         resultEl.style.display = 'block';
         resultEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
@@ -330,20 +323,19 @@ export class AIEngineModal extends BaseComponent {
 
             if (response.success) {
                 resultEl.innerHTML = `<strong>${browser.i18n.getMessage('testOriginal')}:</strong> ${escapeHtml(testText)}<br><strong>${browser.i18n.getMessage('testTranslated')}:</strong> ${escapeHtml(response.translatedText.text)}`;
-                resultEl.classList.add('success');
+                resultEl.classList.add('alert-success');
             } else {
                 resultEl.textContent = `${browser.i18n.getMessage('testError')}: ${response.error}`;
-                resultEl.classList.add('error');
+                resultEl.classList.add('alert-error');
             }
         } catch (error) {
             console.error('AI connection test error:', error);
             resultEl.textContent = `${browser.i18n.getMessage('testError')}: ${error.message}`;
-            resultEl.classList.add('error');
+            resultEl.classList.add('alert-error');
         }
     }
 
     #bindEvents() {
-        // Main modal events
         this.#elements.aiEngineModal.addEventListener('click', (e) => {
             const target = e.target.closest('button');
             if (!target) return;
@@ -368,13 +360,14 @@ export class AIEngineModal extends BaseComponent {
                 this.#removeEngine(engineId);
             } else if (target.classList.contains('copy-ai-engine-btn')) {
                 this.#copyEngine(engineId);
+            } else if (target.classList.contains('close-button')) {
+                this.close();
             }
         });
 
         this.#elements.aiEngineForm.addEventListener('input', (e) => this.#handleFormInputChange(e));
         this.#elements.aiEngineForm.addEventListener('change', (e) => this.#handleFormInputChange(e));
         
-        // Prompt help button event
         const promptHelpBtn = document.getElementById('promptHelpBtn');
         const promptPlaceholderHelp = document.getElementById('promptPlaceholderHelp');
         
@@ -386,23 +379,26 @@ export class AIEngineModal extends BaseComponent {
             });
         }
 
-        // Import modal events
         this.#elements.importAiEngineModal.addEventListener('click', (e) => {
-            if (e.target.id === this.#elements.confirmImportAiEngineBtn.id) {
+            const btn = e.target.closest('button');
+            if (!btn) return;
+            
+            if (btn.id === this.#elements.confirmImportAiEngineBtn.id) {
                 this.#handleConfirmImport();
-            } else if (e.target.id === this.#elements.cancelImportAiEngineBtn.id || e.target.classList.contains('close-button')) {
+            } else if (btn.id === this.#elements.cancelImportAiEngineBtn.id || btn.classList.contains('close-button')) {
                 this.#closeImportModal();
             }
         });
 
-        // Close buttons
-        this.#elements.closeAiEngineModalBtn.addEventListener('click', () => this.close());
+        if (this.#elements.closeAiEngineModalBtn) {
+            this.#elements.closeAiEngineModalBtn.addEventListener('click', () => this.close());
+        }
     }
 
     #openModal(modalElement) {
         document.body.classList.add('modal-open');
         modalElement.style.display = 'flex';
-        modalElement.offsetWidth; // Trigger reflow
+        modalElement.offsetWidth; 
         modalElement.classList.add('is-visible');
         this._addEscKeyHandler();
     }
@@ -414,7 +410,7 @@ export class AIEngineModal extends BaseComponent {
         const onTransitionEnd = () => {
             modalElement.style.display = 'none';
             modalElement.removeEventListener('transitionend', onTransitionEnd);
-            if (document.querySelectorAll('.modal.is-visible').length === 0) {
+            if (document.querySelectorAll('.modal-backdrop.is-visible').length === 0) {
                 document.body.classList.remove('modal-open');
                 this._removeEscKeyHandler();
             }
@@ -422,10 +418,6 @@ export class AIEngineModal extends BaseComponent {
         modalElement.addEventListener('transitionend', onTransitionEnd);
     }
 
-    /**
-     * 处理 ESC 键按下事件
-     * @protected
-     */
     _handleEscKey() {
         if (this.#state.isImportModalOpen) {
             this.#closeImportModal();

@@ -173,10 +173,16 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     function validateCssSelectorInput(inputElement) {
-        const field = inputElement.closest('.m3-form-field');
+        const field = inputElement.closest('.input-group');
         if (!field) return true;
 
-        const errorEl = field.querySelector('.error-message');
+        // In new design, error message might need to be appended if not exists
+        let errorEl = field.querySelector('.text-error');
+        if (!errorEl) {
+            errorEl = document.createElement('div');
+            errorEl.className = 'text-error';
+            field.appendChild(errorEl);
+        }
         const selectorValue = inputElement.value.trim();
 
         field.classList.remove('is-invalid');
@@ -188,7 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 try {
                     document.querySelector(selector);
                 } catch (e) {
-                    field.classList.add('is-invalid');
+                    // field.classList.add('is-invalid'); // Visual style handled by text-error presence?
                     if (errorEl) errorEl.textContent = browser.i18n.getMessage('invalidCssSelector');
                     return false;
                 }
@@ -281,17 +287,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 3000);
     };
 
-    const initializeSelectLabel = (selectEl) => {
-        const parentField = selectEl.closest('.m3-form-field.filled');
-        if (!parentField) return;
-        const update = () => parentField.classList.toggle('is-filled', !!selectEl.value);
-        update();
-        selectEl.addEventListener('change', update);
-    };
-
-    const manageSelectLabels = () => {
-        document.querySelectorAll('.m3-form-field.filled select').forEach(initializeSelectLabel);
-    };
+    const initializeSelectLabel = (selectEl) => {};
+    const manageSelectLabels = () => {};
 
     const updateCacheInfo = async () => {
         try {
@@ -406,7 +403,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const li = document.createElement('li');
             li.className = 'domain-rule-item';
             li.dataset.domain = rule.domain;
-            li.innerHTML = `<span>${escapeHtml(rule.domain)}</span><div class="rule-actions"><button class="edit-rule-btn m3-button text" data-domain="${rule.domain}">${browser.i18n.getMessage('edit') || 'Edit'}</button><button class="delete-rule-btn m3-button text danger" data-domain="${rule.domain}">${browser.i18n.getMessage('removeRule') || 'Delete'}</button></div>`;
+            li.innerHTML = `
+                <span class="text-sm font-medium">${escapeHtml(rule.domain)}</span>
+                <div class="rule-actions flex-row">
+                    <button class="btn btn-text btn-sm edit-rule-btn" data-domain="${rule.domain}">${browser.i18n.getMessage('edit') || 'Edit'}</button>
+                    <button class="btn btn-text btn-sm text-error delete-rule-btn" data-domain="${rule.domain}">${browser.i18n.getMessage('removeRule') || 'Delete'}</button>
+                </div>
+            `;
             elements.domainRulesList.appendChild(li);
         });
     };
@@ -492,7 +495,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const toggleLogArea = () => {
-        const logArea = document.getElementById('test-log-area');
+        const logArea = document.getElementById('log-content'); // Directly target pre
         const button = document.getElementById('toggleLogBtn');
         const isHidden = logArea.style.display === 'none';
         if (isHidden) {
@@ -508,16 +511,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const performTestTranslation = async () => {
         const sourceText = document.getElementById('test-source-text').value.trim();
         const resultArea = document.getElementById('test-result-area');
-        elements.aiTestResult.style.display = 'none';
+        
+        // Hide AI specific test result if visible
+        if(elements.aiTestResult) elements.aiTestResult.style.display = 'none';
+        resultArea.style.display = 'block'; // Ensure result area is visible
+
         if (!sourceText) {
             resultArea.textContent = browser.i18n.getMessage('testSourceEmpty') || 'Please enter text to translate.';
-            resultArea.className = 'test-result-area error';
+            resultArea.className = 'alert alert-error mt-2';
             return;
         }
 
         const precheck = shouldTranslate(sourceText, { targetLanguage: elements.targetLanguage.value }, true);
         elements.logContent.textContent = precheck.log.join('\n');
-        document.getElementById('test-log-area').style.display = 'block';
+        elements.logContent.style.display = 'block'; // Show log directly
         elements.toggleLogBtn.textContent = browser.i18n.getMessage('hideLogButton') || 'Hide Log';
 
         if (!precheck.result) {
@@ -562,12 +569,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     const li = document.createElement('li');
                     li.className = 'cloud-data-item';
                     const date = new Date(backup.timestamp);
-                    const formattedDate = date.toLocaleString(); // Adjust format as needed
+                    const formattedDate = date.toLocaleString();
                     li.innerHTML = `
-                        <span>${formattedDate}</span>
-                        <div class="item-actions">
-                            <button class="download-cloud-backup-btn m3-button text" data-backup-id="${backup.id}">${browser.i18n.getMessage('downloadSettings')}</button>
-                            <button class="delete-cloud-backup-btn m3-button text danger" data-backup-id="${backup.id}">${browser.i18n.getMessage('removeRule')}</button>
+                        <span class="text-sm">${formattedDate}</span>
+                        <div class="item-actions flex-row">
+                            <button class="btn btn-text btn-sm download-cloud-backup-btn" data-backup-id="${backup.id}">${browser.i18n.getMessage('downloadSettings')}</button>
+                            <button class="btn btn-text btn-sm text-error delete-cloud-backup-btn" data-backup-id="${backup.id}">${browser.i18n.getMessage('removeRule')}</button>
                         </div>
                     `;
                     elements.cloudDataList.appendChild(li);
@@ -668,7 +675,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        if (closestButton.matches('.m3-button:not(.text), .tab-button') && closestButton.id !== 'saveSettingsBtn') {
+        if (closestButton.matches('.btn:not(.btn-text), .nav-link') && closestButton.id !== 'saveSettingsBtn') {
             const ripple = document.createElement('span');
             ripple.className = 'ripple';
             const rect = closestButton.getBoundingClientRect();

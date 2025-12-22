@@ -11,11 +11,11 @@ document.addEventListener('DOMContentLoaded', () => {
         translatePageBtn: document.getElementById('translatePageBtn'),
         autoTranslateCheckbox: document.getElementById('autoTranslate'),
         currentRuleIndicator: document.getElementById('currentRuleIndicator'),
-        openOptionsBtn: document.getElementById('openOptionsBtn'),        
+        openOptionsBtn: document.getElementById('openOptionsBtn'),
+        swapLanguagesBtn: document.getElementById('swapLanguagesBtn'),
         subtitleDisplayModeSelect: document.getElementById('subtitleDisplayModeSelect'), // 字幕显示模式选择
-        subtitleControlsSection: document.querySelector('.subtitle-controls'),
-        versionDisplay: document.getElementById('versionDisplay'),
-        aboutBtn: document.getElementById('aboutBtn')
+        subtitleControlsSection: document.querySelector('.subtitle-section'),
+        versionDisplay: document.getElementById('versionDisplay')
     };
     let activeTabId = null;
     let currentHostname = null;
@@ -35,13 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const manageSelectLabels = () => {
-        document.querySelectorAll('.m3-form-field.outlined select').forEach(selectEl => {
-            const parentField = selectEl.closest('.m3-form-field.outlined');
-            if (!parentField) return;
-            const updateState = () => parentField.classList.toggle('is-filled', !!selectEl.value);
-            selectEl.addEventListener('change', updateState);
-            updateState();
-        });
+        // Design System 2.0: No JS needed for labels
     };
 
     const populateSelect = (selectElement, options, selectedValue) => {
@@ -269,7 +263,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
         elements.openOptionsBtn.addEventListener('click', () => browser.runtime.openOptionsPage());
         elements.translatePageBtn.addEventListener('click', handleTranslateButtonClick);
-        elements.aboutBtn.addEventListener('click', () => browser.tabs.create({ url: 'https://github.com/sanniou/foxlate' }));
+
+        // Language Swap Logic
+        elements.swapLanguagesBtn.addEventListener('click', async () => {
+            const currentSource = elements.sourceLanguageSelect.value;
+            const currentTarget = elements.targetLanguageSelect.value;
+
+            // Optimistic update
+            elements.sourceLanguageSelect.value = currentTarget;
+            elements.targetLanguageSelect.value = currentSource;
+
+            // Save both settings
+            // Note: We need to handle 'auto' source language.
+            // If source was 'auto', we can't easily swap it back to target.
+            // For now, simple value swap.
+            await saveChangeToRule('sourceLanguage', currentTarget);
+            await saveChangeToRule('targetLanguage', currentSource);
+        });
 
         elements.sourceLanguageSelect.addEventListener('change', (e) => saveChangeToRule('sourceLanguage', e.target.value));
         elements.autoTranslateCheckbox.addEventListener('change', async (e) => {

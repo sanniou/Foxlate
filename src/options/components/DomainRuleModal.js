@@ -95,7 +95,6 @@ export class DomainRuleModal extends BaseComponent {
             this.#elements.ruleSummarySettingsGroup.style.display = this.#elements.ruleEnableSummary.checked ? 'block' : 'none';
 
             this.#openModal(modal);
-            this.#elements.domainRuleModal.querySelectorAll('.m3-form-field.filled select').forEach(this.#initializeSelectLabel);
             this.#validator.clearAllErrors();
         } else {
             this.#closeModal(modal);
@@ -286,10 +285,15 @@ export class DomainRuleModal extends BaseComponent {
     }
 
     #validateCssSelectorInput(inputElement) {
-        const field = inputElement.closest('.m3-form-field');
+        const field = inputElement.closest('.input-group');
         if (!field) return true;
 
-        const errorEl = field.querySelector('.error-message');
+        let errorEl = field.querySelector('.text-error');
+        if (!errorEl) {
+            errorEl = document.createElement('div');
+            errorEl.className = 'text-error';
+            field.appendChild(errorEl);
+        }
         const selectorValue = inputElement.value.trim();
 
         field.classList.remove('is-invalid');
@@ -314,7 +318,7 @@ export class DomainRuleModal extends BaseComponent {
         const isMainBodyValid = this.#validateCssSelectorInput(this.#elements.ruleMainBodySelector);
 
         if (!isDomainValid || !isContentValid || !isExcludeValid || !isMainBodyValid) {
-            const firstInvalidField = this.#elements.domainRuleModal.querySelector('.m3-form-field.is-invalid');
+            const firstInvalidField = this.#elements.domainRuleModal.querySelector('.text-error');
             if (firstInvalidField) {
                 firstInvalidField.classList.add('error-shake');
                 setTimeout(() => firstInvalidField.classList.remove('error-shake'), 500);
@@ -328,10 +332,12 @@ export class DomainRuleModal extends BaseComponent {
 
     #bindEvents() {
         this.#elements.domainRuleModal.addEventListener('click', (e) => {
-            const target = e.target;
-            if (target.id === this.#elements.saveDomainRuleBtn.id) {
+            const btn = e.target.closest('button') || e.target.closest('.close-button');
+            if (!btn) return;
+
+            if (btn.id === this.#elements.saveDomainRuleBtn.id) {
                 this.#saveRule();
-            } else if (target.id === this.#elements.cancelDomainRuleBtn.id || target.closest('.close-button')) {
+            } else if (btn.id === this.#elements.cancelDomainRuleBtn.id || btn.closest('.close-button')) {
                 this.close();
             }
         });
@@ -376,11 +382,4 @@ export class DomainRuleModal extends BaseComponent {
         }
     }
 
-    #initializeSelectLabel(selectEl) {
-        const parentField = selectEl.closest('.m3-form-field.filled');
-        if (!parentField) return;
-        const update = () => parentField.classList.toggle('is-filled', !!selectEl.value);
-        update();
-        selectEl.addEventListener('change', update);
-    }
 }

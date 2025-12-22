@@ -7,573 +7,434 @@
     <link rel="stylesheet" href="options.css">
 </head>
 <body>
-    <header class="page-header">
-        <h1 i18n-text="settingsHeading">Foxlate Settings</h1>
-    </header>
-
-    <div class="content-wrapper">
+    <div class="app-layout">
+        <!-- Sidebar -->
         <aside class="sidebar">
+            <div class="sidebar-header">
+                <img src="/icons/icon-48.png" alt="Logo" class="sidebar-logo">
+                <span class="sidebar-title">Foxlate</span>
+            </div>
             <nav id="settings-nav">
                 <ul>
-                    <li><a href="#general" class="nav-link active" i18n-text="navGeneral">General</a></li>
-                    <li><a href="#engine" class="nav-link" i18n-text="navEngine">Engine</a></li>
-                    <li><a href="#input-translation" class="nav-link" i18n-text="navInputTranslation">Input Translation</a></li>
-                    <li><a href="#rules" class="nav-link" i18n-text="navRules">Rules</a></li>
-                    <li><a href="#cache" class="nav-link" i18n-text="navCache">Cache</a></li>
-                    <li><a href="#data" class="nav-link" i18n-text="navData">Data</a></li>
+                    <li><a href="#general" class="nav-link active"><span class="nav-text" i18n-text="navGeneral">General</span></a></li>
+                    <li><a href="#engine" class="nav-link"><span class="nav-text" i18n-text="navEngine">Engine</span></a></li>
+                    <li><a href="#input-translation" class="nav-link"><span class="nav-text" i18n-text="navInputTranslation">Input</span></a></li>
+                    <li><a href="#rules" class="nav-link"><span class="nav-text" i18n-text="navRules">Rules</span></a></li>
+                    <li><a href="#cache" class="nav-link"><span class="nav-text" i18n-text="navCache">Cache</span></a></li>
+                    <li><a href="#data" class="nav-link"><span class="nav-text" i18n-text="navData">Data</span></a></li>
                 </ul>
             </nav>
         </aside>
 
+        <!-- Main Content -->
         <main id="settings-content" class="main-content">
-            <!-- General Settings Panel -->
+            <!-- General -->
             <section id="general" class="content-panel active">
-                <h2 i18n-text="generalSettings">General Settings</h2>
-                <div class="form-group">
-                    <div class="m3-form-field filled">
-                        <select id="targetLanguage">
-                            <!-- Options will be populated by options.js -->
-                        </select>
-                        <label for="targetLanguage" i18n-text="targetLanguage">Target Language:</label>
+                <h2 i18n-text="generalSettings" class="section-title">General Settings</h2>
+                <div class="card">
+                    <div class="input-group">
+                        <label class="input-label" for="targetLanguage" i18n-text="targetLanguage">Target Language</label>
+                        <select id="targetLanguage" class="form-control"></select>
                     </div>
-                </div>
-                <div class="form-group">
-                    <div class="m3-form-field filled">
-                        <select id="displayModeSelect">
-                            <!-- Options will be populated by JS -->
-                        </select>
-                        <label for="displayModeSelect" i18n-text="displayMode">Display Mode:</label>
+                    <div class="input-group">
+                        <label class="input-label" for="displayModeSelect" i18n-text="displayMode">Display Mode</label>
+                        <select id="displayModeSelect" class="form-control"></select>
                     </div>
                 </div>
             </section>
 
-            <!-- Engine Settings Panel -->
+            <!-- Engine -->
             <section id="engine" class="content-panel">
-                <h2 i18n-text="engineSettings">Engine Settings</h2>
-                <div class="form-group">
-                    <div class="m3-form-field filled">
-                        <select id="translatorEngine">
-                        </select>
-                        <label for="translatorEngine" i18n-text="translationEngine">Translation Engine:</label>
+                <h2 i18n-text="engineSettings" class="section-title">Engine Settings</h2>
+                <div class="card">
+                    <div class="input-group">
+                        <label class="input-label" for="translatorEngine" i18n-text="translationEngine">Translation Engine</label>
+                        <select id="translatorEngine" class="form-control"></select>
+                    </div>
+                    
+                    <div id="aiEngineManagementGroup" class="mt-2">
+                        <button id="manageAiEnginesBtn" class="btn btn-secondary btn-full" i18n-text="aiEngineProfiles">Manage AI Profiles</button>
+                    </div>
+
+                    <div id="defaultEngineWarning" class="alert alert-error mt-2" style="display: none;"></div>
+
+                    <div id="deeplxUrlGroup" class="input-group mt-2">
+                        <label class="input-label" i18n-text="deeplxApiUrl">DeepLx API URL</label>
+                        <input type="text" id="deeplxApiUrl" class="form-control" placeholder="https://api.deeplx.org/translate">
                     </div>
                 </div>
-                <div class="form-group" id="aiEngineManagementGroup">
-                    <button id="manageAiEnginesBtn" class="m3-button filled" i18n-text="aiEngineProfiles">Manage AI Engine Profiles</button>
-                </div>
-                <div id="defaultEngineWarning" class="warning-section" style="display: none;"></div>
-                <div class="form-group" id="deeplxUrlGroup">
-                    <div class="m3-form-field filled">
-                        <input type="text" id="deeplxApiUrl" i18n-placeholder="deeplxApiUrlPlaceholder" placeholder=" ">
-                        <label for="deeplxApiUrl" i18n-text="deeplxApiUrl">DeepLx API URL:</label>
+
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h3 class="card-title" i18n-text="test">Test Translation</h3>
                     </div>
-                </div>
-                <div class="form-group">
-                    <button id="testTranslationBtn" class="m3-button filled" i18n-text="test">Test</button>
-                </div>
-                <div id="test-translation-container" style="display: none;">
-                    <div class="test-translation-area">
-                        <div class="translation-row">
-                            <div class="translation-col">
-                                <textarea id="test-source-text" i18n-placeholder="testSourcePlaceholder"></textarea>
-                            </div>
-                            <div class="translation-col button-col">
-                                <button id="manual-test-translate-btn" class="m3-button" i18n-text="translateButtonText">Translate</button>
-                            </div>
-                            <div class="translation-col">
-                                <div id="test-result-area" class="test-result-area"></div>
-                            </div>
-                        </div>
+                    <div class="input-group">
+                        <textarea id="test-source-text" class="form-control" rows="3" i18n-placeholder="testSourcePlaceholder"></textarea>
                     </div>
-                    <div class="test-actions">
-                        <button id="toggleLogBtn" class="m3-button text" i18n-text="testLogButton">Show Log</button>
+                    <div class="flex-row">
+                        <button id="manual-test-translate-btn" class="btn btn-primary" i18n-text="translateButtonText">Translate</button>
+                        <button id="toggleLogBtn" class="btn btn-text" i18n-text="testLogButton">Show Log</button>
                     </div>
-                    <div id="test-log-area" class="test-log-area" style="display: none;">
-                        <h4 i18n-text="testLogTitle">Translation Log</h4>
-                        <pre id="log-content"></pre>
-                    </div>
+                    <div id="test-result-area" class="alert mt-2" style="display:none;"></div>
+                    <pre id="log-content" class="log-box mt-2" style="display:none;"></pre>
                 </div>
             </section>
 
-            <!-- Input Translation Settings Panel -->
-            <section id="input-translation" class="content-panel">
-                <h2 i18n-text="inputTranslationSettings">Input Translation Settings</h2>
-
-                <div class="form-group">
-                    <div class="m3-switch">
-                        <input type="checkbox" id="inputTranslationEnabled">
-                        <label for="inputTranslationEnabled" class="switch-track"><span class="switch-thumb"></span></label>
-                        <label for="inputTranslationEnabled" class="switch-label" i18n-text="inputTranslationEnableLabel">Enable Input Translation</label>
-                    </div>
-                    <div class="m3-helper-text">
-                        <small i18n-text="inputTranslationEnableDescription">Translate text directly in input fields.</small>
-                    </div>
-                </div>
-
-                <div class="form-grid-2col">
-                    <div class="m3-form-field filled">
-                        <select id="inputTargetLanguage">
-                            <!-- Options will be populated by options.js -->
-                        </select>
-                        <label for="inputTargetLanguage" i18n-text="targetLanguage">Target Language:</label>
-                    </div>
-                    <div class="m3-form-field filled">
-                        <select id="inputTranslatorEngine">
-                            <!-- Options will be populated by options.js -->
-                        </select>
-                        <label for="inputTranslatorEngine" i18n-text="translationEngine">Translation Engine:</label>
-                    </div>
-                </div>
-
-
-                <div class="form-group">
-                    <div class="m3-form-field filled">
-                        <input type="text" id="inputTriggerWord" placeholder=" ">
-                        <label for="inputTriggerWord" i18n-text="inputTriggerWordLabel">Magic Word</label>
-                    </div>
-                    <div class="m3-helper-text">
-                        <small i18n-text="inputTriggerWordDescription">Type text followed by "//[lang-]" + Magic Word to translate. E.g., "hello //ja-fox".</small>
-                    </div>
-                </div>
-
-                <hr class="divider">
-
-                <div class="form-group">
-                    <div class="m3-switch">
-                        <input type="checkbox" id="inputKeyTriggerEnabled">
-                        <label for="inputKeyTriggerEnabled" class="switch-track"><span class="switch-thumb"></span></label>
-                        <label for="inputKeyTriggerEnabled" class="switch-label" i18n-text="inputKeyTriggerEnableLabel">Enable Key-press Trigger</label>
-                    </div>
-                </div>
-
-                <div class="form-grid-2col">
-                    <div class="m3-form-field filled">
-                        <input type="text" id="inputConsecutiveKey" placeholder="e.g., Space, ControlLeft">
-                        <label for="inputConsecutiveKey" i18n-text="inputConsecutiveKeyLabel">Trigger Key</label>
-                    </div>
-                    <div class="m3-form-field filled">
-                        <input type="number" id="inputConsecutiveKeyPresses" min="2" max="5" placeholder=" ">
-                        <label for="inputConsecutiveKeyPresses" i18n-text="inputConsecutiveKeyPressesLabel">Presses</label>
-                    </div>
-                </div>
-                 <div class="m3-helper-text">
-                    <small i18n-text="inputKeyTriggerDescription">Press a key multiple times to trigger translation. Use values from `event.code`.</small>
-                </div>
-
-                <hr class="divider">
-
-                <div class="form-group">
-                    <div class="m3-form-field filled">
-                        <textarea id="inputBlacklist" rows="4" placeholder=" "></textarea>
-                        <label for="inputBlacklist" i18n-text="inputBlacklistLabel">Blacklisted Domains</label>
-                    </div>
-                    <div class="m3-helper-text">
-                        <small i18n-text="inputBlacklistDescription">Disable input translation on these websites. One domain per line, e.g., "example.com".</small>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Rules Settings Panel -->
+            <!-- Rules -->
             <section id="rules" class="content-panel">
-                <h2 i18n-text="ruleManagement">Rule Management</h2>
-                <div class="form-group">
-                    <div class="m3-form-field filled">
-                        <textarea id="defaultContentSelector" rows="4" i18n-placeholder="selectorPlaceholderGlobal" placeholder=" "></textarea>
-                        <label for="defaultContentSelector" i18n-text="contentSelectorLabel">Content Selectors</label>
-                        <div class="error-message" id="defaultContentSelectorError"></div>
+                <h2 i18n-text="ruleManagement" class="section-title">Rule Management</h2>
+                <div class="card">
+                    <div class="input-group">
+                        <label class="input-label" i18n-text="contentSelectorLabel">Global Content Selector</label>
+                        <textarea id="defaultContentSelector" class="form-control" rows="3"></textarea>
+                        <div class="text-error"></div>
                     </div>
-                    <div class="m3-helper-text">
-                        <small i18n-text="contentSelectorDescription">Specify CSS selectors for elements to be translated...</small>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <div class="m3-form-field filled">
-                        <textarea id="defaultExcludeSelector" rows="2" i18n-placeholder="selectorPlaceholderGlobal" placeholder=" "></textarea>
-                        <label for="defaultExcludeSelector" i18n-text="excludeSelectorsLabel">Exclude Selectors</label>
-                        <div class="error-message" id="defaultExcludeSelectorError"></div>
-                    </div>
-                    <div class="m3-helper-text">
-                        <small i18n-text="excludeSelectorsDescription">Elements matching these selectors will not be translated...</small>
+                    <div class="input-group">
+                        <label class="input-label" i18n-text="excludeSelectorsLabel">Global Exclude Selector</label>
+                        <textarea id="defaultExcludeSelector" class="form-control" rows="2"></textarea>
+                        <div class="text-error"></div>
                     </div>
                 </div>
-                <h3 i18n-text="domainSpecificRules">Domain-Specific Rules</h3>
-                <div class="form-group">
-                    <button id="addDomainRuleBtn" class="m3-button filled" i18n-text="addDomainRule">Add Domain Rule</button>
+
+                <div class="flex-between mt-4 mb-2">
+                    <h3 class="card-title" i18n-text="domainSpecificRules">Domain Rules</h3>
+                    <button id="addDomainRuleBtn" class="btn btn-primary btn-sm" i18n-text="addDomainRule">Add Rule</button>
                 </div>
-                <div class="domain-rules-list">
-                    <h3 i18n-text="currentRules">Current Domain Rules:</h3>
-                    <ul id="domainRulesList"></ul>
-                </div>
-                <div class="m3-helper-text">
-                    <small i18n-text="rulesDescription">Domain-specific rules override the default rule.</small>
-                </div>
+                <ul id="domainRulesList" class="item-list"></ul>
             </section>
 
-
-            <!-- Cache Settings Panel -->
+            <!-- Cache -->
             <section id="cache" class="content-panel">
-                <h2 i18n-text="cacheManagement">Cache Management</h2>
-                <div class="form-group">
-                    <div class="m3-form-field filled">
-                        <input type="number" id="cacheSizeInput" min="0" step="100" placeholder=" ">
-                        <label for="cacheSizeInput" i18n-text="cacheSizeLabel">Cache Size</label>
+                <h2 i18n-text="cacheManagement" class="section-title">Cache</h2>
+                <div class="card">
+                    <div class="input-group">
+                        <label class="input-label" i18n-text="cacheSizeLabel">Max Cache Size</label>
+                        <input type="number" id="cacheSizeInput" class="form-control" min="0" step="100">
                     </div>
-                    <div class="m3-helper-text">
-                        <small i18n-text="cacheSizeDescription">Max number of translations to store locally...</small>
+                    <div class="flex-between mt-2">
+                        <span class="text-sm text-muted"><span i18n-text="currentCacheUsage">Usage:</span> <span id="cacheInfoDisplay">...</span></span>
+                        <button id="clearCacheBtn" class="btn btn-danger btn-sm" i18n-text="clearCache">Clear</button>
                     </div>
-                </div>
-                <div class="form-group cache-info-group">
-                    <span i18n-text="currentCacheUsage">Current Usage:</span>
-                    <span id="cacheInfoDisplay">...</span>
-                    <button id="clearCacheBtn" class="m3-button text danger" i18n-text="clearCache">Clear Cache</button>
                 </div>
             </section>
 
-            <!-- Data Management Panel -->
+            <!-- Data -->
             <section id="data" class="content-panel">
-                <h2 i18n-text="dataManagement">Data Management</h2>
-                <div class="form-group">
-                    <div class="m3-switch">
-                        <input type="checkbox" id="syncEnabled">
-                        <label for="syncEnabled" class="switch-track"><span class="switch-thumb"></span></label>
-                        <label for="syncEnabled" class="switch-label" i18n-text="enableCloudSync">Enable Cloud Sync</label>
+                <h2 i18n-text="dataManagement" class="section-title">Data</h2>
+                <div class="card">
+                    <div class="flex-between mb-4">
+                        <span class="input-label" i18n-text="enableCloudSync">Cloud Sync</span>
+                        <label class="switch">
+                            <input type="checkbox" id="syncEnabled">
+                            <span class="switch-track"><span class="switch-thumb"></span></span>
+                        </label>
                     </div>
-                    <div class="m3-helper-text">
-                        <small i18n-text="enableCloudSyncDescription">Manually upload/download settings to the cloud.</small>
-                    </div>
-                </div>
-                <div id="syncManagementControls" style="display: none;">
-                    <div class="form-group button-group">
-                        <button id="uploadSettingsBtn" class="m3-button filled-tonal" i18n-text="uploadSettings">Upload Settings</button>
-                    </div>
-                    <div id="cloudSettingsInfo" class="m3-helper-text">
-                        <small i18n-text="cloudSettingsStatus">Cloud settings status: Not checked.</small>
-                    </div>
-                    <div id="cloudDataListSection">
-                        <h3 i18n-text="cloudBackups">Cloud Backups</h3>
-                        <div class="button-group">
-                            <button id="refreshCloudDataBtn" class="m3-button filled-tonal" i18n-text="refreshCloudData">Refresh</button>
+                    
+                    <div id="syncManagementControls" style="display: none;">
+                        <div class="input-group mb-4">
+                            <span id="cloudSettingsInfo" class="text-sm text-muted"></span>
                         </div>
-                        <ul id="cloudDataList" class="cloud-data-list"></ul>
-                        <div class="m3-helper-text">
-                            <small i18n-text="cloudDataDescription">List of settings backups stored in the cloud.</small>
+                        <button id="uploadSettingsBtn" class="btn btn-secondary btn-full mb-4" i18n-text="uploadSettings">Upload Now</button>
+                        <div class="flex-between mb-2">
+                            <h4 class="text-sm font-semibold" i18n-text="cloudBackups">Backups</h4>
+                            <button id="refreshCloudDataBtn" class="btn btn-text btn-sm" i18n-text="refreshCloudData">Refresh</button>
+                        </div>
+                        <ul id="cloudDataList" class="item-list"></ul>
+                    </div>
+
+                    <div class="divider"></div>
+                    
+                    <div class="grid-2">
+                        <button id="export-btn" class="btn btn-secondary" i18n-text="exportSettings">Export</button>
+                        <button id="import-btn" class="btn btn-secondary" i18n-text="importSettings">Import</button>
+                    </div>
+                    <input type="file" id="import-input" hidden>
+                    <button id="reset-settings-btn" class="btn btn-text text-error mt-2 btn-full" i18n-text="resetSettings">Reset All Settings</button>
+                </div>
+            </section>
+            
+             <!-- Input Translation -->
+            <section id="input-translation" class="content-panel">
+                <h2 i18n-text="inputTranslationSettings" class="section-title">Input Translation</h2>
+                <div class="card">
+                     <div class="flex-between mb-4">
+                        <span class="input-label" i18n-text="inputTranslationEnableLabel">Enable Feature</span>
+                        <label class="switch">
+                            <input type="checkbox" id="inputTranslationEnabled">
+                            <span class="switch-track"><span class="switch-thumb"></span></span>
+                        </label>
+                    </div>
+                    <div class="grid-2 mb-4">
+                         <div class="input-group">
+                            <label class="input-label" i18n-text="targetLanguage">Target</label>
+                            <select id="inputTargetLanguage" class="form-control"></select>
+                        </div>
+                        <div class="input-group">
+                            <label class="input-label" i18n-text="translationEngine">Engine</label>
+                            <select id="inputTranslatorEngine" class="form-control"></select>
                         </div>
                     </div>
-                </div>
-                <hr class="divider">
-                <div class="form-group button-group">
-                    <button id="export-btn" class="m3-button filled-tonal" i18n-text="exportSettings">Export Settings</button>
-                    <button id="import-btn" class="m3-button filled-tonal" i18n-text="importSettings">Import Settings</button>
-                    <input type="file" id="import-input" accept=".json" style="display: none;">
-                    <button id="reset-settings-btn" class="m3-button danger" i18n-text="resetSettings">Reset Settings</button>
+
+                    <div class="input-group mb-4">
+                        <label class="input-label" i18n-text="inputTriggerWordLabel">Magic Word</label>
+                        <input type="text" id="inputTriggerWord" class="form-control" placeholder="fox">
+                        <div class="text-sm text-muted mt-2" i18n-text="inputTriggerWordDescription">Type text followed by "//[lang-]" + Magic Word</div>
+                    </div>
+
+                    <div class="divider"></div>
+
+                    <div class="flex-between mb-4 mt-4">
+                        <span class="input-label" i18n-text="inputKeyTriggerEnableLabel">Key-press Trigger</span>
+                        <label class="switch">
+                            <input type="checkbox" id="inputKeyTriggerEnabled">
+                            <span class="switch-track"><span class="switch-thumb"></span></span>
+                        </label>
+                    </div>
+
+                    <div class="grid-2 mb-4">
+                        <div class="input-group">
+                            <label class="input-label" i18n-text="inputConsecutiveKeyLabel">Trigger Key</label>
+                            <input type="text" id="inputConsecutiveKey" class="form-control" placeholder="ControlLeft">
+                        </div>
+                        <div class="input-group">
+                            <label class="input-label" i18n-text="inputConsecutiveKeyPressesLabel">Presses</label>
+                            <input type="number" id="inputConsecutiveKeyPresses" class="form-control" min="2" max="5">
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label class="input-label" i18n-text="inputBlacklistLabel">Blacklist Domains</label>
+                        <textarea id="inputBlacklist" class="form-control" rows="3" placeholder="example.com"></textarea>
+                    </div>
                 </div>
             </section>
         </main>
     </div>
 
-    <footer class="page-footer">
-        <a href="https://github.com/sanniou/foxlate" target="_blank">GitHub</a>
-        <span>&nbsp;&middot;&nbsp;</span>
-        <a href="https://github.com/sanniou/foxlate/blob/main/PRIVACY.md" target="_blank" i18n-text="privacyPolicy">Privacy Policy</a>
-    </footer>
-
-    <button id="saveSettingsBtn" class="fab">  <!-- Added id attribute -->
-        <span id="fab-icon-save" class="fab-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm2 16H5V5h11.17L19 7.83V19zM12 12c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3zM6 6h9v4H6z"/></svg>
-        </span>
-        <span id="fab-icon-loading" class="fab-icon">
-            <div class="spinner"></div>
-        </span>
-        <span id="fab-icon-success" class="fab-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
-        </span>
+    <!-- Floating Save Button -->
+    <button id="saveSettingsBtn" class="toast btn-primary">
+        <span i18n-text="saveSettings">Save Changes</span>
     </button>
-    <div id="statusMessage" class="status-message"></div>
-    <!-- AI Engine Management Modal -->
-    <div id="aiEngineModal" class="modal" style="display: none;">
+    <div id="statusMessage" class="toast"></div>
+
+    <!-- Modals -->
+    <div id="confirmModal" class="modal-backdrop">
         <div class="modal-content">
-            <span class="close-button">&times;</span>
-            <h2 i18n-text="aiEngineProfiles">AI Engine Profiles</h2>
-            <div class="modal-scroll-content">
-                <div id="aiEngineList" class="ai-engine-list">
-                    <!-- AI engines will be dynamically added here -->
-                </div>
-                <div class="button-group">
-                    <button id="addAiEngineBtn" class="m3-button filled-tonal" i18n-text="addAiEngine"></button>
-                   <button id="openImportAiEngineModalBtn" class="m3-button filled-tonal" i18n-text="importAiEngine"></button>
-                   
-                </div>
-                <div id="aiEngineForm" class="form-group" style="display: none;">
-
-                    <h3><span id="aiFormTitle"></span> AI Engine</h3>
-                    <div class="m3-form-field filled">
-                        <input type="text" id="aiEngineName" placeholder=" ">
-                        <label for="aiEngineName" i18n-text="aiEngineName">Engine Name:<span class="required-indicator">*</span></label>
-                        <div class="error-message" id="aiEngineNameError"></div>
-                    </div>
-                    <div class="m3-form-field filled">
-                        <input type="password" id="aiApiKey" i18n-placeholder="aiApiKeyPlaceholder" placeholder=" ">
-                        <label for="aiApiKey" i18n-text="aiApiKey">AI API Key:<span class="required-indicator">*</span></label>
-                        <div class="error-message" id="aiApiKeyError"></div>
-                    </div>
-                    <div class="m3-form-field filled">
-                        <input type="text" id="aiApiUrl" i18n-placeholder="aiApiUrlPlaceholder" placeholder=" ">
-                        <label for="aiApiUrl" i18n-text="aiApiUrl">API Endpoint URL:<span class="required-indicator">*</span></label>
-                        <div class="error-message" id="aiApiUrlError"></div>
-                    </div>
-                    <div class="m3-form-field filled">
-                        <input type="text" id="aiModelName" i18n-placeholder="aiModelNamePlaceholder" placeholder=" ">
-                        <label for="aiModelName" i18n-text="aiModelName">Model Name:<span class="required-indicator">*</span></label>
-                        <div class="error-message" id="aiModelNameError"></div>
-                    </div>
-                    <div class="m3-form-field filled">
-                        <textarea id="aiCustomPrompt" rows="4" i18n-placeholder="aiCustomPromptPlaceholder" placeholder=" "></textarea>
-                        <label for="aiCustomPrompt" i18n-text="aiCustomPrompt">Custom Prompt:<span class="required-indicator">*</span></label>
-                        <div class="error-message" id="aiCustomPromptError"></div>
-                    </div>
-                    <div class="m3-helper-text">
-                        <small i18n-text="promptPlaceholders">Supported placeholders:</small>
-                        <small><code>{targetLang}</code> <code>{sourceLang}</code> <code>{context}</code></small>
-                        <button type="button" id="promptHelpBtn" class="m3-button text" style="margin-left: 8px;" i18n-text="viewPromptExamples">View Examples</button>
-                    </div>
-                    <div id="promptPlaceholderHelp" class="prompt-placeholder-help" style="display: none;">
-                        <h4 i18n-text="promptPlaceholderHelpTitle">Supported Placeholders</h4>
-                        <ul>
-                            <li><code>{targetLang}</code> - <span i18n-text="placeholderTargetLang">Target language</span></li>
-                            <li><code>{sourceLang}</code> - <span i18n-text="placeholderSourceLang">Source language</span></li>
-                            <li><code>{context}</code> - <span i18n-text="placeholderContext">Translation context</span></li>
-                        </ul>
-                        <div class="prompt-examples">
-                            <h5 i18n-text="promptExampleTitle">Example Templates</h5>
-                            <div class="example-template">
-                                <strong i18n-text="professionalTranslation">Professional Translation:</strong>
-                                <code>翻译至：{targetLang}<br>要求：专业，地道，流畅<br>上下文：{context}<br>输出：仅译文</code>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="m3-form-field filled">
-                        <input type="number" id="aiShortTextThreshold" min="0" value="1" placeholder=" ">
-                        <label for="aiShortTextThreshold" i18n-text="aiShortTextThreshold">Short Text Word Threshold</label>
-                    </div>
-
-                    <div class="m3-form-field filled">
-                        <select id="aiShortTextEngine">
-                            <!-- Options will be populated by options.js -->
-                        </select>
-                        <label for="aiShortTextEngine" i18n-text="aiShortTextEngine">Short Text Engine</label>
-                    </div>
-
-                    <!-- (新) 将测试部分包裹在一个默认隐藏的容器中 -->
-                    <div id="aiTestSection" style="display: none;">
-                        <hr class="divider">
-                        <h4 i18n-text="testConnection">Test Connection</h4>
-                        <div class="m3-form-field filled">
-                            <textarea id="aiTestText" rows="2" placeholder=" "></textarea>
-                            <label for="aiTestText" i18n-text="testOriginal">Original</label>
-                        </div>
-                        <div id="aiTestResult" class="ai-test-result-message"></div>
-                    </div>
-
-                    <div class="button-group ai-engine-form-buttons">
-                        <button id="testAiEngineBtn" class="m3-button filled" i18n-text="test">Test Connection</button>
-                        <div class="action-buttons">
-                            <button id="cancelAiEngineBtn" class="m3-button text" i18n-text="cancel">Cancel</button>
-                            <button id="saveAiEngineBtn" class="m3-button filled" i18n-text="saveAiEngine">Save AI Engine</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-        <!-- Import AI Engine Modal -->
-    <div id="importAiEngineModal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <span class="close-button">&times;</span>
-            <h2 i18n-text="importAiEngineModalTitle"></h2>
-            <div id="importAiEngineForm" class="form-group">
-                <div class="m3-form-field filled">
-                    <textarea id="importAiEngineConfigText" rows="10" i18n-placeholder="pasteAiEngineConfigPlaceholder" placeholder=" "></textarea>
-                    <label for="importAiEngineConfigText" i18n-text="pasteAiEngineConfigLabel"></label>
-                    <div class="error-message" id="importAiEngineErrorText"></div>
-                </div>
-            </div>
-            <div class="button-group modal-actions">
-                <button id="cancelImportAiEngineBtn" class="m3-button text" i18n-text="cancel"></button>
-                <button id="confirmImportAiEngineBtn" class="m3-button filled" i18n-text="confirmImport"></button>
+            <h3 id="confirmModalTitle" class="card-title">Confirm</h3>
+            <p id="confirmModalMessage" class="text-sm text-muted mt-2 mb-4"></p>
+            <div class="flex-between">
+                <button id="confirmModalCancelBtn" class="btn btn-text" i18n-text="cancel">Cancel</button>
+                <button id="confirmModalConfirmBtn" class="btn btn-primary" i18n-text="confirm">Confirm</button>
             </div>
         </div>
     </div>
 
+    <!-- AI Engine Modal -->
+    <div id="aiEngineModal" class="modal-backdrop">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="flex-between mb-4">
+                <h3 i18n-text="aiEngineProfiles" class="card-title">AI Engines</h3>
+                <button class="btn btn-icon close-button">✕</button>
+            </div>
+            
+            <div id="aiEngineList" class="item-list mb-4"></div>
+            <div class="grid-2">
+                <button id="addAiEngineBtn" class="btn btn-secondary btn-full" i18n-text="addAiEngine">+ Add Engine</button>
+                <button id="openImportAiEngineModalBtn" class="btn btn-text btn-full" i18n-text="importAiEngine">Import</button>
+            </div>
 
-    <!-- Confirm Modal -->
-    <div id="confirmModal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <span class="close-button" id="closeConfirmModalBtn">&times;</span>
-            <h2 id="confirmModalTitle"></h2>
-            <p id="confirmModalMessage" style="margin: 16px 0;"></p>
-            <div class="button-group modal-actions">
-                <button id="confirmModalCancelBtn" class="m3-button text" i18n-text="cancel">Cancel</button>
-                <button id="confirmModalConfirmBtn" class="m3-button filled danger" i18n-text="confirm">Confirm</button>
+            <!-- Edit Form (Hidden by default) -->
+            <div id="aiEngineForm" class="mt-4 pt-4 border-t" style="display:none;">
+                <h4 id="aiFormTitle" class="text-sm font-bold mb-2">Edit Engine</h4>
+                <div class="input-group">
+                    <label class="input-label" i18n-text="aiEngineName">Name</label>
+                    <input type="text" id="aiEngineName" class="form-control">
+                </div>
+                <div class="input-group">
+                    <label class="input-label" i18n-text="aiApiKey">API Key</label>
+                    <input type="password" id="aiApiKey" class="form-control">
+                </div>
+                <div class="input-group">
+                    <label class="input-label" i18n-text="aiApiUrl">API URL</label>
+                    <input type="text" id="aiApiUrl" class="form-control">
+                </div>
+                <div class="input-group">
+                    <label class="input-label" i18n-text="aiModelName">Model Name</label>
+                    <input type="text" id="aiModelName" class="form-control">
+                </div>
+                <div class="input-group">
+                    <label class="input-label" i18n-text="aiCustomPrompt">Custom Prompt</label>
+                    <textarea id="aiCustomPrompt" class="form-control" rows="3"></textarea>
+                    <span id="aiCustomPromptError" class="text-error"></span>
+                    <button id="promptHelpBtn" class="btn btn-text btn-sm" i18n-text="viewPromptExamples">Examples</button>
+                    <div id="promptPlaceholderHelp" class="mt-2 text-sm" style="display:none;">
+                        <p class="text-muted">Available: {targetLang}, {sourceLang}, {context}</p>
+                    </div>
+                </div>
+                
+                <div class="grid-2 mt-2">
+                    <div class="input-group">
+                        <label class="input-label" i18n-text="aiShortTextThreshold">Threshold</label>
+                        <input type="number" id="aiShortTextThreshold" class="form-control" min="0">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label" i18n-text="aiShortTextEngine">Fallback</label>
+                        <select id="aiShortTextEngine" class="form-control"></select>
+                    </div>
+                </div>
+
+                <div id="aiTestSection" class="mt-4" style="display:none;">
+                    <div class="input-group">
+                        <label class="input-label" i18n-text="testOriginal">Test Text</label>
+                        <textarea id="aiTestText" class="form-control" rows="2"></textarea>
+                    </div>
+                    <div id="aiTestResult" class="alert mt-2" style="display:none;"></div>
+                </div>
+
+                 <div class="grid-2 mt-4">
+                    <button id="testAiEngineBtn" class="btn btn-secondary" i18n-text="test">Test</button>
+                    <div class="flex-row" style="justify-content: flex-end;">
+                        <button id="cancelAiEngineBtn" class="btn btn-text" i18n-text="cancel">Cancel</button>
+                        <button id="saveAiEngineBtn" class="btn btn-primary" i18n-text="saveAiEngine">Save</button>
+                    </div>
+                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Import AI Engine Modal -->
+    <div id="importAiEngineModal" class="modal-backdrop">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="flex-between mb-4">
+                <h3 i18n-text="importAiEngineModalTitle" class="card-title">Import Engine</h3>
+                <button class="btn btn-icon close-button">✕</button>
+            </div>
+            <div class="input-group">
+                <label class="input-label" i18n-text="pasteAiEngineConfigLabel">Config JSON</label>
+                <textarea id="importAiEngineConfigText" class="form-control" rows="6"></textarea>
+                <div id="importAiEngineErrorText" class="text-error"></div>
+            </div>
+            <div class="flex-between mt-4">
+                <button id="cancelImportAiEngineBtn" class="btn btn-text" i18n-text="cancel">Cancel</button>
+                <button id="confirmImportAiEngineBtn" class="btn btn-primary" i18n-text="confirmImport">Import</button>
+            </div>
+        </div>
+    </div>
 
-    <!-- Domain Rule Management Modal -->
-    <div id="domainRuleModal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <span class="close-button">&times;</span>
-            <h2 id="domainRuleFormTitle" i18n-text="domainRuleModalTitle">Domain Rule Settings</h2>
-
-            <div id="domainRuleForm" class="form-group">
-                <input type="hidden" id="editingDomain" value="">
-                <div class="m3-form-field filled">
-                    <input type="text" id="ruleDomain" placeholder="e.g., example.com" required>
-                    <label for="ruleDomain" i18n-text="domain">Domain:<span class="required-indicator">*</span></label>
-                    <div class="error-message" id="ruleDomainError"></div>
+    <!-- Domain Rule Modal -->
+    <div id="domainRuleModal" class="modal-backdrop">
+        <div class="modal-content" style="max-width: 600px;">
+            <h3 id="domainRuleFormTitle" class="card-title mb-4">Domain Rule</h3>
+            <div id="domainRuleForm">
+                <input type="hidden" id="editingDomain">
+                <div class="input-group">
+                    <label class="input-label" i18n-text="domain">Domain</label>
+                    <input type="text" id="ruleDomain" class="form-control" placeholder="example.com">
                 </div>
-                <div class="m3-switch">
-                    <input type="checkbox" id="ruleApplyToSubdomains" checked>
-                    <label for="ruleApplyToSubdomains" class="switch-track">
-                        <span class="switch-thumb"></span>
+
+                <div class="flex-row mt-2">
+                    <label class="switch">
+                        <input type="checkbox" id="ruleApplyToSubdomains">
+                        <span class="switch-track"><span class="switch-thumb"></span></span>
                     </label>
-                    <label for="ruleApplyToSubdomains" class="switch-label" i18n-text="applyToSubdomains">Apply to all subdomains</label>
+                    <span class="text-sm" i18n-text="applyToSubdomains">Apply to subdomains</span>
                 </div>
-                <div class="form-grid-2col">
-                    <div class="m3-form-field filled">
-                        <select id="ruleAutoTranslate">
-                             <!-- 选项将由 JS 动态加载 -->
-                        </select>
-                        <label for="ruleAutoTranslate" i18n-text="autoTranslate">Auto Translate:</label>
+                
+                <div class="grid-2 mt-2">
+                    <div class="input-group">
+                        <label class="input-label" i18n-text="autoTranslate">Auto Translate</label>
+                        <select id="ruleAutoTranslate" class="form-control"></select>
                     </div>
-                    <div class="m3-form-field filled">
-                        <select id="ruleDisplayMode">
-                            <!-- 选项将由 JS 动态加载 -->
-                        </select>
-                        <label for="ruleDisplayMode" i18n-text="displayMode">Display Mode:</label>
+                    <div class="input-group">
+                        <label class="input-label" i18n-text="translationEngine">Engine</label>
+                        <select id="ruleTranslatorEngine" class="form-control"></select>
                     </div>
                 </div>
-                <div class="m3-form-field filled">
-                    <select id="ruleTranslatorEngine">
-                        <!-- 选项将由 JS 动态加载 -->
-                    </select>
-                    <label for="ruleTranslatorEngine" i18n-text="translationEngine">Translation Engine:</label>
-                </div>
-                <div class="form-grid-2col">
-                    <div class="m3-form-field filled">
-                        <select id="ruleSourceLanguage">
-                            <!-- 选项将由 JS 动态加载 -->
-                        </select>
-                        <label for="ruleSourceLanguage" i18n-text="popupSourceLanguage">Source Language:</label>
-                    </div>
-                    <div class="m3-form-field filled">
-                        <select id="ruleTargetLanguage">
-                            <!-- 选项将由 JS 动态加载 -->
-                        </select>
-                        <label for="ruleTargetLanguage" i18n-text="targetLanguage">Target Language:</label>
-                    </div>
-                </div>
-                <div class="form-section-box">
-                    <div class="m3-form-field filled">
-                        <textarea id="ruleContentSelector" rows="3" i18n-placeholder="selectorPlaceholderGlobal" placeholder=" "></textarea>
-                        <label for="ruleContentSelector" i18n-text="contentSelectorLabel">Content Selectors</label>
-                        <div class="error-message" id="ruleContentSelectorError"></div>
-                    </div>
-                    <div class="m3-form-field filled">
-                        <textarea id="ruleExcludeSelector" rows="2" i18n-placeholder="selectorPlaceholderGlobal" placeholder=" "></textarea>
-                        <label for="ruleExcludeSelector" i18n-text="excludeSelectorsLabel">Exclude Selectors</label>
-                        <div class="error-message" id="ruleExcludeSelectorError"></div>
-                    </div>
-                    <div class="m3-helper-text">
-                        <small i18n-text="excludeSelectorsDescription"></small>
-                    </div>
 
-                    <div class="m3-switch">
-                        <input type="checkbox" id="ruleCssSelectorOverride">
-                        <label for="ruleCssSelectorOverride" class="switch-track">
-                            <span class="switch-thumb"></span>
+                <div class="grid-2 mt-2">
+                    <div class="input-group">
+                        <label class="input-label" i18n-text="popupSourceLanguage">Source</label>
+                        <select id="ruleSourceLanguage" class="form-control"></select>
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label" i18n-text="targetLanguage">Target</label>
+                        <select id="ruleTargetLanguage" class="form-control"></select>
+                    </div>
+                </div>
+
+                <div class="grid-2 mt-2">
+                    <div class="input-group">
+                        <label class="input-label" i18n-text="displayMode">Display Mode</label>
+                        <select id="ruleDisplayMode" class="form-control"></select>
+                    </div>
+                </div>
+
+                <div class="card mt-4 p-4 border bg-gray-50">
+                    <div class="input-group">
+                        <label class="input-label" i18n-text="contentSelectorLabel">Content Selector</label>
+                        <textarea id="ruleContentSelector" class="form-control" rows="2"></textarea>
+                    </div>
+                    <div class="input-group mt-2">
+                        <label class="input-label" i18n-text="excludeSelectorsLabel">Exclude Selector</label>
+                        <textarea id="ruleExcludeSelector" class="form-control" rows="2"></textarea>
+                    </div>
+                    <div class="flex-row mt-2">
+                        <label class="switch">
+                            <input type="checkbox" id="ruleCssSelectorOverride">
+                            <span class="switch-track" style="width: 24px; height: 14px;"><span class="switch-thumb" style="width: 10px; height: 10px;"></span></span>
                         </label>
-                        <label for="ruleCssSelectorOverride" class="switch-label" i18n-text="overrideDefaultSelectors">Override default selectors</label>
-                    </div>
-                    <div class="m3-helper-text">
-                        <small i18n-text="selectorOverrideDescription">When enabled, only the domain-specific selectors defined above will be used, ignoring global rules. Leave empty to inherit global rules.</small>
+                        <span class="text-sm" i18n-text="overrideDefaultSelectors">Override Global</span>
                     </div>
                 </div>
 
-                <!-- Subtitle Settings Section -->
-                <hr class="divider">
-                <h4 i18n-text="subtitleSettingsTitle">Subtitle Settings</h4>
-                <div class="m3-switch">
-                    <input type="checkbox" id="ruleEnableSubtitle" name="ruleEnableSubtitle">
-                    <label for="ruleEnableSubtitle" class="switch-track">
-                        <span class="switch-thumb"></span>
+                <!-- Subtitle Settings -->
+                <div class="divider"></div>
+                <div class="flex-between mb-2">
+                    <span class="input-label" i18n-text="enableSubtitleTranslation">Subtitle Translation</span>
+                    <label class="switch">
+                        <input type="checkbox" id="ruleEnableSubtitle">
+                        <span class="switch-track"><span class="switch-thumb"></span></span>
                     </label>
-                    <label for="ruleEnableSubtitle" class="switch-label" i18n-text="enableSubtitleTranslation">Enable Subtitle Translation</label>
                 </div>
-
-                <div id="ruleSubtitleSettingsGroup" style="display: none;">
-                    <div class="form-grid-2col">
-                        <div class="m3-form-field filled">
-                            <select id="ruleSubtitleStrategy">
-                                <!-- Options will be populated by options.js -->
-                            </select>
-                            <label for="ruleSubtitleStrategy" i18n-text="subtitleStrategy">Subtitle Strategy:</label>
-                        </div>
-                        <div class="m3-form-field filled">
-                            <select id="ruleSubtitleDisplayMode">
-                                <!-- Options will be populated by options.js -->
-                            </select>
-                            <label for="ruleSubtitleDisplayMode" i18n-text="subtitleDisplayMode">Subtitle Display Mode:</label>
-                        </div>
+                <div id="ruleSubtitleSettingsGroup" class="grid-2" style="display:none;">
+                    <div class="input-group">
+                        <label class="input-label" i18n-text="subtitleStrategy">Strategy</label>
+                        <select id="ruleSubtitleStrategy" class="form-control"></select>
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label" i18n-text="subtitleDisplayMode">Display</label>
+                        <select id="ruleSubtitleDisplayMode" class="form-control"></select>
                     </div>
                 </div>
 
-                <!-- Content Summary Settings Section -->
-                <hr class="divider">
-                <h4 i18n-text="summarySettingsTitle">Content Summary Settings</h4>
-
-
-                <div class="m3-switch">
-                    <input type="checkbox" id="ruleEnableSummary" name="ruleEnableSummary">
-                    <label for="ruleEnableSummary" class="switch-track">
-                        <span class="switch-thumb"></span>
+                <!-- Summary Settings -->
+                <div class="divider"></div>
+                <div class="flex-between mb-2">
+                    <span class="input-label" i18n-text="enableContentSummary">Content Summary</span>
+                    <label class="switch">
+                        <input type="checkbox" id="ruleEnableSummary">
+                        <span class="switch-track"><span class="switch-thumb"></span></span>
                     </label>
-                    <label for="ruleEnableSummary" class="switch-label" i18n-text="enableContentSummary">Enable Content Summary</label>
                 </div>
-
-                <div id="ruleSummarySettingsGroup" style="display: none;">
-                    <div class="m3-form-field filled">
-                        <select id="ruleSummaryAiModel"></select>
-                        <label for="ruleSummaryAiModel" i18n-text="summaryAiModelLabel">Summary AI Model</label>
-                        <div class="error-message" id="ruleSummaryAiModelError"></div>
+                <div id="ruleSummarySettingsGroup" style="display:none;">
+                    <div class="input-group">
+                        <label class="input-label" i18n-text="summaryAiModelLabel">AI Model</label>
+                        <select id="ruleSummaryAiModel" class="form-control"></select>
                     </div>
-                    
-                    <div class="m3-form-field filled">
-                        <textarea id="ruleMainBodySelector" rows="2" i18n-placeholder="selectorPlaceholderGlobal" placeholder=" "></textarea>
-                        <label for="ruleMainBodySelector" i18n-text="mainBodySelectorLabel">Main Body Selector</label>
-                        <div class="error-message" id="ruleMainBodySelectorError"></div>
-                    </div>
-                    <div class="m3-helper-text">
-                        <small i18n-text="mainBodySelectorDescription">Specify a selector for the main content area of the page (e.g., an article body). This will be used for the content summary feature.</small>
+                    <div class="input-group mt-2">
+                        <label class="input-label" i18n-text="mainBodySelectorLabel">Main Body Selector</label>
+                        <textarea id="ruleMainBodySelector" class="form-control" rows="2"></textarea>
                     </div>
                 </div>
-            </div>
-            <div class="button-group modal-actions">
-                <button id="cancelDomainRuleBtn" class="m3-button text" i18n-text="cancel">Cancel</button>
-                <button id="saveDomainRuleBtn" class="m3-button filled" i18n-text="saveRule">Save Rule</button>
+                
+                <div class="flex-between mt-6">
+                    <button id="cancelDomainRuleBtn" class="btn btn-text" i18n-text="cancel">Cancel</button>
+                    <button id="saveDomainRuleBtn" class="btn btn-primary" i18n-text="saveRule">Save</button>
+                </div>
             </div>
         </div>
     </div>
 
-
-    <!-- Scripts -->
-    <script src="/common/precheck.js"></script>
-    <script src="validator.js" type="module"></script>
-    <script src="components/BaseComponent.js" type="module"></script>
-    <script src="ui-helpers.js" type="module"></script>
-    <script src="components/ConfirmModal.js" type="module"></script>
-    <script src="components/AIEngineModal.js" type="module"></script>
-    <script src="components/DomainRuleModal.js" type="module"></script>
     <script src="options.js" type="module"></script>
 </body>
 </html>

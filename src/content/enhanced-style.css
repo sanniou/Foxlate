@@ -1,55 +1,95 @@
-@import url('../common/common.css');
+/* Foxlate Tooltip Design System 2.0 (Standalone) */
 
-/* 增强版翻译面板样式 */
 .foxlate-enhanced-panel {
+    /* --- Local Design Tokens (Matches Common.css) --- */
+    --fl-color-primary: #4f46e5;
+    --fl-color-primary-hover: #4338ca;
+    --fl-color-surface: #ffffff;
+    --fl-color-surface-dim: #f8fafc;
+    --fl-color-text-main: #0f172a;
+    --fl-color-text-secondary: #475569;
+    --fl-color-border: #e2e8f0;
+    --fl-color-hover: rgba(0, 0, 0, 0.05);
+    
+    --fl-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --fl-radius: 12px;
+    --fl-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    
+    /* Base Styles */
     position: fixed;
     visibility: hidden;
     opacity: 0;
-    transition: opacity 0.15s ease-in-out, visibility 0s linear 0.15s, transform 0.15s ease-in-out;
-    background-color: var(--md-sys-color-surface-container-high, #E6E0E9);
-    color: var(--md-sys-color-on-surface, #1C1B1F);
-    border-radius: 12px;
-    box-shadow: 0 3px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.3);
-    max-width: 340px;
-    min-width: 260px;
-    font-family: var(--md-sys-font-family);
-    font-size: var(--md-sys-typescale-body-small-font-size);
-    line-height: 1.4;
-    z-index: 2147483647;
-    border: 1px solid var(--md-sys-color-outline-variant, #CAC4D0);
+    transform: translateY(8px) scale(0.98);
+    transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1), 
+                transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                visibility 0s linear 0.2s;
+                
+    background-color: var(--fl-color-surface);
+    color: var(--fl-color-text-main);
+    border-radius: var(--fl-radius);
+    box-shadow: var(--fl-shadow);
+    border: 1px solid var(--fl-color-border);
+    
+    max-width: 360px;
+    min-width: 280px;
+    width: max-content;
+    
+    font-family: var(--fl-font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    z-index: 2147483647; /* Max Z-Index */
     overflow: hidden;
-    transform: translateY(-5px);
+    box-sizing: border-box;
 }
 
-/* 显示状态 */
+/* Reset for internal elements */
+.foxlate-enhanced-panel *, 
+.foxlate-enhanced-panel *::before, 
+.foxlate-enhanced-panel *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+/* Show State */
 .foxlate-enhanced-panel.visible {
     visibility: visible;
     opacity: 1;
-    transition: opacity 0.15s ease-in-out, transform 0.15s ease-in-out;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
+    transition-delay: 0s;
 }
 
-/* 面板内容容器 */
+/* Content Layout */
 .foxlate-panel-content {
     display: flex;
     flex-direction: column;
-    height: 100%;
 }
 
-/* 面板头部 - 更紧凑 */
+/* Header */
 .foxlate-panel-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 4px 8px;
-    border-bottom: 1px solid var(--md-sys-color-outline-variant, #CAC4D0);
-    background-color: var(--md-sys-color-surface-container, #F0EEF4);
+    padding: 12px 16px;
+    background-color: var(--fl-color-surface);
+    border-bottom: 1px solid var(--fl-color-border);
+    cursor: default; /* Changed from grab logic in JS */
+}
+
+.foxlate-panel-header.draggable {
+    cursor: grab;
+}
+.foxlate-panel-header.draggable:active {
+    cursor: grabbing;
 }
 
 .foxlate-panel-title {
-    font-size: var(--md-sys-typescale-body-medium-font-size);
-    font-weight: 500;
-    color: var(--md-sys-color-on-surface, #1C1B1F);
+    font-weight: 600;
+    color: var(--fl-color-primary);
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .foxlate-panel-actions {
@@ -57,283 +97,163 @@
     gap: 4px;
 }
 
-.foxlate-close-btn {
-    background: none;
-    border: none;
-    font-size: 14px;
-    color: var(--md-sys-color-on-surface-variant, #49454F);
-    cursor: pointer;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background-color 0.2s, color 0.2s;
-}
-
-.foxlate-close-btn:hover {
-    background-color: var(--md-sys-color-surface-container-high, #E6E0E9);
-    color: var(--md-sys-color-on-surface, #1C1B1F);
-}
-
-/* 面板主体 - 更紧凑的布局 */
+/* Body */
 .foxlate-panel-body {
-    padding: 4px 8px;
-    max-height: 200px;
+    padding: 0;
+    max-height: 300px;
     overflow-y: auto;
+    background-color: var(--fl-color-surface-dim);
 }
 
-/* 加载状态 */
-.foxlate-loading-container {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 16px;
-    gap: 8px;
-}
-
-.foxlate-spinner {
-    width: 20px;
-    height: 20px;
-    border: 2px solid var(--md-sys-color-surface-container-highest, #E4E2E6);
-    border-top: 2px solid var(--md-sys-color-primary, #3964E8);
-    border-radius: 50%;
-    animation: foxlate-spin 0.75s linear infinite;
-}
-
-.foxlate-loading-text {
-    color: var(--md-sys-color-on-surface-variant, #49454F);
-    font-size: var(--md-sys-typescale-body-small-font-size);
-}
-
-/* 错误消息 */
-.foxlate-error-message {
-    color: var(--md-sys-color-error, #BA1A1A);
-    background-color: var(--md-sys-color-error-container, #F9DEDC);
-    padding: 8px;
-    border-radius: 8px;
-    border: 1px solid var(--md-sys-color-error, #BA1A1A);
-    font-size: var(--md-sys-typescale-body-small-font-size);
-}
-
-/* 文本区域 - 更紧凑的间距 */
+/* Sections (Source/Target) */
 .foxlate-text-section {
-    margin-bottom: 4px;
+    border-bottom: 1px solid var(--fl-color-border);
+    background-color: var(--fl-color-surface);
 }
-
 .foxlate-text-section:last-child {
-    margin-bottom: 0;
+    border-bottom: none;
 }
 
 .foxlate-text-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 2px;
+    padding: 8px 12px;
     cursor: pointer;
+    user-select: none;
+    transition: background-color 0.15s;
+}
+
+.foxlate-text-header:hover {
+    background-color: var(--fl-color-surface-dim);
 }
 
 .foxlate-text-label {
-    font-size: var(--md-sys-typescale-body-small-font-size);
-    font-weight: 500;
-    color: var(--md-sys-color-primary, #3964E8);
+    font-size: 11px;
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    color: var(--fl-color-text-secondary);
+    letter-spacing: 0.05em;
 }
 
 .foxlate-text-actions {
     display: flex;
-    gap: 1px;
+    gap: 2px;
 }
 
-/* 小图标按钮 - 更紧凑的设计 */
+.foxlate-text-content {
+    padding: 0 16px 12px;
+    color: var(--fl-color-text-main);
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    font-size: 14px;
+    line-height: 1.6;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity: 1;
+    max-height: 500px; /* Arbitrary large height for transition */
+}
+
+/* Collapsed State */
+.foxlate-text-section.collapsed .foxlate-text-content {
+    max-height: 0;
+    padding-bottom: 0;
+    opacity: 0;
+    overflow: hidden;
+}
+
+/* Icon Buttons */
 .foxlate-icon-btn {
-    background: none;
+    background: transparent;
     border: none;
     cursor: pointer;
-    padding: 1px;
-    border-radius: 4px;
-    width: 18px;
-    height: 18px;
+    padding: 6px;
+    border-radius: 50%;
+    color: var(--fl-color-text-secondary);
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background-color 0.2s, transform 0.2s;
-    color: var(--md-sys-color-on-surface-variant, #49454F);
-    font-size: 10px;
+    transition: all 0.2s;
 }
 
-/* 禁用状态 */
+.foxlate-icon-btn svg {
+    width: 16px;
+    height: 16px;
+    display: block;
+}
+
+.foxlate-icon-btn:hover {
+    background-color: var(--fl-color-hover);
+    color: var(--fl-color-text-main);
+}
+
 .foxlate-icon-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
 }
 
-.foxlate-icon-btn:disabled:hover {
-    background-color: transparent;
-    transform: none;
-}
-
-.foxlate-icon-btn:hover {
-    background-color: var(--md-sys-color-surface-container-highest, #E4E2E6);
-    transform: scale(1.1);
-}
-
-.foxlate-icon-btn:active {
-    transform: scale(0.95);
-}
-
-.foxlate-text-content {
-    background-color: var(--md-sys-color-surface-container-low, #F6F4F9);
-    padding: 8px;
-    border-radius: 8px;
-    border: 1px solid var(--md-sys-color-outline-variant, #CAC4D0);
-    color: var(--md-sys-color-on-surface, #1C1B1F);
-    word-wrap: break-word;
-    line-height: 1.4;
-    font-size: var(--md-sys-typescale-body-small-font-size);
-    transition: max-height 0.2s ease-in-out;
-    overflow: hidden;
-}
-
-/* 收起状态 - 仅隐藏内容 */
-.foxlate-text-section.collapsed .foxlate-text-content {
-    max-height: 0;
-    padding-top: 0;
-    padding-bottom: 0;
-    margin-top: 0;
-    margin-bottom: 0;
-    border: none;
-    transition: max-height 0.2s ease-in-out, padding 0.2s ease-in-out, margin 0.2s ease-in-out;
-}
-
-/* 展开状态 - 显示标题和内容 */
-.foxlate-text-section:not(.collapsed) .foxlate-text-header {
-    opacity: 1;
-    height: auto;
-    transition: opacity 0.2s ease-in-out, height 0.2s ease-in-out;
-}
-
-/* 语音播放状态 */
+/* Special Button States */
 .foxlate-icon-btn.playing {
-    position: relative; /* For pseudo-element positioning */
-    background-color: var(--md-sys-color-primary, #3964E8);
-    color: var(--md-sys-color-on-primary, #FFFFFF);
+    color: var(--fl-color-primary);
+    background-color: rgba(79, 70, 229, 0.1);
 }
 
-/* 优化：使用伪元素和 transform/opacity 实现更高性能的脉冲动画 */
-.foxlate-icon-btn.playing::before {
-    content: '';
-    position: absolute;
-    top: -4px;
-    left: -4px;
-    right: -4px;
-    bottom: -4px;
-    border-radius: 50%;
-    background-color: var(--md-sys-color-primary, #3964E8);
-    animation: foxlate-pulse 1.5s infinite;
-    z-index: 0;
-}
-
-/* 确保按钮图标在伪元素之上 */
-.foxlate-icon-btn.playing > svg {
-    position: relative;
-    z-index: 1;
-}
-
-@keyframes foxlate-pulse {
-    0% {
-        transform: scale(0.8);
-        opacity: 0.7;
-    }
-    100% {
-        transform: scale(2);
-        opacity: 0;
-    }
-}
-
-/* 复制成功状态 */
 .foxlate-icon-btn.copied {
-    background-color: var(--md-sys-color-primary, #3964E8);
-    color: var(--md-sys-color-on-primary, #FFFFFF);
+    color: #10b981; /* Success Green */
 }
 
-/* 滚动条样式 */
-.foxlate-panel-body::-webkit-scrollbar {
-    width: 4px;
+/* Loading */
+.foxlate-loading-container {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    color: var(--fl-color-text-secondary);
 }
 
-.foxlate-panel-body::-webkit-scrollbar-track {
-    background: var(--md-sys-color-surface-container-low, #F6F4F9);
-    border-radius: 2px;
+.foxlate-spinner {
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--fl-color-border);
+    border-top-color: var(--fl-color-primary);
+    border-radius: 50%;
+    animation: fl-spin 0.8s linear infinite;
 }
 
-.foxlate-panel-body::-webkit-scrollbar-thumb {
-    background: var(--md-sys-color-on-surface-variant, #49454F);
-    border-radius: 2px;
+@keyframes fl-spin {
+    to { transform: rotate(360deg); }
 }
 
-.foxlate-panel-body::-webkit-scrollbar-thumb:hover {
-    background: var(--md-sys-color-on-surface, #1C1B1F);
+/* Error */
+.foxlate-error-message {
+    padding: 16px;
+    background-color: #fef2f2;
+    color: #ef4444;
+    font-size: 13px;
+    border-top: 1px solid #fee2e2;
 }
 
-/* 动画 */
-@keyframes foxlate-spin {
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-/* 响应式设计 */
-@media (max-width: 480px) {
-    .foxlate-enhanced-panel {
-        max-width: 90vw;
-        min-width: 260px;
-    }
-    
-    .foxlate-panel-body {
-        padding: 6px 10px;
-    }
-}
-
-/* 深色模式支持 */
+/* Dark Mode (System Preference) */
 @media (prefers-color-scheme: dark) {
     .foxlate-enhanced-panel {
-        background-color: var(--md-sys-color-surface-container-high, #36343B);
-        color: var(--md-sys-color-on-surface, #E6E0E9);
-        border-color: var(--md-sys-color-outline-variant, #49454F);
+        --fl-color-surface: #1e293b;      /* Slate 800 */
+        --fl-color-surface-dim: #0f172a;  /* Slate 900 */
+        --fl-color-text-main: #f8fafc;    /* Slate 50 */
+        --fl-color-text-secondary: #94a3b8; /* Slate 400 */
+        --fl-color-border: #334155;       /* Slate 700 */
+        --fl-color-hover: rgba(255, 255, 255, 0.1);
+        --fl-color-primary: #818cf8;      /* Indigo 400 (Lighter for dark mode) */
+        
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
     }
     
-    .foxlate-panel-header {
-        background-color: var(--md-sys-color-surface-container, #2B2930);
-        border-color: var(--md-sys-color-outline-variant, #49454F);
+    .foxlate-error-message {
+        background-color: #450a0a;
+        color: #fca5a5;
+        border-color: #7f1d1d;
     }
     
-    .foxlate-panel-title {
-        color: var(--md-sys-color-on-surface, #E6E0E9);
-    }
-    
-    .foxlate-close-btn {
-        color: var(--md-sys-color-on-surface-variant, #CAC4D0);
-    }
-    
-    .foxlate-close-btn:hover {
-        background-color: var(--md-sys-color-surface-container-high, #36343B);
-        color: var(--md-sys-color-on-surface, #E6E0E9);
-    }
-    
-    .foxlate-text-content {
-        background-color: var(--md-sys-color-surface-container-low, #2B2930);
-        border-color: var(--md-sys-color-outline-variant, #49454F);
-        color: var(--md-sys-color-on-surface, #E6E0E9);
-    }
-    
-    .foxlate-icon-btn {
-        color: var(--md-sys-color-on-surface-variant, #CAC4D0);
-    }
-    
-    .foxlate-icon-btn:hover {
-        background-color: var(--md-sys-color-surface-container-highest, #4A4458);
+    .foxlate-icon-btn.playing {
+        background-color: rgba(129, 140, 248, 0.2);
     }
 }

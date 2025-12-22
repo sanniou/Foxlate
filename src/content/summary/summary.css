@@ -1,180 +1,197 @@
-/* src/content/summary/summary.css */
+/* Foxlate Summary Design System 2.0 */
 
 .foxlate-summary-button {
+    /* Floating Action Button Style */
     position: fixed;
-    width: 48px;
-    height: 48px;
-    background-color: #1a73e8;
-    border-radius: 50%;
+    width: 56px;
+    height: 56px;
+    background-color: #4f46e5; /* Indigo 600 */
+    border-radius: 28px; /* Full Radius */
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     cursor: pointer;
     z-index: 2147483640;
-    transition: all 0.2s ease-in-out;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     user-select: none;
-    /* 防止被自动翻译 */
     -webkit-user-modify: read-only;
     user-modify: read-only;
 }
+
 .foxlate-summary-button.dragging {
-    transition: none; /* Disable transition during drag */
+    transition: none;
+    cursor: grabbing;
+    transform: scale(1.05);
 }
+
 .foxlate-summary-button.rotated {
     transform: rotate(180deg);
 }
-.foxlate-summary-button:hover { background-color: #185abc; transform: scale(1.05); }
+
+.foxlate-summary-button:hover {
+    background-color: #4338ca; /* Indigo 700 */
+    transform: scale(1.05);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
 .foxlate-summary-button.rotated:hover {
     transform: rotate(180deg) scale(1.05);
 }
-.foxlate-summary-button svg { fill: white; }
 
+.foxlate-summary-button svg {
+    fill: white;
+    width: 24px;
+    height: 24px;
+}
+
+/* Dialog Container */
 .foxlate-summary-dialog {
+    /* Local Tokens */
+    --fs-primary: #4f46e5;
+    --fs-surface: #ffffff;
+    --fs-surface-dim: #f8fafc;
+    --fs-border: #e2e8f0;
+    --fs-text-main: #0f172a;
+    --fs-text-secondary: #64748b;
+    --fs-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    --fs-radius: 16px;
+
     position: fixed;
-    width: clamp(350px, 40vw, 500px);
-    min-height: 200px;
-    max-height: 80vh;
-    background-color: #fff;
-    border: 1px solid #e0e0e0;
-    border-radius: 16px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    width: clamp(360px, 40vw, 520px);
+    min-height: 300px;
+    max-height: 85vh;
+    background-color: var(--fs-surface);
+    border: 1px solid var(--fs-border);
+    border-radius: var(--fs-radius);
+    box-shadow: var(--fs-shadow);
     z-index: 2147483641;
     display: flex;
     flex-direction: column;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    color: #202124;
-    transform: scale(0);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: var(--fs-text-main);
+    
+    /* Animation State */
     opacity: 0;
-    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease-in-out;
+    transform: scale(0.95);
     visibility: hidden;
+    transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s 0.2s;
     overflow: hidden;
-    /* 防止滚动事件穿透 */
+    
+    /* Scroll & Touch Behavior */
     overscroll-behavior: contain;
     touch-action: pan-y pinch-zoom;
-    /* 防止被自动翻译 */
     -webkit-user-modify: read-only;
     user-modify: read-only;
 }
 
 .foxlate-summary-dialog.visible {
-    transform: scale(1);
     opacity: 1;
+    transform: scale(1);
     visibility: visible;
-    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-                opacity 0.2s ease-in-out,
-                max-height 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition-delay: 0s;
 }
 
-.foxlate-summary-dialog.loading .send-button { opacity: 0.5; cursor: wait; }
-
-/* 生长动画支持 */
 .foxlate-summary-dialog.growing {
     transition: max-height 0.2s cubic-bezier(0.4, 0, 0.2, 1),
                 transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+.foxlate-summary-dialog.loading .send-button {
+    opacity: 0.5;
+    cursor: wait;
+}
+
+/* Header */
 .foxlate-summary-header {
-    padding: 12px 16px;
-    border-bottom: 1px solid #e0e0e0;
-    flex-shrink: 0;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--fs-border);
     display: flex;
     justify-content: space-between;
     align-items: center;
+    background-color: var(--fs-surface);
 }
-.foxlate-summary-header h3 { margin: 0; font-size: 1.1em; font-weight: 600; }
-.foxlate-summary-header .refresh-button {
-    background: none;
+
+.foxlate-summary-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--fs-text-main);
+}
+
+.refresh-button {
+    background: transparent;
     border: none;
     cursor: pointer;
-    padding: 4px;
+    padding: 8px;
     border-radius: 50%;
+    color: var(--fs-text-secondary);
+    transition: background-color 0.2s;
     display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #5f6368;
-}
-.foxlate-summary-header .refresh-button:hover {
-    background-color: #f0f0f0;
-}
-.foxlate-summary-header .refresh-button svg {
-    fill: currentColor;
-    width: 20px;
-    height: 20px;
 }
 
-/* New Tab Styles */
+.refresh-button:hover {
+    background-color: var(--fs-surface-dim);
+    color: var(--fs-primary);
+}
+
+/* Tabs */
 .foxlate-summary-tabs {
     display: flex;
-    flex-shrink: 0;
-    border-bottom: 1px solid #e0e0e0;
-    padding: 8px 8px 0 8px;
+    padding: 0 16px;
+    background-color: var(--fs-surface-dim);
+    border-bottom: 1px solid var(--fs-border);
+    gap: 4px;
     overflow-x: auto;
-    background-color: #f8f9fa;
 }
-/* Hide scrollbar for tabs container */
+
 .foxlate-summary-tabs::-webkit-scrollbar { display: none; }
-.foxlate-summary-tabs { -ms-overflow-style: none; scrollbar-width: none; }
 
 .foxlate-summary-tab {
+    padding: 10px 16px;
+    font-size: 13px;
+    color: var(--fs-text-secondary);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
     display: flex;
     align-items: center;
-    padding: 6px 12px;
-    border: 1px solid transparent;
-    border-bottom: none;
-    border-top-left-radius: 8px;
-    border-top-right-radius: 8px;
-    cursor: pointer;
-    font-size: 0.9em;
-    color: #5f6368;
-    max-width: 150px;
-    position: relative;
-    bottom: -1px; /* Align with the bottom border */
+    gap: 8px;
 }
+
 .foxlate-summary-tab:hover {
-    background-color: #f0f0f0;
+    color: var(--fs-text-main);
+    background-color: rgba(0,0,0,0.02);
 }
+
 .foxlate-summary-tab.active {
-    background-color: #fff;
-    border-color: #e0e0e0;
-    color: #1a73e8;
+    color: var(--fs-primary);
+    border-bottom-color: var(--fs-primary);
     font-weight: 500;
+    background-color: var(--fs-surface);
 }
-.foxlate-summary-tab-title {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
+
 .foxlate-summary-tab-close {
     background: none;
     border: none;
-    border-radius: 50%;
     cursor: pointer;
+    padding: 2px;
+    border-radius: 50%;
     display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 18px;
-    height: 18px;
-    margin-left: 8px;
-    padding: 0;
     opacity: 0.6;
 }
 .foxlate-summary-tab-close:hover {
-    background-color: #e0e0e0;
+    background-color: var(--fs-border);
     opacity: 1;
 }
-.foxlate-summary-tab-close svg {
-    fill: #5f6368;
-    width: 14px;
-    height: 14px;
-}
+.foxlate-summary-tab-close svg { width: 14px; height: 14px; fill: currentColor; }
 
+/* Content Area */
 .foxlate-summary-content-wrapper {
+    flex: 1;
     position: relative;
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
     overflow: hidden;
+    background-color: var(--fs-surface);
 }
 
 .foxlate-summary-original-text {
@@ -184,16 +201,15 @@
     right: 0;
     z-index: 10;
     padding: 12px 16px;
-    background-color: #f8f9fa;
-    border-bottom: 1px solid #e0e0e0;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    background-color: var(--fs-surface-dim);
+    border-bottom: 1px solid var(--fs-border);
+    box-shadow: var(--fs-shadow);
     max-height: 150px;
     overflow-y: auto;
     white-space: pre-wrap;
-    font-size: 0.9em;
-    color: #3c4043;
+    font-size: 13px;
+    color: var(--fs-text-secondary);
     
-    /* Animation styles */
     visibility: hidden;
     opacity: 0;
     transform: translateY(-100%);
@@ -208,122 +224,262 @@
 }
 
 .foxlate-summary-conversation {
-    flex-grow: 1;
+    height: 100%;
     overflow-y: auto;
-    padding: 16px;
+    padding: 20px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    /* 防止滚动事件穿透 */
+    gap: 20px;
+    
+    /* Prevent scroll chaining */
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
 }
 
-.foxlate-summary-message { display: flex; flex-direction: column; gap: 4px; max-width: 95%; }
-.foxlate-summary-message .message-content { padding: 10px 14px; border-radius: 18px; line-height: 1.5; word-wrap: break-word; }
-.foxlate-summary-message.assistant { align-self: flex-start; }
-.foxlate-summary-message.assistant .message-content { background-color: #f1f3f4; border-bottom-left-radius: 4px; }
-.foxlate-summary-message.user { align-self: flex-end; }
-.foxlate-summary-message.user .message-content { background-color: #d0e3ff; border-bottom-right-radius: 4px; }
-.foxlate-summary-message.error .message-content {
-    background-color: #fdeded;
-    color: #b92025;
-    border-left: 4px solid #b92025;
-    padding-left: 12px;
+/* Messages */
+.foxlate-summary-message {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-width: 92%;
+    animation: slideIn 0.3s ease-out;
 }
 
+@keyframes slideIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.foxlate-summary-message .message-content {
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 14px;
+    line-height: 1.6;
+    word-wrap: break-word;
+}
+
+/* Assistant Bubble */
+.foxlate-summary-message.assistant .message-content {
+    background-color: var(--fs-surface-dim);
+    color: var(--fs-text-main);
+    border-bottom-left-radius: 4px;
+}
+
+/* User Bubble */
+.foxlate-summary-message.user {
+    align-self: flex-end;
+}
+
+.foxlate-summary-message.user .message-content {
+    background-color: var(--fs-primary);
+    color: white;
+    border-bottom-right-radius: 4px;
+}
+
+/* Error State */
+.foxlate-summary-message.error .message-content {
+    background-color: #fef2f2;
+    color: #ef4444;
+    border-left: 4px solid #ef4444;
+}
+
+/* Edit Mode */
 .foxlate-summary-message.is-editing {
     max-width: 100%;
-    align-self: stretch;
 }
 
-.foxlate-summary-message.loading { align-items: center; width: 100%; }
-
-.foxlate-summary-message .message-actions { display: flex; align-items: center; gap: 8px; padding: 0 8px; visibility: hidden; }
-.foxlate-summary-message:hover .message-actions { visibility: visible; }
-.message-actions button { background: none; border: none; cursor: pointer; opacity: 0.6; padding: 2px; }
-.message-actions button:hover { opacity: 1; }
-.message-actions button:disabled { opacity: 0.2; cursor: not-allowed; }
-.message-actions button svg { fill: #5f6368; vertical-align: middle; }
-.message-actions span { font-size: 0.8em; color: #5f6368; }
-
-.message-edit-area { width: 100%; }
 .message-edit-area textarea {
     width: 100%;
-    border: 1px solid #ccc;
+    border: 1px solid var(--fs-border);
     border-radius: 8px;
     padding: 8px;
     font-family: inherit;
+    font-size: 14px;
     resize: vertical;
-    box-sizing: border-box;
+    background-color: var(--fs-surface);
+    color: var(--fs-text-main);
 }
-.message-edit-area .message-actions { visibility: visible; justify-content: flex-end; }
 
-.loading-indicator { position: relative; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: #5f6368; animation: loading-bounce 1.4s infinite ease-in-out both; }
-.loading-indicator::before, .loading-indicator::after { content: ''; position: absolute; width: 8px; height: 8px; border-radius: 50%; background-color: #5f6368; animation: loading-bounce 1.4s infinite ease-in-out both; }
+.message-edit-area .message-actions {
+    opacity: 1;
+    justify-content: flex-end;
+    margin-top: 4px;
+}
+
+/* Loading Message */
+.foxlate-summary-message.loading {
+    align-items: flex-start;
+}
+
+.loading-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--fs-text-secondary);
+    animation: loading-bounce 1.4s infinite ease-in-out both;
+    position: relative;
+    margin: 0 12px;
+}
+
+.loading-indicator::before, 
+.loading-indicator::after {
+    content: '';
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--fs-text-secondary);
+    animation: loading-bounce 1.4s infinite ease-in-out both;
+    top: 0;
+}
+
 .loading-indicator::before { left: -12px; animation-delay: -0.32s; }
 .loading-indicator::after { left: 12px; animation-delay: -0.16s; }
-@keyframes loading-bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1.0); } }
 
-.foxlate-summary-footer {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    flex-shrink: 0;
-    padding: 8px 16px 12px 16px;
-    border-top: 1px solid #e0e0e0;
+@keyframes loading-bounce {
+    0%, 80%, 100% { transform: scale(0); }
+    40% { transform: scale(1.0); }
 }
-.foxlate-summary-footer textarea { flex-grow: 1; border: none; outline: none; resize: none; font-size: 1em; background: transparent; max-height: 100px; font-family: inherit; padding-top: 6px; }
-.foxlate-summary-footer .send-button { border: none; background: none; cursor: pointer; padding: 4px; border-radius: 50%; }
-.foxlate-summary-footer .send-button:hover { background-color: #f0f0f0; }
-.foxlate-summary-footer .send-button svg { fill: #1a73e8; }
-.foxlate-summary-footer .send-button:disabled svg { fill: #aaa; }
 
-.foxlate-summary-menubar {
+/* Actions */
+.message-actions {
     display: flex;
-    justify-content: flex-start;
+    gap: 8px;
+    opacity: 0;
+    transition: opacity 0.2s;
+    padding: 0 4px;
+}
+
+.foxlate-summary-message:hover .message-actions {
+    opacity: 1;
+}
+
+.message-actions button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    color: var(--fs-text-secondary);
+    border-radius: 4px;
+    display: flex;
     align-items: center;
-    padding: 8px 16px;
-    border-bottom: 1px solid #e0e0e0;
+}
+
+.message-actions button:hover {
+    background-color: var(--fs-surface-dim);
+    color: var(--fs-primary);
+}
+
+.message-actions button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Footer & Input */
+.foxlate-summary-footer {
+    padding: 16px;
+    border-top: 1px solid var(--fs-border);
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    background-color: var(--fs-surface);
+}
+
+.foxlate-summary-footer textarea {
+    flex: 1;
+    border: 1px solid var(--fs-border);
+    border-radius: 20px;
+    padding: 10px 16px;
+    font-family: inherit;
+    font-size: 14px;
+    resize: none;
+    outline: none;
+    max-height: 120px;
+    background-color: var(--fs-surface-dim);
+    transition: border-color 0.2s, background-color 0.2s;
+}
+
+.foxlate-summary-footer textarea:focus {
+    border-color: var(--fs-primary);
+    background-color: var(--fs-surface);
+}
+
+.send-button {
+    background-color: var(--fs-primary);
+    color: white;
+    border: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
     flex-shrink: 0;
+}
+
+.send-button:hover:not(:disabled) {
+    background-color: #4338ca;
+    transform: scale(1.05);
+}
+
+.send-button:disabled {
+    background-color: var(--fs-border);
+    cursor: not-allowed;
+}
+
+.send-button svg {
+    fill: currentColor;
+    width: 18px;
+    height: 18px;
+    margin-left: 2px; /* Visual balance */
+}
+
+/* Suggestion Bar */
+.foxlate-summary-menubar {
+    padding: 8px 16px;
+    background-color: var(--fs-surface-dim);
+    border-top: 1px solid var(--fs-border);
 }
 
 .suggest-button {
     background: none;
-    border: none;
+    border: 1px solid var(--fs-border);
+    border-radius: 16px;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: var(--fs-text-secondary);
     cursor: pointer;
-    padding: 6px 8px;
-    border-radius: 8px;
     display: flex;
     align-items: center;
-    justify-content: center;
-    color: #5f6368;
-    font-size: 0.9em;
-    font-weight: 500;
-    transition: background-color 0.2s ease-in-out;
+    gap: 6px;
+    transition: all 0.2s;
 }
 
 .suggest-button:hover {
-    background-color: #f0f0f0;
+    background-color: white;
+    border-color: var(--fs-primary);
+    color: var(--fs-primary);
 }
 
-.suggest-button svg {
-    fill: currentColor;
-    width: 18px;
-    height: 18px;
-    margin-right: 4px;
+.suggest-button.loading {
+    cursor: wait;
+    opacity: 0.7;
 }
 
+/* Suggestions Dropdown */
 .foxlate-summary-suggestions {
     display: none;
     flex-direction: column;
     gap: 8px;
-    padding: 8px 16px;
-    background-color: #f8f9fa;
-    border-bottom: 1px solid #e0e0e0;
+    padding: 12px 16px;
+    background-color: var(--fs-surface-dim);
+    border-bottom: 1px solid var(--fs-border);
     opacity: 0;
     transform: translateY(10px);
-    transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+    transition: opacity 0.2s, transform 0.2s;
 }
 
 .foxlate-summary-suggestions.is-visible {
@@ -333,110 +489,49 @@
 }
 
 .foxlate-suggestion-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background-color: #e8f0fe;
-    border-radius: 16px;
+    background-color: var(--fs-surface);
+    border: 1px solid var(--fs-border);
+    border-radius: 12px;
     padding: 8px 12px;
-    font-size: 0.9em;
-    color: #202121;
+    font-size: 13px;
+    color: var(--fs-text-main);
     cursor: pointer;
-    transition: background-color 0.2s ease-in-out;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s;
 }
 
 .foxlate-suggestion-item:hover {
-    background-color: #d2e3fc;
-}
-
-.foxlate-suggestion-item .suggestion-text {
-    flex-grow: 1;
-    margin-right: 8px;
-}
-
-.foxlate-suggestion-item button {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 4px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0.8;
-    transition: opacity 0.2s ease-in-out, background-color 0.2s ease-in-out;
-}
-
-.foxlate-suggestion-item button:hover {
-    opacity: 1;
-    background-color: rgba(0, 0, 0, 0.05);
-}
-
-.foxlate-suggestion-item button svg {
-    fill: #5f6368;
-    width: 16px;
-    height: 16px;
+    border-color: var(--fs-primary);
+    background-color: #f0fdf4; /* Very light green hint */
 }
 
 .foxlate-suggestion-loading,
 .foxlate-suggestion-message {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 10px;
-    color: #5f6368;
-    font-size: 0.9em;
-    gap: 8px;
-}
-
-.foxlate-suggestion-loading .loading-indicator {
-    width: 12px;
-    height: 12px;
+    padding: 12px;
+    text-align: center;
+    color: var(--fs-text-secondary);
+    font-size: 13px;
 }
 
 .foxlate-suggestion-error {
-    color: #d93025;
-    background-color: #fdeded;
+    color: #ef4444;
+    background-color: #fef2f2;
     border-radius: 8px;
-    padding: 8px 12px;
-    border-left: 4px solid #d93025;
 }
 
-/* 错误状态增强样式 */
-.foxlate-summary-message.error {
-    position: relative;
-}
-
-.foxlate-summary-message.error .message-content {
-    white-space: pre-line;
-    line-height: 1.6;
-}
-
-.foxlate-summary-message.error .message-actions button[data-action="retry"] {
-    background-color: #d93025;
-    color: white;
-    border: none;
-}
-
-.foxlate-summary-message.error .message-actions button[data-action="retry"]:hover {
-    background-color: #c5221f;
-}
-
-.foxlate-summary-message.error .message-actions button[data-action="copy-error"] {
-    background-color: #f1f3f4;
-    color: #5f6368;
-}
-
-.foxlate-summary-message.error .message-actions button[data-action="copy-error"]:hover {
-    background-color: #e8eaed;
-}
-
-.suggest-button.loading {
-    cursor: wait;
-    opacity: 0.7;
-}
-
-.suggest-button:disabled {
-    cursor: not-allowed;
-    opacity: 0.5;
+/* Dark Mode */
+@media (prefers-color-scheme: dark) {
+    .foxlate-summary-dialog {
+        --fs-surface: #1e293b;
+        --fs-surface-dim: #0f172a;
+        --fs-border: #334155;
+        --fs-text-main: #f8fafc;
+        --fs-text-secondary: #94a3b8;
+    }
+    
+    .foxlate-summary-tab:hover {
+        background-color: rgba(255,255,255,0.05);
+    }
 }

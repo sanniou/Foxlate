@@ -40,17 +40,15 @@ export class ConfirmModal extends BaseComponent {
     }
 
     #bindEvents() {
-        this.#elements.confirmModalConfirmBtn.addEventListener('click', () => {
-            this.emit('confirm');
-        });
+        // Use document-level delegation or bind to modal container if possible,
+        // but here we bind to specific elements. Ensure IDs are stable.
+        const bindClick = (el, handler) => {
+            if(el) el.addEventListener('click', handler);
+        };
 
-        this.#elements.confirmModalCancelBtn.addEventListener('click', () => {
-            this.emit('cancel');
-        });
-        
-        this.#elements.closeConfirmModalBtn.addEventListener('click', () => {
-            this.emit('cancel');
-        });
+        bindClick(this.#elements.confirmModalConfirmBtn, () => this.emit('confirm'));
+        bindClick(this.#elements.confirmModalCancelBtn, () => this.emit('cancel'));
+        bindClick(this.#elements.closeConfirmModalBtn, () => this.emit('cancel'));
     }
 
     #openModal(modalElement) {
