@@ -1,6 +1,6 @@
 {
   "name": "foxlate",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "一个功能强大的浏览器扩展，旨在提供无缝的网页内容翻译体验。支持多种翻译服务，并提供灵活的配置选项，让您轻松翻译选定的文本或管理翻译设置。",
   "main": "index.js",
   "directories": {
