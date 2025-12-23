@@ -3,46 +3,117 @@
 .foxlate-summary-button {
     /* Floating Action Button Style */
     position: fixed;
-    width: 56px;
-    height: 56px;
-    background-color: #4f46e5; /* Indigo 600 */
-    border-radius: 28px; /* Full Radius */
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); /* Indigo to Purple */
+    border-radius: 14px; /* Squircle */
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 8px 16px -4px rgba(99, 102, 241, 0.4),
+                0 4px 6px -2px rgba(99, 102, 241, 0.2),
+                inset 0 1px 1px rgba(255, 255, 255, 0.3);
     cursor: pointer;
     z-index: 2147483640;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
     user-select: none;
     -webkit-user-modify: read-only;
     user-modify: read-only;
 }
 
-.foxlate-summary-button.dragging {
-    transition: none;
-    cursor: grabbing;
-    transform: scale(1.05);
+/* Tooltip */
+.foxlate-summary-button::before {
+    content: attr(data-tooltip);
+    position: absolute;
+    right: 125%; /* Left side of the button */
+    top: 50%;
+    transform: translateY(-50%) translateX(10px) scale(0.9);
+    background: rgba(15, 23, 42, 0.9);
+    color: white;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(4px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
-.foxlate-summary-button.rotated {
-    transform: rotate(180deg);
+.foxlate-summary-button:hover::before {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0) scale(1);
+}
+
+.foxlate-summary-button.dragging {
+    cursor: grabbing;
+    transition: none;
+    opacity: 0.9;
+    transform: scale(1.02);
+}
+
+.foxlate-summary-button.dragging::before {
+    display: none;
 }
 
 .foxlate-summary-button:hover {
-    background-color: #4338ca; /* Indigo 700 */
-    transform: scale(1.05);
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 12px 20px -4px rgba(99, 102, 241, 0.5),
+                0 6px 8px -2px rgba(99, 102, 241, 0.3),
+                inset 0 1px 1px rgba(255, 255, 255, 0.4);
+}
+
+.foxlate-summary-button:active {
+    transform: translateY(1px) scale(0.95);
+    box-shadow: 0 4px 8px -2px rgba(99, 102, 241, 0.4);
+}
+
+/* Rotated State (Active/Open) */
+.foxlate-summary-button.rotated {
+    background: linear-gradient(135deg, #ef4444 0%, #f43f5e 100%); /* Red to Pink */
+    box-shadow: 0 8px 16px -4px rgba(239, 68, 68, 0.4),
+                inset 0 1px 1px rgba(255, 255, 255, 0.3);
 }
 
 .foxlate-summary-button.rotated:hover {
-    transform: rotate(180deg) scale(1.05);
+    box-shadow: 0 12px 20px -4px rgba(239, 68, 68, 0.5),
+                inset 0 1px 1px rgba(255, 255, 255, 0.4);
 }
 
 .foxlate-summary-button svg {
     fill: white;
     width: 24px;
     height: 24px;
+    position: absolute;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.1));
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Icon Switching Animation */
+.foxlate-summary-button .icon-close {
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.5);
+}
+
+.foxlate-summary-button .icon-sparkles {
+    opacity: 1;
+    transform: rotate(0) scale(1);
+}
+
+.foxlate-summary-button:hover .icon-sparkles {
+    transform: rotate(15deg) scale(1.1);
+}
+
+.foxlate-summary-button.rotated .icon-close {
+    opacity: 1;
+    transform: rotate(0) scale(1);
+}
+
+.foxlate-summary-button.rotated .icon-sparkles {
+    opacity: 0;
+    transform: rotate(90deg) scale(0.5);
 }
 
 /* Dialog Container */

@@ -792,6 +792,10 @@
     "message": "暂无建议。",
     "description": "内容总结没有建议时的文本。"
   },
+  "summaryButtonTooltip": {
+    "message": "总结",
+    "description": "总结按钮的工具提示文本。"
+  },
   "confirmTitle": {
     "message": "确认",
     "description": "Title for the confirm modal."
