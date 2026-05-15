@@ -16,14 +16,14 @@
 .foxlate-error-underline,
 .foxlate-hover-highlight {
     /* Light Mode Tokens */
-    --fl-sys-color-primary: #4f46e5;
+    --fl-sys-color-primary: #0f766e;
     --fl-sys-color-on-primary: #ffffff;
     --fl-sys-color-surface: #ffffff;
-    --fl-sys-color-surface-dim: #f8fafc;
-    --fl-sys-color-on-surface: #0f172a;
-    --fl-sys-color-text-secondary: #475569;
-    --fl-sys-color-outline: #e2e8f0;
-    --fl-sys-color-error: #ef4444;
+    --fl-sys-color-surface-dim: #f7f8fb;
+    --fl-sys-color-on-surface: #111827;
+    --fl-sys-color-text-secondary: #4b5563;
+    --fl-sys-color-outline: #dbe3ee;
+    --fl-sys-color-error: #dc2626;
     --fl-sys-color-error-container: #fef2f2;
     --fl-sys-color-on-error-container: #991b1b;
     
@@ -38,12 +38,12 @@
     .foxlate-appended-text,
     .foxlate-error-underline,
     .foxlate-hover-highlight {
-        --fl-sys-color-primary: #818cf8;
-        --fl-sys-color-surface: #1e293b;
-        --fl-sys-color-surface-dim: #0f172a;
-        --fl-sys-color-on-surface: #f8fafc;
-        --fl-sys-color-text-secondary: #94a3b8;
-        --fl-sys-color-outline: #334155;
+        --fl-sys-color-primary: #5eead4;
+        --fl-sys-color-surface: #17202f;
+        --fl-sys-color-surface-dim: #0f1724;
+        --fl-sys-color-on-surface: #f7f8fb;
+        --fl-sys-color-text-secondary: #aab3c2;
+        --fl-sys-color-outline: #344155;
         --fl-sys-color-error: #f87171;
         --fl-sys-color-error-container: #450a0a;
         --fl-sys-color-on-error-container: #fca5a5;
@@ -217,7 +217,7 @@
   ========================================
 */
 .foxlate-hover-highlight {
-    background-color: rgba(79, 70, 229, 0.1); /* Fallback based on Primary #4f46e5 */
+    background-color: rgba(15, 118, 110, 0.1);
     border-radius: 4px;
     padding: 0 2px;
     transition: background-color 0.2s ease-in-out;

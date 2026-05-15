@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
         displayModeSelect: document.getElementById('displayModeSelect'),
         translatePageBtn: document.getElementById('translatePageBtn'),
         autoTranslateCheckbox: document.getElementById('autoTranslate'),
+        scrollIdleTranslationCheckbox: document.getElementById('scrollIdleTranslation'),
         currentRuleIndicator: document.getElementById('currentRuleIndicator'),
         openOptionsBtn: document.getElementById('openOptionsBtn'),
         swapLanguagesBtn: document.getElementById('swapLanguagesBtn'),
@@ -32,10 +33,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (textElement) textElement.textContent = message;
             }
         });
-    };
-
-    const manageSelectLabels = () => {
-        // Design System 2.0: No JS needed for labels
     };
 
     const populateSelect = (selectElement, options, selectedValue) => {
@@ -112,6 +109,8 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.displayModeSelect.value = finalRule.displayMode;
         elements.autoTranslateCheckbox.disabled = !currentHostname;
         elements.autoTranslateCheckbox.checked = finalRule.autoTranslate === 'always';
+        elements.scrollIdleTranslationCheckbox.disabled = !currentHostname;
+        elements.scrollIdleTranslationCheckbox.checked = finalRule.translateAfterScrollIdle !== false;
         
         // --- 字幕控件可见性逻辑 ---
         // 默认隐藏。只有当内容脚本在一个支持的页面（YouTube）上确认
@@ -147,7 +146,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         await updateButtonStateFromContentScript();
-        manageSelectLabels();
     };
 
     /**
@@ -162,6 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.engineSelect.disabled = !enabled;
         // The auto-translate checkbox also depends on having a valid hostname.
         elements.autoTranslateCheckbox.disabled = !enabled || !currentHostname;
+        elements.scrollIdleTranslationCheckbox.disabled = !enabled || !currentHostname;
     };
 
     const updateButtonStateFromContentScript = async () => {
@@ -297,6 +296,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         elements.engineSelect.addEventListener('change', (e) => saveChangeToRule('translatorEngine', e.target.value));
         elements.targetLanguageSelect.addEventListener('change', (e) => saveChangeToRule('targetLanguage', e.target.value));
+        elements.scrollIdleTranslationCheckbox.addEventListener('change', (e) => saveChangeToRule('translateAfterScrollIdle', e.target.checked));
         elements.displayModeSelect.addEventListener('change', async (e) => {
             const newDisplayMode = e.target.value;
             // 1. 立即保存规则，这会通过后台脚本通知所有上下文，作为最终一致性的保证。

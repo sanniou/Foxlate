@@ -5,13 +5,13 @@
     position: fixed;
     width: 48px;
     height: 48px;
-    background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); /* Indigo to Purple */
-    border-radius: 14px; /* Squircle */
+    background: #0f766e;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 8px 16px -4px rgba(99, 102, 241, 0.4),
-                0 4px 6px -2px rgba(99, 102, 241, 0.2),
+    box-shadow: 0 8px 16px -4px rgba(15, 118, 110, 0.32),
+                0 4px 6px -2px rgba(15, 118, 110, 0.18),
                 inset 0 1px 1px rgba(255, 255, 255, 0.3);
     cursor: pointer;
     z-index: 2147483640;
@@ -28,7 +28,7 @@
     right: 125%; /* Left side of the button */
     top: 50%;
     transform: translateY(-50%) translateX(10px) scale(0.9);
-    background: rgba(15, 23, 42, 0.9);
+    background: rgba(17, 24, 39, 0.92);
     color: white;
     padding: 6px 10px;
     border-radius: 8px;
@@ -60,14 +60,14 @@
 
 .foxlate-summary-button:hover {
     transform: translateY(-2px) scale(1.05);
-    box-shadow: 0 12px 20px -4px rgba(99, 102, 241, 0.5),
-                0 6px 8px -2px rgba(99, 102, 241, 0.3),
+    box-shadow: 0 12px 20px -4px rgba(15, 118, 110, 0.38),
+                0 6px 8px -2px rgba(15, 118, 110, 0.24),
                 inset 0 1px 1px rgba(255, 255, 255, 0.4);
 }
 
 .foxlate-summary-button:active {
     transform: translateY(1px) scale(0.95);
-    box-shadow: 0 4px 8px -2px rgba(99, 102, 241, 0.4);
+    box-shadow: 0 4px 8px -2px rgba(15, 118, 110, 0.3);
 }
 
 /* Rotated State (Active/Open) */
@@ -119,14 +119,14 @@
 /* Dialog Container */
 .foxlate-summary-dialog {
     /* Local Tokens */
-    --fs-primary: #4f46e5;
+    --fs-primary: #0f766e;
     --fs-surface: #ffffff;
-    --fs-surface-dim: #f8fafc;
-    --fs-border: #e2e8f0;
-    --fs-text-main: #0f172a;
-    --fs-text-secondary: #64748b;
+    --fs-surface-dim: #f7f8fb;
+    --fs-border: #dbe3ee;
+    --fs-text-main: #111827;
+    --fs-text-secondary: #4b5563;
     --fs-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-    --fs-radius: 16px;
+    --fs-radius: 8px;
 
     position: fixed;
     width: 400px; /* 默认宽度 */
@@ -497,7 +497,7 @@
 }
 
 .send-button:hover:not(:disabled) {
-    background-color: #4338ca;
+    background-color: #115e59;
     transform: scale(1.05);
 }
 
@@ -600,11 +600,11 @@
 /* Dark Mode */
 @media (prefers-color-scheme: dark) {
     .foxlate-summary-dialog {
-        --fs-surface: #1e293b;
-        --fs-surface-dim: #0f172a;
-        --fs-border: #334155;
-        --fs-text-main: #f8fafc;
-        --fs-text-secondary: #94a3b8;
+        --fs-surface: #17202f;
+        --fs-surface-dim: #0f1724;
+        --fs-border: #344155;
+        --fs-text-main: #f7f8fb;
+        --fs-text-secondary: #aab3c2;
     }
     
     .foxlate-summary-tab:hover {

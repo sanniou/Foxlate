@@ -3,6 +3,8 @@ export const ELEMENT_IDS = {
     TRANSLATOR_ENGINE: 'translatorEngine',
     TARGET_LANGUAGE: 'targetLanguage',
     DISPLAY_MODE_SELECT: 'displayModeSelect',
+    SCROLL_IDLE_TRANSLATION: 'scrollIdleTranslation',
+    SCROLL_IDLE_DELAY: 'scrollIdleDelay',
     SAVE_SETTINGS_BTN: 'saveSettingsBtn',
     RESET_SETTINGS_BTN: 'reset-settings-btn',
     STATUS_MESSAGE: 'statusMessage',
@@ -111,8 +113,6 @@ export const ELEMENT_IDS = {
     
 
 
-    // Global Test Area
-    TEST_TRANSLATION_BTN: 'testTranslationBtn',
     MANUAL_TEST_TRANSLATE_BTN: 'manual-test-translate-btn',
 
     // Log Area

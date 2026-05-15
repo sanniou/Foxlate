@@ -17,6 +17,7 @@
             <nav id="settings-nav">
                 <ul>
                     <li><a href="#general" class="nav-link active"><span class="nav-text" i18n-text="navGeneral">General</span></a></li>
+                    <li><a href="#page-translation" class="nav-link"><span class="nav-text" i18n-text="navPageTranslation">Page Translation</span></a></li>
                     <li><a href="#engine" class="nav-link"><span class="nav-text" i18n-text="navEngine">Engine</span></a></li>
                     <li><a href="#input-translation" class="nav-link"><span class="nav-text" i18n-text="navInputTranslation">Input</span></a></li>
                     <li><a href="#rules" class="nav-link"><span class="nav-text" i18n-text="navRules">Rules</span></a></li>
@@ -32,13 +33,48 @@
             <section id="general" class="content-panel active">
                 <h2 i18n-text="generalSettings" class="section-title">General Settings</h2>
                 <div class="card">
+                    <div class="settings-grid-2">
+                        <div class="input-group">
+                            <label class="input-label" for="targetLanguage" i18n-text="targetLanguage">Target Language</label>
+                            <select id="targetLanguage" class="form-control"></select>
+                        </div>
+                        <div class="input-group">
+                            <label class="input-label" for="displayModeSelect" i18n-text="displayMode">Display Mode</label>
+                            <select id="displayModeSelect" class="form-control"></select>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Page Translation -->
+            <section id="page-translation" class="content-panel">
+                <h2 i18n-text="pageTranslationSettings" class="section-title">Page Translation</h2>
+                <div class="card">
+                    <div class="setting-row">
+                        <div>
+                            <div class="input-label" i18n-text="scrollIdleTranslateLabel">Translate after scroll stops</div>
+                            <div class="text-sm text-muted" i18n-text="scrollIdleTranslateDescription">Avoid requests while the page is moving.</div>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="scrollIdleTranslation">
+                            <span class="switch-track"><span class="switch-thumb"></span></span>
+                        </label>
+                    </div>
+                    <div class="input-group mt-2">
+                        <label class="input-label" for="scrollIdleDelay" i18n-text="scrollIdleDelayLabel">Scroll idle delay</label>
+                        <input type="number" id="scrollIdleDelay" class="form-control" min="0" step="50">
+                        <div class="text-sm text-muted" i18n-text="scrollIdleDelayDescription">Milliseconds to wait after scrolling stops.</div>
+                    </div>
+                    <div class="divider"></div>
                     <div class="input-group">
-                        <label class="input-label" for="targetLanguage" i18n-text="targetLanguage">Target Language</label>
-                        <select id="targetLanguage" class="form-control"></select>
+                        <label class="input-label" i18n-text="contentSelectorLabel">Global Content Selector</label>
+                        <textarea id="defaultContentSelector" class="form-control" rows="3"></textarea>
+                        <div class="text-error"></div>
                     </div>
                     <div class="input-group">
-                        <label class="input-label" for="displayModeSelect" i18n-text="displayMode">Display Mode</label>
-                        <select id="displayModeSelect" class="form-control"></select>
+                        <label class="input-label" i18n-text="excludeSelectorsLabel">Global Exclude Selector</label>
+                        <textarea id="defaultExcludeSelector" class="form-control" rows="2"></textarea>
+                        <div class="text-error"></div>
                     </div>
                 </div>
             </section>
@@ -83,20 +119,7 @@
             <!-- Rules -->
             <section id="rules" class="content-panel">
                 <h2 i18n-text="ruleManagement" class="section-title">Rule Management</h2>
-                <div class="card">
-                    <div class="input-group">
-                        <label class="input-label" i18n-text="contentSelectorLabel">Global Content Selector</label>
-                        <textarea id="defaultContentSelector" class="form-control" rows="3"></textarea>
-                        <div class="text-error"></div>
-                    </div>
-                    <div class="input-group">
-                        <label class="input-label" i18n-text="excludeSelectorsLabel">Global Exclude Selector</label>
-                        <textarea id="defaultExcludeSelector" class="form-control" rows="2"></textarea>
-                        <div class="text-error"></div>
-                    </div>
-                </div>
-
-                <div class="flex-between mt-4 mb-2">
+                <div class="flex-between mb-2">
                     <h3 class="card-title" i18n-text="domainSpecificRules">Domain Rules</h3>
                     <button id="addDomainRuleBtn" class="btn btn-primary btn-sm" i18n-text="addDomainRule">Add Rule</button>
                 </div>

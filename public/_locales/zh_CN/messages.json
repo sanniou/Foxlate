@@ -916,6 +916,10 @@
     "message": "通用",
     "description": "通用设置的导航链接。"
   },
+  "navPageTranslation": {
+    "message": "页面翻译",
+    "description": "页面翻译设置的导航链接。"
+  },
   "navEngine": {
     "message": "引擎",
     "description": "引擎设置的导航链接。"
@@ -939,6 +943,30 @@
   "engineSettings": {
     "message": "引擎设置",
     "description": "引擎设置的部分标题。"
+  },
+  "pageTranslationSettings": {
+    "message": "页面翻译",
+    "description": "页面翻译设置的部分标题。"
+  },
+  "scrollIdleTranslateLabel": {
+    "message": "滚动停止后翻译",
+    "description": "滚动停止后再开始页面翻译的标签。"
+  },
+  "scrollIdleTranslateDescription": {
+    "message": "页面滚动时不发起请求。",
+    "description": "滚动停止翻译设置的辅助文本。"
+  },
+  "scrollIdleDelayLabel": {
+    "message": "停止判定时间",
+    "description": "滚动停止判定时间设置标签。"
+  },
+  "scrollIdleDelayDescription": {
+    "message": "滚动停止后等待的毫秒数。",
+    "description": "滚动停止判定时间的辅助文本。"
+  },
+  "popupAutoTranslateDescription": {
+    "message": "始终翻译当前站点",
+    "description": "弹窗中自动翻译开关的辅助文本。"
   },
   "appearanceSettings": {
     "message": "外观设置",

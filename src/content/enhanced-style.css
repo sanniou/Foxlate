@@ -2,14 +2,14 @@
 
 .foxlate-enhanced-panel {
     /* --- Local Design Tokens (Matches Common.css) --- */
-    --fl-color-primary: #4f46e5;
-    --fl-color-primary-hover: #4338ca;
+    --fl-color-primary: #0f766e;
+    --fl-color-primary-hover: #115e59;
     --fl-color-surface: #ffffff;
-    --fl-color-surface-dim: #f8fafc;
-    --fl-color-text-main: #0f172a;
-    --fl-color-text-secondary: #475569;
-    --fl-color-border: #e2e8f0;
-    --fl-color-hover: rgba(0, 0, 0, 0.05);
+    --fl-color-surface-dim: #f7f8fb;
+    --fl-color-text-main: #111827;
+    --fl-color-text-secondary: #4b5563;
+    --fl-color-border: #dbe3ee;
+    --fl-color-hover: rgba(17, 24, 39, 0.06);
     
     --fl-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
     --fl-radius: 12px;
@@ -236,13 +236,13 @@
 /* Dark Mode (System Preference) */
 @media (prefers-color-scheme: dark) {
     .foxlate-enhanced-panel {
-        --fl-color-surface: #1e293b;      /* Slate 800 */
-        --fl-color-surface-dim: #0f172a;  /* Slate 900 */
-        --fl-color-text-main: #f8fafc;    /* Slate 50 */
-        --fl-color-text-secondary: #94a3b8; /* Slate 400 */
-        --fl-color-border: #334155;       /* Slate 700 */
+        --fl-color-surface: #17202f;
+        --fl-color-surface-dim: #0f1724;
+        --fl-color-text-main: #f7f8fb;
+        --fl-color-text-secondary: #aab3c2;
+        --fl-color-border: #344155;
         --fl-color-hover: rgba(255, 255, 255, 0.1);
-        --fl-color-primary: #818cf8;      /* Indigo 400 (Lighter for dark mode) */
+        --fl-color-primary: #5eead4;
         
         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
     }

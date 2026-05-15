@@ -32,32 +32,49 @@
             <div id="error-display" class="alert alert-error" style="display: none;"></div>
 
             <!-- Primary Action -->
-            <button id="translatePageBtn" class="btn btn-primary btn-lg btn-full shadow-lg">
+            <button id="translatePageBtn" class="btn btn-primary btn-lg btn-full">
                 <span class="btn-text" i18n-text="popupTranslatePage">Translate Page</span>
                 <div class="spinner"></div>
             </button>
 
-            <!-- Quick Settings Grid -->
-            <div class="settings-grid">
-                <!-- Engine -->
+            <section class="quick-settings" aria-label="Translation settings">
+                <div class="settings-row">
                 <div class="input-group">
+                        <label class="mini-label" for="engineSelect" i18n-text="translationEngine">Engine</label>
                     <select id="engineSelect" class="form-control form-control-sm"></select>
                 </div>
-                <!-- Mode -->
                 <div class="input-group">
+                        <label class="mini-label" for="displayModeSelect" i18n-text="displayMode">Display</label>
                     <select id="displayModeSelect" class="form-control form-control-sm"></select>
                 </div>
-                <!-- Auto Toggle -->
-                <div class="switch-wrapper" title="Always translate this site">
-                    <label class="switch">
+                </div>
+                <div class="toggle-list">
+                    <label class="toggle-row" title="Always translate this site">
+                        <span class="toggle-copy">
+                            <span class="toggle-title" i18n-text="autoTranslate">Auto Translate</span>
+                            <span class="toggle-description" i18n-text="popupAutoTranslateDescription">Always translate this site</span>
+                        </span>
+                        <span class="switch">
                         <input type="checkbox" id="autoTranslate">
                         <span class="switch-track">
                             <span class="switch-thumb"></span>
                         </span>
-                        <span class="switch-label-mini">Auto</span>
+                        </span>
+                    </label>
+                    <label class="toggle-row" title="Translate after scrolling stops">
+                        <span class="toggle-copy">
+                            <span class="toggle-title" i18n-text="scrollIdleTranslateLabel">Translate after scroll stops</span>
+                            <span class="toggle-description" i18n-text="scrollIdleTranslateDescription">Avoid requests while the page is moving</span>
+                        </span>
+                        <span class="switch">
+                            <input type="checkbox" id="scrollIdleTranslation">
+                            <span class="switch-track">
+                                <span class="switch-thumb"></span>
+                            </span>
+                        </span>
                     </label>
                 </div>
-            </div>
+            </section>
 
             <!-- Subtitle Controls (Hidden by default) -->
             <div class="subtitle-section" style="display: none;">

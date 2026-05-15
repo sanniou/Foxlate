@@ -1,7 +1,7 @@
 @import url('/common/common.css');
 
 body {
-    width: 340px;
+    width: 360px;
     height: auto;
     overflow-x: hidden;
 }
@@ -35,7 +35,7 @@ body {
     font-size: var(--text-lg);
     font-weight: var(--font-bold);
     color: var(--color-text-main);
-    letter-spacing: -0.025em;
+    letter-spacing: 0;
 }
 
 /* Main */
@@ -43,6 +43,47 @@ main {
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
+}
+
+#translatePageBtn {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+    color: var(--color-on-primary);
+    font-weight: var(--font-semibold);
+}
+
+#translatePageBtn .btn-text {
+    color: inherit;
+    background: transparent;
+}
+
+#translatePageBtn:hover:not(:disabled) {
+    background-color: var(--color-primary-hover);
+    border-color: var(--color-primary-hover);
+    color: var(--color-on-primary);
+}
+
+#translatePageBtn:disabled {
+    opacity: 1;
+    background-color: #0b6b63;
+    border-color: #0b6b63;
+    color: #ffffff;
+}
+
+#translatePageBtn.revert,
+#translatePageBtn[data-state="translated"],
+#translatePageBtn[data-state="loading"] {
+    background-color: #374151;
+    border-color: #374151;
+    color: #ffffff;
+}
+
+#translatePageBtn.revert:hover:not(:disabled),
+#translatePageBtn[data-state="translated"]:hover:not(:disabled),
+#translatePageBtn[data-state="loading"]:hover:not(:disabled) {
+    background-color: #1f2937;
+    border-color: #1f2937;
+    color: #ffffff;
 }
 
 /* Lang Selector */
@@ -77,11 +118,27 @@ main {
 }
 
 /* Settings Grid */
-.settings-grid {
-    display: grid;
-    grid-template-columns: 1.5fr 1.5fr 0.8fr;
+.quick-settings {
+    display: flex;
+    flex-direction: column;
     gap: var(--space-2);
-    align-items: center;
+}
+
+.settings-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-2);
+}
+
+.settings-row .input-group {
+    margin-bottom: 0;
+}
+
+.mini-label {
+    color: var(--color-text-muted);
+    font-size: 10px;
+    font-weight: var(--font-semibold);
+    text-transform: uppercase;
 }
 
 .form-control-sm {
@@ -90,23 +147,41 @@ main {
     height: 32px;
 }
 
-/* Switch customization for grid */
-.switch-wrapper {
+.toggle-list {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    height: 32px;
+    flex-direction: column;
+    gap: var(--space-2);
 }
 
-.switch-label-mini {
-    font-size: 10px;
-    font-weight: 600;
-    margin-left: 4px;
-    color: var(--color-text-secondary);
-    text-transform: uppercase;
+.toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    min-height: 44px;
+    padding: var(--space-2) var(--space-3);
+    background-color: var(--color-surface-container);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+}
+
+.toggle-copy {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.toggle-title {
+    color: var(--color-text-main);
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+}
+
+.toggle-description {
+    color: var(--color-text-muted);
+    font-size: 11px;
+    line-height: 1.25;
 }
 
 /* Footer */
@@ -128,14 +203,4 @@ footer {
     margin: var(--space-2) 0;
 }
 
-/* Alert Override */
-.alert {
-    padding: var(--space-2);
-    border-radius: var(--radius-md);
-    font-size: var(--text-sm);
-    text-align: center;
-}
-.alert-error {
-    background-color: var(--color-error-bg);
-    color: var(--color-error);
-}
+.alert { text-align: center; }

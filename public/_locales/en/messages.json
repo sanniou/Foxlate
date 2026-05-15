@@ -915,6 +915,10 @@
     "message": "General",
     "description": "Navigation link for General settings."
   },
+  "navPageTranslation": {
+    "message": "Page Translation",
+    "description": "Navigation link for page translation settings."
+  },
   "navEngine": {
     "message": "Engine",
     "description": "Navigation link for Engine settings."
@@ -931,6 +935,10 @@
     "message": "Cache",
     "description": "Navigation link for Cache Management."
   },
+  "navData": {
+    "message": "Data",
+    "description": "Navigation link for data management."
+  },
   "navSync": {
     "message": "Sync",
     "description": "Navigation link for Sync Management."
@@ -942,6 +950,34 @@
   "engineSettings": {
     "message": "Engine Settings",
     "description": "Section heading for engine settings."
+  },
+  "pageTranslationSettings": {
+    "message": "Page Translation",
+    "description": "Section heading for page translation settings."
+  },
+  "scrollIdleTranslateLabel": {
+    "message": "Translate after scroll stops",
+    "description": "Label for delaying page translation until scrolling stops."
+  },
+  "scrollIdleTranslateDescription": {
+    "message": "Avoid requests while the page is moving.",
+    "description": "Helper text for scroll-idle translation."
+  },
+  "scrollIdleDelayLabel": {
+    "message": "Scroll idle delay",
+    "description": "Label for scroll idle delay setting."
+  },
+  "scrollIdleDelayDescription": {
+    "message": "Milliseconds to wait after scrolling stops.",
+    "description": "Helper text for scroll idle delay setting."
+  },
+  "popupAutoTranslateDescription": {
+    "message": "Always translate this site",
+    "description": "Popup helper text for auto translate toggle."
+  },
+  "dataManagement": {
+    "message": "Data",
+    "description": "Section heading for data management."
   },
   "appearanceSettings": {
     "message": "Appearance Settings",

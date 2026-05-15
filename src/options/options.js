@@ -65,6 +65,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 return { ...currentState, targetLanguage: action.payload };
             case 'SET_DISPLAY_MODE':
                 return { ...currentState, displayMode: action.payload };
+            case 'SET_SCROLL_IDLE_TRANSLATION':
+                return { ...currentState, translateAfterScrollIdle: action.payload };
+            case 'SET_SCROLL_IDLE_DELAY': {
+                const delay = parseInt(action.payload, 10);
+                const nextDelay = !isNaN(delay) && delay >= 0 ? delay : Constants.DEFAULT_SETTINGS.scrollIdleDelayMs;
+                return { ...currentState, scrollIdleDelayMs: nextDelay };
+            }
             case 'SET_DEEPLX_URL':
                 return { ...currentState, deeplxApiUrl: action.payload };
             case 'SET_CACHE_SIZE': {
@@ -133,6 +140,8 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.defaultExcludeSelector.value = defaultSelector.exclude || '';
         elements.deeplxApiUrl.value = state.deeplxApiUrl;
         elements.displayModeSelect.value = state.displayMode;
+        elements.scrollIdleTranslation.checked = state.translateAfterScrollIdle !== false;
+        elements.scrollIdleDelay.value = state.scrollIdleDelayMs ?? Constants.DEFAULT_SETTINGS.scrollIdleDelayMs;
         elements.cacheSizeInput.value = state.cacheSize ?? Constants.DEFAULT_SETTINGS.cacheSize;
         elements.syncEnabled.checked = !!state.syncEnabled;
 
@@ -280,15 +289,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const showStatusMessage = (message, isError = false) => {
         if (statusMessageTimeout) clearTimeout(statusMessageTimeout);
         elements.statusMessage.textContent = message;
-        elements.statusMessage.className = 'status-message';
+        elements.statusMessage.className = 'toast';
         elements.statusMessage.classList.add(isError ? 'error' : 'success', 'visible');
         statusMessageTimeout = setTimeout(() => {
             elements.statusMessage.classList.remove('visible');
         }, 3000);
     };
-
-    const initializeSelectLabel = (selectEl) => {};
-    const manageSelectLabels = () => {};
 
     const updateCacheInfo = async () => {
         try {
@@ -474,24 +480,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
         reader.readAsText(file);
-    };
-
-    const toggleTestArea = async () => {
-        const container = document.getElementById('test-translation-container');
-        const button = document.getElementById('testTranslationBtn');
-        const sourceTextArea = document.getElementById('test-source-text');
-        const resultArea = document.getElementById('test-result-area');
-        const isHidden = container.style.display === 'none';
-        if (isHidden) {
-            container.style.display = 'block';
-            button.textContent = browser.i18n.getMessage('collapseTest') || 'Collapse';
-            sourceTextArea.focus();
-        } else {
-            container.style.display = 'none';
-            button.textContent = browser.i18n.getMessage('test') || 'Test';
-            sourceTextArea.value = '';
-            resultArea.innerHTML = '';
-        }
     };
 
     const toggleLogArea = () => {
@@ -695,7 +683,6 @@ document.addEventListener('DOMContentLoaded', () => {
             [ELEMENT_IDS.CLEAR_CACHE_BTN]: clearCache,
             [ELEMENT_IDS.MANAGE_AI_ENGINES_BTN]: () => aiEngineModal.open(state.aiEngines),
             [ELEMENT_IDS.ADD_DOMAIN_RULE_BTN]: () => domainRuleModal.open(null, {}, state),
-            [ELEMENT_IDS.TEST_TRANSLATION_BTN]: toggleTestArea,
             [ELEMENT_IDS.MANUAL_TEST_TRANSLATE_BTN]: performTestTranslation,
             [ELEMENT_IDS.UPLOAD_SETTINGS_BTN]: uploadSettingsToCloud,
             [ELEMENT_IDS.REFRESH_CLOUD_DATA_BTN]: refreshCloudData,
@@ -732,6 +719,7 @@ document.addEventListener('DOMContentLoaded', () => {
             [ELEMENT_IDS.DEFAULT_EXCLUDE_SELECTOR]: (val) => dispatch({ type: 'SET_DEFAULT_SELECTOR', payload: { key: 'exclude', value: val } }),
             [ELEMENT_IDS.DEEPLX_API_URL]: (val) => dispatch({ type: 'SET_DEEPLX_URL', payload: val }),
             [ELEMENT_IDS.CACHE_SIZE_INPUT]: (val) => dispatch({ type: 'SET_CACHE_SIZE', payload: val }),
+            [ELEMENT_IDS.SCROLL_IDLE_DELAY]: (val) => dispatch({ type: 'SET_SCROLL_IDLE_DELAY', payload: val }),
         };
         if (simpleStateUpdaters[id]) {
             simpleStateUpdaters[id](target.value);
@@ -762,6 +750,7 @@ document.addEventListener('DOMContentLoaded', () => {
             [ELEMENT_IDS.DISPLAY_MODE_SELECT]: (val) => dispatch({ type: 'SET_DISPLAY_MODE', payload: val }),
             [ELEMENT_IDS.TARGET_LANGUAGE]: (val) => dispatch({ type: 'SET_TARGET_LANGUAGE', payload: val }),
             [ELEMENT_IDS.SYNC_ENABLED]: (val) => dispatch({ type: 'SET_SYNC_ENABLED', payload: val }),
+            [ELEMENT_IDS.SCROLL_IDLE_TRANSLATION]: (val) => dispatch({ type: 'SET_SCROLL_IDLE_TRANSLATION', payload: val }),
         };
         if (stateUpdaters[id]) {
             stateUpdaters[id](value);
@@ -848,6 +837,8 @@ document.addEventListener('DOMContentLoaded', () => {
             resetSettingsBtn: document.getElementById(ELEMENT_IDS.RESET_SETTINGS_BTN),
             statusMessage: document.getElementById(ELEMENT_IDS.STATUS_MESSAGE),
             targetLanguage: document.getElementById(ELEMENT_IDS.TARGET_LANGUAGE),
+            scrollIdleTranslation: document.getElementById(ELEMENT_IDS.SCROLL_IDLE_TRANSLATION),
+            scrollIdleDelay: document.getElementById(ELEMENT_IDS.SCROLL_IDLE_DELAY),
             defaultContentSelector: document.getElementById(ELEMENT_IDS.DEFAULT_CONTENT_SELECTOR),
             defaultExcludeSelector: document.getElementById(ELEMENT_IDS.DEFAULT_EXCLUDE_SELECTOR),
             deeplxApiUrl: document.getElementById(ELEMENT_IDS.DEEPLX_API_URL),
@@ -949,8 +940,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- 5. 加载设置并完成 UI ---
         await loadSettings(); // 此调用会触发首次 `render`
-        manageSelectLabels(); // 在首次渲染后管理标签状态
-
         // --- 6. 事件绑定 ---
         aiEngineModal.on('save', async (engineData) => {
             try {
