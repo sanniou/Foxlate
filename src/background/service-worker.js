@@ -5,6 +5,7 @@ import { shouldTranslate } from '../common/precheck.js';
 import { TranslatorManager } from '../background/translator-manager.js';
 import * as Constants from '../common/constants.js';
 import TabStateManager from './tab-state-manager.js';
+import { createEnsureScriptsInjected } from './script-injector.js';
 import { SUBTITLE_STRATEGIES, SUBTITLE_MANAGER_SCRIPT, DEFAULT_STRATEGY_MAP } from '../content/subtitle/strategy-manifest.js';
 const CSS_FILES = ["content/style.css", "content/enhanced-style.css", "content/summary/summary.css"];
 
@@ -37,45 +38,7 @@ function logError(context, error) {
     }
 }
 
-/**
- * 确保指定的资源（CSS 和 JS）被注入到标签页的特定框架中。
- * (已优化) 此函数现在使用 TabStateManager 来跟踪已注入的资源，以避免重复注入。
- * @param {number} tabId The ID of the tab.
- * @param {number} frameId The ID of the frame within the tab.
- * @param {string[]} filesToInject An array of file paths to inject (e.g., ['style.css', 'script.js']).
- * @returns {Promise<boolean>} True if scripts are ready or successfully injected, false otherwise.
- */
-async function ensureScriptsInjected(tabId, frameId, filesToInject) {
-    if (!filesToInject?.length) {
-        return true;
-    }
-
-    // (优化) 检查此框架是否已注入过脚本
-    const isInjected = await TabStateManager.isFrameInjected(tabId, frameId);
-    if (isInjected) {
-        return true;
-    }
-
-    try {
-        const cssToInject = filesToInject.filter(file => file.endsWith('.css'));
-        const jsToInject = filesToInject.filter(file => file.endsWith('.js'));
-
-        if (cssToInject.length > 0) {
-            await browser.scripting.insertCSS({ target: { tabId, frameIds: [frameId] }, files: cssToInject });
-        }
-        if (jsToInject.length > 0) {
-            await browser.scripting.executeScript({ target: { tabId, frameIds: [frameId] }, files: jsToInject });
-        }
-
-        // (优化) 注入成功后，在 TabStateManager 中标记此框架
-        await TabStateManager.markFrameAsInjected(tabId, frameId);
-
-        return true;
-    } catch (error) {
-        logError(`ensureScriptsInjected for tab ${tabId}, frame ${frameId}`, new Error(`Failed to inject scripts. This can happen on special pages (e.g., chrome://). Error: ${error.message}`));
-        return false;
-    }
-}
+const ensureScriptsInjected = createEnsureScriptsInjected({ browserApi: browser, tabStateManager: TabStateManager, logError });
 
 // --- Subtitle Strategy Injection Logic ---
 
@@ -321,6 +284,57 @@ const messageHandlers = {
         }
     },
 
+    async TRANSLATE_TEXT_BATCH(request, sender) {
+        const { items, targetLang, sourceLang = 'auto', translatorEngine, tabId } = request.payload;
+        const originTabId = sender.tab?.id || tabId;
+
+        if (!originTabId || !Array.isArray(items)) {
+            const errorMsg = 'Invalid TRANSLATE_TEXT_BATCH call: Missing originTabId or items.';
+            logError('TRANSLATE_TEXT_BATCH', new Error(errorMsg));
+            return;
+        }
+
+        try {
+            const texts = items.map(item => item.text);
+            const results = await TranslatorManager.translateBatch(texts, targetLang, sourceLang, translatorEngine, originTabId);
+            await browser.tabs.sendMessage(originTabId, {
+                type: 'TRANSLATE_TEXT_BATCH_RESULT',
+                payload: {
+                    items: items.map((item, index) => {
+                        const result = results[index] || {};
+                        return {
+                            elementId: item.elementId,
+                            success: !result.error,
+                            translatedText: result.text || '',
+                            wasTranslated: !!result.translated,
+                            error: result.error || null
+                        };
+                    })
+                }
+            });
+        } catch (error) {
+            logError('TRANSLATE_TEXT_BATCH (execution)', error);
+            try {
+                await browser.tabs.sendMessage(originTabId, {
+                    type: 'TRANSLATE_TEXT_BATCH_RESULT',
+                    payload: {
+                        items: items.map(item => ({
+                            elementId: item.elementId,
+                            success: false,
+                            translatedText: '',
+                            wasTranslated: false,
+                            error: error.message
+                        }))
+                    }
+                });
+            } catch (e) {
+                if (!e.message.includes("Receiving end does not exist")) {
+                    logError('TRANSLATE_TEXT_BATCH (sending error)', e);
+                }
+            }
+        }
+    },
+
     // 新增：专门用于选项页测试翻译的处理器
     async TEST_TRANSLATE_TEXT(request) {
         const { text, targetLang, sourceLang, translatorEngine } = request.payload;
@@ -350,11 +364,7 @@ const messageHandlers = {
             finalEngine = finalEngine || settings.translatorEngine;
         }
 
-        const promises = texts.map(text =>
-            TranslatorManager.translateText(text, finalTargetLang, 'auto', finalEngine)
-        );
-        // TranslatorManager 内部的队列机制会自动处理并发
-        const results = await Promise.all(promises);
+        const results = await TranslatorManager.translateBatch(texts, finalTargetLang, 'auto', finalEngine);
         const translatedTexts = results.map(r => r.text);
         return { success: true, translatedTexts };
     },

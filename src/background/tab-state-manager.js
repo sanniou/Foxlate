@@ -5,13 +5,15 @@ import browser from '../lib/browser-polyfill.js';
  * 此类采用“读时加载，写时更新”的模式，并使用异步写队列来防止并发写入 `storage.session` 时可能出现的竞态条件。
  * 它不再维护一个完整的内存状态副本，从而简化了逻辑。
  */
-class TabStateManager {
+export class TabStateManager {
     #writeLock = false;
     #writeQueue = [];
+    #browser;
 
-    constructor() {
+    constructor(browserApi = browser) {
+        this.#browser = browserApi;
         // 当标签页关闭时，自动清理状态。
-        browser.tabs.onRemoved.addListener(this.removeTab.bind(this));
+        this.#browser.tabs.onRemoved.addListener(this.removeTab.bind(this));
     }
 
     /**
@@ -52,7 +54,7 @@ class TabStateManager {
      * @returns {Promise<number[]>}
      */
     async getActiveTabIds() {
-        const { tabTranslationStates } = await browser.storage.session.get('tabTranslationStates');
+        const { tabTranslationStates } = await this.#browser.storage.session.get('tabTranslationStates');
         return Object.keys(tabTranslationStates || {}).map(Number);
     }
 
@@ -108,7 +110,7 @@ class TabStateManager {
      * @returns {Promise<boolean>}
      */
     async isTabRegisteredForAutoTranslation(tabId, hostname) {
-        const { sessionTabTranslations } = await browser.storage.session.get('sessionTabTranslations');
+        const { sessionTabTranslations } = await this.#browser.storage.session.get('sessionTabTranslations');
         return (sessionTabTranslations || {})[tabId] === hostname;
     }
 
@@ -146,14 +148,20 @@ class TabStateManager {
      * @param {number} tabId
      * @param {number} frameId
      */
-    async markFrameAsInjected(tabId, frameId) {
+    async markFrameAsInjected(tabId, frameId, files = []) {
         return this.#enqueueWrite(() => {
             return this.#readModifyWrite('injectedFrames', states => {
                 if (!states[tabId]) {
-                    states[tabId] = [];
+                    states[tabId] = {};
                 }
-                if (!states[tabId].includes(frameId)) {
-                    states[tabId].push(frameId);
+                const frameKey = String(frameId);
+                if (!states[tabId][frameKey]) {
+                    states[tabId][frameKey] = [];
+                }
+                for (const file of files) {
+                    if (!states[tabId][frameKey].includes(file)) {
+                        states[tabId][frameKey].push(file);
+                    }
                 }
                 return states;
             });
@@ -166,9 +174,24 @@ class TabStateManager {
      * @param {number} frameId
      * @returns {Promise<boolean>}
      */
-    async isFrameInjected(tabId, frameId) {
-        const { injectedFrames } = await browser.storage.session.get('injectedFrames');
-        return !!(injectedFrames?.[tabId]?.includes(frameId));
+    async isFrameInjected(tabId, frameId, files = []) {
+        const { injectedFrames } = await this.#browser.storage.session.get('injectedFrames');
+        const tabFrames = injectedFrames?.[tabId];
+        if (!tabFrames) {
+            return false;
+        }
+
+        // Backward compatibility for session state written by older versions,
+        // where a frame id meant "some scripts were injected".
+        if (Array.isArray(tabFrames)) {
+            return files.length === 0 && tabFrames.includes(frameId);
+        }
+
+        const injectedFiles = tabFrames[String(frameId)] || [];
+        if (files.length === 0) {
+            return injectedFiles.length > 0;
+        }
+        return files.every(file => injectedFiles.includes(file));
     }
 
     /**
@@ -178,9 +201,15 @@ class TabStateManager {
      * @param {Function} modifier - 一个接收当前值并返回新值的函数。
      */
     async #readModifyWrite(keys, modifier) {
-        const currentStates = await browser.storage.session.get(keys);
-        const newStates = modifier(currentStates || {});
-        await browser.storage.session.set(newStates);
+        const currentStates = await this.#browser.storage.session.get(keys);
+        if (Array.isArray(keys)) {
+            const newStates = modifier(currentStates || {});
+            await this.#browser.storage.session.set(newStates);
+            return;
+        }
+
+        const newValue = modifier(currentStates?.[keys] || {});
+        await this.#browser.storage.session.set({ [keys]: newValue });
     }
 }
 

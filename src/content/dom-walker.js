@@ -231,7 +231,7 @@ export class DOMWalker {
 
                     //使用 segments 的最后一个元素来判断空白
                     const lastSegment = segments[segments.length - 1] || '';
-                    if (/S$/.test(lastSegment) && /^S/.test(text)) {
+                    if (/\S$/.test(lastSegment) && /^\S/.test(text)) {
                         segments.push(text.trimStart());
                         plainTextSegments.push(text.trimStart());
                     } else {

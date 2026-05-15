@@ -115,7 +115,9 @@ export class TranslatorManager {
 
       (async () => {
           try {
-              const result = await this.#executeTranslation(task.text, task.targetLang, task.sourceLang, task.engine, task.controller.signal, task.tabId);
+              const result = task.type === 'aiBatch'
+                ? await this.#executeAiBatchGroup(task.items, task.targetLang, task.sourceLang, task.engine, task.config, task.controller.signal, task.tabId)
+                : await this.#executeTranslation(task.text, task.targetLang, task.sourceLang, task.engine, task.controller.signal, task.tabId);
               task.resolve(result);
           } catch (error) {
               task.reject(error);
@@ -270,6 +272,74 @@ export class TranslatorManager {
       }
   }
 
+  static async #withTabContext(config, tabId) {
+      if (!config || !tabId) {
+          return config;
+      }
+      try {
+          const { extractTabContext } = await import('../common/context-extractor.js');
+          const context = await extractTabContext(tabId);
+          return { ...config, context };
+      } catch (error) {
+          console.warn('[TranslatorManager] Failed to extract context:', error);
+          return config;
+      }
+  }
+
+  static async #executeAiBatchGroup(items, targetLang, sourceLang, engine, config, signal, tabId) {
+      const log = [];
+      const translator = this.getTranslator(engine);
+      if (!translator || translator.name !== 'AI' || typeof translator.translateBatch !== 'function') {
+          throw new Error(`Engine ${engine} does not support AI batch translation.`);
+      }
+
+      if (signal?.aborted) {
+          throw new DOMException('Translation was interrupted by the user.', 'AbortError');
+      }
+
+      const finalConfig = await this.#withTabContext(config, tabId);
+      log.push(`AI batch translation started. Count: ${items.length}`);
+
+      try {
+          const { texts: translatedTexts, log: translatorLog = [] } = await translator.translateBatch(
+              items.map(item => item.processedText),
+              targetLang,
+              sourceLang,
+              finalConfig,
+              signal
+          );
+          log.push(...translatorLog);
+
+          const results = translatedTexts.map((translatedText, index) => {
+              const item = items[index];
+              if (translatedText) {
+                  this.#setCache(item.cacheKey, translatedText);
+              }
+              return {
+                  index: item.index,
+                  text: this.#postProcess(translatedText),
+                  translated: true,
+                  log,
+              };
+          });
+
+          this.#debouncedSaveCache();
+          return results;
+      } catch (error) {
+          if (error.name === 'AbortError') throw error;
+
+          const errorMessage = `AI batch translation failed: ${error.message}`;
+          console.warn('[TranslatorManager] AI batch failed:', error);
+          return items.map(item => ({
+              index: item.index,
+              text: "",
+              translated: false,
+              log: [...log, browser.i18n.getMessage('logEntryTranslationError', errorMessage)],
+              error: errorMessage,
+          }));
+      }
+  }
+
   static #enforceCacheLimit() {
       // 当缓存超出大小时，移除最旧的条目。
       // Map 会记住原始的插入顺序，所以这是一种有效的 FIFO 驱逐策略。
@@ -360,6 +430,97 @@ export class TranslatorManager {
     this.#inFlightRequests.set(cacheKey, translationPromise);
 
     return translationPromise;
+  }
+
+  static async translateBatch(texts, targetLang, sourceLang = 'auto', engine, tabId) {
+      if (!Array.isArray(texts)) {
+          throw new Error("Invalid payload: 'texts' must be an array.");
+      }
+      if (texts.length === 0) {
+          return [];
+      }
+
+      const results = new Array(texts.length);
+      const candidates = [];
+
+      for (let index = 0; index < texts.length; index++) {
+          const originalText = texts[index];
+          const processedText = this.#preProcess(originalText);
+
+          if (!processedText) {
+              results[index] = { text: "", translated: false, log: [browser.i18n.getMessage('logEntryPrecheckNoTranslation')] };
+              continue;
+          }
+
+          if (sourceLang !== 'auto' && sourceLang === targetLang) {
+              results[index] = { text: processedText, translated: false, log: [browser.i18n.getMessage('logEntryPrecheckNoTranslation')] };
+              continue;
+          }
+
+          const cacheKey = `${sourceLang}:${targetLang}:${processedText}`;
+          if (this.#translationCache.has(cacheKey)) {
+              const cachedResult = this.#translationCache.get(cacheKey);
+              this.#translationCache.delete(cacheKey);
+              this.#translationCache.set(cacheKey, cachedResult);
+              results[index] = {
+                  text: this.#postProcess(cachedResult),
+                  translated: true,
+                  log: [
+                      browser.i18n.getMessage('logEntryStart', [originalText, sourceLang, targetLang]),
+                      browser.i18n.getMessage('logEntryCacheHit')
+                  ]
+              };
+              continue;
+          }
+
+          const resolutionLog = [];
+          const { translator, engine: resolvedEngine, config } = await this.#resolveTranslatorForText(processedText, engine, resolutionLog);
+          if (translator?.name === 'AI' && resolvedEngine?.startsWith('ai:') && config) {
+              candidates.push({ index, processedText, cacheKey, resolvedEngine, config });
+          } else {
+              results[index] = await this.translateText(processedText, targetLang, sourceLang, resolvedEngine, tabId);
+          }
+      }
+
+      const aiGroups = new Map();
+      for (const candidate of candidates) {
+          if (!aiGroups.has(candidate.resolvedEngine)) {
+              aiGroups.set(candidate.resolvedEngine, []);
+          }
+          aiGroups.get(candidate.resolvedEngine).push(candidate);
+      }
+
+      const batchPromises = [];
+      for (const [resolvedEngine, items] of aiGroups.entries()) {
+          const config = items[0].config;
+          const batchPromise = new Promise((resolve, reject) => {
+              const controller = new AbortController();
+              this.#taskQueue.push({
+                  type: 'aiBatch',
+                  items,
+                  targetLang,
+                  sourceLang,
+                  engine: resolvedEngine,
+                  config,
+                  tabId,
+                  resolve,
+                  reject,
+                  controller,
+              });
+              this.#processQueue();
+          });
+          batchPromises.push(batchPromise);
+      }
+
+      const groupedResults = await Promise.all(batchPromises);
+      for (const groupResults of groupedResults) {
+          for (const result of groupResults) {
+              const { index, ...translationResult } = result;
+              results[index] = translationResult;
+          }
+      }
+
+      return results;
   }
 
   /**

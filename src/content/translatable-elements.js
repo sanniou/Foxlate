@@ -1,0 +1,149 @@
+import { SKIPPED_TAGS } from '../common/constants.js';
+
+/**
+ * 向指定的根（通常是 Shadow Root）注入 CSS。
+ * @param {ShadowRoot} root 要注入 CSS 的 Shadow Root。
+ * @param {HTMLElement} host 这个 Shadow Root 的宿主元素。
+ * @param {string} cssFilePath 可访问的 CSS 文件 URL。
+ * @param {object} logger 日志对象，默认使用 console。
+ */
+export function injectCSSIntoRoot(root, host, cssFilePath, logger = console) {
+    if (!root || !host || host.dataset.foxlateCssInjected === 'true' || !cssFilePath) {
+        return;
+    }
+
+    try {
+        const styleLink = root.ownerDocument.createElement('link');
+        styleLink.rel = 'stylesheet';
+        styleLink.type = 'text/css';
+        styleLink.href = cssFilePath;
+
+        root.prepend(styleLink);
+        host.dataset.foxlateCssInjected = 'true';
+        logger.log('[Foxlate] Injected CSS and marked host element:', host);
+    } catch (error) {
+        logger.error('[Foxlate] Failed to inject CSS into a Shadow Root:', error);
+    }
+}
+
+/**
+ * 递归查找并返回页面上所有的搜索根（包括初始节点和所有内部的 Shadow Root）。
+ * @param {Node} rootNode - 开始搜索的节点，例如 document.body 或一个 shadowRoot。
+ * @param {object} options
+ * @param {string} options.cssFilePath - 注入到 Shadow Root 的 CSS URL。
+ * @param {object} options.logger - 日志对象，默认使用 console。
+ * @returns {(Document|DocumentFragment|Element)[]} 一个包含所有搜索根的数组。
+ */
+export function findAllSearchRoots(rootNode, { cssFilePath, logger = console } = {}) {
+    if (!rootNode) return [];
+
+    const roots = [rootNode];
+    const doc = rootNode.ownerDocument || document;
+    const nodeFilter = doc.defaultView?.NodeFilter || NodeFilter;
+    const walker = doc.createTreeWalker(
+        rootNode,
+        nodeFilter.SHOW_ELEMENT,
+        null,
+        false
+    );
+
+    let currentNode;
+    while (currentNode = walker.nextNode()) {
+        if (currentNode.shadowRoot) {
+            injectCSSIntoRoot(currentNode.shadowRoot, currentNode, cssFilePath, logger);
+            roots.push(...findAllSearchRoots(currentNode.shadowRoot, { cssFilePath, logger }));
+        }
+    }
+    return roots;
+}
+
+/**
+ * 使用“自顶向下”的 CSS 选择器模型查找页面上所有可翻译的元素。
+ * @param {object} effectiveSettings - 设置对象（用于预检查）。
+ * @param {Node[]} rootNodes - 要在其中搜索的根节点。
+ * @returns {HTMLElement[]} 一个包含最适合翻译的容器元素的数组。
+ */
+export function findTranslatableElements(effectiveSettings, rootNodes = [document.body]) {
+    const contentSelector = effectiveSettings?.translationSelector?.content?.trim();
+
+    if (!contentSelector) {
+        return [];
+    }
+
+    const allCandidates = new Set();
+    for (const root of rootNodes) {
+        if (root.nodeType !== Node.ELEMENT_NODE && root.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) {
+            continue;
+        }
+
+        if (root.nodeType === Node.ELEMENT_NODE && root.matches(contentSelector)) {
+            allCandidates.add(root);
+        }
+        root.querySelectorAll(contentSelector).forEach(el => allCandidates.add(el));
+    }
+
+    if (allCandidates.size === 0) {
+        return [];
+    }
+
+    const finalCandidates = new Set();
+    const potentialMixedParents = new Set();
+
+    for (const el of allCandidates) {
+        if (!el.querySelector(contentSelector)) {
+            finalCandidates.add(el);
+        } else {
+            potentialMixedParents.add(el);
+        }
+    }
+
+    for (const parent of potentialMixedParents) {
+        let consecutiveOrphans = [];
+
+        const wrapOrphans = () => {
+            if (consecutiveOrphans.length === 0) return;
+
+            const hasSignificantContent = consecutiveOrphans.some(node => {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    return node.textContent.trim() !== '';
+                }
+                if (node.nodeType === Node.ELEMENT_NODE) {
+                    return !SKIPPED_TAGS.has(node.tagName.toUpperCase()) && node.textContent.trim() !== '';
+                }
+                return false;
+            });
+
+            if (hasSignificantContent) {
+                const wrapperElement = parent.ownerDocument.createElement('foxlate-wrapper');
+                wrapperElement.dataset.foxlateGenerated = 'true';
+                parent.insertBefore(wrapperElement, consecutiveOrphans[0]);
+                consecutiveOrphans.forEach(node => wrapperElement.appendChild(node));
+                finalCandidates.add(wrapperElement);
+            }
+            consecutiveOrphans = [];
+        };
+
+        for (const child of Array.from(parent.childNodes)) {
+            if (child.nodeType === Node.ELEMENT_NODE && child.dataset.foxlateGenerated === 'true') {
+                wrapOrphans();
+                continue;
+            }
+
+            const isBoundary = child.nodeType === Node.ELEMENT_NODE && (
+                allCandidates.has(child) ||
+                child.dataset.translationId ||
+                child.querySelector(contentSelector)
+            );
+
+            if (isBoundary) {
+                wrapOrphans();
+            } else {
+                consecutiveOrphans.push(child);
+            }
+        }
+
+        wrapOrphans();
+    }
+
+    return Array.from(finalCandidates).filter(el => !el.dataset.translationId);
+}

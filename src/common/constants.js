@@ -27,6 +27,8 @@ export const DEFAULT_SETTINGS = {
     translatorEngine: 'google',
     targetLanguage: 'ZH',
     displayMode: 'append',
+    translateAfterScrollIdle: true,
+    scrollIdleDelayMs: 300,
     deeplxApiUrl: '',
     translationSelector: {
         default: {

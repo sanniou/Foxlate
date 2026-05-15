@@ -50,7 +50,7 @@
 
 ### 1. 环境准备 (Environment Setup)
 
-1.  确保您已安装 [Node.js](https://nodejs.org/) (推荐 LTS 版本) 和 [pnpm](https://pnpm.io/installation)。
+1.  确保您已安装 [Node.js](https://nodejs.org/) (推荐 LTS 版本) 和 npm。
 2.  克隆本仓库到您的本地机器：
     ```bash
     git clone https://github.com/sanniou/foxlate.git

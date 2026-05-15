@@ -405,12 +405,15 @@ async function main() {
     // 标准化路径，确保跨平台兼容性
     const normalizePath = (p) => p.replace(/\\/g, '/');
 
-    const entryPoints = glob.sync(normalizePath(path.join(srcDir, '**', '*.js')),
-        {
-            ignore: [
-                normalizePath(path.join(srcDir, 'lib', '**', '*')),
-            ],
-        });
+    const entryPoints = [
+        'background/service-worker.js',
+        'content/content-script.js',
+        'content/subtitle/subtitle-manager.js',
+        'content/subtitle/youtube-subtitle-strategy.js',
+        'content/subtitle/bilibili-subtitle-strategy.js',
+        'options/options.js',
+        'popup/popup.js',
+    ].map(entry => normalizePath(path.join(srcDir, entry)));
 
     // --- esbuild 构建选项 ---
     const buildOptions = {
