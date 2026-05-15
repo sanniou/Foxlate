@@ -364,7 +364,7 @@ export class DomainRuleModal extends BaseComponent {
         const onTransitionEnd = () => {
             modalElement.style.display = 'none';
             modalElement.removeEventListener('transitionend', onTransitionEnd);
-            if (document.querySelectorAll('.modal.is-visible').length === 0) {
+            if (document.querySelectorAll('.modal-backdrop.is-visible').length === 0) {
                 document.body.classList.remove('modal-open');
                 this._removeEscKeyHandler();
             }

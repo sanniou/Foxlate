@@ -48,7 +48,6 @@ export class ConfirmModal extends BaseComponent {
 
         bindClick(this.#elements.confirmModalConfirmBtn, () => this.emit('confirm'));
         bindClick(this.#elements.confirmModalCancelBtn, () => this.emit('cancel'));
-        bindClick(this.#elements.closeConfirmModalBtn, () => this.emit('cancel'));
     }
 
     #openModal(modalElement) {
@@ -66,7 +65,7 @@ export class ConfirmModal extends BaseComponent {
         const onTransitionEnd = () => {
             modalElement.style.display = 'none';
             modalElement.removeEventListener('transitionend', onTransitionEnd);
-            if (document.querySelectorAll('.modal.is-visible').length === 0) {
+            if (document.querySelectorAll('.modal-backdrop.is-visible').length === 0) {
                 document.body.classList.remove('modal-open');
                 this._removeEscKeyHandler();
             }

@@ -215,19 +215,6 @@ button, input, select, textarea {
     width: 100%;
 }
 
-/* Spinner */
-.spinner {
-    width: 1rem;
-    height: 1rem;
-    border: 2px solid currentColor;
-    border-right-color: transparent;
-    border-radius: 50%;
-    animation: spin 0.75s linear infinite;
-    display: none;
-}
-.btn.loading .spinner { display: block; }
-.btn.loading span { display: none; } /* Hide text when loading? or keep text? */
-
 /* Ripple Effect */
 .ripple {
     position: absolute;
@@ -245,7 +232,11 @@ button, input, select, textarea {
     }
 }
 
-@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes errorShake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+}
 
 /* Inputs & Form Fields */
 .input-group {
@@ -279,6 +270,11 @@ button, input, select, textarea {
     outline: none;
     border-color: var(--color-primary);
     box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.18);
+}
+
+.input-group.is-invalid .form-control {
+    border-color: var(--color-error);
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
 }
 
 /* Custom Select Arrow */
@@ -402,12 +398,19 @@ select.form-control {
 .flex-between { display: flex; align-items: center; justify-content: space-between; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 .mt-2 { margin-top: 0.5rem; }
+.mt-4 { margin-top: 1rem; }
+.mt-6 { margin-top: 1.5rem; }
+.mb-2 { margin-bottom: 0.5rem; }
 .mb-4 { margin-bottom: 1rem; }
+.pt-4 { padding-top: 1rem; }
+.border-t { border-top: 1px solid var(--color-border); }
 .text-sm { font-size: var(--text-sm); }
 .text-muted { color: var(--color-text-muted); }
 .text-error { color: var(--color-error); font-size: var(--text-xs); margin-top: 0.25rem; }
+.font-medium { font-weight: var(--font-medium); }
 .font-semibold { font-weight: var(--font-semibold); }
 .font-bold { font-weight: var(--font-bold); }
+.error-shake { animation: errorShake 0.3s ease-in-out; }
 
 .alert {
     padding: var(--space-3);
@@ -418,15 +421,13 @@ select.form-control {
     font-size: var(--text-sm);
 }
 
-.alert-error,
-.test-result-area.error {
+.alert-error {
     background-color: var(--color-error-bg);
     border-color: #fecaca;
     color: var(--color-error);
 }
 
-.alert-success,
-.test-result-area.success {
+.alert-success {
     background-color: var(--color-success-bg);
     border-color: #bbf7d0;
     color: var(--color-success);

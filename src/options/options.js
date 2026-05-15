@@ -203,7 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 try {
                     document.querySelector(selector);
                 } catch (e) {
-                    // field.classList.add('is-invalid'); // Visual style handled by text-error presence?
+                    field.classList.add('is-invalid');
                     if (errorEl) errorEl.textContent = browser.i18n.getMessage('invalidCssSelector');
                     return false;
                 }
@@ -342,7 +342,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!isContentValid || !isExcludeValid) {
             elements.saveSettingsBtn.dataset.state = 'error';
-            const firstInvalidField = document.querySelector('.content-panel.active .m3-form-field.is-invalid');
+            const firstInvalidField = document.querySelector('.content-panel.active .input-group.is-invalid');
             if (firstInvalidField) {
                 firstInvalidField.classList.add('error-shake');
                 setTimeout(() => firstInvalidField.classList.remove('error-shake'), 500);
@@ -517,12 +517,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!precheck.result) {
             resultArea.textContent = `${browser.i18n.getMessage('testNotTranslated')} ${sourceText}`;
-            resultArea.className = 'test-result-area success';
+            resultArea.className = 'alert alert-success mt-2';
             return;
         }
 
         resultArea.textContent = browser.i18n.getMessage('testing') || 'Translating...';
-        resultArea.className = 'test-result-area';
+        resultArea.className = 'alert mt-2';
 
         try {
             const response = await browser.runtime.sendMessage({ type: 'TEST_TRANSLATE_TEXT', payload: { text: sourceText, targetLang: elements.targetLanguage.value, sourceLang: 'auto', translatorEngine: elements.translatorEngine.value } });
@@ -533,15 +533,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (response.success) {
                 resultArea.textContent = response.translatedText.translated ? response.translatedText.text : `${browser.i18n.getMessage('testNotTranslated')} ${response.translatedText.text}`;
-                resultArea.className = 'test-result-area success';
+                resultArea.className = 'alert alert-success mt-2';
             } else {
                 resultArea.textContent = `Error: ${response.error}`;
-                resultArea.className = 'test-result-area error';
+                resultArea.className = 'alert alert-error mt-2';
             }
         } catch (error) {
             console.error('Translation test error:', error);
             resultArea.textContent = `Error: ${error.message}`;
-            resultArea.classList.add('error');
+            resultArea.className = 'alert alert-error mt-2';
         }
     };
 
@@ -903,12 +903,10 @@ document.addEventListener('DOMContentLoaded', () => {
             confirmModalMessage: document.getElementById(ELEMENT_IDS.CONFIRM_MODAL_MESSAGE),
             confirmModalConfirmBtn: document.getElementById(ELEMENT_IDS.CONFIRM_MODAL_CONFIRM_BTN),
             confirmModalCancelBtn: document.getElementById(ELEMENT_IDS.CONFIRM_MODAL_CANCEL_BTN),
-            closeConfirmModalBtn: document.getElementById(ELEMENT_IDS.CLOSE_CONFIRM_MODAL_BTN),
             syncEnabled: document.getElementById(ELEMENT_IDS.SYNC_ENABLED),
             syncManagementControls: document.getElementById(ELEMENT_IDS.SYNC_MANAGEMENT_CONTROLS),
             uploadSettingsBtn: document.getElementById(ELEMENT_IDS.UPLOAD_SETTINGS_BTN),
             cloudSettingsInfo: document.getElementById(ELEMENT_IDS.CLOUD_SETTINGS_INFO),
-            cloudDataListSection: document.getElementById(ELEMENT_IDS.CLOUD_DATA_LIST_SECTION),
             refreshCloudDataBtn: document.getElementById(ELEMENT_IDS.REFRESH_CLOUD_DATA_BTN),
             cloudDataList: document.getElementById(ELEMENT_IDS.CLOUD_DATA_LIST),
             settingsNav: document.getElementById('settings-nav'),

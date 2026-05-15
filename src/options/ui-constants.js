@@ -20,7 +20,6 @@ export const ELEMENT_IDS = {
     // AI Engine Management
     AI_ENGINE_MANAGEMENT_GROUP: 'aiEngineManagementGroup',
     MANAGE_AI_ENGINES_BTN: 'manageAiEnginesBtn',
-    RETRY_ALL_SYNC_BTN: 'retryAllSyncBtn',
 
     // Domain Rules
     ADD_DOMAIN_RULE_BTN: 'addDomainRuleBtn',
@@ -85,7 +84,6 @@ export const ELEMENT_IDS = {
     CONFIRM_MODAL_MESSAGE: 'confirmModalMessage',
     CONFIRM_MODAL_CONFIRM_BTN: 'confirmModalConfirmBtn',
     CONFIRM_MODAL_CANCEL_BTN: 'confirmModalCancelBtn',
-    CLOSE_CONFIRM_MODAL_BTN: 'closeConfirmModalBtn',
 
     // Domain Rule Form Fields
     RULE_DOMAIN_INPUT: 'ruleDomain',
@@ -124,7 +122,6 @@ export const ELEMENT_IDS = {
     SYNC_MANAGEMENT_CONTROLS: 'syncManagementControls',
     UPLOAD_SETTINGS_BTN: 'uploadSettingsBtn',
     CLOUD_SETTINGS_INFO: 'cloudSettingsInfo',
-    CLOUD_DATA_LIST_SECTION: 'cloudDataListSection',
     REFRESH_CLOUD_DATA_BTN: 'refreshCloudDataBtn',
     CLOUD_DATA_LIST: 'cloudDataList',
 
