@@ -1,5 +1,49 @@
 import { SKIPPED_TAGS } from '../common/constants.js';
 
+function createContentSelectorQuery(selector) {
+    let invalidSelectorError = null;
+
+    const markInvalid = (error) => {
+        if (!invalidSelectorError) {
+            invalidSelectorError = error;
+            console.error(`[Foxlate] Invalid content selector in configuration: "${selector}". Page translation candidate extraction was skipped.`, error);
+        }
+    };
+
+    return {
+        isInvalid() {
+            return Boolean(invalidSelectorError);
+        },
+        matches(element) {
+            if (invalidSelectorError) return false;
+            try {
+                return element.matches(selector);
+            } catch (error) {
+                markInvalid(error);
+                return false;
+            }
+        },
+        queryAll(root) {
+            if (invalidSelectorError) return [];
+            try {
+                return Array.from(root.querySelectorAll(selector));
+            } catch (error) {
+                markInvalid(error);
+                return [];
+            }
+        },
+        hasDescendant(element) {
+            if (invalidSelectorError) return false;
+            try {
+                return Boolean(element.querySelector(selector));
+            } catch (error) {
+                markInvalid(error);
+                return false;
+            }
+        }
+    };
+}
+
 /**
  * 向指定的根（通常是 Shadow Root）注入 CSS。
  * @param {ShadowRoot} root 要注入 CSS 的 Shadow Root。
@@ -70,16 +114,20 @@ export function findTranslatableElements(effectiveSettings, rootNodes = [documen
         return [];
     }
 
+    const selectorQuery = createContentSelectorQuery(contentSelector);
     const allCandidates = new Set();
     for (const root of rootNodes) {
         if (root.nodeType !== Node.ELEMENT_NODE && root.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) {
             continue;
         }
 
-        if (root.nodeType === Node.ELEMENT_NODE && root.matches(contentSelector)) {
+        if (root.nodeType === Node.ELEMENT_NODE && selectorQuery.matches(root)) {
             allCandidates.add(root);
         }
-        root.querySelectorAll(contentSelector).forEach(el => allCandidates.add(el));
+        selectorQuery.queryAll(root).forEach(el => allCandidates.add(el));
+        if (selectorQuery.isInvalid()) {
+            return [];
+        }
     }
 
     if (allCandidates.size === 0) {
@@ -90,10 +138,13 @@ export function findTranslatableElements(effectiveSettings, rootNodes = [documen
     const potentialMixedParents = new Set();
 
     for (const el of allCandidates) {
-        if (!el.querySelector(contentSelector)) {
+        if (!selectorQuery.hasDescendant(el)) {
             finalCandidates.add(el);
         } else {
             potentialMixedParents.add(el);
+        }
+        if (selectorQuery.isInvalid()) {
+            return [];
         }
     }
 
@@ -132,8 +183,11 @@ export function findTranslatableElements(effectiveSettings, rootNodes = [documen
             const isBoundary = child.nodeType === Node.ELEMENT_NODE && (
                 allCandidates.has(child) ||
                 child.dataset.translationId ||
-                child.querySelector(contentSelector)
+                selectorQuery.hasDescendant(child)
             );
+            if (selectorQuery.isInvalid()) {
+                return [];
+            }
 
             if (isBoundary) {
                 wrapOrphans();

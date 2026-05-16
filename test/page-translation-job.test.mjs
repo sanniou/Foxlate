@@ -60,9 +60,10 @@ function setupDom(html) {
     return dom;
 }
 
-function installObserverMocks() {
+function installObserverMocks({ idleDeadline = { didTimeout: true, timeRemaining: () => 50 } } = {}) {
     const intersectionInstances = [];
     const mutationInstances = [];
+    let idleCallbackCalls = 0;
 
     class FakeIntersectionObserver {
         constructor(callback) {
@@ -107,12 +108,19 @@ function installObserverMocks() {
     globalThis.IntersectionObserver = FakeIntersectionObserver;
     globalThis.MutationObserver = FakeMutationObserver;
     globalThis.requestIdleCallback = (callback) => {
-        callback();
-        return 1;
+        idleCallbackCalls++;
+        callback(idleDeadline);
+        return idleCallbackCalls;
     };
     globalThis.cancelIdleCallback = () => {};
 
-    return { intersectionInstances, mutationInstances };
+    return {
+        intersectionInstances,
+        mutationInstances,
+        get idleCallbackCalls() {
+            return idleCallbackCalls;
+        },
+    };
 }
 
 function createBrowserMock() {
@@ -190,6 +198,80 @@ test('PageTranslationJob observes initial elements and translates intersecting e
     assert.deepEqual(observers.intersectionInstances[0].observed, [target]);
     assert.deepEqual(observers.intersectionInstances[0].unobserved, [target]);
     assert.deepEqual(translated, [{ element: target, settings: createSettings() }]);
+});
+
+test('PageTranslationJob prioritizes initial scan roots nearest the viewport', async () => {
+    const dom = setupDom(`
+        <section id="far"><p id="far-text">Far</p></section>
+        <section id="current"><p id="current-text">Current</p></section>
+        <section id="above"><p id="above-text">Above</p></section>
+    `);
+    Object.defineProperty(dom.window, 'innerHeight', { configurable: true, value: 100 });
+    const observers = installObserverMocks();
+    const browserMock = createBrowserMock();
+    globalThis.__foxlateBrowserMock = browserMock;
+    const { PageTranslationJob } = await loadPageTranslationJob();
+    const far = dom.window.document.querySelector('#far');
+    const current = dom.window.document.querySelector('#current');
+    const above = dom.window.document.querySelector('#above');
+    far.getBoundingClientRect = () => ({ top: 900, bottom: 940, left: 0, right: 100 });
+    current.getBoundingClientRect = () => ({ top: 20, bottom: 60, left: 0, right: 100 });
+    above.getBoundingClientRect = () => ({ top: -80, bottom: -40, left: 0, right: 100 });
+    const scanOrder = [];
+
+    const job = new PageTranslationJob(9, createSettings(), {
+        browserApi: browserMock,
+        findAllSearchRootsFn(root) {
+            scanOrder.push(root.id);
+            return [root];
+        },
+        findTranslatableElementsFn(_settings, roots) {
+            const paragraph = roots[0].querySelector('p');
+            return paragraph ? [paragraph] : [];
+        },
+        logError() {},
+    });
+
+    await job.start();
+
+    assert.deepEqual(scanOrder, ['current', 'above', 'far']);
+    assert.deepEqual(
+        observers.intersectionInstances[0].observed.map(element => element.id),
+        ['current-text', 'above-text', 'far-text']
+    );
+});
+
+test('PageTranslationJob slices initial scan work across idle callbacks', async () => {
+    const dom = setupDom(`
+        <section id="one"><p id="one-text">One</p></section>
+        <section id="two"><p id="two-text">Two</p></section>
+        <section id="three"><p id="three-text">Three</p></section>
+    `);
+    const observers = installObserverMocks();
+    const browserMock = createBrowserMock();
+    globalThis.__foxlateBrowserMock = browserMock;
+    const { PageTranslationJob } = await loadPageTranslationJob();
+
+    const job = new PageTranslationJob(10, createSettings(), {
+        browserApi: browserMock,
+        findAllSearchRootsFn(root) {
+            return [root];
+        },
+        findTranslatableElementsFn(_settings, roots) {
+            const paragraph = roots[0].querySelector('p');
+            return paragraph ? [paragraph] : [];
+        },
+        logError() {},
+    });
+    job.INITIAL_SCAN_CHUNK_SIZE = 1;
+
+    await job.start();
+
+    assert.equal(observers.idleCallbackCalls >= 3, true);
+    assert.deepEqual(
+        observers.intersectionInstances[0].observed.map(element => element.id).sort(),
+        ['one-text', 'three-text', 'two-text']
+    );
 });
 
 test('PageTranslationJob delays intersecting translations until scroll is idle', async () => {

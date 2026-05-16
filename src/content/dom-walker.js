@@ -16,7 +16,7 @@ const PRESERVABLE_INLINE_TAGS = new Set([
 
 const PRESERVABLE_BLOCK_TAGS = new Set([
     'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'BLOCKQUOTE', 'PRE',
-    'TABLE', 'TR', 'TH', 'TD', 'FIGURE', 'FIGCAPTION', 'ADDRESS', 'HR',
+    'TABLE', 'TR', 'TH', 'TD', 'FIGURE', 'FIGCAPTION', 'ADDRESS',
     'UL', 'OL', 'DL', 'DT', 'DD' // 推荐新增
 ]);
 
@@ -250,9 +250,9 @@ export class DOMWalker {
                             // 错误已在顶层处理，此处静默失败以避免控制台垃圾信息。
                         }
                     }
-                    // (优化) 使用更通用的选择器来排除所有 Foxlate 内部组件，而不仅仅是摘要对话框。
-                    // 这提高了可维护性，并确保未来添加的新组件也能被自动排除。
-                    if (child.closest('.notranslate, [lang]:not([lang=""]), [class^="foxlate-"], [class*=" foxlate-"]')) continue;
+                    // 跳过显式声明为不翻译的区域和 Foxlate 自身 UI，但不要因为 html/body 上的 lang 属性跳过整页正文。
+                    if (child.closest('.notranslate, [translate="no"], [class^="foxlate-"], [class*=" foxlate-"]')) continue;
+                    if (child.getAttribute('lang')?.trim()) continue;
 
                     // (新) 检查 aria-hidden 属性。如果一个子元素被标记为对辅助技术隐藏，
                     // 那么它在语义上也是不可见的，应该被跳过。
@@ -304,7 +304,7 @@ export class DOMWalker {
                     // 步骤 2: 处理元素内容
                     if (isPreservable) {
                         const segmentsLengthBefore = segments.length;
-                        const tagId = `t${tagIndex}`;
+                        const tagId = `t${tagIndex++}`;
 
                         // (新) 检查元素的 white-space 样式，以决定是否保留换行符。
                         // 这个信息将传递给 dom-reconstructor。
@@ -331,7 +331,6 @@ export class DOMWalker {
                                 preservesWhitespace: preservesWhitespace
                             };
                             segments.push(`</${tagId}>`); // 添加闭合标签
-                            tagIndex++; // 只有在确认标签有效后才递增索引。
                         } else {
                             // 如果没有添加任何内容，则回滚，移除之前添加的起始标签。
                             segments.length = segmentsLengthBefore;

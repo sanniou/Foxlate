@@ -41,10 +41,16 @@ export class PageTranslationJob {
 
         this.mutationQueue = new Set();
         this.idleCallbackId = null;
+        this.initialScanIdleCallbackId = null;
+        this.initialScanQueue = [];
+        this.initialScanInProgress = false;
+        this.initialScanObservedCount = 0;
         this.mutationDebounceTimerId = null;
         this.DEBOUNCE_DELAY = 300;
+        this.INITIAL_SCAN_CHUNK_SIZE = 12;
         this.intersectionObserver = null;
         this.mutationObserver = null;
+        this.observedElements = new Set();
         this.pendingScrollTranslationElements = new Set();
         this.translationIdleCallbackIds = new Set();
         this.scrollIdleTimerId = null;
@@ -88,24 +94,7 @@ export class PageTranslationJob {
         this.#initializeObservers();
         this.#startMutationObserver();
         this.#startScrollObserver();
-
-        requestIdleCallback(() => {
-            const allSearchRoots = this.findAllSearchRoots(document.body, { cssFilePath: this.cssFilePath });
-            const elementsToObserve = this.findTranslatableElements(this.settings, allSearchRoots);
-
-            console.log(`[Foxlate] Found ${elementsToObserve.length} initial elements to observe across ${allSearchRoots.length} roots.`);
-            if (elementsToObserve.length > 0) {
-                this.#observeElements(elementsToObserve);
-                this.state = 'translating';
-            } else {
-                console.warn("[Foxlate] No translatable elements found to observe initially.");
-                this.state = 'translated';
-                this.browser.runtime.sendMessage({
-                    type: 'TRANSLATION_STATUS_UPDATE',
-                    payload: { status: 'translated', tabId: this.tabId }
-                }).catch(e => this.logError('start (sending translated status)', e));
-            }
-        }, { timeout: 2000 });
+        this.#startInitialScan();
     }
 
     async revert() {
@@ -167,6 +156,7 @@ export class PageTranslationJob {
     checkCompletion() {
         if (
             this.state === 'translating' &&
+            !this.initialScanInProgress &&
             this.activeTranslations === 0 &&
             this.mutationQueue.size === 0 &&
             this.pendingScrollTranslationElements.size === 0 &&
@@ -214,12 +204,20 @@ export class PageTranslationJob {
         }
         if (this.idleCallbackId) {
             cancelIdleCallback(this.idleCallbackId);
+            this.idleCallbackId = null;
         }
+        if (this.initialScanIdleCallbackId) {
+            cancelIdleCallback(this.initialScanIdleCallbackId);
+            this.initialScanIdleCallbackId = null;
+        }
+        this.initialScanQueue = [];
+        this.initialScanInProgress = false;
         this.#stopScrollObserver();
         for (const callbackId of this.translationIdleCallbackIds) {
             cancelIdleCallback(callbackId);
         }
         this.translationIdleCallbackIds.clear();
+        this.observedElements.clear();
         this.intersectionObserver = null;
         this.mutationObserver = null;
         console.log("[Foxlate] Observers stopped.");
@@ -305,6 +303,116 @@ export class PageTranslationJob {
             rect.left < viewportWidth;
     }
 
+    #getViewportDistance(element) {
+        if (!element || typeof element.getBoundingClientRect !== 'function') {
+            return Number.POSITIVE_INFINITY;
+        }
+
+        const rect = element.getBoundingClientRect();
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+        if (rect.bottom >= 0 && rect.top <= viewportHeight) {
+            return 0;
+        }
+        if (rect.bottom < 0) {
+            return Math.abs(rect.bottom);
+        }
+        return rect.top - viewportHeight;
+    }
+
+    #getInitialScanRoots() {
+        const roots = Array.from(document.body.children);
+        return roots.length > 0 ? roots : [document.body];
+    }
+
+    #startInitialScan() {
+        this.initialScanQueue = this.#getInitialScanRoots()
+            .sort((a, b) => this.#getViewportDistance(a) - this.#getViewportDistance(b));
+        this.initialScanObservedCount = 0;
+        this.initialScanInProgress = true;
+
+        if (this.initialScanQueue.length === 0) {
+            this.#finishInitialScan();
+            return;
+        }
+
+        this.#scheduleInitialScan();
+    }
+
+    #scheduleInitialScan() {
+        if (this.initialScanIdleCallbackId !== null) return;
+
+        let callbackId = null;
+        let callbackRanSynchronously = false;
+        const wrappedCallback = (deadline) => {
+            callbackRanSynchronously = true;
+            if (callbackId !== null) {
+                this.initialScanIdleCallbackId = null;
+            }
+            this.#processInitialScan(deadline);
+        };
+
+        callbackId = requestIdleCallback(wrappedCallback, { timeout: 1000 });
+        if (!callbackRanSynchronously) {
+            this.initialScanIdleCallbackId = callbackId;
+        }
+    }
+
+    #processInitialScan(deadline = { didTimeout: true, timeRemaining: () => 0 }) {
+        if (this.state === 'idle' || this.state === 'reverting') {
+            return;
+        }
+
+        this.initialScanIdleCallbackId = null;
+        let processedChunks = 0;
+        const hasIdleTime = () => {
+            if (deadline.didTimeout) return true;
+            if (typeof deadline.timeRemaining !== 'function') return processedChunks === 0;
+            return deadline.timeRemaining() > 4;
+        };
+
+        while (
+            this.initialScanQueue.length > 0 &&
+            processedChunks < this.INITIAL_SCAN_CHUNK_SIZE &&
+            (processedChunks === 0 || hasIdleTime())
+        ) {
+            const root = this.initialScanQueue.shift();
+            const searchRoots = this.findAllSearchRoots(root, { cssFilePath: this.cssFilePath });
+            const elementsToObserve = this.findTranslatableElements(this.settings, searchRoots);
+
+            if (elementsToObserve.length > 0) {
+                this.initialScanObservedCount += this.#observeElements(elementsToObserve);
+                this.state = 'translating';
+            }
+            processedChunks++;
+        }
+
+        if (this.initialScanQueue.length > 0) {
+            this.#scheduleInitialScan();
+            return;
+        }
+
+        this.#finishInitialScan();
+    }
+
+    #finishInitialScan() {
+        this.initialScanInProgress = false;
+        console.log(`[Foxlate] Initial scan observed ${this.initialScanObservedCount} elements.`);
+
+        if (this.initialScanObservedCount > 0) {
+            if (this.state === 'starting') {
+                this.state = 'translating';
+            }
+            return;
+        }
+
+        console.warn("[Foxlate] No translatable elements found to observe initially.");
+        this.state = 'translated';
+        this.browser.runtime.sendMessage({
+            type: 'TRANSLATION_STATUS_UPDATE',
+            payload: { status: 'translated', tabId: this.tabId }
+        }).catch(e => this.logError('initial scan (sending translated status)', e));
+    }
+
     #queueOrTranslateIntersectingElements(elements) {
         if (this.#isScrollIdleTranslationEnabled() && this.isScrolling) {
             elements.forEach(element => {
@@ -370,13 +478,17 @@ export class PageTranslationJob {
     }
 
     #observeElements(elements) {
-        if (!this.intersectionObserver) return;
+        if (!this.intersectionObserver) return 0;
+        let observedCount = 0;
         for (const element of elements) {
-            if (element.dataset.translationId) {
+            if (element.dataset.translationId || this.observedElements.has(element)) {
                 continue;
             }
+            this.observedElements.add(element);
             this.intersectionObserver.observe(element);
+            observedCount++;
         }
+        return observedCount;
     }
 
     #handleIntersection(entries) {
@@ -385,6 +497,7 @@ export class PageTranslationJob {
             if (entry.isIntersecting) {
                 intersectingElements.push(entry.target);
                 this.intersectionObserver.unobserve(entry.target);
+                this.observedElements.delete(entry.target);
             }
         }
 

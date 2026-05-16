@@ -129,13 +129,14 @@ test('reconstructDOM rejects broken translator tags', async () => {
     );
 });
 
-test('DOMWalker skips notranslate, lang-marked, and hidden child content', async () => {
+test('DOMWalker skips notranslate, child lang-marked, translate=no, and hidden child content', async () => {
     const { DOMWalker } = await loadDomModules();
     const dom = setupDom(`
         <div id="target">
             Visible
             <span class="notranslate">NoTranslate</span>
             <span lang="fr">Bonjour</span>
+            <span translate="no">NoTranslateAttr</span>
             <span style="display: none">Hidden</span>
         </div>
     `);
@@ -145,6 +146,18 @@ test('DOMWalker skips notranslate, lang-marked, and hidden child content', async
 
     assert.equal(result.plainText, 'Visible');
     assert.equal(result.sourceText, 'Visible');
+});
+
+test('DOMWalker does not skip normal content under document-level lang attribute', async () => {
+    const { DOMWalker } = await loadDomModules();
+    const dom = setupDom('<article id="target"><p>Hello <strong>world</strong></p></article>');
+    dom.window.document.documentElement.setAttribute('lang', 'en');
+    const target = dom.window.document.querySelector('#target');
+
+    const result = DOMWalker.create(target);
+
+    assert.equal(result.plainText, 'Hello world');
+    assert.match(result.sourceText, /^<t0>Hello <t1>world<\/t1><\/t0>$/);
 });
 
 test('reconstructDOM preserves whitespace inside preformatted nodes', async () => {
@@ -204,4 +217,24 @@ test('findTranslatableElements returns leaves and wraps mixed parent orphan text
     assert.equal(wrapper.textContent.replace(/\s+/g, ' ').trim(), 'Intro lead');
     assert.equal(elements.some(el => el.id === 'article'), false);
     assert.equal(elements.some(el => el.id === 'done'), false);
+});
+
+test('findTranslatableElements returns no candidates instead of throwing for invalid content selector', async () => {
+    const { findTranslatableElements } = await loadDomModules();
+    const dom = setupDom('<main><p id="target">Body</p></main>');
+    const settings = { translationSelector: { content: 'main, [broken' } };
+    const originalConsoleError = console.error;
+    let loggedInvalidSelector = false;
+    console.error = (message) => {
+        loggedInvalidSelector = String(message).includes('Invalid content selector');
+    };
+
+    try {
+        const elements = findTranslatableElements(settings, [dom.window.document.body]);
+
+        assert.deepEqual(elements, []);
+        assert.equal(loggedInvalidSelector, true);
+    } finally {
+        console.error = originalConsoleError;
+    }
 });
