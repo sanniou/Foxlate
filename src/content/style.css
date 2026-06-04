@@ -12,38 +12,46 @@
 
 /* --- Shared Design Tokens (Scoped to Foxlate elements) --- */
 .foxlate-panel,
+.foxlate-performance-hud,
 .foxlate-appended-text,
 .foxlate-error-underline,
 .foxlate-hover-highlight {
     /* Light Mode Tokens */
     --fl-sys-color-primary: #0f766e;
+    --fl-sys-color-primary-hover: #115e59;
     --fl-sys-color-on-primary: #ffffff;
     --fl-sys-color-surface: #ffffff;
     --fl-sys-color-surface-dim: #f7f8fb;
+    --fl-sys-color-surface-raised: #ffffff;
     --fl-sys-color-on-surface: #111827;
     --fl-sys-color-text-secondary: #4b5563;
     --fl-sys-color-outline: #dbe3ee;
+    --fl-sys-color-outline-strong: #c3ccd8;
     --fl-sys-color-error: #dc2626;
     --fl-sys-color-error-container: #fef2f2;
     --fl-sys-color-on-error-container: #991b1b;
     
     /* Animation & Layout */
-    --fl-sys-elevation-3: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    --fl-sys-font-sans: "Roboto", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --fl-sys-elevation-3: 0 18px 44px -28px rgba(15, 23, 42, 0.62);
+    --fl-sys-font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
 }
 
 /* Dark Mode Overrides */
 @media (prefers-color-scheme: dark) {
     .foxlate-panel,
+    .foxlate-performance-hud,
     .foxlate-appended-text,
     .foxlate-error-underline,
     .foxlate-hover-highlight {
         --fl-sys-color-primary: #5eead4;
+        --fl-sys-color-primary-hover: #99f6e4;
         --fl-sys-color-surface: #17202f;
         --fl-sys-color-surface-dim: #0f1724;
+        --fl-sys-color-surface-raised: #1b2435;
         --fl-sys-color-on-surface: #f7f8fb;
         --fl-sys-color-text-secondary: #aab3c2;
         --fl-sys-color-outline: #344155;
+        --fl-sys-color-outline-strong: #475569;
         --fl-sys-color-error: #f87171;
         --fl-sys-color-error-container: #450a0a;
         --fl-sys-color-on-error-container: #fca5a5;
@@ -61,21 +69,25 @@
     position: fixed;
     visibility: hidden;
     opacity: 0;
-    transition: opacity 0.15s ease-in-out, visibility 0s linear 0.15s;
+    transform: translateY(6px) scale(0.98);
+    transition:
+        opacity 0.16s ease,
+        transform 0.16s ease,
+        visibility 0s linear 0.16s;
     
     background-color: var(--fl-sys-color-surface);
     color: var(--fl-sys-color-on-surface);
     border: 1px solid var(--fl-sys-color-outline);
-    border-radius: 12px;
+    border-radius: 8px;
     
-    padding: 12px 16px;
+    padding: 12px 14px;
     font-size: 14px;
     font-family: var(--fl-sys-font-sans);
     line-height: 1.5;
     
     z-index: 2147483647;
     box-shadow: var(--fl-sys-elevation-3);
-    max-width: 350px;
+    max-width: 360px;
     word-wrap: break-word;
     pointer-events: auto;
     
@@ -95,7 +107,8 @@
 .foxlate-panel.visible {
     visibility: visible;
     opacity: 1;
-    transition: opacity 0.15s ease-in-out;
+    transform: translateY(0) scale(1);
+    transition: opacity 0.16s ease, transform 0.16s ease;
 }
 
 .foxlate-panel.hover-tooltip,
@@ -164,14 +177,14 @@
     right: 16px;
     bottom: 16px;
     z-index: 2147483639;
-    width: 240px;
-    padding: 10px 12px;
-    border: 1px solid rgba(15, 118, 110, 0.22);
+    width: 252px;
+    padding: 12px;
+    border: 1px solid var(--fl-sys-color-outline);
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.94);
-    color: #111827;
-    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.16);
-    font-family: "Roboto", "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: color-mix(in srgb, var(--fl-sys-color-surface) 94%, transparent);
+    color: var(--fl-sys-color-on-surface);
+    box-shadow: var(--fl-sys-elevation-3);
+    font-family: var(--fl-sys-font-sans);
     pointer-events: none;
     opacity: 0;
     transform: translateY(8px);
@@ -200,7 +213,7 @@
 }
 
 .foxlate-performance-title strong {
-    color: #0f766e;
+    color: var(--fl-sys-color-primary);
     font-size: 11px;
     text-transform: uppercase;
 }
@@ -219,11 +232,11 @@
 }
 
 .foxlate-performance-grid span {
-    color: #64748b;
+    color: var(--fl-sys-color-text-secondary);
 }
 
 .foxlate-performance-grid strong {
-    color: #0f172a;
+    color: var(--fl-sys-color-on-surface);
     font-weight: 600;
     text-align: right;
 }
@@ -286,6 +299,8 @@
     padding-left: 10px;
     max-width: min(100%, var(--foxlate-translation-measured-width, 100%));
     overflow-wrap: anywhere;
+    color: var(--fl-sys-color-primary);
+    font-weight: 500;
 }
 
 /* Reference Line */
@@ -297,6 +312,7 @@
     bottom: 0.15em;
     width: 2px;
     background-color: var(--fl-sys-color-outline);
+    opacity: 0.9;
     border-radius: 1px;
 }
 
@@ -312,6 +328,12 @@
     display: block;
     width: fit-content;
     max-width: min(100%, var(--foxlate-translation-measured-width, 100%));
+    margin-top: 6px;
+    padding: 8px 10px 8px 12px;
+    color: var(--fl-sys-color-on-surface);
+    background: var(--fl-sys-color-surface-dim);
+    border: 1px solid var(--fl-sys-color-outline);
+    border-radius: 8px;
 }
 
 [data-foxlate-layout-source="pretext"],

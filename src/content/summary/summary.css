@@ -10,12 +10,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 8px 16px -4px rgba(15, 118, 110, 0.32),
-                0 4px 6px -2px rgba(15, 118, 110, 0.18),
-                inset 0 1px 1px rgba(255, 255, 255, 0.3);
+    box-shadow: 0 16px 32px -20px rgba(15, 118, 110, 0.88),
+                inset 0 1px 1px rgba(255, 255, 255, 0.28);
     cursor: pointer;
     z-index: 2147483640;
-    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
     user-select: none;
     -webkit-user-modify: read-only;
     user-modify: read-only;
@@ -39,7 +38,7 @@
     transform: translateY(4px) scale(0.96);
     transition: opacity 0.16s ease, transform 0.16s ease;
     backdrop-filter: blur(4px);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 18px 44px -28px rgba(15, 23, 42, 0.62);
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
@@ -56,10 +55,9 @@
 }
 
 .foxlate-summary-button:hover {
-    transform: translateY(-2px) scale(1.05);
-    box-shadow: 0 12px 20px -4px rgba(15, 118, 110, 0.38),
-                0 6px 8px -2px rgba(15, 118, 110, 0.24),
-                inset 0 1px 1px rgba(255, 255, 255, 0.4);
+    transform: translateY(-2px) scale(1.03);
+    box-shadow: 0 20px 40px -22px rgba(15, 118, 110, 0.95),
+                inset 0 1px 1px rgba(255, 255, 255, 0.36);
 }
 
 .foxlate-summary-button:active {
@@ -69,8 +67,8 @@
 
 /* Rotated State (Active/Open) */
 .foxlate-summary-button.rotated {
-    background: linear-gradient(135deg, #ef4444 0%, #f43f5e 100%); /* Red to Pink */
-    box-shadow: 0 8px 16px -4px rgba(239, 68, 68, 0.4),
+    background: #ef4444;
+    box-shadow: 0 16px 32px -20px rgba(239, 68, 68, 0.72),
                 inset 0 1px 1px rgba(255, 255, 255, 0.3);
 }
 
@@ -117,12 +115,15 @@
 .foxlate-summary-dialog {
     /* Local Tokens */
     --fs-primary: #0f766e;
+    --fs-primary-hover: #115e59;
     --fs-surface: #ffffff;
     --fs-surface-dim: #f7f8fb;
+    --fs-surface-raised: #ffffff;
     --fs-border: #dbe3ee;
+    --fs-border-strong: #c3ccd8;
     --fs-text-main: #111827;
     --fs-text-secondary: #4b5563;
-    --fs-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    --fs-shadow: 0 24px 64px -32px rgba(15, 23, 42, 0.72);
     --fs-radius: 8px;
 
     position: fixed;
@@ -142,11 +143,11 @@
     
     /* Animation State */
     opacity: 0;
-    transform: scale(0.9);
+    transform: translateY(8px) scale(0.98);
     visibility: hidden;
     transition:
         opacity 0.2s ease,
-        transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), /* 弹性动画 */
+        transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
         width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
         height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
         top 0.3s cubic-bezier(0.4, 0, 0.2, 1),
@@ -163,7 +164,7 @@
 
 .foxlate-summary-dialog.visible {
     opacity: 1;
-    transform: scale(1);
+    transform: translateY(0) scale(1);
     visibility: visible;
     transition-delay: 0s;
 }
@@ -227,7 +228,7 @@
 
 /* Header */
 .foxlate-summary-header {
-    padding: 16px 20px;
+    padding: 15px 18px;
     border-bottom: 1px solid var(--fs-border);
     display: flex;
     justify-content: space-between;
@@ -247,7 +248,7 @@
     border: none;
     cursor: pointer;
     padding: 8px;
-    border-radius: 50%;
+    border-radius: 8px;
     color: var(--fs-text-secondary);
     transition: background-color 0.2s;
     display: flex;
@@ -261,7 +262,7 @@
 /* Tabs */
 .foxlate-summary-tabs {
     display: flex;
-    padding: 0 16px;
+    padding: 0 12px;
     background-color: var(--fs-surface-dim);
     border-bottom: 1px solid var(--fs-border);
     gap: 4px;
@@ -273,7 +274,7 @@
 .foxlate-summary-tab {
     flex: 0 0 var(--foxlate-summary-tab-width, auto);
     max-width: var(--foxlate-summary-tab-width, 180px);
-    padding: 10px 16px;
+    padding: 10px 12px;
     font-size: 13px;
     color: var(--fs-text-secondary);
     cursor: pointer;
@@ -351,10 +352,10 @@
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 20px;
+    padding: 18px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 16px;
     
     /* Prevent scroll chaining */
     overscroll-behavior: contain;
@@ -366,7 +367,7 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
-    max-width: 92%;
+    max-width: 90%;
     min-width: 0;
     flex: 0 0 auto;
     position: relative;
@@ -379,8 +380,8 @@
 }
 
 .foxlate-summary-message .message-content {
-    padding: 12px 16px;
-    border-radius: 12px;
+    padding: 12px 14px;
+    border-radius: 8px;
     font-size: 14px;
     line-height: 1.6;
     word-wrap: break-word;
@@ -432,6 +433,7 @@
 .foxlate-summary-message.assistant .message-content {
     background-color: var(--fs-surface-dim);
     color: var(--fs-text-main);
+    border: 1px solid var(--fs-border);
     border-bottom-left-radius: 4px;
 }
 
@@ -548,7 +550,7 @@
 
 /* Footer & Input */
 .foxlate-summary-footer {
-    padding: 16px;
+    padding: 14px 16px;
     border-top: 1px solid var(--fs-border);
     display: flex;
     align-items: flex-end;
@@ -559,7 +561,7 @@
 .foxlate-summary-footer textarea {
     flex: 1;
     border: 1px solid var(--fs-border);
-    border-radius: 20px;
+    border-radius: 8px;
     padding: 10px 16px;
     font-family: inherit;
     font-size: 14px;
@@ -582,7 +584,7 @@
     border: none;
     width: 36px;
     height: 36px;
-    border-radius: 50%;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -592,7 +594,7 @@
 }
 
 .send-button:hover:not(:disabled) {
-    background-color: #115e59;
+    background-color: var(--fs-primary-hover);
     transform: scale(1.05);
 }
 
@@ -618,7 +620,7 @@
 .suggest-button {
     background: none;
     border: 1px solid var(--fs-border);
-    border-radius: 16px;
+    border-radius: 8px;
     padding: 6px 12px;
     font-size: 12px;
     color: var(--fs-text-secondary);
@@ -662,7 +664,7 @@
 .foxlate-suggestion-item {
     background-color: var(--fs-surface);
     border: 1px solid var(--fs-border);
-    border-radius: 12px;
+    border-radius: 8px;
     padding: 8px 12px;
     font-size: 13px;
     color: var(--fs-text-main);
@@ -675,7 +677,7 @@
 
 .foxlate-suggestion-item:hover {
     border-color: var(--fs-primary);
-    background-color: #f0fdf4; /* Very light green hint */
+    background-color: #f0fdfa;
 }
 
 .foxlate-suggestion-loading,
@@ -697,7 +699,9 @@
     .foxlate-summary-dialog {
         --fs-surface: #17202f;
         --fs-surface-dim: #0f1724;
+        --fs-surface-raised: #1b2435;
         --fs-border: #344155;
+        --fs-border-strong: #475569;
         --fs-text-main: #f7f8fb;
         --fs-text-secondary: #aab3c2;
     }

@@ -3,9 +3,10 @@
 /* Layout */
 .app-layout {
     display: grid;
-    grid-template-columns: 240px 1fr;
+    grid-template-columns: 260px 1fr;
     height: 100vh;
     overflow: hidden;
+    background: var(--color-surface);
 }
 
 /* Sidebar */
@@ -14,19 +15,30 @@
     border-right: 1px solid var(--color-border);
     display: flex;
     flex-direction: column;
-    padding: var(--space-4);
+    padding: 20px 16px;
+    box-shadow: 12px 0 34px -34px rgba(15, 23, 42, 0.45);
 }
 
 .sidebar-header {
     display: flex;
     align-items: center;
     gap: var(--space-3);
-    margin-bottom: var(--space-6);
-    padding-left: var(--space-2);
+    margin-bottom: 28px;
+    padding: 0 8px;
 }
 
-.sidebar-logo { width: 24px; height: 24px; }
-.sidebar-title { font-weight: var(--font-bold); font-size: var(--text-lg); }
+.sidebar-logo {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-md);
+    box-shadow: 0 10px 18px -16px rgba(15, 23, 42, 0.9);
+}
+
+.sidebar-title {
+    font-weight: var(--font-bold);
+    font-size: 21px;
+    letter-spacing: 0;
+}
 
 .sidebar nav ul {
     list-style: none;
@@ -41,55 +53,61 @@
 .nav-link {
     display: flex;
     align-items: center;
-    padding: var(--space-2) var(--space-3);
+    padding: 10px 12px;
     border-radius: var(--radius-md);
     color: var(--color-text-secondary);
     text-decoration: none;
     font-size: var(--text-sm);
     font-weight: var(--font-medium);
-    margin-bottom: var(--space-1);
+    margin-bottom: 4px;
     transition: var(--transition-base);
     max-width: min(100%, var(--foxlate-ui-text-width, 100%));
+    border: 1px solid transparent;
 }
 
 .nav-link:hover {
     background-color: var(--color-surface-hover);
     color: var(--color-text-main);
+    border-color: var(--color-border);
 }
 
 .nav-link.active {
     background-color: var(--color-primary-container);
     color: var(--color-on-primary-container);
+    border-color: rgba(15, 118, 110, 0.22);
+    box-shadow: inset 3px 0 0 var(--color-primary);
 }
 
 .nav-text { margin-left: 0; }
 
 /* Main Content */
 .main-content {
-    background-color: var(--color-surface);
+    background:
+        linear-gradient(180deg, var(--color-surface-container) 0, var(--color-surface) 220px);
     overflow-y: auto;
-    padding: var(--space-8);
+    padding: 36px;
 }
 
 .content-panel {
     display: none;
-    max-width: 800px;
+    max-width: 980px;
     margin: 0 auto;
     animation: fadeIn 0.3s ease-out;
 }
 .content-panel.active { display: block; }
 
 .section-title {
-    font-size: var(--text-xl);
+    font-size: 26px;
     font-weight: var(--font-bold);
-    margin-bottom: var(--space-6);
+    margin-bottom: 22px;
     color: var(--color-text-main);
+    letter-spacing: 0;
 }
 
 .settings-grid-2 {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: var(--space-4);
+    gap: 16px;
 }
 
 .settings-grid-2 .input-group {
@@ -100,8 +118,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: var(--space-6);
-    padding: var(--space-3) 0;
+    gap: 24px;
+    padding: 14px 0;
 }
 
 /* List Styles */
@@ -109,18 +127,24 @@
     list-style: none;
     display: flex;
     flex-direction: column;
-    gap: var(--space-2);
+    gap: 10px;
 }
 
 .item-list li {
     background-color: var(--color-surface-container);
-    padding: var(--space-3);
+    padding: 14px;
     border-radius: var(--radius-md);
     border: 1px solid var(--color-border);
     display: flex;
     justify-content: space-between;
     align-items: center;
     min-width: 0;
+    transition: var(--transition-base);
+}
+
+.item-list li:hover {
+    border-color: var(--color-border-focus);
+    box-shadow: var(--shadow-sm);
 }
 
 .item-list li > span,
@@ -145,6 +169,34 @@ select[data-foxlate-layout-source] {
     .main-content { padding: var(--space-4); }
     .settings-grid-2 { grid-template-columns: 1fr; }
     .setting-row { align-items: flex-start; }
+}
+
+.main-content .card {
+    border-radius: var(--radius-md);
+    background: var(--color-surface-container);
+    box-shadow: var(--shadow-surface);
+}
+
+.main-content .card + .card {
+    margin-top: 18px;
+}
+
+.content-panel > .flex-between {
+    padding: 14px 16px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-container);
+    box-shadow: var(--shadow-sm);
+}
+
+.modal-content {
+    border: 1px solid var(--color-border);
+}
+
+#saveSettingsBtn.toast {
+    min-height: 42px;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-modal);
 }
 
 @keyframes fadeIn {
