@@ -100,8 +100,7 @@ class SummaryModule {
 
                 if (hasDragged && wasOpenBeforeDrag) {
                     requestAnimationFrame(() => {
-                        const buttonRect = this.summaryButton.element.getBoundingClientRect();
-                        this.summaryDialog.show(buttonRect);
+                        this.summaryDialog.show(this.getSummaryButtonRect());
                     });
                 }
                 setTimeout(() => { this.isDragging = false; }, 0);
@@ -124,6 +123,19 @@ class SummaryModule {
         });
         this.summaryDialog.element.addEventListener('tab-close', e => this.handleTabClose(e.detail.tabId));
         this.summaryDialog.element.addEventListener('tab-toggle-original', e => this.handleTabToggleOriginal(e.detail.tabId));
+    }
+
+    getSummaryButtonRect() {
+        const rect = this.summaryButton.element.getBoundingClientRect();
+        return {
+            left: rect.left,
+            right: rect.right,
+            top: rect.top,
+            bottom: rect.bottom,
+            width: rect.width,
+            height: rect.height,
+            sourceElement: this.summaryButton.element,
+        };
     }
 
     handleTabToggleOriginal(tabId) {
@@ -178,7 +190,7 @@ class SummaryModule {
                 await this.fetchInitialPageSummary();
             } else {
                 this.state.switchTab(pageTab.id);
-                this.summaryDialog.show(this.summaryButton.element.getBoundingClientRect());
+                this.summaryDialog.show(this.getSummaryButtonRect());
             }
         }
     }
@@ -200,7 +212,7 @@ class SummaryModule {
     async fetchInitialPageSummary() {
         const newTab = this.state.addTab('page', browser.i18n.getMessage('summaryTabPageTitle') || 'Page');
         this.summaryDialog.setFullRerenderNeeded(true);
-        this.summaryDialog.show(this.summaryButton.element.getBoundingClientRect());
+        this.summaryDialog.show(this.getSummaryButtonRect());
         await this.fetchSummaryForTab(newTab);
     }
 
@@ -212,7 +224,7 @@ class SummaryModule {
             this.selectionContext.text
         );
         this.summaryDialog.setFullRerenderNeeded(true);
-        this.summaryDialog.show(this.summaryButton.element.getBoundingClientRect());
+        this.summaryDialog.show(this.getSummaryButtonRect());
         await this.fetchSummaryForTab(newTab, this.selectionContext.text);
     }
 

@@ -3,25 +3,72 @@
 import browser from '../../lib/browser-polyfill.js';
 import { marked } from '../../lib/marked.esm.js';
 import { debounce } from '../../common/utils.js';
+import { floatingLayoutService } from '../layout/floating-layout-service.js';
+import { ResizeController } from '../layout/resize-controller.js';
+import { summaryLayoutController } from '../layout/summary-layout-controller.js';
+
+class SummaryButtonTooltip {
+    constructor(text) {
+        this.text = text;
+        this.element = document.createElement('div');
+        this.element.className = 'foxlate-summary-button-tooltip';
+        this.element.textContent = text;
+        document.body.appendChild(this.element);
+    }
+
+    show(anchorElement) {
+        if (!anchorElement || anchorElement.classList.contains('dragging')) return;
+        const box = floatingLayoutService.applyTextBox(this.element, this.text, {
+            minWidth: 72,
+            maxWidth: 220,
+            paddingX: 20,
+            paddingY: 12,
+            styleOverrides: {
+                fontSize: '12px',
+                lineHeight: '16px',
+                whiteSpace: 'normal',
+            },
+        });
+        floatingLayoutService.placeElement(this.element, {
+            anchorElement,
+            box,
+            margin: 10,
+            gap: 10,
+            preferredPlacements: ['left', 'right', 'bottom', 'top'],
+        });
+        this.element.classList.add('visible');
+    }
+
+    hide() {
+        this.element.classList.remove('visible');
+    }
+
+    destroy() {
+        this.element.remove();
+    }
+}
 
 export class SummaryButton {
     constructor() {
         this.element = null;
+        this.tooltip = null;
         this.create();
     }
     create() {
         this.element = document.createElement('div');
         this.element.className = 'foxlate-summary-button';
         
-        // Tooltip text
         const tooltipText = browser.i18n.getMessage('summaryButtonTooltip') || 'Summarize';
-        this.element.setAttribute('data-tooltip', tooltipText);
+        this.element.setAttribute('aria-label', tooltipText);
+        this.tooltip = new SummaryButtonTooltip(tooltipText);
 
         // Icons: Sparkles (Default) and Close (Active)
         const sparklesIcon = `<svg class="icon-sparkles" xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 2l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg>`;
         const closeIcon = `<svg class="icon-close" xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>`;
 
         this.element.innerHTML = sparklesIcon + closeIcon;
+        this.element.addEventListener('mouseenter', () => this.tooltip?.show(this.element));
+        this.element.addEventListener('mouseleave', () => this.tooltip?.hide());
         document.body.appendChild(this.element);
     }
     setPosition(x, y) {
@@ -29,17 +76,20 @@ export class SummaryButton {
         this.element.style.left = `${Math.max(0, Math.min(x, window.innerWidth - rect.width))}px`;
         this.element.style.top = `${Math.max(0, Math.min(y, window.innerHeight - rect.height))}px`;
     }
-    destroy() { this.element?.remove(); }
+    destroy() {
+        this.tooltip?.destroy();
+        this.element?.remove();
+    }
 }
 
 export class SummaryDialog {
     // 定义常量
     static MARGIN = 16;
     static DEBOUNCE_DELAY = 100; // ms
-    static DEFAULT_WIDTH = 400;
-    static DEFAULT_HEIGHT = 500;
-    static EXPANDED_WIDTH = 600;
-    static EXPANDED_HEIGHT = 700;
+    static DEFAULT_WIDTH = 440;
+    static DEFAULT_HEIGHT = 520;
+    static EXPANDED_WIDTH = 680;
+    static EXPANDED_HEIGHT = 720;
 
     constructor() {
         this.isOpen = false;
@@ -48,6 +98,12 @@ export class SummaryDialog {
         this.lastButtonRect = null; // 用于存储上次 show 时的 buttonRect
         this.lastButtonElement = null; // 用于存储按钮元素，以便在滚动时重新获取位置
         this.currentQuadrant = null; // 当前象限
+        this.userSize = null;
+        this.currentLayout = null;
+        this.resizeController = null;
+        this.currentMessageTexts = [];
+        this.currentOriginalText = '';
+        this.currentSuggestions = [];
 
         // 绑定事件处理函数，以便在移除时使用
         this.boundHandleSendMessage = () => {
@@ -72,22 +128,11 @@ export class SummaryDialog {
             }
         };
         this.boundHandleTextareaInput = () => {
-            this.textarea.style.height = 'auto';
-            this.textarea.style.overflowY = 'hidden'; // 先隐藏以正确计算 scrollHeight
-            
-            const scrollHeight = this.textarea.scrollHeight;
-            const maxHeight = 120; // matches CSS max-height
-
-            if (scrollHeight > maxHeight) {
-                this.textarea.style.height = `${maxHeight}px`;
-                this.textarea.style.overflowY = 'auto';
-            } else {
-                this.textarea.style.height = `${scrollHeight}px`;
-                this.textarea.style.overflowY = 'hidden';
-            }
-
-            // 根据输入内容启用/禁用发送按钮
+            this.applyTextareaLayout();
             this.updateSendButtonState();
+            if (this.isOpen && !this.userSize) {
+                this.repositionDialog();
+            }
         };
         this.boundHandleConversationClick = (e) => {
             const target = e.target.closest('[data-action]');
@@ -203,6 +248,7 @@ export class SummaryDialog {
             const tabEl = document.createElement('div');
             tabEl.className = `foxlate-summary-tab ${tab.id === activeTabId ? 'active' : ''}`;
             tabEl.dataset.tabId = tab.id;
+            tabEl.style.setProperty('--foxlate-summary-tab-width', `${summaryLayoutController.measureTabTitle(tab.title)}px`);
             tabEl.innerHTML = `
                 <span class="foxlate-summary-tab-title">${tab.title}</span>
                 ${tabs.length > 1 ? `<button class="foxlate-summary-tab-close">${this.getIcon('cancel')}</button>` : ''}
@@ -224,8 +270,7 @@ export class SummaryDialog {
      */
     clearInput() {
         this.textarea.value = '';
-        this.textarea.style.height = 'auto';
-        this.textarea.style.overflowY = 'hidden';
+        this.applyTextareaLayout();
         // 清空输入后更新发送按钮状态
         this.updateSendButtonState();
         // 确保输入框保持焦点
@@ -239,6 +284,9 @@ export class SummaryDialog {
 
         // 确保 history 是一个数组
         const validHistory = Array.isArray(history) ? history : [];
+        this.currentMessageTexts = validHistory
+            .filter(message => !message?.isHidden)
+            .map(message => this.getMessageText(message));
         const messageCountChanged = validHistory.length !== this._renderedMessageCount;
 
         // 完全重绘逻辑
@@ -281,12 +329,9 @@ export class SummaryDialog {
         
         // 移除已渲染但不再存在于 history 中的消息元素
         if (messageElements.length > history.length) {
-            // 使用 DocumentFragment 批量移除元素
-            const fragment = document.createDocumentFragment();
             for (let i = history.length; i < messageElements.length; i++) {
-                fragment.appendChild(messageElements[i]);
+                messageElements[i].remove();
             }
-            fragment.textContent = ''; // 清空 fragment，移除所有元素
         }
 
         // 使用 DocumentFragment 批量添加新元素
@@ -377,13 +422,22 @@ export class SummaryDialog {
         // 优化：缓存操作按钮 HTML
         const actionsHtml = this.getActionsHtml(message);
         if (actionsHtml) {
-            const actionsDiv = document.createElement('div');
-            actionsDiv.className = 'message-actions';
-            actionsDiv.innerHTML = actionsHtml;
-            messageEl.appendChild(actionsDiv);
+            const template = document.createElement('template');
+            template.innerHTML = actionsHtml;
+            messageEl.appendChild(template.content);
         }
 
         return messageEl;
+    }
+
+    getMessageText(message) {
+        if (!message) return '';
+        if (message.role === 'user') {
+            return message.content || '';
+        }
+        const contents = message.contents || [];
+        const activeIndex = message.activeContentIndex || 0;
+        return contents[activeIndex] || '';
     }
 
     getActionsHtml(message) {
@@ -427,8 +481,10 @@ export class SummaryDialog {
         `;
         const textarea = messageEl.querySelector('textarea');
         textarea.focus();
-        textarea.style.height = 'auto';
-        textarea.style.height = `${textarea.scrollHeight}px`;
+        const editWidth = Math.max(180, (this.currentLayout?.width ?? SummaryDialog.DEFAULT_WIDTH) - 80);
+        const editHeight = summaryLayoutController.measureTextareaHeight(content, textarea, editWidth);
+        textarea.style.height = `${editHeight}px`;
+        textarea.style.overflowY = editHeight >= 120 ? 'auto' : 'hidden';
         // 为编辑模式的输入框添加输入事件监听，以更新发送按钮状态
         textarea.addEventListener('input', () => {
             this.updateSendButtonState();
@@ -458,8 +514,13 @@ export class SummaryDialog {
         if (this.suggestionsArea.classList.contains('is-visible')) {
             this.suggestionsArea.classList.remove('is-visible');
             this.suggestionsArea.innerHTML = '';
+            this.currentSuggestions = [];
+            if (this.isOpen && !this.userSize) {
+                this.repositionDialog();
+            }
         } else {
             this.suggestionsArea.classList.add('is-visible');
+            this.currentSuggestions = [];
             this.suggestionsArea.innerHTML = `
                 <div class="foxlate-suggestion-loading">
                     <div class="loading-indicator"></div>
@@ -470,12 +531,16 @@ export class SummaryDialog {
             this.suggestButton.disabled = true;
             this.suggestButton.classList.add('loading');
             this.dispatchEvent('infer-suggestions');
+            if (this.isOpen && !this.userSize) {
+                this.repositionDialog();
+            }
         }
     }
 
     renderSuggestions(suggestions) {
         // 清空建议区域
         this.suggestionsArea.innerHTML = '';
+        this.currentSuggestions = [];
         this.suggestButton.disabled = false;
         this.suggestButton.classList.remove('loading');
 
@@ -498,6 +563,7 @@ export class SummaryDialog {
             } else {
                 parsedSuggestions = suggestions;
             }
+            this.currentSuggestions = parsedSuggestions.map(suggestion => String(suggestion ?? ''));
 
             // 优化：使用 DocumentFragment 批量操作 DOM
             const fragment = document.createDocumentFragment();
@@ -505,6 +571,10 @@ export class SummaryDialog {
             parsedSuggestions.forEach(suggestion => {
                 const suggestionEl = document.createElement('div');
                 suggestionEl.className = 'foxlate-suggestion-item';
+                suggestionEl.style.minHeight = `${summaryLayoutController.estimateSuggestionHeight(
+                    suggestion,
+                    this.currentLayout?.width ?? SummaryDialog.DEFAULT_WIDTH,
+                )}px`;
                 
                 const textSpan = document.createElement('span');
                 textSpan.className = 'suggestion-text';
@@ -536,8 +606,7 @@ export class SummaryDialog {
                     // 处理编辑按钮点击
                     const suggestion = editButton.dataset.suggestion;
                     this.textarea.value = suggestion;
-                    this.textarea.style.height = 'auto';
-                    this.textarea.style.height = `${this.textarea.scrollHeight}px`;
+                    this.applyTextareaLayout();
                     // 更新发送按钮状态，因为现在有内容了
                     this.updateSendButtonState();
                     this.textarea.focus();
@@ -559,12 +628,48 @@ export class SummaryDialog {
             
             this.suggestionsArea.addEventListener('click', this._suggestionsClickHandler);
         } else {
+            this.currentSuggestions = [];
             // 优化：使用createElement而不是innerHTML
             const messageEl = document.createElement('div');
             messageEl.className = 'foxlate-suggestion-message foxlate-suggestion-error';
             messageEl.textContent = browser.i18n.getMessage('summaryNoSuggestions') || 'No suggestions available.';
             this.suggestionsArea.appendChild(messageEl);
         }
+
+        if (this.isOpen && !this.userSize) {
+            requestAnimationFrame(() => this.repositionDialog());
+        }
+    }
+
+    applyTextareaLayout() {
+        if (!this.textarea) return;
+        const width = this.currentLayout?.width ?? SummaryDialog.DEFAULT_WIDTH;
+        const height = summaryLayoutController.measureTextareaHeight(this.textarea.value, this.textarea, width);
+        this.textarea.style.height = `${height}px`;
+        this.textarea.style.overflowY = height >= 120 ? 'auto' : 'hidden';
+    }
+
+    attachResizeController() {
+        if (!this.element) return;
+        this.resizeController?.destroy();
+        const bounds = summaryLayoutController.getBounds();
+        this.resizeController = new ResizeController(this.element, {
+            minWidth: bounds.minWidth,
+            minHeight: bounds.minHeight,
+            maxWidth: bounds.maxWidth,
+            maxHeight: bounds.maxHeight,
+            margin: SummaryDialog.MARGIN,
+            handles: ['n', 'e', 's', 'w', 'ne', 'se', 'sw', 'nw'],
+            onResize: ({ width, height }) => {
+                this.userSize = { width, height };
+                this.currentLayout = { ...(this.currentLayout || {}), width, height };
+                this.applyTextareaLayout();
+            },
+            onResizeEnd: ({ width, height }) => {
+                this.userSize = { width, height };
+                this.repositionDialog();
+            },
+        });
     }
 
     getIcon(name) {
@@ -594,10 +699,12 @@ export class SummaryDialog {
         
         this.element.style.visibility = 'visible';
         this.element.classList.add('visible');
+        this.attachResizeController();
 
         // 延迟执行重定位，确保DOM已更新
         requestAnimationFrame(() => {
             this.repositionDialog();
+            this.applyTextareaLayout();
             this.textarea.focus();
             this.updateSendButtonState();
         });
@@ -616,57 +723,24 @@ export class SummaryDialog {
 
     repositionDialog() {
         if (!this.isOpen || !this.lastButtonRect) return;
+        const layout = summaryLayoutController.planDialog({
+            anchorRect: this.lastButtonRect,
+            userSize: this.userSize,
+            messageTexts: this.currentMessageTexts,
+            originalText: this.currentOriginalText,
+            inputText: this.textarea?.value ?? '',
+            suggestions: this.currentSuggestions,
+            suggestionsVisible: this.suggestionsArea?.classList.contains('is-visible'),
+        });
 
-        const { top, left, right, bottom, width: btnWidth, height: btnHeight } = this.lastButtonRect;
-        const winWidth = window.innerWidth;
-        const winHeight = window.innerHeight;
-        const MARGIN = SummaryDialog.MARGIN;
-
-        // 按钮中心点
-        const btnCenterX = left + btnWidth / 2;
-        const btnCenterY = top + btnHeight / 2;
-
-        // 判断象限 (1:右上, 2:左上, 3:左下, 4:右下)
-        const isRight = btnCenterX > winWidth / 2;
-        const isBottom = btnCenterY > winHeight / 2;
-
-        // 目标尺寸
-        const targetWidth = SummaryDialog.DEFAULT_WIDTH;
-        const targetHeight = SummaryDialog.DEFAULT_HEIGHT;
-
-        // 计算位置
-        let finalTop, finalLeft, transformOrigin;
-
-        if (isBottom) {
-            // 底部：向上展开
-            finalTop = top - targetHeight - MARGIN;
-            transformOrigin = isRight ? 'bottom right' : 'bottom left';
-        } else {
-            // 顶部：向下展开
-            finalTop = bottom + MARGIN;
-            transformOrigin = isRight ? 'top right' : 'top left';
-        }
-
-        if (isRight) {
-            // 右侧：向左展开
-            finalLeft = right - targetWidth;
-        } else {
-            // 左侧：向右展开
-            finalLeft = left;
-        }
-
-        // 边界修正
-        if (finalTop < MARGIN) finalTop = MARGIN;
-        if (finalTop + targetHeight > winHeight - MARGIN) finalTop = winHeight - MARGIN - targetHeight;
-        if (finalLeft < MARGIN) finalLeft = MARGIN;
-        if (finalLeft + targetWidth > winWidth - MARGIN) finalLeft = winWidth - MARGIN - targetWidth;
-
-        // 应用样式
-        this.element.style.top = `${finalTop}px`;
-        this.element.style.left = `${finalLeft}px`;
-        this.element.style.width = `${targetWidth}px`;
-        this.element.style.height = `${targetHeight}px`;
-        this.element.style.transformOrigin = transformOrigin;
+        this.currentLayout = layout;
+        this.element.style.top = `${layout.top}px`;
+        this.element.style.left = `${layout.left}px`;
+        this.element.style.width = `${layout.width}px`;
+        this.element.style.height = `${layout.height}px`;
+        this.element.style.transformOrigin = layout.transformOrigin;
+        this.element.dataset.foxlatePlacement = layout.placement;
+        this.applyTextareaLayout();
     }
 
     // 移除旧的复杂计算方法
@@ -725,7 +799,9 @@ export class SummaryDialog {
      */
     adjustSizeToContent() {
         if (!this.isOpen) return;
-        // 暂时保持固定尺寸，后续可根据需求添加动态扩展逻辑
+        if (!this.userSize) {
+            this.repositionDialog();
+        }
     }
 
     hide() {
@@ -736,14 +812,22 @@ export class SummaryDialog {
         // 移除窗口大小和滚动监听器
         window.removeEventListener('resize', this.debouncedHandleResizeAndScroll);
         window.removeEventListener('scroll', this.debouncedHandleResizeAndScroll, true);
+        this.element.removeEventListener('wheel', this.boundPreventScrollPropagation);
+        this.element.removeEventListener('touchmove', this.boundPreventScrollPropagation);
+        this.resizeController?.destroy();
+        this.resizeController = null;
     }
 
     resetSuggestions() {
         this.suggestionsArea.classList.remove('is-visible');
         this.suggestionsArea.innerHTML = '';
+        this.currentSuggestions = [];
         this.suggestButton.disabled = false;
         this.suggestButton.classList.remove('loading');
         // 重置建议时不影响发送按钮状态，让 updateDialogUI 统一管理
+        if (this.isOpen && !this.userSize) {
+            this.repositionDialog();
+        }
     }
 
     setFullRerenderNeeded(needed) {
@@ -753,9 +837,14 @@ export class SummaryDialog {
     renderOriginalText(tab) {
         if (tab && tab.isOriginalTextVisible && tab.originalContent) {
             this.originalTextArea.textContent = tab.originalContent;
+            this.currentOriginalText = tab.originalContent;
             this.originalTextArea.classList.add('is-visible');
         } else {
+            this.currentOriginalText = '';
             this.originalTextArea.classList.remove('is-visible');
+        }
+        if (this.isOpen && !this.userSize) {
+            requestAnimationFrame(() => this.repositionDialog());
         }
     }
 
@@ -778,6 +867,10 @@ export class SummaryDialog {
         // 移除窗口大小和滚动监听器 (确保在 hide() 之后再次调用 destroy() 时也能清理)
         window.removeEventListener('resize', this.debouncedHandleResizeAndScroll);
         window.removeEventListener('scroll', this.debouncedHandleResizeAndScroll, true);
+        this.element?.removeEventListener('wheel', this.boundPreventScrollPropagation);
+        this.element?.removeEventListener('touchmove', this.boundPreventScrollPropagation);
+        this.resizeController?.destroy();
+        this.resizeController = null;
         
         // 断开内容观察器
         if (this.contentObserver) {
@@ -791,6 +884,10 @@ export class SummaryDialog {
         this.lastButtonElement = null;
         this.currentQuadrant = null;
         this.targetDimensions = { width: 0, height: 0 };
+        this.currentLayout = null;
+        this.currentMessageTexts = [];
+        this.currentOriginalText = '';
+        this.currentSuggestions = [];
 
         this.element?.remove();
     }

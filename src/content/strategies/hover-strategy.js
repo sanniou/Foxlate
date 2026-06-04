@@ -1,11 +1,17 @@
 import browser from '../../lib/browser-polyfill.js';
 import * as Constants from '../../common/constants.js';
 import { DisplayManager } from '../display-manager.js';
+import { floatingLayoutService } from '../layout/floating-layout-service.js';
+import { ResizeController } from '../layout/resize-controller.js';
 
 class HoverStrategy {
     #tooltipEl = null;
     #hideTimeout = null;
     #activeElement = null;
+    #resizeController = null;
+    #userSize = null;
+    #isPinned = false;
+    #outsideClickHandler = null;
 
     constructor() {
         // 页面卸载时清理资源
@@ -31,29 +37,12 @@ class HoverStrategy {
      */
     #updatePosition(targetElement) {
         if (!this.#tooltipEl || !targetElement) return;
-
-        const targetRect = targetElement.getBoundingClientRect();
-        const tooltipRect = this.#tooltipEl.getBoundingClientRect();
-        
-        // 默认位置：元素上方
-        let x = targetRect.left + (targetRect.width / 2) - (tooltipRect.width / 2);
-        let y = targetRect.top - tooltipRect.height - 8;
-
-        // 如果上方空间不足，显示在下方
-        if (y < 10) {
-            y = targetRect.bottom + 8;
-        }
-
-        // 确保不超出视窗边界
-        if (x + tooltipRect.width > window.innerWidth - 10) {
-            x = window.innerWidth - tooltipRect.width - 10;
-        }
-        if (x < 10) {
-            x = 10;
-        }
-
-        this.#tooltipEl.style.left = `${x}px`;
-        this.#tooltipEl.style.top = `${y}px`;
+        floatingLayoutService.placeElement(this.#tooltipEl, {
+            anchorElement: targetElement,
+            margin: 10,
+            gap: 8,
+            preferredPlacements: ['top', 'bottom', 'right', 'left'],
+        });
     }
 
     /**
@@ -84,6 +73,25 @@ class HoverStrategy {
             this.#tooltipEl.textContent = translatedText;
         }
 
+        floatingLayoutService.applyTextBox(this.#tooltipEl, translatedText, {
+            minWidth: 180,
+            maxWidth: 360,
+            paddingX: 32,
+            paddingY: 24,
+            maxReservedHeight: Math.max(80, Math.min(240, window.innerHeight - 20)),
+            styleOverrides: {
+                fontSize: '14px',
+                lineHeight: '21px',
+                whiteSpace: 'pre-wrap',
+            },
+        });
+        if (this.#userSize) {
+            this.#tooltipEl.style.width = `${this.#userSize.width}px`;
+            this.#tooltipEl.style.height = `${this.#userSize.height}px`;
+            this.#tooltipEl.style.minHeight = `${this.#userSize.height}px`;
+        }
+        this.#attachResizeController();
+
         // 更新位置并显示
         this.#updatePosition(targetElement);
         this.#tooltipEl.classList.add('visible');
@@ -93,11 +101,37 @@ class HoverStrategy {
         this.#attachTooltipListeners();
     }
 
+    #attachResizeController() {
+        if (!this.#tooltipEl) return;
+        this.#resizeController?.destroy();
+        this.#resizeController = new ResizeController(this.#tooltipEl, {
+            minWidth: 160,
+            minHeight: 48,
+            maxWidth: Math.max(180, Math.min(520, window.innerWidth - 20)),
+            maxHeight: Math.max(80, window.innerHeight - 20),
+            margin: 10,
+            handles: ['n', 'e', 's', 'w', 'ne', 'se', 'sw', 'nw'],
+            onResizeStart: () => {
+                this.#pinTooltip();
+            },
+            onResize: ({ width, height }) => {
+                this.#userSize = { width, height };
+            },
+            onResizeEnd: ({ width, height }) => {
+                this.#userSize = { width, height };
+                if (this.#activeElement) {
+                    this.#updatePosition(this.#activeElement);
+                }
+            },
+        });
+    }
+
     /**
      * 隐藏工具提示
      */
     #hideTooltip() {
         if (!this.#tooltipEl) return;
+        if (this.#isPinned) return;
 
         // 使用短暂延迟，以便鼠标移动到工具提示上时不会立即隐藏
         this.#hideTimeout = setTimeout(() => {
@@ -105,9 +139,38 @@ class HoverStrategy {
                 this.#tooltipEl.classList.remove('visible');
                 this.#detachTooltipListeners();
             }
+            this.#resizeController?.destroy();
+            this.#resizeController = null;
             this.#hideTimeout = null;
             this.#activeElement = null;
         }, 100);
+    }
+
+    #pinTooltip() {
+        if (!this.#tooltipEl) return;
+        this.#isPinned = true;
+        this.#tooltipEl.classList.add('pinned');
+        if (this.#hideTimeout) {
+            clearTimeout(this.#hideTimeout);
+            this.#hideTimeout = null;
+        }
+        if (!this.#outsideClickHandler) {
+            this.#outsideClickHandler = (event) => {
+                if (this.#tooltipEl?.contains(event.target)) return;
+                this.#isPinned = false;
+                this.#tooltipEl?.classList.remove('pinned');
+                this.#detachOutsideClickHandler();
+                this.#hideTooltip();
+            };
+        }
+        setTimeout(() => {
+            document.addEventListener('mousedown', this.#outsideClickHandler, true);
+        }, 0);
+    }
+
+    #detachOutsideClickHandler() {
+        if (!this.#outsideClickHandler) return;
+        document.removeEventListener('mousedown', this.#outsideClickHandler, true);
     }
 
     /**
@@ -217,6 +280,10 @@ class HoverStrategy {
             this.#tooltipEl.classList.remove('visible');
             this.#detachTooltipListeners();
         }
+        this.#resizeController?.destroy();
+        this.#resizeController = null;
+        this.#isPinned = false;
+        this.#detachOutsideClickHandler();
         if (this.#hideTimeout) {
             clearTimeout(this.#hideTimeout);
             this.#hideTimeout = null;

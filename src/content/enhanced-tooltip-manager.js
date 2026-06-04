@@ -1,5 +1,7 @@
 import { escapeHtml, detectSpeechLang } from '../common/utils.js';
 import browser from '../lib/browser-polyfill.js';
+import { floatingLayoutService } from './layout/floating-layout-service.js';
+import { ResizeController } from './layout/resize-controller.js';
 
 // --- Constants ---
 const POSITION_OFFSET = 10;
@@ -48,6 +50,12 @@ class EnhancedTooltipManager {
     #dragStartY = 0;
     #dragOffsetX = 0;
     #dragOffsetY = 0;
+    #resizeController = null;
+    #userSize = null;
+    #lastPositionContext = null;
+    #activeDragHeader = null;
+    #boundDocumentMouseMove = this.#handleDocumentMouseMove.bind(this);
+    #boundDocumentMouseUp = this.#handleDocumentMouseUp.bind(this);
 
     constructor() {
         if (!this.#speechSynthesis) {
@@ -63,38 +71,101 @@ class EnhancedTooltipManager {
         document.body.appendChild(this.#tooltipEl);
     }
 
+    #getLayoutText(sourceText, translatedText, { isLoading, isError }) {
+        if (isLoading) {
+            return browser.i18n.getMessage('tooltipTranslating') || 'Translating...';
+        }
+        if (isError) {
+            return sourceText || translatedText || 'Error';
+        }
+        return translatedText || sourceText || '';
+    }
+
+    #applyLayout(sourceText, translatedText, options) {
+        if (!this.#tooltipEl) return null;
+        const layoutText = this.#getLayoutText(sourceText, translatedText, options);
+        const box = floatingLayoutService.applyTextBox(this.#tooltipEl, layoutText, {
+            minWidth: 280,
+            maxWidth: 420,
+            paddingX: 34,
+            paddingY: options.isLoading ? 72 : 104,
+            maxReservedHeight: Math.max(180, Math.min(420, window.innerHeight - 40)),
+            styleOverrides: {
+                fontSize: '14px',
+                lineHeight: '22px',
+                whiteSpace: 'pre-wrap',
+            },
+        });
+
+        const body = this.#tooltipEl.querySelector('.foxlate-panel-body');
+        if (body && box?.height) {
+            const maxBodyHeight = Math.max(160, Math.min(360, window.innerHeight - 140));
+            body.style.maxHeight = `${maxBodyHeight}px`;
+        }
+        if (this.#userSize) {
+            this.#tooltipEl.style.width = `${this.#userSize.width}px`;
+            this.#tooltipEl.style.height = `${this.#userSize.height}px`;
+            this.#tooltipEl.style.minHeight = `${this.#userSize.height}px`;
+        }
+        return box;
+    }
+
     #updatePosition({ coords, targetElement }) {
+        this.#lastPositionContext = { coords, targetElement };
         if (!this.#tooltipEl || this.#isPinned) return;
+        floatingLayoutService.placeElement(this.#tooltipEl, {
+            anchorElement: targetElement,
+            point: coords,
+            margin: POSITION_OFFSET,
+            gap: POSITION_OFFSET,
+            preferredPlacements: coords ? ['bottom', 'top', 'right', 'left'] : ['top', 'bottom', 'right', 'left'],
+        });
+    }
 
-        const tooltipRect = this.#tooltipEl.getBoundingClientRect();
-        let x, y;
-
-        if (coords) { // Context Menu positioning
-            x = coords.clientX - tooltipRect.width / 2;
-            y = coords.clientY + POSITION_OFFSET;
-
-            if (y + tooltipRect.height > window.innerHeight - POSITION_OFFSET) {
-                y = coords.clientY - tooltipRect.height - POSITION_OFFSET;
-            }
-        } else if (targetElement) { // Hover positioning
-            const targetRect = targetElement.getBoundingClientRect();
-            x = targetRect.left + (targetRect.width / 2) - (tooltipRect.width / 2);
-            y = targetRect.top - tooltipRect.height - 8;
-
-            if (y < POSITION_OFFSET) {
-                y = targetRect.bottom + 8;
-            }
+    #setPinned(isPinned) {
+        if (!this.#tooltipEl) return;
+        this.#isPinned = isPinned;
+        this.#tooltipEl.classList.toggle('pinned', this.#isPinned);
+        const header = this.#tooltipEl.querySelector('.foxlate-panel-header');
+        const pinBtn = this.#tooltipEl.querySelector('.foxlate-pin-btn');
+        header?.classList.toggle('draggable', this.#isPinned);
+        if (pinBtn) {
+            pinBtn.innerHTML = '';
+            pinBtn.appendChild(createIcon(this.#isPinned ? 'unpin' : 'pin'));
+            pinBtn.title = browser.i18n.getMessage(this.#isPinned ? 'tooltipUnpin' : 'tooltipPin') || (this.#isPinned ? 'Unpin' : 'Pin');
         }
-
-        if (x + tooltipRect.width > window.innerWidth - POSITION_OFFSET) {
-            x = window.innerWidth - tooltipRect.width - POSITION_OFFSET;
+        if (this.#isPinned) {
+            this.#removeHideListeners();
         }
-        if (x < POSITION_OFFSET) {
-            x = POSITION_OFFSET;
-        }
+    }
 
-        this.#tooltipEl.style.left = `${x}px`;
-        this.#tooltipEl.style.top = `${y}px`;
+    #attachResizeController() {
+        if (!this.#tooltipEl) return;
+        this.#resizeController?.destroy();
+        this.#resizeController = new ResizeController(this.#tooltipEl, {
+            minWidth: 280,
+            minHeight: 140,
+            maxWidth: Math.max(280, Math.min(560, window.innerWidth - 20)),
+            maxHeight: Math.max(140, window.innerHeight - 20),
+            margin: POSITION_OFFSET,
+            handles: ['n', 'e', 's', 'w', 'ne', 'se', 'sw', 'nw'],
+            onResizeStart: () => {
+                this.#setPinned(true);
+            },
+            onResize: ({ width, height }) => {
+                this.#userSize = { width, height };
+                const body = this.#tooltipEl.querySelector('.foxlate-panel-body');
+                if (body) {
+                    body.style.maxHeight = `${Math.max(80, height - 96)}px`;
+                }
+            },
+            onResizeEnd: ({ width, height }) => {
+                this.#userSize = { width, height };
+                if (!this.#isPinned && this.#lastPositionContext) {
+                    this.#updatePosition(this.#lastPositionContext);
+                }
+            },
+        });
     }
 
     hide() {
@@ -104,6 +175,7 @@ class EnhancedTooltipManager {
         }
         this.#stopSpeech();
         this.#removeHideListeners();
+        this.#removeDragListeners();
     }
 
     #removeHideListeners() {
@@ -111,6 +183,16 @@ class EnhancedTooltipManager {
             document.removeEventListener('click', this.#activeHideHandler, true);
             window.removeEventListener('scroll', this.#activeHideHandler, true);
             this.#activeHideHandler = null;
+        }
+    }
+
+    #removeDragListeners() {
+        document.removeEventListener('mousemove', this.#boundDocumentMouseMove);
+        document.removeEventListener('mouseup', this.#boundDocumentMouseUp);
+        this.#isDragging = false;
+        if (this.#activeDragHeader) {
+            this.#activeDragHeader.style.cursor = '';
+            this.#activeDragHeader = null;
         }
     }
 
@@ -300,6 +382,8 @@ class EnhancedTooltipManager {
         this.#tooltipEl.innerHTML = ''; // Clear previous content
         const content = this.#createTooltipContent(sourceText, translatedText, { isLoading, isError });
         this.#tooltipEl.appendChild(content);
+        this.#applyLayout(sourceText, translatedText, { isLoading, isError });
+        this.#attachResizeController();
 
         this.#attachEventListeners(sourceText, translatedText, onHide);
 
@@ -333,14 +417,7 @@ class EnhancedTooltipManager {
 
         pinBtn?.addEventListener('click', (e) => {
             e.stopPropagation();
-            this.#isPinned = !this.#isPinned;
-            this.#tooltipEl.classList.toggle('pinned', this.#isPinned);
-            // 钉住后，图标应变为“取消钉住”（斜向图钉），标题为“取消钉住”
-            const iconToShow = this.#isPinned ? 'unpin' : 'pin';
-            pinBtn.innerHTML = ''; // 清空旧图标
-            pinBtn.appendChild(createIcon(iconToShow));
-            header.classList.toggle('draggable', this.#isPinned);
-            pinBtn.title = browser.i18n.getMessage(this.#isPinned ? 'tooltipUnpin' : 'tooltipPin') || (this.#isPinned ? 'Unpin' : 'Pin');
+            this.#setPinned(!this.#isPinned);
             // 取消固定时，工具提示不应主动消失
             // if (!this.#isPinned) { onHide?.(); }
         });
@@ -348,43 +425,48 @@ class EnhancedTooltipManager {
         header?.addEventListener('mousedown', (e) => {
             if (!this.#isPinned) return;
             this.#isDragging = true;
+            this.#activeDragHeader = header;
             const rect = this.#tooltipEl.getBoundingClientRect();
             this.#dragStartX = e.clientX;
             this.#dragStartY = e.clientY;
             this.#dragOffsetX = e.clientX - rect.left;
             this.#dragOffsetY = e.clientY - rect.top;
             header.style.cursor = 'grabbing';
-        });
-
-        document.addEventListener('mousemove', (e) => {
-            if (!this.#isDragging || !this.#isPinned) return;
-            e.preventDefault();
-
-            // 计算新的理想位置
-            let x = e.clientX - this.#dragOffsetX;
-            let y = e.clientY - this.#dragOffsetY;
-
-            // 获取视窗和工具提示的尺寸以进行边界检查
-            const tooltipRect = this.#tooltipEl.getBoundingClientRect();
-            const viewportWidth = window.innerWidth;
-            const viewportHeight = window.innerHeight;
-
-            // 将位置限制在视窗内部
-            x = Math.max(0, Math.min(x, viewportWidth - tooltipRect.width));
-            y = Math.max(0, Math.min(y, viewportHeight - tooltipRect.height));
-
-            this.#tooltipEl.style.left = `${x}px`;
-            this.#tooltipEl.style.top = `${y}px`;
-        });
-
-        document.addEventListener('mouseup', () => {
-            if (!this.#isDragging) return;
-            this.#isDragging = false;
-            header.style.cursor = 'grab';
+            document.removeEventListener('mousemove', this.#boundDocumentMouseMove);
+            document.removeEventListener('mouseup', this.#boundDocumentMouseUp);
+            document.addEventListener('mousemove', this.#boundDocumentMouseMove);
+            document.addEventListener('mouseup', this.#boundDocumentMouseUp);
         });
 
         this.#attachSectionListeners('source', sourceText);
         this.#attachSectionListeners('target', translatedText);
+    }
+
+    #handleDocumentMouseMove(e) {
+        if (!this.#isDragging || !this.#isPinned || !this.#tooltipEl) return;
+        e.preventDefault();
+
+        let x = e.clientX - this.#dragOffsetX;
+        let y = e.clientY - this.#dragOffsetY;
+        const tooltipRect = this.#tooltipEl.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        x = Math.max(0, Math.min(x, viewportWidth - tooltipRect.width));
+        y = Math.max(0, Math.min(y, viewportHeight - tooltipRect.height));
+
+        this.#tooltipEl.style.left = `${x}px`;
+        this.#tooltipEl.style.top = `${y}px`;
+    }
+
+    #handleDocumentMouseUp() {
+        if (!this.#isDragging) return;
+        this.#isDragging = false;
+        if (this.#activeDragHeader) {
+            this.#activeDragHeader.style.cursor = 'grab';
+        }
+        document.removeEventListener('mousemove', this.#boundDocumentMouseMove);
+        document.removeEventListener('mouseup', this.#boundDocumentMouseUp);
     }
 
 

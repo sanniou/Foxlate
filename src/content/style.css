@@ -98,8 +98,65 @@
     transition: opacity 0.15s ease-in-out;
 }
 
-.foxlate-panel.hover-tooltip {
+.foxlate-panel.hover-tooltip,
+.foxlate-panel.foxlate-hover-tooltip {
     pointer-events: none;
+}
+
+.foxlate-panel.foxlate-hover-tooltip[data-foxlate-resizable="true"] {
+    pointer-events: auto;
+}
+
+.foxlate-panel.foxlate-resizing {
+    transition: none;
+}
+
+.foxlate-panel .foxlate-resize-se::after {
+    content: '';
+    position: absolute;
+    right: 3px;
+    bottom: 3px;
+    width: 7px;
+    height: 7px;
+    border-right: 2px solid rgba(15, 118, 110, 0.58);
+    border-bottom: 2px solid rgba(15, 118, 110, 0.58);
+}
+
+.foxlate-panel .foxlate-resize-ne::after,
+.foxlate-panel .foxlate-resize-nw::after,
+.foxlate-panel .foxlate-resize-sw::after {
+    content: '';
+    position: absolute;
+    width: 7px;
+    height: 7px;
+}
+
+.foxlate-panel .foxlate-resize-ne::after {
+    right: 3px;
+    top: 3px;
+    border-right: 2px solid rgba(15, 118, 110, 0.58);
+    border-top: 2px solid rgba(15, 118, 110, 0.58);
+}
+
+.foxlate-panel .foxlate-resize-nw::after {
+    left: 3px;
+    top: 3px;
+    border-left: 2px solid rgba(15, 118, 110, 0.58);
+    border-top: 2px solid rgba(15, 118, 110, 0.58);
+}
+
+.foxlate-panel .foxlate-resize-sw::after {
+    left: 3px;
+    bottom: 3px;
+    border-left: 2px solid rgba(15, 118, 110, 0.58);
+    border-bottom: 2px solid rgba(15, 118, 110, 0.58);
+}
+
+.foxlate-panel .foxlate-resize-n:hover,
+.foxlate-panel .foxlate-resize-e:hover,
+.foxlate-panel .foxlate-resize-s:hover,
+.foxlate-panel .foxlate-resize-w:hover {
+    background: rgba(15, 118, 110, 0.08);
 }
 
 /* Loading State */

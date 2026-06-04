@@ -1,3 +1,5 @@
+import { floatingLayoutService } from './layout/floating-layout-service.js';
+
 /**
  * 管理输入框翻译时的加载指示器。
  */
@@ -55,13 +57,18 @@ export class InputIndicator {
     show(targetElement) {
         if (!this.#indicatorEl) this.#createIndicatorElement();
 
-        const rect = targetElement.getBoundingClientRect();
-        // 定位在输入框右侧外部，垂直居中
-        const top = window.scrollY + rect.top + rect.height / 2 - 8; // 16px / 2
-        const left = window.scrollX + rect.right + 5; // 右侧 5px 间距
+        const position = floatingLayoutService.placeAnchoredBox({
+            anchorRect: targetElement.getBoundingClientRect(),
+            boxWidth: 16,
+            boxHeight: 16,
+            margin: 4,
+            gap: 5,
+            preferredPlacements: ['right', 'left', 'bottom', 'top'],
+        });
 
-        this.#indicatorEl.style.top = `${top}px`;
-        this.#indicatorEl.style.left = `${left}px`;
+        this.#indicatorEl.style.top = `${window.scrollY + position.top}px`;
+        this.#indicatorEl.style.left = `${window.scrollX + position.left}px`;
+        this.#indicatorEl.dataset.foxlatePlacement = position.placement;
         this.#indicatorEl.style.display = 'flex';
     }
 

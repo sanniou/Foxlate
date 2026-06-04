@@ -59,6 +59,58 @@
     transition-delay: 0s;
 }
 
+.foxlate-enhanced-panel.foxlate-resizing {
+    transition: none;
+}
+
+.foxlate-enhanced-panel .foxlate-resize-se::after {
+    content: '';
+    position: absolute;
+    right: 3px;
+    bottom: 3px;
+    width: 7px;
+    height: 7px;
+    border-right: 2px solid rgba(15, 118, 110, 0.58);
+    border-bottom: 2px solid rgba(15, 118, 110, 0.58);
+}
+
+.foxlate-enhanced-panel .foxlate-resize-ne::after,
+.foxlate-enhanced-panel .foxlate-resize-nw::after,
+.foxlate-enhanced-panel .foxlate-resize-sw::after {
+    content: '';
+    position: absolute;
+    width: 7px;
+    height: 7px;
+}
+
+.foxlate-enhanced-panel .foxlate-resize-ne::after {
+    right: 3px;
+    top: 3px;
+    border-right: 2px solid rgba(15, 118, 110, 0.58);
+    border-top: 2px solid rgba(15, 118, 110, 0.58);
+}
+
+.foxlate-enhanced-panel .foxlate-resize-nw::after {
+    left: 3px;
+    top: 3px;
+    border-left: 2px solid rgba(15, 118, 110, 0.58);
+    border-top: 2px solid rgba(15, 118, 110, 0.58);
+}
+
+.foxlate-enhanced-panel .foxlate-resize-sw::after {
+    left: 3px;
+    bottom: 3px;
+    border-left: 2px solid rgba(15, 118, 110, 0.58);
+    border-bottom: 2px solid rgba(15, 118, 110, 0.58);
+}
+
+.foxlate-enhanced-panel .foxlate-resize-n:hover,
+.foxlate-enhanced-panel .foxlate-resize-e:hover,
+.foxlate-enhanced-panel .foxlate-resize-s:hover,
+.foxlate-enhanced-panel .foxlate-resize-w:hover {
+    background: rgba(15, 118, 110, 0.08);
+}
+
 /* Content Layout */
 .foxlate-panel-content {
     display: flex;
