@@ -7,6 +7,7 @@ import { DOMWalker } from './dom-walker.js';
 import { PageTranslationJob } from './page-translation-job.js';
 import { initializeSummary } from './summary/summary.js';
 import { initializeInputHandler } from './input-handler.js'; // 确保引入
+import { TranslationPerformanceHud } from './performance/translation-performance-hud.js';
 
 /**
  * 集中式错误记录器，用于内容脚本。
@@ -61,17 +62,28 @@ let currentPageJob = null;
 let currentSelectionTranslationId = null;
 let translationBatchQueue = [];
 let translationBatchTimerId = null;
+let inFlightBatchIds = new Set();
+const performanceHud = new TranslationPerformanceHud();
 
 function createPageTranslationJob(tabId, settings) {
     return new PageTranslationJob(tabId, settings, {
         browserApi: browser,
         cssFilePath: CSS_FILE_PATH,
         logError,
+        onProgress: (snapshot) => {
+            performanceHud.update({
+                ...snapshot,
+                batchQueued: translationBatchQueue.length,
+                batchInFlight: inFlightBatchIds.size,
+            });
+        },
         onReverted: (job) => {
             if (currentPageJob === job) {
                 currentPageJob = null;
             }
             clearTranslationBatchQueue();
+            performanceHud.reset();
+            performanceHud.hide({ immediate: true });
         },
         translateElement,
     });
@@ -83,6 +95,8 @@ function clearTranslationBatchQueue() {
         translationBatchTimerId = null;
     }
     translationBatchQueue = [];
+    inFlightBatchIds.clear();
+    performanceHud.updateBatch({ queued: 0, inFlight: 0 });
 }
 
 function shouldUseBatchTranslation(translatorEngine) {
@@ -91,6 +105,7 @@ function shouldUseBatchTranslation(translatorEngine) {
 
 function enqueueBatchTranslation(item) {
     translationBatchQueue.push(item);
+    performanceHud.updateBatch({ queued: translationBatchQueue.length, inFlight: inFlightBatchIds.size });
     const totalChars = translationBatchQueue.reduce((sum, queued) => sum + queued.text.length, 0);
 
     if (translationBatchQueue.length >= AI_BATCH_MAX_ITEMS || totalChars >= AI_BATCH_MAX_CHARS) {
@@ -137,9 +152,13 @@ function flushTranslationBatchQueue() {
         const tabId = response?.tabId;
         for (const group of groupBatchItems(itemsToFlush)) {
             const first = group[0];
+            const batchId = `fb-${generateUUID()}`;
+            inFlightBatchIds.add(batchId);
+            performanceHud.updateBatch({ queued: translationBatchQueue.length, inFlight: inFlightBatchIds.size });
             browser.runtime.sendMessage({
                 type: 'TRANSLATE_TEXT_BATCH',
                 payload: {
+                    batchId,
                     items: group.map(item => ({ elementId: item.elementId, text: item.text })),
                     targetLang: first.targetLang,
                     sourceLang: first.sourceLang,
@@ -148,6 +167,8 @@ function flushTranslationBatchQueue() {
                 }
             }).catch(error => {
                 logError('flushTranslationBatchQueue (send batch)', error);
+                inFlightBatchIds.delete(batchId);
+                performanceHud.updateBatch({ queued: translationBatchQueue.length, inFlight: inFlightBatchIds.size });
                 for (const item of group) {
                     handleTranslationResult({
                         elementId: item.elementId,
@@ -170,6 +191,7 @@ function flushTranslationBatchQueue() {
                 error: error.message,
             });
         }
+        performanceHud.updateBatch({ queued: translationBatchQueue.length, inFlight: inFlightBatchIds.size });
     });
 }
 
@@ -183,12 +205,12 @@ function sendSingleTranslation({ elementId, text, targetLang, sourceLang, transl
     }).catch(e => {
         logError('sendSingleTranslation', e);
         if (currentPageJob) {
-            currentPageJob.activeTranslations--;
+            currentPageJob.recordTranslationCompleted({ success: false });
             currentPageJob.checkCompletion();
         }
         const element = DisplayManager.findElementById(elementId);
         if (element) {
-            DisplayManager.revert(element);
+            DisplayManager.displayError(element, e.message || 'Translation request failed.');
         }
     });
 }
@@ -242,7 +264,7 @@ function translateElement(element, effectiveSettings) {
                 payload: { status: 'loading', tabId: currentPageJob.tabId }
             }).catch(e => logError('translateElement (sending loading status)', e));
         }
-        currentPageJob.activeTranslations++;
+        currentPageJob.recordTranslationStarted();
     }
 
     const elementId = `ut-${generateUUID()}`;
@@ -284,8 +306,7 @@ function handleTranslationResult(payload) {
         return;
     }
 
-    // 收到结果后减少计数器
-    currentPageJob.activeTranslations--;
+    currentPageJob.recordTranslationCompleted({ success: !!success && !!wasTranslated });
 
     // const wrapper = document.querySelector(`[data-translation-id="${elementId}"]`);
     // 不再使用 querySelector，而是从 DisplayManager 的注册表中查找
@@ -402,10 +423,20 @@ const messageHandlers = {
     },
 
     TRANSLATE_TEXT_BATCH_RESULT(request) {
+        const batchId = request.payload?.batchId;
+        if (batchId) {
+            inFlightBatchIds.delete(batchId);
+            performanceHud.updateBatch({ queued: translationBatchQueue.length, inFlight: inFlightBatchIds.size });
+        }
         const items = request.payload?.items || [];
         for (const item of items) {
             handleTranslationResult(item);
         }
+        return { success: true };
+    },
+
+    TRANSLATION_RETRY_SCHEDULED(request) {
+        performanceHud.updateRetry({ retryDelayMs: request.payload?.delayMs || 0 });
         return { success: true };
     },
 

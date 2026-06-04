@@ -49,6 +49,7 @@
     font-weight: var(--font-medium);
     margin-bottom: var(--space-1);
     transition: var(--transition-base);
+    max-width: min(100%, var(--foxlate-ui-text-width, 100%));
 }
 
 .nav-link:hover {
@@ -119,6 +120,19 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    min-width: 0;
+}
+
+.item-list li > span,
+.domain-rule-item > span {
+    min-width: 0;
+    max-width: min(100%, var(--foxlate-ui-text-width, 100%));
+    overflow-wrap: anywhere;
+}
+
+.form-control[data-foxlate-layout-source],
+select[data-foxlate-layout-source] {
+    max-width: min(100%, var(--foxlate-ui-text-width, 100%));
 }
 
 /* Responsive */

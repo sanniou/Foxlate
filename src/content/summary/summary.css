@@ -390,6 +390,10 @@
     position: relative;
 }
 
+.foxlate-summary-message[data-foxlate-layout-source] .message-content {
+    min-height: min(var(--foxlate-summary-message-measured-height, 44px), 260px);
+}
+
 .foxlate-summary-message .message-content > :first-child {
     margin-top: 0;
 }

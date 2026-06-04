@@ -103,6 +103,25 @@ export class SummaryLayoutController {
         return clamp(Math.ceil(measurement.height + 24), 44, 260);
     }
 
+    applyMessageLayout(messageElement, text, { width = 360, role = 'assistant' } = {}) {
+        if (!messageElement) return null;
+        const contentWidth = Math.max(120, Math.floor(width * (role === 'user' ? 0.74 : 0.82)) - 32);
+        const measurement = textMeasurementService.measureText(textFromValue(text), {
+            referenceElement: messageElement.querySelector?.('.message-content') ?? messageElement,
+            maxWidth: contentWidth,
+            minWidth: Math.min(120, contentWidth),
+            styleOverrides: {
+                fontSize: '14px',
+                lineHeight: '22px',
+                whiteSpace: 'pre-wrap',
+            },
+        });
+        messageElement.dataset.foxlateLayoutSource = measurement.source;
+        messageElement.style.setProperty('--foxlate-summary-message-lines', String(measurement.lineCount));
+        messageElement.style.setProperty('--foxlate-summary-message-measured-height', `${Math.ceil(measurement.height + 24)}px`);
+        return measurement;
+    }
+
     measureTextareaHeight(text, referenceElement, width) {
         const measurement = textMeasurementService.measureText(textFromValue(text) || ' ', {
             referenceElement,

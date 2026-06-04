@@ -3,6 +3,7 @@ import * as Constants from '../../common/constants.js';
 import { DisplayManager } from '../display-manager.js';
 import { escapeHtml } from '../../common/utils.js';
 import { reconstructDOM } from '../dom-reconstructor.js';
+import { translatedContentLayoutService } from '../layout/translated-content-layout-service.js';
 
 class ReplaceStrategy {
     /**
@@ -60,6 +61,9 @@ class ReplaceStrategy {
                     element.innerHTML = escapeHtml(data.translatedText).replace(/\n/g, '<br>');
                 } else {
                     this.revert(element);
+                }
+                if (data?.translatedText) {
+                    translatedContentLayoutService.applyReplaceLayout(element, data.translatedText);
                 }
                 break;
        case Constants.DISPLAY_MANAGER_STATES.ERROR:

@@ -159,6 +159,75 @@
     background: rgba(15, 118, 110, 0.08);
 }
 
+.foxlate-performance-hud {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    z-index: 2147483639;
+    width: 240px;
+    padding: 10px 12px;
+    border: 1px solid rgba(15, 118, 110, 0.22);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.94);
+    color: #111827;
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.16);
+    font-family: "Roboto", "Segoe UI", system-ui, -apple-system, sans-serif;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.16s ease, transform 0.16s ease;
+    backdrop-filter: blur(10px);
+    box-sizing: border-box;
+}
+
+.foxlate-performance-hud.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.foxlate-performance-hud * {
+    box-sizing: border-box;
+}
+
+.foxlate-performance-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.foxlate-performance-title strong {
+    color: #0f766e;
+    font-size: 11px;
+    text-transform: uppercase;
+}
+
+.foxlate-performance-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px 8px;
+}
+
+.foxlate-performance-grid span,
+.foxlate-performance-grid strong {
+    min-width: 0;
+    font-size: 11px;
+    line-height: 1.2;
+}
+
+.foxlate-performance-grid span {
+    color: #64748b;
+}
+
+.foxlate-performance-grid strong {
+    color: #0f172a;
+    font-weight: 600;
+    text-align: right;
+}
+
 /* Loading State */
 .foxlate-panel.loading {
     display: flex;
@@ -215,6 +284,8 @@
     position: relative;
     display: inline-block;
     padding-left: 10px;
+    max-width: min(100%, var(--foxlate-translation-measured-width, 100%));
+    overflow-wrap: anywhere;
 }
 
 /* Reference Line */
@@ -235,6 +306,17 @@
     white-space: pre;
     display: block;
     line-height: 0.5;
+}
+
+.foxlate-appended-block {
+    display: block;
+    width: fit-content;
+    max-width: min(100%, var(--foxlate-translation-measured-width, 100%));
+}
+
+[data-foxlate-layout-source="pretext"],
+[data-foxlate-layout-source="fallback"] {
+    overflow-wrap: anywhere;
 }
 
 /* Appended Text - Loading State */

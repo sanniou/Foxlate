@@ -1,6 +1,7 @@
 import browser from '../lib/browser-polyfill.js';
 import * as Constants from '../common/constants.js';
 import { SettingsManager } from '../common/settings-manager.js';
+import { uiTextLayoutService } from '../common/ui-text-layout-service.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     const elements = {
@@ -33,6 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (textElement) textElement.textContent = message;
             }
         });
+        uiTextLayoutService.applyTree(document);
     };
 
     const populateSelect = (selectElement, options, selectedValue) => {
@@ -44,6 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
             option.selected = (value === selectedValue);
             selectElement.appendChild(option);
         }
+        uiTextLayoutService.applyElement(selectElement, { paddingX: 36 });
     };
 
     const updateTranslateButtonState = (state = 'original') => {
@@ -66,6 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnText.textContent = browser.i18n.getMessage('popupTranslatePage');
                 break;
         }
+        uiTextLayoutService.applyElement(elements.translatePageBtn, { minWidth: 160, paddingX: 40 });
     };
 
     const getHostname = (url) => {
@@ -146,6 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         await updateButtonStateFromContentScript();
+        uiTextLayoutService.applyTree(document);
     };
 
     /**

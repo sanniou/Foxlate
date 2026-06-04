@@ -3,6 +3,7 @@ import * as Constants from '../../common/constants.js';
 import { DisplayManager } from '../display-manager.js';
 import { escapeHtml } from '../../common/utils.js';
 import { reconstructDOM } from '../dom-reconstructor.js';
+import { translatedContentLayoutService } from '../layout/translated-content-layout-service.js';
 
 class AppendStrategy {
     /**
@@ -68,6 +69,10 @@ class AppendStrategy {
                     console.error("[Append Strategy] 重建DOM失败，回退到纯文本追加。", e);
                     appendedElement.innerHTML = escapeHtml(data.translatedText).replace(/\n/g, '<br>');
                 }
+                translatedContentLayoutService.applyAppendLayout(appendedElement, data.translatedText, {
+                    referenceElement: element,
+                    appendType,
+                });
                 element.appendChild(appendedElement);
                 break;
 

@@ -285,7 +285,7 @@ const messageHandlers = {
     },
 
     async TRANSLATE_TEXT_BATCH(request, sender) {
-        const { items, targetLang, sourceLang = 'auto', translatorEngine, tabId } = request.payload;
+        const { batchId, items, targetLang, sourceLang = 'auto', translatorEngine, tabId } = request.payload;
         const originTabId = sender.tab?.id || tabId;
 
         if (!originTabId || !Array.isArray(items)) {
@@ -300,6 +300,7 @@ const messageHandlers = {
             await browser.tabs.sendMessage(originTabId, {
                 type: 'TRANSLATE_TEXT_BATCH_RESULT',
                 payload: {
+                    batchId,
                     items: items.map((item, index) => {
                         const result = results[index] || {};
                         return {
@@ -318,6 +319,7 @@ const messageHandlers = {
                 await browser.tabs.sendMessage(originTabId, {
                     type: 'TRANSLATE_TEXT_BATCH_RESULT',
                     payload: {
+                        batchId,
                         items: items.map(item => ({
                             elementId: item.elementId,
                             success: false,

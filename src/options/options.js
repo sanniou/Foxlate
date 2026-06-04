@@ -8,6 +8,7 @@ import { ELEMENT_IDS } from './ui-constants.js';
 import { AIEngineModal } from './components/AIEngineModal.js';
 import { DomainRuleModal } from './components/DomainRuleModal.js';
 import { ConfirmModal } from './components/ConfirmModal.js';
+import { uiTextLayoutService } from '../common/ui-text-layout-service.js';
 import {
     populateEngineSelect,
     populateLanguageOptions,
@@ -179,6 +180,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (domainRuleModal?.isOpen()) domainRuleModal.updateEngines(state.aiEngines);
         }
 
+        uiTextLayoutService.applyTree(document);
+
     };
 
     function validateCssSelectorInput(inputElement) {
@@ -240,6 +243,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const message = browser.i18n.getMessage(key);
             if (message) el.placeholder = message;
         });
+        uiTextLayoutService.applyTree(document);
     };
 
     const initializeNavigation = () => {
@@ -417,6 +421,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
             elements.domainRulesList.appendChild(li);
+            uiTextLayoutService.applyElement(li, { minWidth: 160, paddingX: 32 });
         });
     };
 

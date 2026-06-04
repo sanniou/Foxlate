@@ -23,6 +23,10 @@ export class TranslatorManager {
   static #MAX_CONCURRENT_REQUESTS = 5;
   static #maxCacheSize = 5000; // 默认缓存大小，可以被用户设置覆盖
   static #STORAGE_KEY = 'translationCache';
+  static #MAX_RETRY_ATTEMPTS = 2;
+  static #RETRY_BASE_DELAY_MS = 1200;
+  static #RETRY_MAX_DELAY_MS = 12000;
+  static #engineBackoffState = new Map();
 
   // --- Static Initialization Block ---
   // This block runs once when the class is loaded, setting up initial values.
@@ -92,6 +96,107 @@ export class TranslatorManager {
   static #setCache(key, value) {
       this.#translationCache.set(key, value);
       this.#enforceCacheLimit();
+  }
+
+  static #isRetryableError(error) {
+      const message = String(error?.message || '').toLowerCase();
+      return message.includes('429') ||
+          message.includes('rate limit') ||
+          message.includes('too many requests') ||
+          message.includes('timeout') ||
+          message.includes('network') ||
+          message.includes('temporarily') ||
+          message.includes('503') ||
+          message.includes('502');
+  }
+
+  static #getEngineBackoffDelay(engine) {
+      const state = this.#engineBackoffState.get(engine);
+      if (!state) return 0;
+      return Math.max(0, state.until - Date.now());
+  }
+
+  static async #sleep(ms, signal) {
+      if (ms <= 0) return;
+      if (signal?.aborted) {
+          throw new DOMException('Translation was interrupted by the user.', 'AbortError');
+      }
+      await new Promise((resolve, reject) => {
+          const timer = setTimeout(resolve, ms);
+          const handleAbort = () => {
+              clearTimeout(timer);
+              reject(new DOMException('Translation was interrupted by the user.', 'AbortError'));
+          };
+          signal?.addEventListener?.('abort', handleAbort, { once: true });
+      });
+  }
+
+  static #recordBackoff(engine, attempt, error) {
+      const previous = this.#engineBackoffState.get(engine);
+      const failures = previous?.failures ?? 0;
+      const jitter = Math.floor(Math.random() * 250);
+      const delayMs = Math.min(
+          this.#RETRY_MAX_DELAY_MS,
+          this.#RETRY_BASE_DELAY_MS * Math.pow(2, Math.max(failures, attempt)) + jitter
+      );
+      this.#engineBackoffState.set(engine, {
+          failures: failures + 1,
+          until: Date.now() + delayMs,
+          lastError: error?.message || String(error),
+      });
+      return delayMs;
+  }
+
+  static #clearBackoff(engine) {
+      this.#engineBackoffState.delete(engine);
+  }
+
+  static async #notifyRetry(tabId, { engine, delayMs, attempt, error }) {
+      if (!tabId || !browser.tabs?.sendMessage) return;
+      try {
+          await browser.tabs.sendMessage(tabId, {
+              type: 'TRANSLATION_RETRY_SCHEDULED',
+              payload: {
+                  engine,
+                  delayMs,
+                  attempt,
+                  error: error?.message || null,
+              },
+          });
+      } catch (notifyError) {
+          if (!notifyError.message?.includes('Receiving end does not exist')) {
+              console.warn('[TranslatorManager] Failed to notify retry state:', notifyError);
+          }
+      }
+  }
+
+  static async #executeWithRetry({ engine, tabId, signal, log, operation }) {
+      for (let attempt = 0; attempt <= this.#MAX_RETRY_ATTEMPTS; attempt++) {
+          const preDelay = this.#getEngineBackoffDelay(engine);
+          if (preDelay > 0) {
+              log.push(`Engine cooldown before retry: ${Math.ceil(preDelay)}ms`);
+              await this.#notifyRetry(tabId, { engine, delayMs: preDelay, attempt, error: null });
+              await this.#sleep(preDelay, signal);
+          }
+
+          try {
+              const result = await operation();
+              this.#clearBackoff(engine);
+              await this.#notifyRetry(tabId, { engine, delayMs: 0, attempt, error: null });
+              return result;
+          } catch (error) {
+              if (error.name === 'AbortError') throw error;
+              if (!this.#isRetryableError(error) || attempt >= this.#MAX_RETRY_ATTEMPTS) {
+                  throw error;
+              }
+
+              const delayMs = this.#recordBackoff(engine, attempt, error);
+              log.push(`Retryable translation error. Attempt ${attempt + 1}/${this.#MAX_RETRY_ATTEMPTS}. Backing off ${delayMs}ms.`);
+              await this.#notifyRetry(tabId, { engine, delayMs, attempt: attempt + 1, error });
+              await this.#sleep(delayMs, signal);
+          }
+      }
+      throw new Error('Retry loop exited unexpectedly.');
   }
 
   static #preProcess(text) {
@@ -251,7 +356,13 @@ export class TranslatorManager {
           }
 
           // 步骤 3: 使用解析出的翻译器执行翻译
-          const { text: translatedResult, log: translatorLog } = await translator.translate(processedText, targetLang, sourceLang, finalConfig, signal);
+          const { text: translatedResult, log: translatorLog } = await this.#executeWithRetry({
+              engine: resolvedEngine,
+              tabId,
+              signal,
+              log,
+              operation: () => translator.translate(processedText, targetLang, sourceLang, finalConfig, signal),
+          });
           log.push(...translatorLog);
           log.push(browser.i18n.getMessage('logEntryTranslationSuccess'));
 
@@ -301,13 +412,19 @@ export class TranslatorManager {
       log.push(`AI batch translation started. Count: ${items.length}`);
 
       try {
-          const { texts: translatedTexts, log: translatorLog = [] } = await translator.translateBatch(
-              items.map(item => item.processedText),
-              targetLang,
-              sourceLang,
-              finalConfig,
-              signal
-          );
+          const { texts: translatedTexts, log: translatorLog = [] } = await this.#executeWithRetry({
+              engine,
+              tabId,
+              signal,
+              log,
+              operation: () => translator.translateBatch(
+                  items.map(item => item.processedText),
+                  targetLang,
+                  sourceLang,
+                  finalConfig,
+                  signal
+              ),
+          });
           log.push(...translatorLog);
 
           const results = translatedTexts.map((translatedText, index) => {

@@ -24,6 +24,8 @@ async function loadLayoutServices() {
         export { FloatingLayoutService } from ${JSON.stringify(path.join(projectRoot, 'src/content/layout/floating-layout-service.js'))};
         export { ResizeController } from ${JSON.stringify(path.join(projectRoot, 'src/content/layout/resize-controller.js'))};
         export { SummaryLayoutController } from ${JSON.stringify(path.join(projectRoot, 'src/content/layout/summary-layout-controller.js'))};
+        export { TranslatedContentLayoutService } from ${JSON.stringify(path.join(projectRoot, 'src/content/layout/translated-content-layout-service.js'))};
+        export { UITextLayoutService } from ${JSON.stringify(path.join(projectRoot, 'src/common/ui-text-layout-service.js'))};
     `);
 
     await build({
@@ -271,4 +273,68 @@ test('SummaryLayoutController keeps the dialog edge tight to the floating button
     assert.equal(800 - (plan.left + plan.width), 8);
     assert.equal(plan.top >= 16, true);
     assert.equal(plan.top + plan.height <= 704, true);
+});
+
+test('SummaryLayoutController reapplies message measurements when width changes', async () => {
+    const dom = setupDom('<div id="message"><div class="message-content"></div></div>');
+    const { SummaryLayoutController } = await loadLayoutServices();
+    const controller = new SummaryLayoutController();
+    const message = dom.window.document.querySelector('#message');
+    const text = 'A long measured summary answer should wrap differently after the dialog width changes. '.repeat(8);
+
+    const narrow = controller.applyMessageLayout(message, text, { width: 280, role: 'assistant' });
+    const narrowHeight = message.style.getPropertyValue('--foxlate-summary-message-measured-height');
+    const wide = controller.applyMessageLayout(message, text, { width: 640, role: 'assistant' });
+
+    assert.equal(message.dataset.foxlateLayoutSource, 'fallback');
+    assert.notEqual(message.style.getPropertyValue('--foxlate-summary-message-measured-height'), narrowHeight);
+    assert.equal(wide.height < narrow.height, true);
+});
+
+test('TranslatedContentLayoutService writes measured layout metadata', async () => {
+    const dom = setupDom('<p id="source">Source text</p><span id="appended"></span>');
+    const { TranslatedContentLayoutService } = await loadLayoutServices();
+    const service = new TranslatedContentLayoutService();
+    const source = dom.window.document.querySelector('#source');
+    const appended = dom.window.document.querySelector('#appended');
+    source.getBoundingClientRect = () => ({ width: 220, height: 40, top: 0, left: 0, right: 220, bottom: 40 });
+
+    const measurement = service.applyAppendLayout(appended, '<t0>Translated text should be measured</t0>', {
+        referenceElement: source,
+        appendType: 'block',
+    });
+
+    assert.equal(appended.dataset.foxlateLayoutSource, 'fallback');
+    assert.equal(appended.style.getPropertyValue('--foxlate-translation-line-count'), String(measurement.lineCount));
+    assert.match(appended.style.maxWidth, /px$/);
+});
+
+test('UITextLayoutService writes measured control metadata', async () => {
+    const dom = setupDom('<button id="btn">Translate this entire page now</button>');
+    const { UITextLayoutService } = await loadLayoutServices();
+    const service = new UITextLayoutService();
+    const button = dom.window.document.querySelector('#btn');
+    button.getBoundingClientRect = () => ({ width: 180, height: 36, top: 0, left: 0, right: 180, bottom: 36 });
+
+    service.applyElement(button, { minWidth: 80, paddingX: 24 });
+
+    assert.equal(button.dataset.foxlateLayoutSource, 'fallback');
+    assert.match(button.style.getPropertyValue('--foxlate-ui-text-width'), /px$/);
+});
+
+test('UITextLayoutService skips unchanged repeated measurements', async () => {
+    const dom = setupDom('<button id="btn">Translate this page</button>');
+    const { UITextLayoutService } = await loadLayoutServices();
+    const service = new UITextLayoutService();
+    const button = dom.window.document.querySelector('#btn');
+    button.getBoundingClientRect = () => ({ width: 180, height: 36, top: 0, left: 0, right: 180, bottom: 36 });
+
+    const first = service.applyElement(button, { minWidth: 80, paddingX: 24 });
+    const second = service.applyElement(button, { minWidth: 80, paddingX: 24 });
+    button.textContent = 'Show original';
+    const third = service.applyElement(button, { minWidth: 80, paddingX: 24 });
+
+    assert.equal(first?.source, 'fallback');
+    assert.equal(second, null);
+    assert.equal(third?.source, 'fallback');
 });

@@ -102,6 +102,7 @@ export class SummaryDialog {
         this.currentLayout = null;
         this.resizeController = null;
         this.currentMessageTexts = [];
+        this.currentMessageTextByIndex = new Map();
         this.currentOriginalText = '';
         this.currentSuggestions = [];
 
@@ -287,6 +288,7 @@ export class SummaryDialog {
         this.currentMessageTexts = validHistory
             .filter(message => !message?.isHidden)
             .map(message => this.getMessageText(message));
+        this.currentMessageTextByIndex = new Map(validHistory.map((message, index) => [index, this.getMessageText(message)]));
         const messageCountChanged = validHistory.length !== this._renderedMessageCount;
 
         // 完全重绘逻辑
@@ -427,6 +429,11 @@ export class SummaryDialog {
             messageEl.appendChild(template.content);
         }
 
+        summaryLayoutController.applyMessageLayout(messageEl, content, {
+            width: this.currentLayout?.width ?? SummaryDialog.DEFAULT_WIDTH,
+            role: message.role,
+        });
+
         return messageEl;
     }
 
@@ -481,12 +488,10 @@ export class SummaryDialog {
         `;
         const textarea = messageEl.querySelector('textarea');
         textarea.focus();
-        const editWidth = Math.max(180, (this.currentLayout?.width ?? SummaryDialog.DEFAULT_WIDTH) - 80);
-        const editHeight = summaryLayoutController.measureTextareaHeight(content, textarea, editWidth);
-        textarea.style.height = `${editHeight}px`;
-        textarea.style.overflowY = editHeight >= 120 ? 'auto' : 'hidden';
+        this.applyEditTextareaLayout(textarea, content);
         // 为编辑模式的输入框添加输入事件监听，以更新发送按钮状态
         textarea.addEventListener('input', () => {
+            this.applyEditTextareaLayout(textarea, textarea.value);
             this.updateSendButtonState();
         });
     }
@@ -571,10 +576,7 @@ export class SummaryDialog {
             parsedSuggestions.forEach(suggestion => {
                 const suggestionEl = document.createElement('div');
                 suggestionEl.className = 'foxlate-suggestion-item';
-                suggestionEl.style.minHeight = `${summaryLayoutController.estimateSuggestionHeight(
-                    suggestion,
-                    this.currentLayout?.width ?? SummaryDialog.DEFAULT_WIDTH,
-                )}px`;
+                suggestionEl.dataset.suggestionText = String(suggestion ?? '');
                 
                 const textSpan = document.createElement('span');
                 textSpan.className = 'suggestion-text';
@@ -592,6 +594,7 @@ export class SummaryDialog {
             });
 
             this.suggestionsArea.appendChild(fragment);
+            this.applySuggestionsLayout();
 
             // 优化：使用事件委托处理点击事件
             if (this._suggestionsClickHandler) {
@@ -649,6 +652,47 @@ export class SummaryDialog {
         this.textarea.style.overflowY = height >= 120 ? 'auto' : 'hidden';
     }
 
+    applyEditTextareaLayout(textarea, content) {
+        if (!textarea) return;
+        const editWidth = Math.max(180, (this.currentLayout?.width ?? SummaryDialog.DEFAULT_WIDTH) - 80);
+        const editHeight = summaryLayoutController.measureTextareaHeight(content, textarea, editWidth);
+        textarea.style.height = `${editHeight}px`;
+        textarea.style.overflowY = editHeight >= 120 ? 'auto' : 'hidden';
+    }
+
+    applyMessageLayouts() {
+        if (!this.conversationArea) return;
+        const width = this.currentLayout?.width ?? SummaryDialog.DEFAULT_WIDTH;
+        this.conversationArea.querySelectorAll('.foxlate-summary-message:not(.loading)').forEach(messageEl => {
+            if (messageEl.classList.contains('is-editing')) {
+                const textarea = messageEl.querySelector('textarea');
+                this.applyEditTextareaLayout(textarea, textarea?.value ?? '');
+                return;
+            }
+            const index = Number.parseInt(messageEl.dataset.index, 10);
+            const text = Number.isFinite(index) ? this.currentMessageTextByIndex.get(index) : messageEl.textContent;
+            summaryLayoutController.applyMessageLayout(messageEl, text, {
+                width,
+                role: messageEl.classList.contains('user') ? 'user' : 'assistant',
+            });
+        });
+    }
+
+    applySuggestionsLayout() {
+        if (!this.suggestionsArea) return;
+        const width = this.currentLayout?.width ?? SummaryDialog.DEFAULT_WIDTH;
+        this.suggestionsArea.querySelectorAll('.foxlate-suggestion-item').forEach(suggestionEl => {
+            const suggestionText = suggestionEl.dataset.suggestionText || suggestionEl.querySelector('.suggestion-text')?.textContent || '';
+            suggestionEl.style.minHeight = `${summaryLayoutController.estimateSuggestionHeight(suggestionText, width)}px`;
+        });
+    }
+
+    applyMeasuredContentLayout() {
+        this.applyTextareaLayout();
+        this.applyMessageLayouts();
+        this.applySuggestionsLayout();
+    }
+
     attachResizeController() {
         if (!this.element) return;
         this.resizeController?.destroy();
@@ -663,7 +707,7 @@ export class SummaryDialog {
             onResize: ({ width, height }) => {
                 this.userSize = { width, height };
                 this.currentLayout = { ...(this.currentLayout || {}), width, height };
-                this.applyTextareaLayout();
+                this.applyMeasuredContentLayout();
             },
             onResizeEnd: ({ width, height }) => {
                 this.userSize = { width, height };
@@ -740,7 +784,7 @@ export class SummaryDialog {
         this.element.style.height = `${layout.height}px`;
         this.element.style.transformOrigin = layout.transformOrigin;
         this.element.dataset.foxlatePlacement = layout.placement;
-        this.applyTextareaLayout();
+        this.applyMeasuredContentLayout();
     }
 
     // 移除旧的复杂计算方法
@@ -886,6 +930,7 @@ export class SummaryDialog {
         this.targetDimensions = { width: 0, height: 0 };
         this.currentLayout = null;
         this.currentMessageTexts = [];
+        this.currentMessageTextByIndex = new Map();
         this.currentOriginalText = '';
         this.currentSuggestions = [];
 

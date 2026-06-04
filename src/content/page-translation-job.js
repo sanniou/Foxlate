@@ -24,6 +24,7 @@ export class PageTranslationJob {
         findTranslatableElementsFn = findTranslatableElements,
         logError = defaultLogError,
         onReverted = () => {},
+        onProgress = () => {},
         translateElement = () => {},
     } = {}) {
         this.tabId = tabId;
@@ -37,6 +38,7 @@ export class PageTranslationJob {
         this.findTranslatableElements = findTranslatableElementsFn;
         this.logError = logError;
         this.onReverted = onReverted;
+        this.onProgress = onProgress;
         this.translateElement = translateElement;
 
         this.mutationQueue = new Set();
@@ -58,8 +60,47 @@ export class PageTranslationJob {
         this.scrollListenerOptions = { passive: true };
         this.boundHandleScrollActivity = this.#handleScrollActivity.bind(this);
         this.activeTranslations = 0;
+        this.startedTranslations = 0;
+        this.completedTranslations = 0;
+        this.failedTranslations = 0;
 
         this.state = 'idle';
+    }
+
+    getProgressSnapshot(extra = {}) {
+        return {
+            state: this.state,
+            observed: this.observedElements.size,
+            initialScanRemaining: this.initialScanQueue.length,
+            mutationQueue: this.mutationQueue.size,
+            pendingScroll: this.pendingScrollTranslationElements.size,
+            activeTranslations: this.activeTranslations,
+            started: this.startedTranslations,
+            completed: this.completedTranslations,
+            failed: this.failedTranslations,
+            isScrolling: this.isScrolling,
+            ...extra,
+        };
+    }
+
+    emitProgress(extra = {}) {
+        this.onProgress(this.getProgressSnapshot(extra));
+    }
+
+    recordTranslationStarted() {
+        this.activeTranslations++;
+        this.startedTranslations++;
+        this.emitProgress();
+    }
+
+    recordTranslationCompleted({ success = true } = {}) {
+        this.activeTranslations = Math.max(0, this.activeTranslations - 1);
+        if (success) {
+            this.completedTranslations++;
+        } else {
+            this.failedTranslations++;
+        }
+        this.emitProgress();
     }
 
     async start() {
@@ -70,6 +111,7 @@ export class PageTranslationJob {
 
         console.log("[Foxlate] Starting page translation process...");
         this.state = 'starting';
+        this.emitProgress();
 
         this.browser.runtime.sendMessage({
             type: 'TRANSLATION_STATUS_UPDATE',
@@ -95,6 +137,7 @@ export class PageTranslationJob {
         this.#startMutationObserver();
         this.#startScrollObserver();
         this.#startInitialScan();
+        this.emitProgress();
     }
 
     async revert() {
@@ -122,6 +165,7 @@ export class PageTranslationJob {
 
         this.#stopObservers();
         this.activeTranslations = 0;
+        this.emitProgress();
         this.#clearPendingScrollTranslations();
 
         try {
@@ -164,6 +208,7 @@ export class PageTranslationJob {
         ) {
             this.state = 'translated';
             console.log(`[Foxlate] Page translation completed.`);
+            this.emitProgress();
             this.browser.runtime.sendMessage({
                 type: 'TRANSLATION_STATUS_UPDATE',
                 payload: { status: 'translated', tabId: this.tabId }
@@ -232,6 +277,7 @@ export class PageTranslationJob {
             this.scrollIdleTimerId = null;
         }
         this.isScrolling = false;
+        this.emitProgress();
     }
 
     #clearPendingScrollTranslations() {
@@ -241,6 +287,7 @@ export class PageTranslationJob {
             this.scrollIdleTimerId = null;
         }
         this.isScrolling = false;
+        this.emitProgress();
     }
 
     #isScrollIdleTranslationEnabled() {
@@ -258,6 +305,7 @@ export class PageTranslationJob {
         }
 
         this.isScrolling = true;
+        this.emitProgress();
         if (this.scrollIdleTimerId) {
             clearTimeout(this.scrollIdleTimerId);
         }
@@ -268,6 +316,7 @@ export class PageTranslationJob {
             if (!hadPendingTranslations) {
                 this.checkCompletion();
             }
+            this.emitProgress();
         }, this.#getScrollIdleDelay());
     }
 
@@ -320,8 +369,21 @@ export class PageTranslationJob {
     }
 
     #getInitialScanRoots() {
-        const roots = Array.from(document.body.children);
+        const roots = Array.from(document.body.children)
+            .filter(element => !this.#isExtensionElement(element));
         return roots.length > 0 ? roots : [document.body];
+    }
+
+    #isExtensionElement(node) {
+        return Boolean(node?.closest?.([
+            '[data-translation-id]',
+            '.foxlate-panel',
+            '.foxlate-enhanced-panel',
+            '.foxlate-summary-dialog',
+            '.foxlate-summary-button',
+            '.foxlate-summary-button-tooltip',
+            '.foxlate-performance-hud',
+        ].join(',')));
     }
 
     #startInitialScan() {
@@ -382,6 +444,7 @@ export class PageTranslationJob {
             if (elementsToObserve.length > 0) {
                 this.initialScanObservedCount += this.#observeElements(elementsToObserve);
                 this.state = 'translating';
+                this.emitProgress();
             }
             processedChunks++;
         }
@@ -397,6 +460,7 @@ export class PageTranslationJob {
     #finishInitialScan() {
         this.initialScanInProgress = false;
         console.log(`[Foxlate] Initial scan observed ${this.initialScanObservedCount} elements.`);
+        this.emitProgress();
 
         if (this.initialScanObservedCount > 0) {
             if (this.state === 'starting') {
@@ -420,6 +484,7 @@ export class PageTranslationJob {
                     this.pendingScrollTranslationElements.add(element);
                 }
             });
+            this.emitProgress();
             return;
         }
 
@@ -438,6 +503,7 @@ export class PageTranslationJob {
                         this.pendingScrollTranslationElements.add(element);
                     }
                 });
+                this.emitProgress();
                 return;
             }
 
@@ -474,6 +540,7 @@ export class PageTranslationJob {
         if (visibleElements.length > 0) {
             this.#scheduleTranslations(visibleElements);
         }
+        this.emitProgress();
         return true;
     }
 
@@ -487,6 +554,9 @@ export class PageTranslationJob {
             this.observedElements.add(element);
             this.intersectionObserver.observe(element);
             observedCount++;
+        }
+        if (observedCount > 0) {
+            this.emitProgress();
         }
         return observedCount;
     }
@@ -523,7 +593,7 @@ export class PageTranslationJob {
                 for (const node of mutation.addedNodes) {
                     if (node.nodeType !== Node.ELEMENT_NODE) continue;
 
-                    if (node.closest('[data-translation-id], .foxlate-panel, .foxlate-summary-dialog, .foxlate-summary-button')) continue;
+                    if (this.#isExtensionElement(node)) continue;
 
                     if (node.dataset.foxlateGenerated === 'true') continue;
 
@@ -546,6 +616,7 @@ export class PageTranslationJob {
             this.mutationDebounceTimerId = setTimeout(() => {
                 this.idleCallbackId = requestIdleCallback(() => this.#processMutationQueue(), { timeout: 1000 });
             }, this.DEBOUNCE_DELAY);
+            this.emitProgress();
         }
     }
 
@@ -577,6 +648,7 @@ export class PageTranslationJob {
             console.log(`[Foxlate] Found ${newElements.length} new dynamic elements to observe.`);
             this.#observeElements(newElements);
         }
+        this.emitProgress();
         this.checkCompletion();
     }
 }

@@ -53,6 +53,7 @@ async function loadTranslatorManager() {
 }
 
 function setupMocks() {
+    const sentTabMessages = [];
     globalThis.__foxlateSettingsMock = {
         translatorEngine: 'ai:test',
         parallelRequests: 5,
@@ -80,7 +81,13 @@ function setupMocks() {
                 addListener() {},
             },
         },
+        tabs: {
+            async sendMessage(tabId, message) {
+                sentTabMessages.push({ tabId, message });
+            },
+        },
     };
+    return { sentTabMessages };
 }
 
 test('TranslatorManager.translateBatch uses one AI batch request and caches per item', async () => {
@@ -146,6 +153,10 @@ test('TranslatorManager.translateBatch keeps single AI item in batch shape', asy
 
 test('TranslatorManager.translateBatch returns per-item errors without single fallback when AI batch fails', async () => {
     setupMocks();
+    const realSetTimeout = globalThis.setTimeout;
+    const realClearTimeout = globalThis.clearTimeout;
+    globalThis.setTimeout = (callback, _delay, ...args) => realSetTimeout(callback, 0, ...args);
+    globalThis.clearTimeout = realClearTimeout;
     const fetchCalls = [];
     globalThis.fetch = async (_url, options) => {
         fetchCalls.push(JSON.parse(options.body));
@@ -168,7 +179,7 @@ test('TranslatorManager.translateBatch returns per-item errors without single fa
 
         const results = await TranslatorManager.translateBatch(['Hello', 'World'], 'ZH', 'auto', 'ai:test');
 
-        assert.equal(fetchCalls.length, 1);
+        assert.equal(fetchCalls.length, 3);
         assert.deepEqual(JSON.parse(fetchCalls[0].messages[1].content), ['Hello', 'World']);
         assert.equal(results.length, 2);
         assert.deepEqual(results.map(result => result.translated), [false, false]);
@@ -176,5 +187,61 @@ test('TranslatorManager.translateBatch returns per-item errors without single fa
     } finally {
         console.error = originalConsoleError;
         console.warn = originalConsoleWarn;
+        globalThis.setTimeout = realSetTimeout;
+        globalThis.clearTimeout = realClearTimeout;
+    }
+});
+
+test('TranslatorManager.translateBatch retries a retryable AI batch once and keeps batch shape', async () => {
+    const { sentTabMessages } = setupMocks();
+    const realSetTimeout = globalThis.setTimeout;
+    const realClearTimeout = globalThis.clearTimeout;
+    globalThis.setTimeout = (callback, _delay, ...args) => realSetTimeout(callback, 0, ...args);
+    globalThis.clearTimeout = realClearTimeout;
+    const fetchCalls = [];
+    globalThis.fetch = async (_url, options) => {
+        const body = JSON.parse(options.body);
+        fetchCalls.push(body);
+        if (fetchCalls.length === 1) {
+            return {
+                ok: false,
+                status: 429,
+                statusText: 'Too Many Requests',
+                async json() {
+                    return { error: { message: 'rate limited' } };
+                },
+            };
+        }
+        const input = JSON.parse(body.messages[1].content);
+        return {
+            ok: true,
+            async json() {
+                return {
+                    choices: [{
+                        message: {
+                            content: JSON.stringify(input.map(text => `${text}-retry-ZH`)),
+                        },
+                    }],
+                };
+            },
+        };
+    };
+
+    const originalConsoleError = console.error;
+    console.error = () => {};
+    try {
+        const { TranslatorManager } = await loadTranslatorManager();
+
+        const results = await TranslatorManager.translateBatch(['Hello', 'World'], 'ZH', 'auto', 'ai:test', 77);
+
+        assert.equal(fetchCalls.length, 2);
+        assert.deepEqual(JSON.parse(fetchCalls[0].messages[1].content), ['Hello', 'World']);
+        assert.deepEqual(JSON.parse(fetchCalls[1].messages[1].content), ['Hello', 'World']);
+        assert.deepEqual(results.map(result => result.text), ['Hello-retry-ZH', 'World-retry-ZH']);
+        assert.equal(sentTabMessages.some(entry => entry.message.type === 'TRANSLATION_RETRY_SCHEDULED'), true);
+    } finally {
+        console.error = originalConsoleError;
+        globalThis.setTimeout = realSetTimeout;
+        globalThis.clearTimeout = realClearTimeout;
     }
 });

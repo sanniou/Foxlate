@@ -109,6 +109,8 @@ main {
     padding: var(--space-1);
     cursor: pointer;
     border-radius: var(--radius-sm);
+    min-width: 0;
+    max-width: min(100%, var(--foxlate-ui-text-width, 100%));
 }
 .lang-select:hover {
     background-color: var(--state-hover-opacity);
@@ -145,6 +147,8 @@ main {
     padding: var(--space-1) var(--space-2);
     font-size: var(--text-xs);
     height: 32px;
+    min-width: 0;
+    max-width: min(100%, var(--foxlate-ui-text-width, 100%));
 }
 
 .toggle-list {
@@ -176,12 +180,14 @@ main {
     color: var(--color-text-main);
     font-size: var(--text-sm);
     font-weight: var(--font-medium);
+    max-width: min(100%, var(--foxlate-ui-text-width, 100%));
 }
 
 .toggle-description {
     color: var(--color-text-muted);
     font-size: 11px;
     line-height: 1.25;
+    max-width: min(100%, var(--foxlate-ui-text-width, 100%));
 }
 
 /* Footer */

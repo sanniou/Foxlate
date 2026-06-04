@@ -200,6 +200,36 @@ test('PageTranslationJob observes initial elements and translates intersecting e
     assert.deepEqual(translated, [{ element: target, settings: createSettings() }]);
 });
 
+test('PageTranslationJob emits progress snapshots for translation counters', async () => {
+    setupDom('<p id="target">Hello</p>');
+    installObserverMocks();
+    const browserMock = createBrowserMock();
+    globalThis.__foxlateBrowserMock = browserMock;
+    const { PageTranslationJob } = await loadPageTranslationJob();
+    const snapshots = [];
+
+    const job = new PageTranslationJob(11, createSettings(), {
+        browserApi: browserMock,
+        findAllSearchRootsFn: () => [document.body],
+        findTranslatableElementsFn: () => [],
+        logError() {},
+        onProgress(snapshot) {
+            snapshots.push(snapshot);
+        },
+    });
+
+    await job.start();
+    job.state = 'translating';
+    job.recordTranslationStarted();
+    job.recordTranslationCompleted({ success: false });
+
+    const latest = snapshots.at(-1);
+    assert.equal(latest.started, 1);
+    assert.equal(latest.completed, 0);
+    assert.equal(latest.failed, 1);
+    assert.equal(latest.activeTranslations, 0);
+});
+
 test('PageTranslationJob prioritizes initial scan roots nearest the viewport', async () => {
     const dom = setupDom(`
         <section id="far"><p id="far-text">Far</p></section>
