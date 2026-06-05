@@ -1,20 +1,23 @@
-/* Foxlate Summary Design System 2.0 */
+/* Foxlate summary assistant surface. Standalone for host-page safety. */
 
 .foxlate-summary-button {
-    /* Floating Action Button Style */
     position: fixed;
-    width: 48px;
-    height: 48px;
-    background: #0f766e;
-    border-radius: 8px;
+    z-index: 2147483640;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 16px 32px -20px rgba(15, 118, 110, 0.88),
-                inset 0 1px 1px rgba(255, 255, 255, 0.28);
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #0891b2 0%, #14b8a6 48%, #7c3aed 100%);
+    box-shadow:
+        0 24px 44px -26px rgba(8, 145, 178, 0.9),
+        inset 0 1px 1px rgba(255, 255, 255, 0.34);
     cursor: pointer;
-    z-index: 2147483640;
-    transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    transition:
+        box-shadow 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+        opacity 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+        transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
     user-select: none;
     -webkit-user-modify: read-only;
     user-modify: read-only;
@@ -22,24 +25,27 @@
 
 .foxlate-summary-button-tooltip {
     position: fixed;
-    background: rgba(17, 24, 39, 0.92);
-    color: white;
-    padding: 6px 10px;
-    border-radius: 8px;
-    font-size: 12px;
-    font-weight: 500;
-    max-width: 220px;
-    white-space: normal;
-    overflow-wrap: break-word;
-    text-align: center;
-    opacity: 0;
-    pointer-events: none;
     z-index: 2147483642;
-    transform: translateY(4px) scale(0.96);
-    transition: opacity 0.16s ease, transform 0.16s ease;
-    backdrop-filter: blur(4px);
-    box-shadow: 0 18px 44px -28px rgba(15, 23, 42, 0.62);
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    max-width: 220px;
+    padding: 7px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    background: rgba(23, 32, 51, 0.92);
+    backdrop-filter: blur(10px) saturate(1.1);
+    box-shadow: 0 22px 48px -30px rgba(20, 35, 52, 0.72);
+    color: #ffffff;
+    font-family: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    opacity: 0;
+    overflow-wrap: break-word;
+    pointer-events: none;
+    text-align: center;
+    transform: translateY(5px) scale(0.96);
+    transition:
+        opacity 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+        transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+    white-space: normal;
 }
 
 .foxlate-summary-button-tooltip.visible {
@@ -49,47 +55,44 @@
 
 .foxlate-summary-button.dragging {
     cursor: grabbing;
-    transition: none;
-    opacity: 0.9;
+    opacity: 0.92;
     transform: scale(1.02);
+    transition: none;
 }
 
 .foxlate-summary-button:hover {
+    box-shadow:
+        0 28px 52px -28px rgba(8, 145, 178, 0.98),
+        inset 0 1px 1px rgba(255, 255, 255, 0.42);
     transform: translateY(-2px) scale(1.03);
-    box-shadow: 0 20px 40px -22px rgba(15, 118, 110, 0.95),
-                inset 0 1px 1px rgba(255, 255, 255, 0.36);
 }
 
 .foxlate-summary-button:active {
-    transform: translateY(1px) scale(0.95);
-    box-shadow: 0 4px 8px -2px rgba(15, 118, 110, 0.3);
+    box-shadow: 0 10px 20px -14px rgba(8, 145, 178, 0.5);
+    transform: translateY(1px) scale(0.96);
 }
 
-/* Rotated State (Active/Open) */
 .foxlate-summary-button.rotated {
-    background: #ef4444;
-    box-shadow: 0 16px 32px -20px rgba(239, 68, 68, 0.72),
-                inset 0 1px 1px rgba(255, 255, 255, 0.3);
-}
-
-.foxlate-summary-button.rotated:hover {
-    box-shadow: 0 12px 20px -4px rgba(239, 68, 68, 0.5),
-                inset 0 1px 1px rgba(255, 255, 255, 0.4);
+    background: linear-gradient(135deg, #e11d48 0%, #f97316 100%);
+    box-shadow:
+        0 24px 44px -26px rgba(225, 29, 72, 0.85),
+        inset 0 1px 1px rgba(255, 255, 255, 0.34);
 }
 
 .foxlate-summary-button svg {
-    fill: white;
+    position: absolute;
     width: 24px;
     height: 24px;
-    position: absolute;
-    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.1));
-    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    fill: #ffffff;
+    filter: drop-shadow(0 2px 4px rgba(20, 35, 52, 0.2));
+    transition:
+        opacity 260ms cubic-bezier(0.16, 1, 0.3, 1),
+        transform 360ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* Icon Switching Animation */
 .foxlate-summary-button .icon-close {
     opacity: 0;
-    transform: rotate(-90deg) scale(0.5);
+    transform: rotate(-90deg) scale(0.55);
 }
 
 .foxlate-summary-button .icon-sparkles {
@@ -98,7 +101,7 @@
 }
 
 .foxlate-summary-button:hover .icon-sparkles {
-    transform: rotate(15deg) scale(1.1);
+    transform: rotate(14deg) scale(1.1);
 }
 
 .foxlate-summary-button.rotated .icon-close {
@@ -108,64 +111,66 @@
 
 .foxlate-summary-button.rotated .icon-sparkles {
     opacity: 0;
-    transform: rotate(90deg) scale(0.5);
+    transform: rotate(90deg) scale(0.55);
 }
 
-/* Dialog Container */
 .foxlate-summary-dialog {
-    /* Local Tokens */
-    --fs-primary: #0f766e;
-    --fs-primary-hover: #115e59;
-    --fs-surface: #ffffff;
-    --fs-surface-dim: #f7f8fb;
+    --fs-primary: #0891b2;
+    --fs-primary-hover: #0e7490;
+    --fs-accent: #7c3aed;
+    --fs-surface: rgba(255, 255, 255, 0.94);
+    --fs-surface-solid: #ffffff;
+    --fs-surface-dim: #f4f8fb;
     --fs-surface-raised: #ffffff;
-    --fs-border: #dbe3ee;
-    --fs-border-strong: #c3ccd8;
-    --fs-text-main: #111827;
-    --fs-text-secondary: #4b5563;
-    --fs-shadow: 0 24px 64px -32px rgba(15, 23, 42, 0.72);
-    --fs-radius: 8px;
+    --fs-border: rgba(120, 140, 164, 0.28);
+    --fs-border-strong: rgba(83, 97, 115, 0.36);
+    --fs-text-main: #172033;
+    --fs-text-secondary: #536173;
+    --fs-text-muted: #8794a6;
+    --fs-error: #e11d48;
+    --fs-error-bg: #fff1f2;
+    --fs-shadow: 0 34px 84px -38px rgba(20, 35, 52, 0.72);
+    --fs-radius: 12px;
+    --fs-transition: 190ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    --fs-transition-smooth: 280ms cubic-bezier(0.16, 1, 0.3, 1);
 
     position: fixed;
-    width: 400px; /* 默认宽度 */
-    height: 500px; /* 默认高度 */
-    max-width: 90vw;
-    max-height: 85vh;
-    background-color: var(--fs-surface);
-    border: 1px solid var(--fs-border);
-    border-radius: var(--fs-radius);
-    box-shadow: var(--fs-shadow);
     z-index: 2147483641;
     display: flex;
     flex-direction: column;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    color: var(--fs-text-main);
-    
-    /* Animation State */
-    opacity: 0;
-    transform: translateY(8px) scale(0.98);
-    visibility: hidden;
-    transition:
-        opacity 0.2s ease,
-        transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-        width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-        height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-        top 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-        left 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-        visibility 0s 0.2s;
+    width: 410px;
+    height: 510px;
+    max-width: 90vw;
+    max-height: 85vh;
     overflow: hidden;
-    
-    /* Scroll & Touch Behavior */
+    border: 1px solid var(--fs-border);
+    border-radius: var(--fs-radius);
+    background: var(--fs-surface);
+    backdrop-filter: blur(18px) saturate(1.12);
+    box-shadow: var(--fs-shadow);
+    color: var(--fs-text-main);
+    font-family: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+    opacity: 0;
     overscroll-behavior: contain;
     touch-action: pan-y pinch-zoom;
-    -webkit-user-modify: read-only;
+    transform: translateY(10px) scale(0.98);
+    transition:
+        opacity var(--fs-transition-smooth),
+        transform var(--fs-transition-smooth),
+        width var(--fs-transition-smooth),
+        height var(--fs-transition-smooth),
+        top var(--fs-transition-smooth),
+        left var(--fs-transition-smooth),
+        visibility 0s 0.28s;
     user-modify: read-only;
+    -webkit-user-modify: read-only;
+    visibility: hidden;
 }
 
 .foxlate-summary-dialog.visible {
+    visibility: visible;
     opacity: 1;
     transform: translateY(0) scale(1);
-    visibility: visible;
     transition-delay: 0s;
 }
 
@@ -173,117 +178,125 @@
     transition: none;
 }
 
-.foxlate-summary-dialog .foxlate-resize-se::after {
-    content: '';
-    position: absolute;
-    right: 3px;
-    bottom: 3px;
-    width: 7px;
-    height: 7px;
-    border-right: 2px solid rgba(15, 118, 110, 0.58);
-    border-bottom: 2px solid rgba(15, 118, 110, 0.58);
-}
-
+.foxlate-summary-dialog .foxlate-resize-se::after,
 .foxlate-summary-dialog .foxlate-resize-ne::after,
 .foxlate-summary-dialog .foxlate-resize-nw::after,
 .foxlate-summary-dialog .foxlate-resize-sw::after {
-    content: '';
+    content: "";
     position: absolute;
-    width: 7px;
-    height: 7px;
+    width: 8px;
+    height: 8px;
+}
+
+.foxlate-summary-dialog .foxlate-resize-se::after {
+    right: 3px;
+    bottom: 3px;
+    border-right: 2px solid color-mix(in srgb, var(--fs-primary) 70%, transparent);
+    border-bottom: 2px solid color-mix(in srgb, var(--fs-primary) 70%, transparent);
 }
 
 .foxlate-summary-dialog .foxlate-resize-ne::after {
     right: 3px;
     top: 3px;
-    border-right: 2px solid rgba(15, 118, 110, 0.58);
-    border-top: 2px solid rgba(15, 118, 110, 0.58);
+    border-right: 2px solid color-mix(in srgb, var(--fs-primary) 70%, transparent);
+    border-top: 2px solid color-mix(in srgb, var(--fs-primary) 70%, transparent);
 }
 
 .foxlate-summary-dialog .foxlate-resize-nw::after {
     left: 3px;
     top: 3px;
-    border-left: 2px solid rgba(15, 118, 110, 0.58);
-    border-top: 2px solid rgba(15, 118, 110, 0.58);
+    border-left: 2px solid color-mix(in srgb, var(--fs-primary) 70%, transparent);
+    border-top: 2px solid color-mix(in srgb, var(--fs-primary) 70%, transparent);
 }
 
 .foxlate-summary-dialog .foxlate-resize-sw::after {
     left: 3px;
     bottom: 3px;
-    border-left: 2px solid rgba(15, 118, 110, 0.58);
-    border-bottom: 2px solid rgba(15, 118, 110, 0.58);
+    border-left: 2px solid color-mix(in srgb, var(--fs-primary) 70%, transparent);
+    border-bottom: 2px solid color-mix(in srgb, var(--fs-primary) 70%, transparent);
 }
 
 .foxlate-summary-dialog .foxlate-resize-n:hover,
 .foxlate-summary-dialog .foxlate-resize-e:hover,
 .foxlate-summary-dialog .foxlate-resize-s:hover,
 .foxlate-summary-dialog .foxlate-resize-w:hover {
-    background: rgba(15, 118, 110, 0.08);
+    background: color-mix(in srgb, var(--fs-primary) 12%, transparent);
 }
 
 .foxlate-summary-dialog.loading .send-button {
-    opacity: 0.5;
     cursor: wait;
+    opacity: 0.56;
 }
 
-/* Header */
 .foxlate-summary-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     padding: 15px 18px;
     border-bottom: 1px solid var(--fs-border);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background-color: var(--fs-surface);
+    background:
+        linear-gradient(135deg, color-mix(in srgb, var(--fs-primary) 14%, transparent), color-mix(in srgb, var(--fs-accent) 10%, transparent)),
+        var(--fs-surface);
 }
 
 .foxlate-summary-header h3 {
     margin: 0;
-    font-size: 16px;
-    font-weight: 600;
     color: var(--fs-text-main);
+    font-size: 16px;
+    font-weight: 760;
 }
 
 .refresh-button {
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    padding: 8px;
-    border-radius: 8px;
-    color: var(--fs-text-secondary);
-    transition: background-color 0.2s;
     display: flex;
+    padding: 8px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--fs-text-secondary);
+    cursor: pointer;
+    transition:
+        background-color var(--fs-transition),
+        color var(--fs-transition),
+        transform var(--fs-transition-smooth);
 }
 
 .refresh-button:hover {
-    background-color: var(--fs-surface-dim);
+    background: color-mix(in srgb, var(--fs-primary) 12%, transparent);
     color: var(--fs-primary);
+    transform: translateY(-1px);
 }
 
-/* Tabs */
 .foxlate-summary-tabs {
     display: flex;
-    padding: 0 12px;
-    background-color: var(--fs-surface-dim);
-    border-bottom: 1px solid var(--fs-border);
-    gap: 4px;
+    gap: 5px;
     overflow-x: auto;
+    padding: 8px 12px 0;
+    border-bottom: 1px solid var(--fs-border);
+    background: var(--fs-surface-dim);
 }
 
-.foxlate-summary-tabs::-webkit-scrollbar { display: none; }
+.foxlate-summary-tabs::-webkit-scrollbar {
+    display: none;
+}
 
 .foxlate-summary-tab {
-    flex: 0 0 var(--foxlate-summary-tab-width, auto);
-    max-width: var(--foxlate-summary-tab-width, 180px);
-    padding: 10px 12px;
-    font-size: 13px;
-    color: var(--fs-text-secondary);
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    transition: all 0.2s;
     display: flex;
     align-items: center;
+    flex: 0 0 var(--foxlate-summary-tab-width, auto);
     gap: 8px;
     min-width: 0;
+    max-width: var(--foxlate-summary-tab-width, 180px);
+    padding: 9px 11px;
+    border: 1px solid transparent;
+    border-bottom: 0;
+    border-radius: 10px 10px 0 0;
+    color: var(--fs-text-secondary);
+    cursor: pointer;
+    font-size: 13px;
+    transition:
+        background-color var(--fs-transition),
+        border-color var(--fs-transition),
+        color var(--fs-transition);
 }
 
 .foxlate-summary-tab-title {
@@ -293,54 +306,60 @@
 }
 
 .foxlate-summary-tab:hover {
+    background: color-mix(in srgb, var(--fs-surface-solid) 74%, transparent);
     color: var(--fs-text-main);
-    background-color: rgba(0,0,0,0.02);
 }
 
 .foxlate-summary-tab.active {
+    border-color: var(--fs-border);
+    background: var(--fs-surface);
     color: var(--fs-primary);
-    border-bottom-color: var(--fs-primary);
-    font-weight: 500;
-    background-color: var(--fs-surface);
+    font-weight: 700;
 }
 
 .foxlate-summary-tab-close {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 2px;
-    border-radius: 50%;
     display: flex;
-    opacity: 0.6;
+    padding: 2px;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    opacity: 0.62;
 }
+
 .foxlate-summary-tab-close:hover {
-    background-color: var(--fs-border);
+    background: color-mix(in srgb, var(--fs-primary) 12%, transparent);
     opacity: 1;
 }
-.foxlate-summary-tab-close svg { width: 14px; height: 14px; fill: currentColor; }
 
-/* Content Area */
+.foxlate-summary-tab-close svg {
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
+}
+
 .foxlate-summary-content-wrapper {
-    flex: 1;
     position: relative;
-    overflow: hidden;
-    background-color: var(--fs-surface);
     display: flex;
+    flex: 1;
     flex-direction: column;
     min-height: 0;
+    overflow: hidden;
+    background: var(--fs-surface);
 }
 
 .foxlate-summary-original-text {
     display: none;
     flex: 0 0 auto;
-    padding: 12px 16px;
-    background-color: var(--fs-surface-dim);
-    border-bottom: 1px solid var(--fs-border);
     max-height: 150px;
     overflow-y: auto;
-    white-space: pre-wrap;
-    font-size: 13px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--fs-border);
+    background: var(--fs-surface-dim);
     color: var(--fs-text-secondary);
+    font-size: 13px;
+    white-space: pre-wrap;
 }
 
 .foxlate-summary-original-text.is-visible {
@@ -348,60 +367,46 @@
 }
 
 .foxlate-summary-conversation {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    padding: 18px;
     display: flex;
+    flex: 1 1 auto;
     flex-direction: column;
     gap: 16px;
-    
-    /* Prevent scroll chaining */
+    min-height: 0;
+    overflow-y: auto;
+    padding: 18px;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
 }
 
-/* Messages */
 .foxlate-summary-message {
+    position: relative;
     display: flex;
+    flex: 0 0 auto;
     flex-direction: column;
     gap: 6px;
     max-width: 90%;
     min-width: 0;
-    flex: 0 0 auto;
-    position: relative;
-    animation: slideIn 0.3s ease-out;
-}
-
-@keyframes slideIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+    animation: summarySlideIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .foxlate-summary-message .message-content {
-    padding: 12px 14px;
-    border-radius: 8px;
-    font-size: 14px;
-    line-height: 1.6;
-    word-wrap: break-word;
-    overflow-wrap: anywhere;
+    position: relative;
     min-width: 0;
     max-width: 100%;
-    position: relative;
+    padding: 12px 14px;
+    border-radius: 12px;
+    font-size: 14px;
+    line-height: 1.62;
+    overflow-wrap: anywhere;
+    word-wrap: break-word;
 }
 
 .foxlate-summary-message[data-foxlate-layout-source] .message-content {
     min-height: min(var(--foxlate-summary-message-measured-height, 44px), 260px);
 }
 
-.foxlate-summary-message .message-content > :first-child {
-    margin-top: 0;
-}
-
-.foxlate-summary-message .message-content > :last-child {
-    margin-bottom: 0;
-}
+.foxlate-summary-message .message-content > :first-child { margin-top: 0; }
+.foxlate-summary-message .message-content > :last-child { margin-bottom: 0; }
 
 .foxlate-summary-message .message-content p,
 .foxlate-summary-message .message-content ul,
@@ -429,98 +434,93 @@
     overflow-wrap: anywhere;
 }
 
-/* Assistant Bubble */
 .foxlate-summary-message.assistant .message-content {
-    background-color: var(--fs-surface-dim);
-    color: var(--fs-text-main);
     border: 1px solid var(--fs-border);
-    border-bottom-left-radius: 4px;
+    border-bottom-left-radius: 5px;
+    background: var(--fs-surface-dim);
+    color: var(--fs-text-main);
 }
 
-/* User Bubble */
 .foxlate-summary-message.user {
     align-self: flex-end;
 }
 
 .foxlate-summary-message.user .message-content {
-    background-color: var(--fs-primary);
-    color: white;
-    border-bottom-right-radius: 4px;
+    border-bottom-right-radius: 5px;
+    background: linear-gradient(135deg, var(--fs-primary), var(--fs-accent));
+    color: #ffffff;
 }
 
-/* Error State */
 .foxlate-summary-message.error .message-content {
-    background-color: #fef2f2;
-    color: #ef4444;
-    border-left: 4px solid #ef4444;
+    border-left: 4px solid var(--fs-error);
+    background: var(--fs-error-bg);
+    color: var(--fs-error);
 }
 
-/* Edit Mode */
 .foxlate-summary-message.is-editing {
     max-width: 100%;
 }
 
 .message-edit-area textarea {
     width: 100%;
+    padding: 10px;
     border: 1px solid var(--fs-border);
-    border-radius: 8px;
-    padding: 8px;
-    font-family: inherit;
+    border-radius: 10px;
+    background: var(--fs-surface);
+    color: var(--fs-text-main);
+    font: inherit;
     font-size: 14px;
     resize: vertical;
-    background-color: var(--fs-surface);
-    color: var(--fs-text-main);
+}
+
+.message-edit-area textarea:focus {
+    outline: 0;
+    border-color: var(--fs-primary);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--fs-primary) 16%, transparent);
 }
 
 .message-edit-area .message-actions {
-    opacity: 1;
     justify-content: flex-end;
     margin-top: 4px;
+    opacity: 1;
 }
 
-/* Loading Message */
 .foxlate-summary-message.loading {
     align-items: flex-start;
 }
 
 .loading-indicator {
+    position: relative;
     display: inline-block;
     width: 8px;
     height: 8px;
-    border-radius: 50%;
-    background-color: var(--fs-text-secondary);
-    animation: loading-bounce 1.4s infinite ease-in-out both;
-    position: relative;
     margin: 0 12px;
+    border-radius: 50%;
+    background: var(--fs-text-secondary);
+    animation: loading-bounce 1.4s infinite ease-in-out both;
 }
 
-.loading-indicator::before, 
+.loading-indicator::before,
 .loading-indicator::after {
-    content: '';
+    content: "";
     position: absolute;
+    top: 0;
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background-color: var(--fs-text-secondary);
+    background: var(--fs-text-secondary);
     animation: loading-bounce 1.4s infinite ease-in-out both;
-    top: 0;
 }
 
 .loading-indicator::before { left: -12px; animation-delay: -0.32s; }
 .loading-indicator::after { left: 12px; animation-delay: -0.16s; }
 
-@keyframes loading-bounce {
-    0%, 80%, 100% { transform: scale(0); }
-    40% { transform: scale(1.0); }
-}
-
-/* Actions */
 .message-actions {
     display: flex;
     gap: 8px;
-    opacity: 0;
-    transition: opacity 0.2s;
     padding: 0 4px;
+    opacity: 0;
+    transition: opacity var(--fs-transition);
 }
 
 .foxlate-summary-message:hover .message-actions {
@@ -528,131 +528,141 @@
 }
 
 .message-actions button {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 4px;
-    color: var(--fs-text-secondary);
-    border-radius: 4px;
     display: flex;
     align-items: center;
+    padding: 4px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--fs-text-secondary);
+    cursor: pointer;
 }
 
 .message-actions button:hover {
-    background-color: var(--fs-surface-dim);
+    background: color-mix(in srgb, var(--fs-primary) 12%, transparent);
     color: var(--fs-primary);
 }
 
 .message-actions button:disabled {
-    opacity: 0.5;
     cursor: not-allowed;
+    opacity: 0.5;
 }
 
-/* Footer & Input */
 .foxlate-summary-footer {
-    padding: 14px 16px;
-    border-top: 1px solid var(--fs-border);
     display: flex;
     align-items: flex-end;
     gap: 12px;
-    background-color: var(--fs-surface);
+    padding: 14px 16px;
+    border-top: 1px solid var(--fs-border);
+    background: var(--fs-surface);
 }
 
 .foxlate-summary-footer textarea {
     flex: 1;
-    border: 1px solid var(--fs-border);
-    border-radius: 8px;
-    padding: 10px 16px;
-    font-family: inherit;
-    font-size: 14px;
-    resize: none;
-    outline: none;
     max-height: 120px;
     overflow-y: hidden;
-    background-color: var(--fs-surface-dim);
-    transition: border-color 0.2s, background-color 0.2s;
+    padding: 10px 14px;
+    border: 1px solid var(--fs-border);
+    border-radius: 12px;
+    outline: 0;
+    background: var(--fs-surface-dim);
+    color: var(--fs-text-main);
+    font: inherit;
+    font-size: 14px;
+    resize: none;
+    transition:
+        background-color var(--fs-transition),
+        border-color var(--fs-transition),
+        box-shadow var(--fs-transition);
 }
 
 .foxlate-summary-footer textarea:focus {
     border-color: var(--fs-primary);
-    background-color: var(--fs-surface);
+    background: var(--fs-surface);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--fs-primary) 16%, transparent);
 }
 
 .send-button {
-    background-color: var(--fs-primary);
-    color: white;
-    border: none;
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s;
     flex-shrink: 0;
+    width: 38px;
+    height: 38px;
+    border: 0;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--fs-primary), var(--fs-accent));
+    color: #ffffff;
+    cursor: pointer;
+    transition:
+        filter var(--fs-transition),
+        transform var(--fs-transition-smooth);
 }
 
 .send-button:hover:not(:disabled) {
-    background-color: var(--fs-primary-hover);
-    transform: scale(1.05);
+    filter: saturate(1.08) brightness(1.02);
+    transform: translateY(-1px) scale(1.03);
 }
 
 .send-button:disabled {
-    background-color: var(--fs-border);
+    background: var(--fs-border-strong);
     cursor: not-allowed;
 }
 
 .send-button svg {
-    fill: currentColor;
     width: 18px;
     height: 18px;
-    margin-left: 2px; /* Visual balance */
+    margin-left: 2px;
+    fill: currentColor;
 }
 
-/* Suggestion Bar */
 .foxlate-summary-menubar {
-    padding: 8px 16px;
-    background-color: var(--fs-surface-dim);
+    padding: 9px 16px;
     border-top: 1px solid var(--fs-border);
+    background: var(--fs-surface-dim);
 }
 
 .suggest-button {
-    background: none;
-    border: 1px solid var(--fs-border);
-    border-radius: 8px;
-    padding: 6px 12px;
-    font-size: 12px;
-    color: var(--fs-text-secondary);
-    cursor: pointer;
     display: flex;
     align-items: center;
     gap: 6px;
-    transition: all 0.2s;
+    padding: 7px 12px;
+    border: 1px solid var(--fs-border);
+    border-radius: 10px;
+    background: var(--fs-surface);
+    color: var(--fs-text-secondary);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 650;
+    transition:
+        background-color var(--fs-transition),
+        border-color var(--fs-transition),
+        color var(--fs-transition);
 }
 
 .suggest-button:hover {
-    background-color: white;
     border-color: var(--fs-primary);
+    background: color-mix(in srgb, var(--fs-primary) 10%, var(--fs-surface));
     color: var(--fs-primary);
 }
 
 .suggest-button.loading {
     cursor: wait;
-    opacity: 0.7;
+    opacity: 0.72;
 }
 
-/* Suggestions Dropdown */
 .foxlate-summary-suggestions {
     display: none;
     flex-direction: column;
     gap: 8px;
     padding: 12px 16px;
-    background-color: var(--fs-surface-dim);
     border-bottom: 1px solid var(--fs-border);
+    background: var(--fs-surface-dim);
     opacity: 0;
     transform: translateY(10px);
-    transition: opacity 0.2s, transform 0.2s;
+    transition:
+        opacity var(--fs-transition-smooth),
+        transform var(--fs-transition-smooth);
 }
 
 .foxlate-summary-suggestions.is-visible {
@@ -662,56 +672,43 @@
 }
 
 .foxlate-suggestion-item {
-    background-color: var(--fs-surface);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 9px 12px;
     border: 1px solid var(--fs-border);
-    border-radius: 8px;
-    padding: 8px 12px;
-    font-size: 13px;
+    border-radius: 10px;
+    background: var(--fs-surface);
     color: var(--fs-text-main);
     cursor: pointer;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    transition: all 0.2s;
+    font-size: 13px;
+    transition:
+        background-color var(--fs-transition),
+        border-color var(--fs-transition),
+        transform var(--fs-transition-smooth);
 }
 
 .foxlate-suggestion-item:hover {
     border-color: var(--fs-primary);
-    background-color: #f0fdfa;
+    background: color-mix(in srgb, var(--fs-primary) 10%, var(--fs-surface));
+    transform: translateY(-1px);
 }
 
 .foxlate-suggestion-loading,
 .foxlate-suggestion-message {
     padding: 12px;
-    text-align: center;
     color: var(--fs-text-secondary);
     font-size: 13px;
+    text-align: center;
 }
 
 .foxlate-suggestion-error {
-    color: #ef4444;
-    background-color: #fef2f2;
-    border-radius: 8px;
+    border-radius: 10px;
+    background: var(--fs-error-bg);
+    color: var(--fs-error);
 }
 
-/* Dark Mode */
-@media (prefers-color-scheme: dark) {
-    .foxlate-summary-dialog {
-        --fs-surface: #17202f;
-        --fs-surface-dim: #0f1724;
-        --fs-surface-raised: #1b2435;
-        --fs-border: #344155;
-        --fs-border-strong: #475569;
-        --fs-text-main: #f7f8fb;
-        --fs-text-secondary: #aab3c2;
-    }
-    
-    .foxlate-summary-tab:hover {
-        background-color: rgba(255,255,255,0.05);
-    }
-}
-
-/* Custom Scrollbar */
 .foxlate-summary-dialog ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -722,19 +719,50 @@
 }
 
 .foxlate-summary-dialog ::-webkit-scrollbar-thumb {
-    background-color: rgba(0, 0, 0, 0.2);
     border-radius: 3px;
+    background: rgba(83, 97, 115, 0.26);
 }
 
 .foxlate-summary-dialog ::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(0, 0, 0, 0.3);
+    background: rgba(83, 97, 115, 0.38);
+}
+
+@keyframes summarySlideIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes loading-bounce {
+    0%, 80%, 100% { transform: scale(0); }
+    40% { transform: scale(1); }
 }
 
 @media (prefers-color-scheme: dark) {
-    .foxlate-summary-dialog ::-webkit-scrollbar-thumb {
-        background-color: rgba(255, 255, 255, 0.2);
+    .foxlate-summary-dialog {
+        --fs-primary: #22d3ee;
+        --fs-primary-hover: #67e8f9;
+        --fs-accent: #c084fc;
+        --fs-surface: rgba(22, 29, 43, 0.94);
+        --fs-surface-solid: #161d2b;
+        --fs-surface-dim: #111827;
+        --fs-surface-raised: #1b2536;
+        --fs-border: rgba(160, 177, 198, 0.2);
+        --fs-border-strong: rgba(189, 201, 218, 0.32);
+        --fs-text-main: #f5f8fb;
+        --fs-text-secondary: #c6d0dc;
+        --fs-text-muted: #8f9daf;
+        --fs-error: #fb7185;
+        --fs-error-bg: rgba(225, 29, 72, 0.16);
+        --fs-shadow: 0 34px 84px -30px rgba(0, 0, 0, 0.76);
     }
-    .foxlate-summary-dialog ::-webkit-scrollbar-thumb:hover {
-        background-color: rgba(255, 255, 255, 0.3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .foxlate-summary-dialog,
+    .foxlate-summary-button,
+    .foxlate-summary-message,
+    .foxlate-summary-suggestions {
+        animation-duration: 0.001ms !important;
+        transition-duration: 0.001ms !important;
     }
 }

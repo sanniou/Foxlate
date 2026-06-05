@@ -1,59 +1,58 @@
-/* Foxlate Tooltip Design System 2.0 (Standalone) */
+/* Foxlate enhanced tooltip surface. Standalone for host-page safety. */
 
 .foxlate-enhanced-panel {
-    /* --- Local Design Tokens (Matches Common.css) --- */
-    --fl-color-primary: #0f766e;
-    --fl-color-primary-hover: #115e59;
-    --fl-color-surface: #ffffff;
-    --fl-color-surface-dim: #f7f8fb;
+    --fl-color-primary: #0891b2;
+    --fl-color-primary-hover: #0e7490;
+    --fl-color-accent: #7c3aed;
+    --fl-color-surface: rgba(255, 255, 255, 0.94);
+    --fl-color-surface-dim: #f4f8fb;
     --fl-color-surface-raised: #ffffff;
-    --fl-color-text-main: #111827;
-    --fl-color-text-secondary: #4b5563;
-    --fl-color-border: #dbe3ee;
-    --fl-color-border-strong: #c3ccd8;
-    --fl-color-hover: rgba(17, 24, 39, 0.06);
-    
-    --fl-shadow: 0 18px 44px -28px rgba(15, 23, 42, 0.62);
-    --fl-radius: 8px;
-    --fl-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    
-    /* Base Styles */
+    --fl-color-text-main: #172033;
+    --fl-color-text-secondary: #536173;
+    --fl-color-border: rgba(120, 140, 164, 0.28);
+    --fl-color-border-strong: rgba(83, 97, 115, 0.36);
+    --fl-color-hover: rgba(8, 145, 178, 0.1);
+    --fl-color-error: #e11d48;
+    --fl-color-error-bg: #fff1f2;
+    --fl-shadow: 0 26px 64px -36px rgba(20, 35, 52, 0.66);
+    --fl-radius: 10px;
+    --fl-font-sans: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+    --fl-transition: 190ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    --fl-transition-smooth: 260ms cubic-bezier(0.16, 1, 0.3, 1);
+
     position: fixed;
+    z-index: 2147483647;
     visibility: hidden;
     opacity: 0;
-    transform: translateY(6px) scale(0.98);
-    transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1), 
-                transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-                visibility 0s linear 0.2s;
-                
-    background-color: var(--fl-color-surface);
-    color: var(--fl-color-text-main);
-    border-radius: var(--fl-radius);
-    box-shadow: var(--fl-shadow);
-    border: 1px solid var(--fl-color-border);
-    
-    max-width: 420px;
-    min-width: 280px;
+    transform: translateY(8px) scale(0.98);
+    transition:
+        opacity var(--fl-transition-smooth),
+        transform var(--fl-transition-smooth),
+        visibility 0s linear 0.26s;
+    box-sizing: border-box;
     width: max-content;
-    
+    min-width: 280px;
+    max-width: 430px;
+    overflow: hidden;
+    border: 1px solid var(--fl-color-border);
+    border-radius: var(--fl-radius);
+    background: var(--fl-color-surface);
+    backdrop-filter: blur(18px) saturate(1.12);
+    box-shadow: var(--fl-shadow);
+    color: var(--fl-color-text-main);
     font-family: var(--fl-font-sans);
     font-size: 14px;
     line-height: 1.5;
-    z-index: 2147483647; /* Max Z-Index */
-    overflow: hidden;
-    box-sizing: border-box;
 }
 
-/* Reset for internal elements */
-.foxlate-enhanced-panel *, 
-.foxlate-enhanced-panel *::before, 
+.foxlate-enhanced-panel *,
+.foxlate-enhanced-panel *::before,
 .foxlate-enhanced-panel *::after {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
 }
 
-/* Show State */
 .foxlate-enhanced-panel.visible {
     visibility: visible;
     opacity: 1;
@@ -65,203 +64,200 @@
     transition: none;
 }
 
-.foxlate-enhanced-panel .foxlate-resize-se::after {
-    content: '';
-    position: absolute;
-    right: 3px;
-    bottom: 3px;
-    width: 7px;
-    height: 7px;
-    border-right: 2px solid rgba(15, 118, 110, 0.58);
-    border-bottom: 2px solid rgba(15, 118, 110, 0.58);
-}
-
+.foxlate-enhanced-panel .foxlate-resize-se::after,
 .foxlate-enhanced-panel .foxlate-resize-ne::after,
 .foxlate-enhanced-panel .foxlate-resize-nw::after,
 .foxlate-enhanced-panel .foxlate-resize-sw::after {
-    content: '';
+    content: "";
     position: absolute;
-    width: 7px;
-    height: 7px;
+    width: 8px;
+    height: 8px;
+}
+
+.foxlate-enhanced-panel .foxlate-resize-se::after {
+    right: 3px;
+    bottom: 3px;
+    border-right: 2px solid color-mix(in srgb, var(--fl-color-primary) 70%, transparent);
+    border-bottom: 2px solid color-mix(in srgb, var(--fl-color-primary) 70%, transparent);
 }
 
 .foxlate-enhanced-panel .foxlate-resize-ne::after {
     right: 3px;
     top: 3px;
-    border-right: 2px solid rgba(15, 118, 110, 0.58);
-    border-top: 2px solid rgba(15, 118, 110, 0.58);
+    border-right: 2px solid color-mix(in srgb, var(--fl-color-primary) 70%, transparent);
+    border-top: 2px solid color-mix(in srgb, var(--fl-color-primary) 70%, transparent);
 }
 
 .foxlate-enhanced-panel .foxlate-resize-nw::after {
     left: 3px;
     top: 3px;
-    border-left: 2px solid rgba(15, 118, 110, 0.58);
-    border-top: 2px solid rgba(15, 118, 110, 0.58);
+    border-left: 2px solid color-mix(in srgb, var(--fl-color-primary) 70%, transparent);
+    border-top: 2px solid color-mix(in srgb, var(--fl-color-primary) 70%, transparent);
 }
 
 .foxlate-enhanced-panel .foxlate-resize-sw::after {
     left: 3px;
     bottom: 3px;
-    border-left: 2px solid rgba(15, 118, 110, 0.58);
-    border-bottom: 2px solid rgba(15, 118, 110, 0.58);
+    border-left: 2px solid color-mix(in srgb, var(--fl-color-primary) 70%, transparent);
+    border-bottom: 2px solid color-mix(in srgb, var(--fl-color-primary) 70%, transparent);
 }
 
 .foxlate-enhanced-panel .foxlate-resize-n:hover,
 .foxlate-enhanced-panel .foxlate-resize-e:hover,
 .foxlate-enhanced-panel .foxlate-resize-s:hover,
 .foxlate-enhanced-panel .foxlate-resize-w:hover {
-    background: rgba(15, 118, 110, 0.08);
+    background: color-mix(in srgb, var(--fl-color-primary) 12%, transparent);
 }
 
-/* Content Layout */
 .foxlate-panel-content {
     display: flex;
     flex-direction: column;
 }
 
-/* Header */
 .foxlate-panel-header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 11px 14px;
-    background-color: var(--fl-color-surface);
+    justify-content: space-between;
+    padding: 12px 14px;
     border-bottom: 1px solid var(--fl-color-border);
-    cursor: default; /* Changed from grab logic in JS */
+    background:
+        linear-gradient(135deg, color-mix(in srgb, var(--fl-color-primary) 12%, transparent), color-mix(in srgb, var(--fl-color-accent) 9%, transparent)),
+        var(--fl-color-surface);
+    cursor: default;
 }
 
 .foxlate-panel-header.draggable {
     cursor: grab;
 }
+
 .foxlate-panel-header.draggable:active {
     cursor: grabbing;
 }
 
 .foxlate-panel-title {
-    font-weight: 600;
-    color: var(--fl-color-text-main);
-    font-size: 14px;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 7px;
+    color: var(--fl-color-text-main);
+    font-size: 14px;
+    font-weight: 720;
 }
 
-.foxlate-panel-actions {
+.foxlate-panel-actions,
+.foxlate-text-actions {
     display: flex;
     gap: 4px;
 }
 
-/* Body */
 .foxlate-panel-body {
-    padding: 0;
-    max-height: 300px;
+    max-height: 310px;
     overflow-y: auto;
-    background-color: var(--fl-color-surface-dim);
+    background: var(--fl-color-surface-dim);
 }
 
-/* Sections (Source/Target) */
 .foxlate-text-section {
     border-bottom: 1px solid var(--fl-color-border);
-    background-color: var(--fl-color-surface-raised);
+    background: var(--fl-color-surface-raised);
 }
+
 .foxlate-text-section:last-child {
-    border-bottom: none;
+    border-bottom: 0;
 }
 
 .foxlate-text-header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 9px 12px;
+    justify-content: space-between;
+    padding: 10px 12px;
     cursor: pointer;
     user-select: none;
-    transition: background-color 0.15s;
+    transition: background-color var(--fl-transition);
 }
 
 .foxlate-text-header:hover {
-    background-color: var(--fl-color-surface-dim);
+    background: var(--fl-color-hover);
 }
 
 .foxlate-text-label {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
     color: var(--fl-color-text-secondary);
-    letter-spacing: 0.04em;
-}
-
-.foxlate-text-actions {
-    display: flex;
-    gap: 2px;
+    font-size: 11px;
+    font-weight: 720;
+    letter-spacing: 0;
+    text-transform: uppercase;
 }
 
 .foxlate-text-content {
-    padding: 0 14px 12px;
+    max-height: 500px;
+    padding: 0 14px 13px;
     color: var(--fl-color-text-main);
-    word-wrap: break-word;
-    white-space: pre-wrap;
     font-size: 14px;
-    line-height: 1.6;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    line-height: 1.62;
     opacity: 1;
-    max-height: 500px; /* Arbitrary large height for transition */
+    overflow-wrap: anywhere;
+    transition:
+        max-height var(--fl-transition-smooth),
+        opacity var(--fl-transition-smooth),
+        padding-bottom var(--fl-transition-smooth);
+    white-space: pre-wrap;
+    word-wrap: break-word;
 }
 
-/* Collapsed State */
 .foxlate-text-section.collapsed .foxlate-text-content {
     max-height: 0;
+    overflow: hidden;
     padding-bottom: 0;
     opacity: 0;
-    overflow: hidden;
 }
 
-/* Icon Buttons */
 .foxlate-icon-btn {
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    padding: 6px;
-    border-radius: 8px;
-    color: var(--fl-color-text-secondary);
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s;
+    padding: 6px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--fl-color-text-secondary);
+    cursor: pointer;
+    transition:
+        background-color var(--fl-transition),
+        color var(--fl-transition),
+        transform var(--fl-transition-smooth);
 }
 
 .foxlate-icon-btn svg {
+    display: block;
     width: 16px;
     height: 16px;
-    display: block;
 }
 
 .foxlate-icon-btn:hover {
-    background-color: var(--fl-color-hover);
+    background: var(--fl-color-hover);
     color: var(--fl-color-text-main);
+    transform: translateY(-1px);
 }
 
 .foxlate-icon-btn:disabled {
-    opacity: 0.4;
     cursor: not-allowed;
+    opacity: 0.42;
+    transform: none;
 }
 
-/* Special Button States */
 .foxlate-icon-btn.playing {
+    background: color-mix(in srgb, var(--fl-color-primary) 16%, transparent);
     color: var(--fl-color-primary);
-    background-color: rgba(15, 118, 110, 0.12);
 }
 
 .foxlate-icon-btn.copied {
-    color: #10b981; /* Success Green */
+    color: #10b981;
 }
 
-/* Loading */
 .foxlate-loading-container {
-    padding: 24px;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 12px;
+    padding: 26px;
     color: var(--fl-color-text-secondary);
 }
 
@@ -274,42 +270,33 @@
     animation: fl-spin 0.8s linear infinite;
 }
 
+.foxlate-error-message {
+    padding: 16px;
+    border-top: 1px solid color-mix(in srgb, var(--fl-color-error) 16%, transparent);
+    background: var(--fl-color-error-bg);
+    color: var(--fl-color-error);
+    font-size: 13px;
+}
+
 @keyframes fl-spin {
     to { transform: rotate(360deg); }
 }
 
-/* Error */
-.foxlate-error-message {
-    padding: 16px;
-    background-color: #fef2f2;
-    color: #ef4444;
-    font-size: 13px;
-    border-top: 1px solid #fee2e2;
-}
-
-/* Dark Mode (System Preference) */
 @media (prefers-color-scheme: dark) {
     .foxlate-enhanced-panel {
-        --fl-color-surface: #17202f;
-        --fl-color-surface-dim: #0f1724;
-        --fl-color-surface-raised: #1b2435;
-        --fl-color-text-main: #f7f8fb;
-        --fl-color-text-secondary: #aab3c2;
-        --fl-color-border: #344155;
-        --fl-color-border-strong: #475569;
-        --fl-color-hover: rgba(255, 255, 255, 0.1);
-        --fl-color-primary: #5eead4;
-        
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
-    }
-    
-    .foxlate-error-message {
-        background-color: #450a0a;
-        color: #fca5a5;
-        border-color: #7f1d1d;
-    }
-    
-    .foxlate-icon-btn.playing {
-        background-color: rgba(129, 140, 248, 0.2);
+        --fl-color-primary: #22d3ee;
+        --fl-color-primary-hover: #67e8f9;
+        --fl-color-accent: #c084fc;
+        --fl-color-surface: rgba(22, 29, 43, 0.94);
+        --fl-color-surface-dim: #111827;
+        --fl-color-surface-raised: #1b2536;
+        --fl-color-text-main: #f5f8fb;
+        --fl-color-text-secondary: #c6d0dc;
+        --fl-color-border: rgba(160, 177, 198, 0.2);
+        --fl-color-border-strong: rgba(189, 201, 218, 0.32);
+        --fl-color-hover: rgba(34, 211, 238, 0.12);
+        --fl-color-error: #fb7185;
+        --fl-color-error-bg: rgba(225, 29, 72, 0.16);
+        --fl-shadow: 0 28px 72px -30px rgba(0, 0, 0, 0.72);
     }
 }

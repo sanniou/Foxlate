@@ -1,101 +1,86 @@
-/* 
+/*
   Foxlate Content Script Styles
-  -----------------------------
-  Contains styles for:
-  1. Floating Panel (Popup/Tooltip)
-  2. Inline Translations (Appended Text)
-  3. Error Indicators
-  4. Hover Highlights
-  
-  NOTE: This file is self-contained. DO NOT @import global styles to avoid polluting the host page.
+  Self-contained to avoid polluting host pages.
 */
 
-/* --- Shared Design Tokens (Scoped to Foxlate elements) --- */
 .foxlate-panel,
 .foxlate-performance-hud,
 .foxlate-appended-text,
 .foxlate-error-underline,
 .foxlate-hover-highlight {
-    /* Light Mode Tokens */
-    --fl-sys-color-primary: #0f766e;
-    --fl-sys-color-primary-hover: #115e59;
+    --fl-sys-color-primary: #0891b2;
+    --fl-sys-color-primary-hover: #0e7490;
+    --fl-sys-color-accent: #7c3aed;
     --fl-sys-color-on-primary: #ffffff;
-    --fl-sys-color-surface: #ffffff;
-    --fl-sys-color-surface-dim: #f7f8fb;
+    --fl-sys-color-surface: rgba(255, 255, 255, 0.92);
+    --fl-sys-color-surface-solid: #ffffff;
+    --fl-sys-color-surface-dim: #f4f8fb;
     --fl-sys-color-surface-raised: #ffffff;
-    --fl-sys-color-on-surface: #111827;
-    --fl-sys-color-text-secondary: #4b5563;
-    --fl-sys-color-outline: #dbe3ee;
-    --fl-sys-color-outline-strong: #c3ccd8;
-    --fl-sys-color-error: #dc2626;
-    --fl-sys-color-error-container: #fef2f2;
-    --fl-sys-color-on-error-container: #991b1b;
-    
-    /* Animation & Layout */
-    --fl-sys-elevation-3: 0 18px 44px -28px rgba(15, 23, 42, 0.62);
-    --fl-sys-font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --fl-sys-color-on-surface: #172033;
+    --fl-sys-color-text-secondary: #536173;
+    --fl-sys-color-outline: rgba(120, 140, 164, 0.28);
+    --fl-sys-color-outline-strong: rgba(83, 97, 115, 0.36);
+    --fl-sys-color-error: #e11d48;
+    --fl-sys-color-error-container: #fff1f2;
+    --fl-sys-color-on-error-container: #9f1239;
+    --fl-sys-elevation-3: 0 24px 58px -34px rgba(20, 35, 52, 0.62);
+    --fl-sys-font-sans: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+    --fl-sys-radius: 10px;
+    --fl-sys-transition: 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    --fl-sys-transition-smooth: 260ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Dark Mode Overrides */
 @media (prefers-color-scheme: dark) {
     .foxlate-panel,
     .foxlate-performance-hud,
     .foxlate-appended-text,
     .foxlate-error-underline,
     .foxlate-hover-highlight {
-        --fl-sys-color-primary: #5eead4;
-        --fl-sys-color-primary-hover: #99f6e4;
-        --fl-sys-color-surface: #17202f;
-        --fl-sys-color-surface-dim: #0f1724;
-        --fl-sys-color-surface-raised: #1b2435;
-        --fl-sys-color-on-surface: #f7f8fb;
-        --fl-sys-color-text-secondary: #aab3c2;
-        --fl-sys-color-outline: #344155;
-        --fl-sys-color-outline-strong: #475569;
-        --fl-sys-color-error: #f87171;
-        --fl-sys-color-error-container: #450a0a;
-        --fl-sys-color-on-error-container: #fca5a5;
-        
-        --fl-sys-elevation-3: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+        --fl-sys-color-primary: #22d3ee;
+        --fl-sys-color-primary-hover: #67e8f9;
+        --fl-sys-color-accent: #c084fc;
+        --fl-sys-color-on-primary: #083344;
+        --fl-sys-color-surface: rgba(22, 29, 43, 0.92);
+        --fl-sys-color-surface-solid: #161d2b;
+        --fl-sys-color-surface-dim: #111827;
+        --fl-sys-color-surface-raised: #1b2536;
+        --fl-sys-color-on-surface: #f5f8fb;
+        --fl-sys-color-text-secondary: #c6d0dc;
+        --fl-sys-color-outline: rgba(160, 177, 198, 0.2);
+        --fl-sys-color-outline-strong: rgba(189, 201, 218, 0.32);
+        --fl-sys-color-error: #fb7185;
+        --fl-sys-color-error-container: rgba(225, 29, 72, 0.16);
+        --fl-sys-color-on-error-container: #fecdd3;
+        --fl-sys-elevation-3: 0 28px 72px -30px rgba(0, 0, 0, 0.72);
     }
 }
 
-/* 
-  ========================================
-  1. Floating Panel
-  ========================================
-*/
 .foxlate-panel {
     position: fixed;
+    z-index: 2147483647;
     visibility: hidden;
     opacity: 0;
-    transform: translateY(6px) scale(0.98);
+    transform: translateY(8px) scale(0.98);
     transition:
-        opacity 0.16s ease,
-        transform 0.16s ease,
-        visibility 0s linear 0.16s;
-    
-    background-color: var(--fl-sys-color-surface);
-    color: var(--fl-sys-color-on-surface);
-    border: 1px solid var(--fl-sys-color-outline);
-    border-radius: 8px;
-    
-    padding: 12px 14px;
-    font-size: 14px;
-    font-family: var(--fl-sys-font-sans);
-    line-height: 1.5;
-    
-    z-index: 2147483647;
-    box-shadow: var(--fl-sys-elevation-3);
-    max-width: 360px;
-    word-wrap: break-word;
-    pointer-events: auto;
-    
-    /* Strict Box Model Reset for Panel Root */
+        opacity var(--fl-sys-transition-smooth),
+        transform var(--fl-sys-transition-smooth),
+        visibility 0s linear 0.26s;
     box-sizing: border-box;
+    max-width: 380px;
+    padding: 13px 15px;
+    border: 1px solid var(--fl-sys-color-outline);
+    border-radius: var(--fl-sys-radius);
+    background: var(--fl-sys-color-surface);
+    backdrop-filter: blur(18px) saturate(1.12);
+    box-shadow: var(--fl-sys-elevation-3);
+    color: var(--fl-sys-color-on-surface);
+    font-family: var(--fl-sys-font-sans);
+    font-size: 14px;
+    line-height: 1.55;
+    pointer-events: auto;
+    word-wrap: break-word;
 }
 
-/* Internal Reset: Protect panel content from host page styles */
 .foxlate-panel *,
 .foxlate-panel *::before,
 .foxlate-panel *::after {
@@ -108,7 +93,9 @@
     visibility: visible;
     opacity: 1;
     transform: translateY(0) scale(1);
-    transition: opacity 0.16s ease, transform 0.16s ease;
+    transition:
+        opacity var(--fl-sys-transition-smooth),
+        transform var(--fl-sys-transition-smooth);
 }
 
 .foxlate-panel.hover-tooltip,
@@ -124,52 +111,49 @@
     transition: none;
 }
 
-.foxlate-panel .foxlate-resize-se::after {
-    content: '';
-    position: absolute;
-    right: 3px;
-    bottom: 3px;
-    width: 7px;
-    height: 7px;
-    border-right: 2px solid rgba(15, 118, 110, 0.58);
-    border-bottom: 2px solid rgba(15, 118, 110, 0.58);
-}
-
+.foxlate-panel .foxlate-resize-se::after,
 .foxlate-panel .foxlate-resize-ne::after,
 .foxlate-panel .foxlate-resize-nw::after,
 .foxlate-panel .foxlate-resize-sw::after {
-    content: '';
+    content: "";
     position: absolute;
-    width: 7px;
-    height: 7px;
+    width: 8px;
+    height: 8px;
+}
+
+.foxlate-panel .foxlate-resize-se::after {
+    right: 3px;
+    bottom: 3px;
+    border-right: 2px solid color-mix(in srgb, var(--fl-sys-color-primary) 70%, transparent);
+    border-bottom: 2px solid color-mix(in srgb, var(--fl-sys-color-primary) 70%, transparent);
 }
 
 .foxlate-panel .foxlate-resize-ne::after {
     right: 3px;
     top: 3px;
-    border-right: 2px solid rgba(15, 118, 110, 0.58);
-    border-top: 2px solid rgba(15, 118, 110, 0.58);
+    border-right: 2px solid color-mix(in srgb, var(--fl-sys-color-primary) 70%, transparent);
+    border-top: 2px solid color-mix(in srgb, var(--fl-sys-color-primary) 70%, transparent);
 }
 
 .foxlate-panel .foxlate-resize-nw::after {
     left: 3px;
     top: 3px;
-    border-left: 2px solid rgba(15, 118, 110, 0.58);
-    border-top: 2px solid rgba(15, 118, 110, 0.58);
+    border-left: 2px solid color-mix(in srgb, var(--fl-sys-color-primary) 70%, transparent);
+    border-top: 2px solid color-mix(in srgb, var(--fl-sys-color-primary) 70%, transparent);
 }
 
 .foxlate-panel .foxlate-resize-sw::after {
     left: 3px;
     bottom: 3px;
-    border-left: 2px solid rgba(15, 118, 110, 0.58);
-    border-bottom: 2px solid rgba(15, 118, 110, 0.58);
+    border-left: 2px solid color-mix(in srgb, var(--fl-sys-color-primary) 70%, transparent);
+    border-bottom: 2px solid color-mix(in srgb, var(--fl-sys-color-primary) 70%, transparent);
 }
 
 .foxlate-panel .foxlate-resize-n:hover,
 .foxlate-panel .foxlate-resize-e:hover,
 .foxlate-panel .foxlate-resize-s:hover,
 .foxlate-panel .foxlate-resize-w:hover {
-    background: rgba(15, 118, 110, 0.08);
+    background: color-mix(in srgb, var(--fl-sys-color-primary) 12%, transparent);
 }
 
 .foxlate-performance-hud {
@@ -177,20 +161,22 @@
     right: 16px;
     bottom: 16px;
     z-index: 2147483639;
-    width: 252px;
-    padding: 12px;
-    border: 1px solid var(--fl-sys-color-outline);
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--fl-sys-color-surface) 94%, transparent);
-    color: var(--fl-sys-color-on-surface);
-    box-shadow: var(--fl-sys-elevation-3);
-    font-family: var(--fl-sys-font-sans);
-    pointer-events: none;
-    opacity: 0;
-    transform: translateY(8px);
-    transition: opacity 0.16s ease, transform 0.16s ease;
-    backdrop-filter: blur(10px);
     box-sizing: border-box;
+    width: 262px;
+    padding: 13px;
+    border: 1px solid var(--fl-sys-color-outline);
+    border-radius: var(--fl-sys-radius);
+    background: var(--fl-sys-color-surface);
+    backdrop-filter: blur(18px) saturate(1.12);
+    box-shadow: var(--fl-sys-elevation-3);
+    color: var(--fl-sys-color-on-surface);
+    font-family: var(--fl-sys-font-sans);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(8px);
+    transition:
+        opacity var(--fl-sys-transition-smooth),
+        transform var(--fl-sys-transition-smooth);
 }
 
 .foxlate-performance-hud.visible {
@@ -207,9 +193,9 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    margin-bottom: 8px;
+    margin-bottom: 9px;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 700;
 }
 
 .foxlate-performance-title strong {
@@ -237,103 +223,80 @@
 
 .foxlate-performance-grid strong {
     color: var(--fl-sys-color-on-surface);
-    font-weight: 600;
+    font-weight: 700;
     text-align: right;
 }
 
-/* Loading State */
 .foxlate-panel.loading {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 9px;
 }
 
 .foxlate-panel.loading::before {
-    content: '';
+    content: "";
     display: inline-block;
     width: 1em;
     height: 1em;
     flex-shrink: 0;
-    color: var(--fl-sys-color-primary);
-    background-color: currentColor;
-    
-    -webkit-mask-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3e%3cpath fill='currentColor' d='M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z'/%3e%3c/svg%3e");
-    mask-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3e%3cpath fill='currentColor' d='M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z'/%3e%3c/svg%3e");
-    
-    -webkit-mask-repeat: no-repeat;
-    mask-repeat: no-repeat;
-    -webkit-mask-position: center;
-    mask-position: center;
-    -webkit-mask-size: contain;
-    mask-size: contain;
-    
+    border: 2px solid var(--fl-sys-color-outline);
+    border-top-color: var(--fl-sys-color-primary);
+    border-radius: 50%;
     animation: foxlate-spin 0.75s linear infinite;
 }
 
-/* Error State */
 .foxlate-panel.error {
-    background-color: var(--fl-sys-color-error-container);
+    border-color: color-mix(in srgb, var(--fl-sys-color-error) 42%, transparent);
+    background: var(--fl-sys-color-error-container);
     color: var(--fl-sys-color-on-error-container);
-    border-color: var(--fl-sys-color-error);
 }
 
-/* 
-  ========================================
-  2. Error Indicators (Inline)
-  ========================================
-*/
 .foxlate-error-underline {
+    cursor: help;
     text-decoration: var(--fl-sys-color-error) wavy underline;
     text-decoration-skip-ink: none;
-    cursor: help;
 }
 
-/* 
-  ========================================
-  3. Appended Text (Inline Translation)
-  ========================================
-*/
 .foxlate-appended-text {
     position: relative;
     display: inline-block;
-    padding-left: 10px;
     max-width: min(100%, var(--foxlate-translation-measured-width, 100%));
-    overflow-wrap: anywhere;
+    padding-left: 10px;
     color: var(--fl-sys-color-primary);
-    font-weight: 500;
+    font-weight: 650;
+    overflow-wrap: anywhere;
 }
 
-/* Reference Line */
 .foxlate-appended-text::before {
-    content: '';
+    content: "";
     position: absolute;
     left: 0;
     top: 0.15em;
     bottom: 0.15em;
     width: 2px;
-    background-color: var(--fl-sys-color-outline);
-    opacity: 0.9;
-    border-radius: 1px;
+    border-radius: 2px;
+    background: linear-gradient(180deg, var(--fl-sys-color-primary), var(--fl-sys-color-accent));
+    opacity: 0.92;
 }
 
-/* Block Context Formatting */
 .foxlate-appended-block::before {
-    content: '\A';
-    white-space: pre;
+    content: "\A";
     display: block;
     line-height: 0.5;
+    white-space: pre;
 }
 
 .foxlate-appended-block {
     display: block;
     width: fit-content;
     max-width: min(100%, var(--foxlate-translation-measured-width, 100%));
-    margin-top: 6px;
-    padding: 8px 10px 8px 12px;
-    color: var(--fl-sys-color-on-surface);
-    background: var(--fl-sys-color-surface-dim);
+    margin-top: 7px;
+    padding: 9px 11px 9px 13px;
     border: 1px solid var(--fl-sys-color-outline);
-    border-radius: 8px;
+    border-radius: var(--fl-sys-radius);
+    background: var(--fl-sys-color-surface);
+    box-shadow: 0 12px 26px -22px rgba(20, 35, 52, 0.48);
+    color: var(--fl-sys-color-on-surface);
 }
 
 [data-foxlate-layout-source="pretext"],
@@ -341,67 +304,53 @@
     overflow-wrap: anywhere;
 }
 
-/* Appended Text - Loading State */
 .foxlate-appended-text.loading {
-    font-size: 0; /* Hide '...' text */
     padding-left: 20px;
+    font-size: 0;
 }
 
 .foxlate-appended-text.loading::before {
     all: unset;
-    content: '';
+    content: "";
     position: absolute;
     left: 0;
     top: 50%;
-    transform: translateY(-50%);
     display: inline-block;
     width: 16px;
     height: 16px;
     border: 2px solid var(--fl-sys-color-outline);
-    border-radius: 50%;
     border-top-color: var(--fl-sys-color-primary);
+    border-radius: 50%;
     animation: foxlate-circular-progress 1s linear infinite;
 }
 
-/* Appended Text - Error State */
 .foxlate-appended-text.error {
     color: var(--fl-sys-color-on-error-container);
 }
 
 .foxlate-appended-text.error::before {
-    background-color: var(--fl-sys-color-error);
+    background: var(--fl-sys-color-error);
 }
 
-/* 
-  ========================================
-  4. Hover Highlights
-  ========================================
-*/
 .foxlate-hover-highlight {
-    background-color: rgba(15, 118, 110, 0.1);
-    border-radius: 4px;
+    border-radius: 5px;
+    background:
+        linear-gradient(90deg, color-mix(in srgb, var(--fl-sys-color-primary) 16%, transparent), color-mix(in srgb, var(--fl-sys-color-accent) 12%, transparent));
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--fl-sys-color-primary) 12%, transparent);
     padding: 0 2px;
-    transition: background-color 0.2s ease-in-out;
+    transition:
+        background-color var(--fl-sys-transition),
+        box-shadow var(--fl-sys-transition);
 }
 
 .foxlate-hover-highlight:hover {
-    background-color: rgba(79, 70, 229, 0.2);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--fl-sys-color-primary) 28%, transparent);
 }
 
-/* 
-  ========================================
-  5. Replacement Mode
-  ========================================
-*/
 .foxlate-replacing {
-    opacity: 0.7;
+    opacity: 0.72;
 }
 
-/* 
-  ========================================
-  Animations
-  ========================================
-*/
 @keyframes foxlate-circular-progress {
     0% { transform: translateY(-50%) rotate(0deg); }
     100% { transform: translateY(-50%) rotate(360deg); }
@@ -409,4 +358,14 @@
 
 @keyframes foxlate-spin {
     to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .foxlate-panel,
+    .foxlate-performance-hud,
+    .foxlate-appended-text,
+    .foxlate-hover-highlight {
+        transition-duration: 0.001ms !important;
+        animation-duration: 0.001ms !important;
+    }
 }

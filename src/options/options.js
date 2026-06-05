@@ -16,6 +16,7 @@ import {
     populateDisplayModeOptions,
     populateSubtitleDisplayModeOptions,
     populateSubtitleStrategyOptions,
+    enhanceThemedSelects,
 } from './ui-helpers.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -180,6 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (domainRuleModal?.isOpen()) domainRuleModal.updateEngines(state.aiEngines);
         }
 
+        enhanceThemedSelects(document);
         uiTextLayoutService.applyTree(document);
 
     };
@@ -934,6 +936,7 @@ document.addEventListener('DOMContentLoaded', () => {
         initializeNavigation();
         populateLanguageOptions(elements.targetLanguage);
         populateDisplayModeOptions(elements.displayModeSelect);
+        enhanceThemedSelects(document);
 
 
         // --- 4. 业务逻辑组件初始化 ---
