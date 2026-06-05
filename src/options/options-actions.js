@@ -2,6 +2,7 @@ import browser from '../lib/browser-polyfill.js';
 import { MESSAGE_TYPES } from '../common/message-types.js';
 import { SettingsManager } from '../common/settings-manager.js';
 import { shouldTranslate } from '../common/precheck.js';
+import { escapeHtml } from '../common/utils.js';
 
 export class OptionsActions {
     constructor({
@@ -261,8 +262,10 @@ export class OptionsActions {
     async performTestTranslation() {
         const sourceText = document.getElementById('test-source-text').value.trim();
         const resultArea = document.getElementById('test-result-area');
+        const qualityPreview = this.elements.testQualityPreview;
 
         if (this.elements.aiTestResult) this.elements.aiTestResult.style.display = 'none';
+        if (qualityPreview) qualityPreview.style.display = 'none';
         resultArea.style.display = 'block';
 
         if (!sourceText) {
@@ -279,6 +282,7 @@ export class OptionsActions {
         if (!precheck.result) {
             resultArea.textContent = `${browser.i18n.getMessage('testNotTranslated')} ${sourceText}`;
             resultArea.className = 'alert alert-success mt-2';
+            this.renderQualityPreview(sourceText, sourceText);
             return;
         }
 
@@ -301,18 +305,24 @@ export class OptionsActions {
             }
 
             if (response.success) {
+                const translatedText = response.translatedText.translated
+                    ? response.translatedText.text
+                    : response.translatedText.text;
                 resultArea.textContent = response.translatedText.translated
                     ? response.translatedText.text
                     : `${browser.i18n.getMessage('testNotTranslated')} ${response.translatedText.text}`;
                 resultArea.className = 'alert alert-success mt-2';
+                this.renderQualityPreview(sourceText, translatedText);
             } else {
                 resultArea.textContent = `Error: ${response.error}`;
                 resultArea.className = 'alert alert-error mt-2';
+                if (qualityPreview) qualityPreview.style.display = 'none';
             }
         } catch (error) {
             console.error('Translation test error:', error);
             resultArea.textContent = `Error: ${error.message}`;
             resultArea.className = 'alert alert-error mt-2';
+            if (qualityPreview) qualityPreview.style.display = 'none';
         }
     }
 
@@ -424,5 +434,192 @@ export class OptionsActions {
         this.showStatusMessage(browser.i18n.getMessage('refreshingCloudData'));
         await this.renderCloudDataList();
         this.showStatusMessage(browser.i18n.getMessage('cloudDataRefreshed'));
+    }
+
+    async refreshProductData() {
+        const [history, failures, health] = await Promise.all([
+            browser.runtime.sendMessage({ type: MESSAGE_TYPES.GET_TRANSLATION_HISTORY }),
+            browser.runtime.sendMessage({ type: MESSAGE_TYPES.GET_TRANSLATION_FAILURE_QUEUE }),
+            browser.runtime.sendMessage({ type: MESSAGE_TYPES.GET_PROVIDER_HEALTH }),
+        ]);
+
+        this.renderTranslationHistory(history?.items || []);
+        this.renderFailureQueue(failures?.items || []);
+        this.renderProviderHealth(health?.providers || {});
+    }
+
+    async createSiteWizardRule() {
+        const domain = this.elements.siteWizardDomain?.value.trim();
+        const preset = this.elements.siteWizardPreset?.value || 'article';
+        if (!domain) {
+            this.showStatusMessage('Enter a domain for the site wizard.', true);
+            return;
+        }
+
+        const presets = {
+            article: {
+                content: 'article, main, .content, .post, .entry-content, [role="main"]',
+                exclude: 'nav, aside, footer, header, pre, code, kbd, samp',
+                displayMode: 'append',
+            },
+            docs: {
+                content: 'main, article, .docs-content, .documentation, [role="main"], h1, h2, h3, p, li, td, th',
+                exclude: 'nav, .sidebar, .toc, pre, code, kbd, samp',
+                displayMode: 'append',
+            },
+            app: {
+                content: 'label, button, [role="button"], [role="tab"], [role="menuitem"], p, h1, h2, h3, li, td, th',
+                exclude: 'pre, code, kbd, samp, input, textarea',
+                displayMode: 'hover',
+            },
+        };
+        const selectedPreset = presets[preset] || presets.article;
+        const state = this.getState();
+        const newDomainRules = {
+            ...state.domainRules,
+            [domain]: {
+                domain,
+                addedAt: state.domainRules?.[domain]?.addedAt || Date.now(),
+                applyToSubdomains: true,
+                autoTranslate: 'manual',
+                translatorEngine: 'default',
+                targetLanguage: 'default',
+                displayMode: selectedPreset.displayMode,
+                cssSelector: {
+                    content: selectedPreset.content,
+                    exclude: selectedPreset.exclude,
+                },
+                cssSelectorOverride: true,
+            },
+        };
+
+        await SettingsManager.saveLocalSettings({ ...state, domainRules: newDomainRules });
+        this.dispatch({ type: 'SET_DOMAIN_RULES', payload: newDomainRules });
+        this.elements.siteWizardDomain.value = '';
+        this.showStatusMessage('Site rule created.');
+    }
+
+    async clearTranslationHistory() {
+        await browser.runtime.sendMessage({ type: MESSAGE_TYPES.CLEAR_TRANSLATION_HISTORY });
+        await this.refreshProductData();
+        this.showStatusMessage('Translation history cleared.');
+    }
+
+    async clearFailureQueue() {
+        await browser.runtime.sendMessage({ type: MESSAGE_TYPES.CLEAR_TRANSLATION_FAILURE_QUEUE });
+        await this.refreshProductData();
+        this.showStatusMessage('Failure queue cleared.');
+    }
+
+    async clearProviderHealth() {
+        await browser.runtime.sendMessage({ type: MESSAGE_TYPES.CLEAR_PROVIDER_HEALTH });
+        await this.refreshProductData();
+        this.showStatusMessage('Provider health cleared.');
+    }
+
+    async retryFailure(failureId) {
+        const response = await browser.runtime.sendMessage({
+            type: MESSAGE_TYPES.RETRY_TRANSLATION_FAILURE,
+            payload: { failureId },
+        });
+        await this.refreshProductData();
+        this.showStatusMessage(
+            response?.success ? 'Retry completed.' : `Retry failed: ${response?.error || 'Unknown error'}`,
+            !response?.success
+        );
+    }
+
+    renderTranslationHistory(items) {
+        this.renderProductRecordList({
+            listElement: this.elements.translationHistoryList,
+            items,
+            emptyText: 'No translation history yet.',
+            renderItem: (item) => `
+                <div class="product-record-main">${escapeHtml(item.translatedText || '')}</div>
+                <div class="product-record-sub">${escapeHtml(item.sourceText || '')}</div>
+                <div class="product-record-sub">${escapeHtml([item.engine, item.targetLang, item.hostname, this.formatDate(item.createdAt)].filter(Boolean).join(' · '))}</div>
+            `,
+        });
+    }
+
+    renderFailureQueue(items) {
+        this.renderProductRecordList({
+            listElement: this.elements.failureQueueList,
+            items,
+            emptyText: 'No failed translations.',
+            renderItem: (item) => `
+                <div class="product-record-main">${escapeHtml(item.sourceText || '')}</div>
+                <div class="product-record-sub">${escapeHtml(item.error || '')}</div>
+                <div class="flex-between">
+                    <span class="product-record-sub">${escapeHtml([item.engine, item.targetLang, item.hostname, this.formatDate(item.createdAt)].filter(Boolean).join(' · '))}</span>
+                    <button class="btn btn-text btn-sm retry-failure-btn" data-failure-id="${escapeHtml(item.id)}">Retry</button>
+                </div>
+            `,
+        });
+    }
+
+    renderProviderHealth(providers) {
+        const items = Object.values(providers || {}).sort((a, b) => (b.lastCheckedAt || 0) - (a.lastCheckedAt || 0));
+        this.renderProductRecordList({
+            listElement: this.elements.providerHealthList,
+            items,
+            emptyText: 'No provider health data yet.',
+            renderItem: (item) => `
+                <div class="flex-between">
+                    <div class="product-record-main">${escapeHtml(item.engine || 'default')}</div>
+                    <span class="health-pill" data-status="${escapeHtml(item.status || 'healthy')}">${escapeHtml(item.status || 'healthy')}</span>
+                </div>
+                <div class="product-record-sub">${escapeHtml(`success ${item.successCount || 0} · failure ${item.failureCount || 0} · ${item.lastLatencyMs ?? 0}ms`)}</div>
+                <div class="product-record-sub">${escapeHtml(item.lastError || this.formatDate(item.lastCheckedAt))}</div>
+            `,
+        });
+    }
+
+    renderProductRecordList({ listElement, items, emptyText, renderItem }) {
+        if (!listElement) return;
+        listElement.innerHTML = '';
+        if (!items.length) {
+            const emptyItem = document.createElement('li');
+            emptyItem.className = 'no-rules-message';
+            emptyItem.textContent = emptyText;
+            listElement.appendChild(emptyItem);
+            return;
+        }
+
+        items.slice(0, 12).forEach(item => {
+            const li = document.createElement('li');
+            li.className = 'product-record-item';
+            li.innerHTML = renderItem(item);
+            listElement.appendChild(li);
+        });
+    }
+
+    formatDate(timestamp) {
+        if (!timestamp) return '';
+        return new Date(timestamp).toLocaleString();
+    }
+
+    renderQualityPreview(sourceText, translatedText) {
+        const preview = this.elements.testQualityPreview;
+        if (!preview) return;
+
+        const sourceLength = sourceText.length;
+        const translatedLength = translatedText.length;
+        const ratio = sourceLength > 0 ? translatedLength / sourceLength : 0;
+        preview.innerHTML = `
+            <div class="quality-preview-item">
+                <span class="product-record-sub">Source</span>
+                <strong>${sourceLength}</strong>
+            </div>
+            <div class="quality-preview-item">
+                <span class="product-record-sub">Result</span>
+                <strong>${translatedLength}</strong>
+            </div>
+            <div class="quality-preview-item">
+                <span class="product-record-sub">Expansion</span>
+                <strong>${escapeHtml(ratio.toFixed(2))}x</strong>
+            </div>
+        `;
+        preview.style.display = 'grid';
     }
 }

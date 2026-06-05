@@ -1,6 +1,7 @@
 import browser from '../lib/browser-polyfill.js';
 import { escapeHtml } from '../common/utils.js';
 import * as Constants from '../common/constants.js';
+import { formatGlossaryEntries } from '../common/translation-glossary.js';
 import { uiTextLayoutService } from '../common/ui-text-layout-service.js';
 import { enhanceThemedSelects } from './components/ThemedSelect.js';
 import {
@@ -48,6 +49,10 @@ export class OptionsRenderer {
 
         if (isInitialRender || changes.has('syncEnabled')) {
             this.updateSyncControlsVisibility(state);
+        }
+
+        if (isInitialRender || changes.has('glossary') || changes.has('quickActionPanel')) {
+            this.renderProductSettings(state);
         }
 
         if (isInitialRender || changes.has('domainRules')) {
@@ -160,6 +165,23 @@ export class OptionsRenderer {
         this.elements.syncManagementControls.style.display = isEnabled ? 'block' : 'none';
         if (isEnabled) {
             this.renderCloudDataList();
+        }
+    }
+
+    renderProductSettings(state) {
+        const glossary = state.glossary || {};
+        const quickActionPanel = state.quickActionPanel || {};
+        if (this.elements.glossaryEnabled) {
+            this.elements.glossaryEnabled.checked = glossary.enabled !== false;
+        }
+        if (this.elements.glossaryEntries) {
+            this.elements.glossaryEntries.value = formatGlossaryEntries(glossary.entries || []);
+        }
+        if (this.elements.quickActionPanelEnabled) {
+            this.elements.quickActionPanelEnabled.checked = quickActionPanel.enabled !== false;
+        }
+        if (this.elements.quickActionPanelSelection) {
+            this.elements.quickActionPanelSelection.checked = quickActionPanel.showOnSelection !== false;
         }
     }
 }

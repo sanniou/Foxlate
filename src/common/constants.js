@@ -42,6 +42,14 @@ export const DEFAULT_SETTINGS = {
     cacheSize: 5000, // Number of translation items to cache
     parallelRequests: 5, // Number of parallel translation requests
     summarySettings: {},
+    glossary: {
+      enabled: true,
+      entries: [],
+    },
+    quickActionPanel: {
+      enabled: true,
+      showOnSelection: true,
+    },
     syncEnabled: false, // Whether cloud sync is enabled
     inputTranslationSettings: {
       enabled: true, // 全局启用

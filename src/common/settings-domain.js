@@ -1,5 +1,6 @@
 import * as Constants from './constants.js';
 import { generateUniqueEngineId } from './utils.js';
+import { normalizeGlossary } from './translation-glossary.js';
 import { DEFAULT_STRATEGY_MAP } from '../content/subtitle/strategy-manifest.js';
 
 export function generateDefaultSettings() {
@@ -43,6 +44,12 @@ export function validateSettings(storedSettings) {
     } else {
         validatedSettings.translationSelector.default = defaultDefaultSelector;
     }
+
+    validatedSettings.glossary = normalizeGlossary(validatedSettings.glossary);
+    validatedSettings.quickActionPanel = {
+        enabled: validatedSettings.quickActionPanel?.enabled !== false,
+        showOnSelection: validatedSettings.quickActionPanel?.showOnSelection !== false,
+    };
 
     return validatedSettings;
 }

@@ -3,6 +3,14 @@ import { MESSAGE_TYPES } from '../common/message-types.js';
 import { DisplayManager } from './display-manager.js';
 import { DOMWalker } from './dom-walker.js';
 import { findAllSearchRoots, findTranslatableElements } from './translatable-elements.js';
+import {
+    getInitialScanRoots,
+    getViewportDistance,
+    isElementInViewport,
+    isFoxlateExtensionElement,
+} from './page-translation/page-translation-elements.js';
+import { PageTranslationProgress } from './page-translation/page-translation-progress.js';
+import { revertPageTranslationDom } from './page-translation/page-translation-reverter.js';
 
 function defaultLogError(context, error) {
     if (error && error.name === 'AbortError') {
@@ -59,28 +67,20 @@ export class PageTranslationJob {
         this.isScrolling = false;
         this.scrollListenerOptions = { passive: true };
         this.boundHandleScrollActivity = this.#handleScrollActivity.bind(this);
-        this.activeTranslations = 0;
-        this.startedTranslations = 0;
-        this.completedTranslations = 0;
-        this.failedTranslations = 0;
+        this.progress = new PageTranslationProgress();
 
         this.state = 'idle';
     }
 
     getProgressSnapshot(extra = {}) {
-        return {
+        return this.progress.snapshot({
             state: this.state,
-            observed: this.observedElements.size,
+            observedCount: this.observedElements.size,
             initialScanRemaining: this.initialScanQueue.length,
-            mutationQueue: this.mutationQueue.size,
-            pendingScroll: this.pendingScrollTranslationElements.size,
-            activeTranslations: this.activeTranslations,
-            started: this.startedTranslations,
-            completed: this.completedTranslations,
-            failed: this.failedTranslations,
+            mutationQueueSize: this.mutationQueue.size,
+            pendingScrollCount: this.pendingScrollTranslationElements.size,
             isScrolling: this.isScrolling,
-            ...extra,
-        };
+        }, extra);
     }
 
     emitProgress(extra = {}) {
@@ -88,18 +88,12 @@ export class PageTranslationJob {
     }
 
     recordTranslationStarted() {
-        this.activeTranslations++;
-        this.startedTranslations++;
+        this.progress.recordStarted();
         this.emitProgress();
     }
 
     recordTranslationCompleted({ success = true } = {}) {
-        this.activeTranslations = Math.max(0, this.activeTranslations - 1);
-        if (success) {
-            this.completedTranslations++;
-        } else {
-            this.failedTranslations++;
-        }
+        this.progress.recordCompleted({ success });
         this.emitProgress();
     }
 
@@ -160,29 +154,12 @@ export class PageTranslationJob {
         this.state = 'reverting';
 
         this.#stopObservers();
-        this.activeTranslations = 0;
+        this.progress.clearActive();
         this.emitProgress();
         this.#clearPendingScrollTranslations();
 
         try {
-            delete document.body.dataset.translationSession;
-            this.displayManager.hideAllEphemeralUI();
-            const registeredWeakRefs = Array.from(this.displayManager.elementRegistry.values());
-            let revertedCount = 0;
-
-            for (const weakRef of registeredWeakRefs) {
-                const element = weakRef.deref();
-                if (element) {
-                    this.displayManager.revert(element);
-                    revertedCount++;
-                }
-            }
-            const leftoverWrappers = document.body.querySelectorAll('foxlate-wrapper[data-foxlate-generated="true"]');
-            if (leftoverWrappers.length > 0) {
-                leftoverWrappers.forEach(wrapper => {
-                    if (wrapper.parentNode) wrapper.replaceWith(...wrapper.childNodes);
-                });
-            }
+            revertPageTranslationDom({ displayManager: this.displayManager });
         } catch (error) {
             this.logError('revert (DOM cleanup)', error);
         }
@@ -194,7 +171,7 @@ export class PageTranslationJob {
         if (
             this.state === 'translating' &&
             !this.initialScanInProgress &&
-            this.activeTranslations === 0 &&
+            this.progress.activeTranslations === 0 &&
             this.mutationQueue.size === 0 &&
             this.pendingScrollTranslationElements.size === 0 &&
             !this.isScrolling
@@ -328,57 +305,17 @@ export class PageTranslationJob {
         }
     }
 
-    #isElementInViewport(element) {
-        if (!element || !element.isConnected || typeof element.getBoundingClientRect !== 'function') {
-            return false;
-        }
-
-        const rect = element.getBoundingClientRect();
-        const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
-        const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
-        return rect.bottom > 0 &&
-            rect.right > 0 &&
-            rect.top < viewportHeight &&
-            rect.left < viewportWidth;
-    }
-
-    #getViewportDistance(element) {
-        if (!element || typeof element.getBoundingClientRect !== 'function') {
-            return Number.POSITIVE_INFINITY;
-        }
-
-        const rect = element.getBoundingClientRect();
-        const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
-        if (rect.bottom >= 0 && rect.top <= viewportHeight) {
-            return 0;
-        }
-        if (rect.bottom < 0) {
-            return Math.abs(rect.bottom);
-        }
-        return rect.top - viewportHeight;
-    }
-
     #getInitialScanRoots() {
-        const roots = Array.from(document.body.children)
-            .filter(element => !this.#isExtensionElement(element));
-        return roots.length > 0 ? roots : [document.body];
+        return getInitialScanRoots({ isExtensionElement: this.#isExtensionElement });
     }
 
     #isExtensionElement(node) {
-        return Boolean(node?.closest?.([
-            '[data-translation-id]',
-            '.foxlate-panel',
-            '.foxlate-enhanced-panel',
-            '.foxlate-summary-dialog',
-            '.foxlate-summary-button',
-            '.foxlate-summary-button-tooltip',
-            '.foxlate-performance-hud',
-        ].join(',')));
+        return isFoxlateExtensionElement(node);
     }
 
     #startInitialScan() {
         this.initialScanQueue = this.#getInitialScanRoots()
-            .sort((a, b) => this.#getViewportDistance(a) - this.#getViewportDistance(b));
+            .sort((a, b) => getViewportDistance(a) - getViewportDistance(b));
         this.initialScanObservedCount = 0;
         this.initialScanInProgress = true;
 
@@ -517,7 +454,7 @@ export class PageTranslationJob {
             if (element.dataset.translationId) {
                 continue;
             }
-            if (this.#isElementInViewport(element)) {
+            if (isElementInViewport(element)) {
                 visibleElements.push(element);
             } else {
                 deferredElements.push(element);

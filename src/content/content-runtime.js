@@ -9,6 +9,7 @@ import { logContentError } from './content-logger.js';
 import { TranslationBatchQueue } from './translation-batch-queue.js';
 import { ElementTranslationController } from './element-translation-controller.js';
 import { createContentMessageHandlers } from './content-message-handlers.js';
+import { QuickActionPanel, translateQuickSelection } from './quick-action-panel.js';
 
 function defaultGenerateId() {
     return self.crypto.randomUUID();
@@ -23,6 +24,7 @@ export class ContentRuntime {
         performanceHud = new TranslationPerformanceHud(),
         initializeSummaryFn = initializeSummary,
         initializeInputHandlerFn = initializeInputHandler,
+        QuickActionPanelClass = QuickActionPanel,
         getEffectiveSettings = createEffectiveSettingsGetter({ browserApi, win }),
         logError = logContentError,
         generateId = defaultGenerateId,
@@ -35,11 +37,13 @@ export class ContentRuntime {
         this.performanceHud = performanceHud;
         this.initializeSummary = initializeSummaryFn;
         this.initializeInputHandler = initializeInputHandlerFn;
+        this.QuickActionPanelClass = QuickActionPanelClass;
         this.getEffectiveSettings = getEffectiveSettings;
         this.logError = logError;
         this.cssFilePath = cssFilePath;
         this.currentPageJob = null;
         this.currentSelectionTranslationId = null;
+        this.quickActionPanel = null;
 
         this.batchQueue = new TranslationBatchQueue({
             browserApi,
@@ -150,6 +154,7 @@ export class ContentRuntime {
         }
 
         this.initializeSummary(newSettings);
+        this.quickActionPanel?.updateSettings(newSettings);
         return { success: true };
     }
 
@@ -286,6 +291,18 @@ export class ContentRuntime {
         }
 
         this.initializeInputHandler();
+        this.quickActionPanel = new this.QuickActionPanelClass({
+            browserApi: this.browser,
+            win: this.window,
+            settings,
+            onTranslate: (selectionPayload) => translateQuickSelection({
+                browserApi: this.browser,
+                win: this.window,
+                selectionPayload,
+                displaySelectionTranslation: (payload) => this.displaySelectionTranslation(payload),
+            }),
+        });
+        this.quickActionPanel.initialize(settings);
 
         this.browser.runtime.onMessage.addListener(this.handleMessage);
         this.window.__foxlate_css_injected = true;

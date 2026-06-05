@@ -7,6 +7,7 @@ import { createTranslationCacheKey, TranslationCacheStore } from './translation-
 import { TranslationRetryController } from './translation-retry-controller.js';
 import { TranslatorEngineResolver } from './translator-engine-resolver.js';
 import { AiTaskRunner } from './ai-task-runner.js';
+import { applyGlossaryToText } from '../common/translation-glossary.js';
 
 export class TranslatorManager {
   // --- Private Static State ---
@@ -67,6 +68,11 @@ export class TranslatorManager {
       return text;
   }
 
+  static async #getGlossarySettings() {
+      const settings = await SettingsManager.getValidatedSettings();
+      return settings.glossary;
+  }
+
   static #processQueue() {
       if (this.#taskQueue.length === 0 || this.#activeTasks.size >= this.#MAX_CONCURRENT_REQUESTS) {
           return;
@@ -109,9 +115,11 @@ export class TranslatorManager {
           log.push(browser.i18n.getMessage('logEntryCacheMiss'));
 
           const cacheKey = createTranslationCacheKey(sourceLang, targetLang, processedText);
+          const glossary = await this.#getGlossarySettings();
+          const textForTranslation = applyGlossaryToText(processedText, glossary);
 
           // 步骤 1: 解析出最终要使用的翻译器和配置
-          const { translator, engine: resolvedEngine, config } = await this.#engineResolver.resolveTranslatorForText(processedText, engine, log);
+          const { translator, engine: resolvedEngine, config } = await this.#engineResolver.resolveTranslatorForText(textForTranslation, engine, log);
 
           if (!translator) {
               const errorMessage = browser.i18n.getMessage('errorNoTranslator');
@@ -138,7 +146,7 @@ export class TranslatorManager {
               tabId,
               signal,
               log,
-              operation: () => translator.translate(processedText, targetLang, sourceLang, finalConfig, signal),
+              operation: () => translator.translate(textForTranslation, targetLang, sourceLang, finalConfig, signal),
           });
           log.push(...translatorLog);
           log.push(browser.i18n.getMessage('logEntryTranslationSuccess'));
@@ -147,7 +155,7 @@ export class TranslatorManager {
               this.#cacheStore.set(cacheKey, translatedResult);
           }
           this.#cacheStore.scheduleSave();
-          const finalResult = this.#postProcess(translatedResult);
+          const finalResult = applyGlossaryToText(this.#postProcess(translatedResult), glossary);
           return { text: finalResult, translated: true, log: log };
       } catch (error) {
           if (error.name === 'AbortError') throw error;
@@ -174,13 +182,15 @@ export class TranslatorManager {
       log.push(`AI batch translation started. Count: ${items.length}`);
 
       try {
+          const glossary = await this.#getGlossarySettings();
+          const textsForTranslation = items.map(item => applyGlossaryToText(item.processedText, glossary));
           const { texts: translatedTexts, log: translatorLog = [] } = await this.#retryController.execute({
               engine,
               tabId,
               signal,
               log,
               operation: () => translator.translateBatch(
-                  items.map(item => item.processedText),
+                  textsForTranslation,
                   targetLang,
                   sourceLang,
                   finalConfig,
@@ -196,7 +206,7 @@ export class TranslatorManager {
               }
               return {
                   index: item.index,
-                  text: this.#postProcess(translatedText),
+                  text: applyGlossaryToText(this.#postProcess(translatedText), glossary),
                   translated: true,
                   log,
               };

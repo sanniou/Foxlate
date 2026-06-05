@@ -1,5 +1,6 @@
 import { ELEMENT_IDS } from './ui-constants.js';
 import { addButtonRipple } from './components/InteractionFeedback.js';
+import { parseGlossaryEntries } from '../common/translation-glossary.js';
 
 function getEventTarget(event) {
     let target = event.target;
@@ -29,6 +30,11 @@ export function createOptionsEventHandlers({ elements, dispatch, actions }) {
             [ELEMENT_IDS.TOGGLE_LOG_BTN]: actions.toggleLogArea,
             [ELEMENT_IDS.UPLOAD_SETTINGS_BTN]: actions.uploadSettingsToCloud,
             [ELEMENT_IDS.REFRESH_CLOUD_DATA_BTN]: actions.refreshCloudData,
+            [ELEMENT_IDS.REFRESH_PRODUCT_DATA_BTN]: actions.refreshProductData,
+            [ELEMENT_IDS.CLEAR_HISTORY_BTN]: actions.clearTranslationHistory,
+            [ELEMENT_IDS.CLEAR_FAILURE_QUEUE_BTN]: actions.clearFailureQueue,
+            [ELEMENT_IDS.CLEAR_PROVIDER_HEALTH_BTN]: actions.clearProviderHealth,
+            [ELEMENT_IDS.CREATE_SITE_WIZARD_RULE_BTN]: actions.createSiteWizardRule,
         };
         if (buttonActions[closestButton.id]) {
             return buttonActions[closestButton.id]();
@@ -39,6 +45,7 @@ export function createOptionsEventHandlers({ elements, dispatch, actions }) {
             'delete-rule-btn': (button) => actions.removeDomainRule(button.dataset.domain),
             'download-cloud-backup-btn': (button) => actions.downloadSettingsFromCloud(button.dataset.backupId),
             'delete-cloud-backup-btn': (button) => actions.deleteCloudBackup(button.dataset.backupId),
+            'retry-failure-btn': (button) => actions.retryFailure(button.dataset.failureId),
         };
         for (const className in classActions) {
             if (closestButton.classList.contains(className)) {
@@ -56,6 +63,7 @@ export function createOptionsEventHandlers({ elements, dispatch, actions }) {
             [ELEMENT_IDS.DEEPLX_API_URL]: (value) => dispatch({ type: 'SET_DEEPLX_URL', payload: value }),
             [ELEMENT_IDS.CACHE_SIZE_INPUT]: (value) => dispatch({ type: 'SET_CACHE_SIZE', payload: value }),
             [ELEMENT_IDS.SCROLL_IDLE_DELAY]: (value) => dispatch({ type: 'SET_SCROLL_IDLE_DELAY', payload: value }),
+            [ELEMENT_IDS.GLOSSARY_ENTRIES]: (value) => dispatch({ type: 'SET_GLOSSARY_ENTRIES', payload: parseGlossaryEntries(value) }),
         };
         if (simpleStateUpdaters[id]) {
             simpleStateUpdaters[id](target.value);
@@ -84,6 +92,9 @@ export function createOptionsEventHandlers({ elements, dispatch, actions }) {
             [ELEMENT_IDS.TARGET_LANGUAGE]: (nextValue) => dispatch({ type: 'SET_TARGET_LANGUAGE', payload: nextValue }),
             [ELEMENT_IDS.SYNC_ENABLED]: (nextValue) => dispatch({ type: 'SET_SYNC_ENABLED', payload: nextValue }),
             [ELEMENT_IDS.SCROLL_IDLE_TRANSLATION]: (nextValue) => dispatch({ type: 'SET_SCROLL_IDLE_TRANSLATION', payload: nextValue }),
+            [ELEMENT_IDS.GLOSSARY_ENABLED]: (nextValue) => dispatch({ type: 'SET_GLOSSARY_ENABLED', payload: nextValue }),
+            [ELEMENT_IDS.QUICK_ACTION_PANEL_ENABLED]: (nextValue) => dispatch({ type: 'SET_QUICK_ACTION_PANEL_SETTING', payload: { key: 'enabled', value: nextValue } }),
+            [ELEMENT_IDS.QUICK_ACTION_PANEL_SELECTION]: (nextValue) => dispatch({ type: 'SET_QUICK_ACTION_PANEL_SETTING', payload: { key: 'showOnSelection', value: nextValue } }),
         };
         if (stateUpdaters[id]) {
             stateUpdaters[id](value);

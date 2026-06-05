@@ -32,6 +32,30 @@ export function rootReducer(currentState, action) {
         }
         case 'SET_SYNC_ENABLED':
             return { ...currentState, syncEnabled: action.payload };
+        case 'SET_GLOSSARY_ENABLED':
+            return {
+                ...currentState,
+                glossary: {
+                    ...currentState.glossary,
+                    enabled: action.payload,
+                },
+            };
+        case 'SET_GLOSSARY_ENTRIES':
+            return {
+                ...currentState,
+                glossary: {
+                    ...currentState.glossary,
+                    entries: action.payload,
+                },
+            };
+        case 'SET_QUICK_ACTION_PANEL_SETTING':
+            return {
+                ...currentState,
+                quickActionPanel: {
+                    ...currentState.quickActionPanel,
+                    [action.payload.key]: action.payload.value,
+                },
+            };
         case 'SET_DEFAULT_SELECTOR':
             return {
                 ...currentState,

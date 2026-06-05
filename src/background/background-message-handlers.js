@@ -4,11 +4,32 @@ import { SettingsManager } from '../common/settings-manager.js';
 import { shouldTranslate } from '../common/precheck.js';
 import * as Constants from '../common/constants.js';
 import { TranslatorManager } from './translator-manager.js';
+import {
+    providerHealthStore,
+    translationFailureQueue,
+    translationHistoryStore,
+} from './translation-product-stores.js';
+
+function getHostname(sender) {
+    if (!sender?.tab?.url) return '';
+    try {
+        return new URL(sender.tab.url).hostname;
+    } catch {
+        return '';
+    }
+}
+
+function getLatency(startedAt) {
+    return Math.max(0, Date.now() - startedAt);
+}
 
 export function createBackgroundMessageHandlers({
     browserApi = browser,
     settingsManager = SettingsManager,
     translatorManager = TranslatorManager,
+    historyStore = translationHistoryStore,
+    failureQueue = translationFailureQueue,
+    healthStore = providerHealthStore,
     tabStateManager,
     ensureScriptsInjected,
     setBadgeAndState,
@@ -27,8 +48,36 @@ export function createBackgroundMessageHandlers({
                 return;
             }
 
+            const startedAt = Date.now();
             try {
                 const result = await translatorManager.translateText(text, targetLang, sourceLang, translatorEngine, originTabId);
+                await healthStore.record({
+                    engine: translatorEngine || 'default',
+                    success: !result.error,
+                    error: result.error || null,
+                    latencyMs: getLatency(startedAt),
+                });
+                if (result.error) {
+                    await failureQueue.recordFailure({
+                        sourceText: text,
+                        targetLang,
+                        sourceLang,
+                        engine: translatorEngine,
+                        hostname: getHostname(sender),
+                        surface: 'page',
+                        error: result.error,
+                    });
+                } else if (result.translated) {
+                    await historyStore.recordSuccess({
+                        sourceText: text,
+                        translatedText: result.text,
+                        targetLang,
+                        sourceLang,
+                        engine: translatorEngine,
+                        hostname: getHostname(sender),
+                        surface: 'page',
+                    });
+                }
                 await browserApi.tabs.sendMessage(originTabId, {
                     type: MESSAGE_TYPES.TRANSLATE_TEXT_RESULT,
                     payload: {
@@ -41,6 +90,21 @@ export function createBackgroundMessageHandlers({
                 });
             } catch (error) {
                 logError('TRANSLATE_TEXT (execution)', error);
+                await healthStore.record({
+                    engine: translatorEngine || 'default',
+                    success: false,
+                    error: error.message,
+                    latencyMs: getLatency(startedAt),
+                });
+                await failureQueue.recordFailure({
+                    sourceText: text,
+                    targetLang,
+                    sourceLang,
+                    engine: translatorEngine,
+                    hostname: getHostname(sender),
+                    surface: 'page',
+                    error: error.message,
+                });
                 try {
                     await browserApi.tabs.sendMessage(originTabId, {
                         type: MESSAGE_TYPES.TRANSLATE_TEXT_RESULT,
@@ -63,9 +127,43 @@ export function createBackgroundMessageHandlers({
                 return;
             }
 
+            const startedAt = Date.now();
             try {
                 const texts = items.map(item => item.text);
                 const results = await translatorManager.translateBatch(texts, targetLang, sourceLang, translatorEngine, originTabId);
+                const hasFailure = results.some(result => result?.error);
+                await healthStore.record({
+                    engine: translatorEngine || 'default',
+                    success: !hasFailure,
+                    error: hasFailure ? 'One or more batch items failed.' : null,
+                    latencyMs: getLatency(startedAt),
+                });
+                for (const [index, result] of results.entries()) {
+                    const sourceText = items[index]?.text || '';
+                    if (result?.error) {
+                        await failureQueue.recordFailure({
+                            sourceText,
+                            targetLang,
+                            sourceLang,
+                            engine: translatorEngine,
+                            hostname: getHostname(sender),
+                            surface: 'page-batch',
+                            error: result.error,
+                        });
+                        continue;
+                    }
+                    if (result?.translated) {
+                        await historyStore.recordSuccess({
+                            sourceText,
+                            translatedText: result.text,
+                            targetLang,
+                            sourceLang,
+                            engine: translatorEngine,
+                            hostname: getHostname(sender),
+                            surface: 'page-batch',
+                        });
+                    }
+                }
                 await browserApi.tabs.sendMessage(originTabId, {
                     type: MESSAGE_TYPES.TRANSLATE_TEXT_BATCH_RESULT,
                     payload: {
@@ -84,6 +182,23 @@ export function createBackgroundMessageHandlers({
                 });
             } catch (error) {
                 logError('TRANSLATE_TEXT_BATCH (execution)', error);
+                await healthStore.record({
+                    engine: translatorEngine || 'default',
+                    success: false,
+                    error: error.message,
+                    latencyMs: getLatency(startedAt),
+                });
+                for (const item of items) {
+                    await failureQueue.recordFailure({
+                        sourceText: item.text,
+                        targetLang,
+                        sourceLang,
+                        engine: translatorEngine,
+                        hostname: getHostname(sender),
+                        surface: 'page-batch',
+                        error: error.message,
+                    });
+                }
                 try {
                     await browserApi.tabs.sendMessage(originTabId, {
                         type: MESSAGE_TYPES.TRANSLATE_TEXT_BATCH_RESULT,
@@ -108,7 +223,24 @@ export function createBackgroundMessageHandlers({
 
         async [MESSAGE_TYPES.TEST_TRANSLATE_TEXT](request) {
             const { text, targetLang, sourceLang, translatorEngine } = request.payload;
+            const startedAt = Date.now();
             const result = await translatorManager.translateText(text, targetLang, sourceLang, translatorEngine);
+            await healthStore.record({
+                engine: translatorEngine || 'default',
+                success: !result.error,
+                error: result.error || null,
+                latencyMs: getLatency(startedAt),
+            });
+            if (!result.error && result.translated) {
+                await historyStore.recordSuccess({
+                    sourceText: text,
+                    translatedText: result.text,
+                    targetLang,
+                    sourceLang,
+                    engine: translatorEngine,
+                    surface: 'test',
+                });
+            }
             return {
                 success: !result.error,
                 translatedText: { text: result.text, translated: result.translated },
@@ -177,6 +309,27 @@ export function createBackgroundMessageHandlers({
                 const finalTargetLang = targetLang || (inputSettings.targetLanguage !== 'auto' ? inputSettings.targetLanguage : effectiveRule.targetLanguage);
                 const finalEngine = inputSettings.translatorEngine !== 'default' ? inputSettings.translatorEngine : effectiveRule.translatorEngine;
                 const result = await translatorManager.translateText(text, finalTargetLang, 'auto', finalEngine, tabId);
+                if (result.error) {
+                    await failureQueue.recordFailure({
+                        sourceText: text,
+                        targetLang: finalTargetLang,
+                        sourceLang: 'auto',
+                        engine: finalEngine,
+                        hostname,
+                        surface: 'input',
+                        error: result.error,
+                    });
+                } else if (result.translated) {
+                    await historyStore.recordSuccess({
+                        sourceText: text,
+                        translatedText: result.text,
+                        targetLang: finalTargetLang,
+                        sourceLang: 'auto',
+                        engine: finalEngine,
+                        hostname,
+                        surface: 'input',
+                    });
+                }
                 return { success: !result.error, translatedText: result.text, error: result.error || null };
             } catch (error) {
                 logError('translateInputText (execution)', error);
@@ -191,11 +344,23 @@ export function createBackgroundMessageHandlers({
             }
             const { AITranslator } = await import('../background/translators/ai-translator.js');
             const translator = new AITranslator();
+            const startedAt = Date.now();
             try {
                 const result = await translator.translate(text, 'EN', 'auto', settings);
+                await healthStore.record({
+                    engine: settings?.name || settings?.id || engine,
+                    success: true,
+                    latencyMs: getLatency(startedAt),
+                });
                 return { success: true, translatedText: { text: result.text, translated: true } };
             } catch (error) {
                 logError('TEST_CONNECTION handler', error);
+                await healthStore.record({
+                    engine: settings?.name || settings?.id || engine,
+                    success: false,
+                    error: error.message,
+                    latencyMs: getLatency(startedAt),
+                });
                 return { success: false, error: error.message };
             }
         },
@@ -315,6 +480,64 @@ export function createBackgroundMessageHandlers({
 
         async [MESSAGE_TYPES.CLEAR_CACHE]() {
             await translatorManager.clearCache();
+            return { success: true };
+        },
+
+        async [MESSAGE_TYPES.GET_TRANSLATION_HISTORY]() {
+            return { success: true, items: await historyStore.list() };
+        },
+
+        async [MESSAGE_TYPES.CLEAR_TRANSLATION_HISTORY]() {
+            await historyStore.clear();
+            return { success: true };
+        },
+
+        async [MESSAGE_TYPES.GET_TRANSLATION_FAILURE_QUEUE]() {
+            return { success: true, items: await failureQueue.list() };
+        },
+
+        async [MESSAGE_TYPES.CLEAR_TRANSLATION_FAILURE_QUEUE]() {
+            await failureQueue.clear();
+            return { success: true };
+        },
+
+        async [MESSAGE_TYPES.RETRY_TRANSLATION_FAILURE](request) {
+            const { failureId } = request.payload || {};
+            const failures = await failureQueue.list();
+            const failure = failures.find(item => item.id === failureId);
+            if (!failure) {
+                return { success: false, error: 'Failure item not found.' };
+            }
+            const result = await translatorManager.translateText(
+                failure.sourceText,
+                failure.targetLang,
+                failure.sourceLang || 'auto',
+                failure.engine
+            );
+            if (result.error) {
+                await healthStore.record({ engine: failure.engine || 'default', success: false, error: result.error });
+                return { success: false, error: result.error };
+            }
+            await failureQueue.resolve(failureId);
+            await historyStore.recordSuccess({
+                sourceText: failure.sourceText,
+                translatedText: result.text,
+                targetLang: failure.targetLang,
+                sourceLang: failure.sourceLang,
+                engine: failure.engine,
+                hostname: failure.hostname,
+                surface: `${failure.surface || 'failure'}-retry`,
+            });
+            await healthStore.record({ engine: failure.engine || 'default', success: true });
+            return { success: true, translatedText: result.text };
+        },
+
+        async [MESSAGE_TYPES.GET_PROVIDER_HEALTH]() {
+            return { success: true, providers: await healthStore.list() };
+        },
+
+        async [MESSAGE_TYPES.CLEAR_PROVIDER_HEALTH]() {
+            await healthStore.clear();
             return { success: true };
         },
 

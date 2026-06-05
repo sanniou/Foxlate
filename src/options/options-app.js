@@ -87,6 +87,11 @@ export class OptionsApp {
                 toggleLogArea: () => this.actions.toggleLogArea(),
                 uploadSettingsToCloud: () => this.actions.uploadSettingsToCloud(),
                 refreshCloudData: () => this.actions.refreshCloudData(),
+                refreshProductData: () => this.actions.refreshProductData(),
+                clearTranslationHistory: () => this.actions.clearTranslationHistory(),
+                clearFailureQueue: () => this.actions.clearFailureQueue(),
+                clearProviderHealth: () => this.actions.clearProviderHealth(),
+                retryFailure: (failureId) => this.actions.retryFailure(failureId),
                 editDomainRule: (domain) => this.actions.editDomainRule(domain),
                 removeDomainRule: (domain) => this.actions.removeDomainRule(domain),
                 downloadSettingsFromCloud: (backupId) => this.actions.downloadSettingsFromCloud(backupId),
@@ -144,6 +149,7 @@ export class OptionsApp {
 
         this.bindModalEvents();
         await this.actions.loadSettings();
+        await this.actions.refreshProductData();
         this.bindPageEvents();
         this.bindSettingsEvents();
     }

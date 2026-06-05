@@ -35,6 +35,23 @@ export const ELEMENT_IDS = {
     CACHE_INFO_DISPLAY: 'cacheInfoDisplay',
     CLEAR_CACHE_BTN: 'clearCacheBtn',
 
+    // Product system
+    GLOSSARY_ENABLED: 'glossaryEnabled',
+    GLOSSARY_ENTRIES: 'glossaryEntries',
+    QUICK_ACTION_PANEL_ENABLED: 'quickActionPanelEnabled',
+    QUICK_ACTION_PANEL_SELECTION: 'quickActionPanelSelection',
+    REFRESH_PRODUCT_DATA_BTN: 'refreshProductDataBtn',
+    CLEAR_HISTORY_BTN: 'clearHistoryBtn',
+    CLEAR_FAILURE_QUEUE_BTN: 'clearFailureQueueBtn',
+    CLEAR_PROVIDER_HEALTH_BTN: 'clearProviderHealthBtn',
+    TRANSLATION_HISTORY_LIST: 'translationHistoryList',
+    FAILURE_QUEUE_LIST: 'failureQueueList',
+    PROVIDER_HEALTH_LIST: 'providerHealthList',
+    SITE_WIZARD_DOMAIN: 'siteWizardDomain',
+    SITE_WIZARD_PRESET: 'siteWizardPreset',
+    CREATE_SITE_WIZARD_RULE_BTN: 'createSiteWizardRuleBtn',
+    TEST_QUALITY_PREVIEW: 'test-quality-preview',
+
     // --- Modals ---
     // AI Engine Modal
     AI_ENGINE_MODAL: 'aiEngineModal',

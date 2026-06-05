@@ -1,34 +1,13 @@
-import { escapeHtml, detectSpeechLang } from '../common/utils.js';
+import { detectSpeechLang } from '../common/utils.js';
 import browser from '../lib/browser-polyfill.js';
 import { floatingLayoutService } from './layout/floating-layout-service.js';
 import { ResizeController } from './layout/resize-controller.js';
+import { createTooltipContent } from './tooltip/tooltip-content-view.js';
+import { createTooltipIcon } from './tooltip/tooltip-icons.js';
 
 // --- Constants ---
 const POSITION_OFFSET = 10;
 const COPY_FEEDBACK_DURATION = 1500;
-
-// --- SVG Icon Creation Functions ---
-const ICONS = {
-    close: '<path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>',
-    play: '<path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>',
-    stop: '<path d="M6 6h12v12H6z"/>',
-    copy: '<path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>',
-    check: '<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>',
-    expand: '<path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>',
-    collapse: '<path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6 1.41 1.41z"/>',
-    pin: '<path d="M16 9V4h1V2H7v2h1v5l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/>', // 竖直图钉
-    unpin: '<path d="M7 2v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2V9.83l4.29-4.29c.39-.39.39-1.02 0-1.41L18.88 2.71c-.39-.39-1.02-.39-1.41 0L16 4.12V2H7z"/>' // 斜向图钉
-};
-
-function createIcon(iconName, size = 16) {
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('width', size);
-    svg.setAttribute('height', size);
-    svg.setAttribute('viewBox', '0 0 24 24');
-    svg.setAttribute('fill', 'currentColor');
-    svg.innerHTML = ICONS[iconName];
-    return svg;
-}
 
 /**
  * EnhancedTooltipManager
@@ -127,7 +106,7 @@ class EnhancedTooltipManager {
         header?.classList.toggle('draggable', this.#isPinned);
         if (pinBtn) {
             pinBtn.innerHTML = '';
-            pinBtn.appendChild(createIcon(this.#isPinned ? 'unpin' : 'pin'));
+            pinBtn.appendChild(createTooltipIcon(this.#isPinned ? 'unpin' : 'pin'));
             pinBtn.title = browser.i18n.getMessage(this.#isPinned ? 'tooltipUnpin' : 'tooltipPin') || (this.#isPinned ? 'Unpin' : 'Pin');
         }
         if (this.#isPinned) {
@@ -245,112 +224,13 @@ class EnhancedTooltipManager {
 
             const isThisPlaying = this.#isPlaying && this.#currentLanguage === lang;
             btn.innerHTML = ''; // Clear existing icon
-            btn.appendChild(createIcon(isThisPlaying ? 'stop' : 'play'));
+            btn.appendChild(createTooltipIcon(isThisPlaying ? 'stop' : 'play'));
             btn.title = browser.i18n.getMessage(isThisPlaying ? 'tooltipStopReading' : (lang === 'source' ? 'tooltipReadSource' : 'tooltipReadTarget'));
             btn.classList.toggle('playing', isThisPlaying);
         };
 
         updateButton('.source-speech-btn', 'source');
         updateButton('.target-speech-btn', 'target');
-    }
-
-    #createTooltipContent(sourceText, translatedText, { isLoading, isError }) {
-        const fragment = document.createDocumentFragment();
-        const container = document.createElement('div');
-        container.className = 'foxlate-panel-content';
-
-        // Header
-        const header = document.createElement('div');
-        header.className = 'foxlate-panel-header';
-        const title = document.createElement('div');
-        title.className = 'foxlate-panel-title';
-        title.textContent = 'Foxlate';
-
-        const actions = document.createElement('div');
-        actions.className = 'foxlate-panel-actions';
-        const pinBtn = this.#createIconButton('foxlate-pin-btn', 'pin', browser.i18n.getMessage('tooltipPin') || 'Pin');
-        const closeBtn = this.#createIconButton('foxlate-close-btn', 'close', browser.i18n.getMessage('tooltipClose'));
-        actions.append(pinBtn, closeBtn);
-
-        header.append(title, actions);
-
-        // Body
-        const body = document.createElement('div');
-        body.className = 'foxlate-panel-body';
-
-        if (isLoading) {
-            const loadingContainer = document.createElement('div');
-            loadingContainer.className = 'foxlate-loading-container';
-            const spinner = document.createElement('div');
-            spinner.className = 'foxlate-spinner';
-            const loadingText = document.createElement('div');
-            loadingText.className = 'foxlate-loading-text';
-            loadingText.textContent = browser.i18n.getMessage('tooltipTranslating');
-            loadingContainer.append(spinner, loadingText);
-            body.appendChild(loadingContainer);
-        } else if (isError) {
-            const errorMsg = document.createElement('div');
-            errorMsg.className = 'foxlate-error-message';
-            errorMsg.textContent = sourceText;
-            body.appendChild(errorMsg);
-        } else {
-            // Target Text Section
-            const targetSection = this.#createSection('target', translatedText, false);
-            // Source Text Section
-            const sourceSection = this.#createSection('source', sourceText, true);
-            body.append(targetSection, sourceSection);
-        }
-
-        container.append(header, body);
-        fragment.appendChild(container);
-        return fragment;
-    }
-
-    #createSection(type, text, isCollapsed) {
-        const section = document.createElement('div');
-        section.className = `foxlate-text-section ${type}-section`;
-
-        const header = document.createElement('div');
-        header.className = 'foxlate-text-header';
-
-        const label = document.createElement('span');
-        label.className = 'foxlate-text-label';
-        label.textContent = browser.i18n.getMessage(type === 'source' ? 'tooltipSourceText' : 'tooltipTargetText');
-
-        const actions = document.createElement('div');
-        actions.className = 'foxlate-text-actions';
-
-        const toggleBtn = this.#createIconButton('toggle-btn', isCollapsed ? 'expand' : 'collapse', browser.i18n.getMessage(isCollapsed ? 'tooltipExpandSource' : 'tooltipCollapseSource'));
-        const speechBtn = this.#createIconButton(`${type}-speech-btn`, 'play', browser.i18n.getMessage(type === 'source' ? 'tooltipReadSource' : 'tooltipReadTarget'));
-        const copyBtn = this.#createIconButton(`${type}-copy-btn`, 'copy', browser.i18n.getMessage(type === 'source' ? 'tooltipCopySource' : 'tooltipCopyTarget'));
-
-        if (isCollapsed) {
-            speechBtn.disabled = true;
-            copyBtn.disabled = true;
-        }
-
-        actions.append(toggleBtn, speechBtn, copyBtn);
-        header.append(label, actions);
-
-        const content = document.createElement('div');
-        content.className = 'foxlate-text-content';
-        content.innerHTML = escapeHtml(text).replace(/\n/g, '<br>');
-
-        section.append(header, content);
-
-        if (isCollapsed) {
-            section.classList.add('collapsed');
-        }
-
-        return section;
-    }
-
-    #createIconButton(className, iconName, title) {
-        const button = document.createElement('button');
-        button.className = `foxlate-icon-btn ${className}`;
-        button.title = title;
-        button.appendChild(createIcon(iconName));
-        return button;
     }
 
     show(sourceText, translatedText, options = {}) {
@@ -376,7 +256,7 @@ class EnhancedTooltipManager {
         this.hide();
 
         this.#tooltipEl.innerHTML = ''; // Clear previous content
-        const content = this.#createTooltipContent(sourceText, translatedText, { isLoading, isError });
+        const content = createTooltipContent(browser, sourceText, translatedText, { isLoading, isError });
         this.#tooltipEl.appendChild(content);
         this.#applyLayout(sourceText, translatedText, { isLoading, isError });
         this.#attachResizeController();
@@ -478,7 +358,7 @@ class EnhancedTooltipManager {
             e.stopPropagation();
             const isCollapsed = section.classList.toggle('collapsed');
             toggleBtn.innerHTML = '';
-            toggleBtn.appendChild(createIcon(isCollapsed ? 'expand' : 'collapse'));
+            toggleBtn.appendChild(createTooltipIcon(isCollapsed ? 'expand' : 'collapse'));
             toggleBtn.title = browser.i18n.getMessage(isCollapsed ? 'tooltipExpandSource' : 'tooltipCollapseSource');
 
             section.querySelectorAll(`.${type}-speech-btn, .${type}-copy-btn`)
@@ -518,7 +398,7 @@ class EnhancedTooltipManager {
     #showCopyFeedback(button) {
         const originalIcon = button.innerHTML;
         button.innerHTML = '';
-        button.appendChild(createIcon('check'));
+        button.appendChild(createTooltipIcon('check'));
         button.classList.add('copied');
         const originalTitle = button.title;
         button.title = browser.i18n.getMessage('tooltipCopied');
