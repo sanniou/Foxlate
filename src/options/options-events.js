@@ -32,7 +32,6 @@ export function createOptionsEventHandlers({ elements, dispatch, actions }) {
             [ELEMENT_IDS.REFRESH_CLOUD_DATA_BTN]: actions.refreshCloudData,
             [ELEMENT_IDS.REFRESH_PRODUCT_DATA_BTN]: actions.refreshProductData,
             [ELEMENT_IDS.CLEAR_HISTORY_BTN]: actions.clearTranslationHistory,
-            [ELEMENT_IDS.CLEAR_FAILURE_QUEUE_BTN]: actions.clearFailureQueue,
             [ELEMENT_IDS.CLEAR_PROVIDER_HEALTH_BTN]: actions.clearProviderHealth,
             [ELEMENT_IDS.CREATE_SITE_WIZARD_RULE_BTN]: actions.createSiteWizardRule,
         };
@@ -45,7 +44,6 @@ export function createOptionsEventHandlers({ elements, dispatch, actions }) {
             'delete-rule-btn': (button) => actions.removeDomainRule(button.dataset.domain),
             'download-cloud-backup-btn': (button) => actions.downloadSettingsFromCloud(button.dataset.backupId),
             'delete-cloud-backup-btn': (button) => actions.deleteCloudBackup(button.dataset.backupId),
-            'retry-failure-btn': (button) => actions.retryFailure(button.dataset.failureId),
         };
         for (const className in classActions) {
             if (closestButton.classList.contains(className)) {

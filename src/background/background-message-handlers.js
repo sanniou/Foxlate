@@ -492,46 +492,6 @@ export function createBackgroundMessageHandlers({
             return { success: true };
         },
 
-        async [MESSAGE_TYPES.GET_TRANSLATION_FAILURE_QUEUE]() {
-            return { success: true, items: await failureQueue.list() };
-        },
-
-        async [MESSAGE_TYPES.CLEAR_TRANSLATION_FAILURE_QUEUE]() {
-            await failureQueue.clear();
-            return { success: true };
-        },
-
-        async [MESSAGE_TYPES.RETRY_TRANSLATION_FAILURE](request) {
-            const { failureId } = request.payload || {};
-            const failures = await failureQueue.list();
-            const failure = failures.find(item => item.id === failureId);
-            if (!failure) {
-                return { success: false, error: 'Failure item not found.' };
-            }
-            const result = await translatorManager.translateText(
-                failure.sourceText,
-                failure.targetLang,
-                failure.sourceLang || 'auto',
-                failure.engine
-            );
-            if (result.error) {
-                await healthStore.record({ engine: failure.engine || 'default', success: false, error: result.error });
-                return { success: false, error: result.error };
-            }
-            await failureQueue.resolve(failureId);
-            await historyStore.recordSuccess({
-                sourceText: failure.sourceText,
-                translatedText: result.text,
-                targetLang: failure.targetLang,
-                sourceLang: failure.sourceLang,
-                engine: failure.engine,
-                hostname: failure.hostname,
-                surface: `${failure.surface || 'failure'}-retry`,
-            });
-            await healthStore.record({ engine: failure.engine || 'default', success: true });
-            return { success: true, translatedText: result.text };
-        },
-
         async [MESSAGE_TYPES.GET_PROVIDER_HEALTH]() {
             return { success: true, providers: await healthStore.list() };
         },

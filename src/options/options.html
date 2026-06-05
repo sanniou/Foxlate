@@ -19,7 +19,7 @@
                     <li><a href="#general" class="nav-link active"><span class="nav-text" i18n-text="navGeneral">General</span></a></li>
                     <li><a href="#page-translation" class="nav-link"><span class="nav-text" i18n-text="navPageTranslation">Page Translation</span></a></li>
                     <li><a href="#engine" class="nav-link"><span class="nav-text" i18n-text="navEngine">Engine</span></a></li>
-                    <li><a href="#product" class="nav-link"><span class="nav-text">Product</span></a></li>
+                    <li><a href="#product" class="nav-link"><span class="nav-text" i18n-text="navProduct">Product</span></a></li>
                     <li><a href="#input-translation" class="nav-link"><span class="nav-text" i18n-text="navInputTranslation">Input</span></a></li>
                     <li><a href="#rules" class="nav-link"><span class="nav-text" i18n-text="navRules">Rules</span></a></li>
                     <li><a href="#cache" class="nav-link"><span class="nav-text" i18n-text="navCache">Cache</span></a></li>
@@ -120,13 +120,13 @@
 
             <!-- Product -->
             <section id="product" class="content-panel">
-                <h2 class="section-title">Product System</h2>
-                <div class="grid-2">
+                <h2 class="section-title" i18n-text="productSystemSettings">Product System</h2>
+                <div class="product-settings-grid">
                     <div class="card">
                         <div class="flex-between mb-4">
                             <div>
-                                <div class="input-label">Glossary</div>
-                                <div class="text-sm text-muted">Preserve product names, terms, and proper nouns.</div>
+                                <div class="input-label" i18n-text="glossaryTitle">Glossary</div>
+                                <div class="text-sm text-muted" i18n-text="glossaryDescription">Preserve product names, terms, and proper nouns.</div>
                             </div>
                             <label class="switch">
                                 <input type="checkbox" id="glossaryEnabled">
@@ -134,17 +134,17 @@
                             </label>
                         </div>
                         <div class="input-group">
-                            <label class="input-label" for="glossaryEntries">Terms</label>
-                            <textarea id="glossaryEntries" class="form-control" rows="7" placeholder="Foxlate => Foxlate&#10;OpenAI => OpenAI"></textarea>
-                            <div class="text-sm text-muted mt-2">One term per line. Use "source => target".</div>
+                            <label class="input-label" for="glossaryEntries" i18n-text="glossaryTermsLabel">Terms</label>
+                            <textarea id="glossaryEntries" class="form-control" rows="7" i18n-placeholder="glossaryEntriesPlaceholder"></textarea>
+                            <div class="text-sm text-muted mt-2" i18n-text="glossaryTermsHelp">One term per line. Use "source => target".</div>
                         </div>
                     </div>
 
                     <div class="card">
                         <div class="flex-between mb-4">
                             <div>
-                                <div class="input-label">Quick Action Panel</div>
-                                <div class="text-sm text-muted">Prepare contextual entry points for selection, retry, and page actions.</div>
+                                <div class="input-label" i18n-text="quickActionPanelTitle">Quick Action Panel</div>
+                                <div class="text-sm text-muted" i18n-text="quickActionPanelDescription">Show contextual translation actions on selected page text.</div>
                             </div>
                             <label class="switch">
                                 <input type="checkbox" id="quickActionPanelEnabled">
@@ -152,7 +152,7 @@
                             </label>
                         </div>
                         <div class="flex-between">
-                            <span class="text-sm text-muted">Show when text is selected</span>
+                            <span class="text-sm text-muted" i18n-text="quickActionSelectionLabel">Show when text is selected</span>
                             <label class="switch">
                                 <input type="checkbox" id="quickActionPanelSelection">
                                 <span class="switch-track"><span class="switch-thumb"></span></span>
@@ -160,47 +160,44 @@
                         </div>
                         <div class="divider"></div>
                         <div class="input-group">
-                            <label class="input-label" for="siteWizardDomain">Site Config Wizard</label>
-                            <input type="text" id="siteWizardDomain" class="form-control" placeholder="docs.example.com">
+                            <label class="input-label" for="siteWizardDomain" i18n-text="siteWizardTitle">Site Config Wizard</label>
+                            <input type="text" id="siteWizardDomain" class="form-control" i18n-placeholder="siteWizardDomainPlaceholder">
                         </div>
                         <div class="grid-2 mt-2">
                             <select id="siteWizardPreset" class="form-control">
-                                <option value="article">Article</option>
-                                <option value="docs">Docs</option>
-                                <option value="app">Web App</option>
+                                <option value="article" i18n-text="siteWizardPresetArticle">Article</option>
+                                <option value="docs" i18n-text="siteWizardPresetDocs">Docs</option>
+                                <option value="app" i18n-text="siteWizardPresetApp">Web App</option>
                             </select>
-                            <button id="createSiteWizardRuleBtn" class="btn btn-secondary">Create Rule</button>
+                            <button id="createSiteWizardRuleBtn" class="btn btn-secondary" i18n-text="siteWizardCreateRule">Create Rule</button>
                         </div>
                     </div>
                 </div>
 
-                <div class="card mt-4">
-                    <div class="flex-between mb-2">
-                        <h3 class="card-title">Provider Health</h3>
-                        <div class="flex-row">
-                            <button id="refreshProductDataBtn" class="btn btn-text btn-sm">Refresh</button>
-                            <button id="clearProviderHealthBtn" class="btn btn-text btn-sm text-error">Clear</button>
-                        </div>
-                    </div>
-                    <ul id="providerHealthList" class="item-list"></ul>
-                </div>
-
-                <div class="grid-2 mt-4">
+                <div class="product-diagnostics-grid mt-4">
                     <div class="card">
                         <div class="flex-between mb-2">
-                            <h3 class="card-title">Translation History</h3>
-                            <button id="clearHistoryBtn" class="btn btn-text btn-sm text-error">Clear</button>
+                            <h3 class="card-title" i18n-text="providerHealthTitle">Provider Health</h3>
+                            <div class="flex-row">
+                                <button id="refreshProductDataBtn" class="btn btn-text btn-sm" i18n-text="refreshProductData">Refresh</button>
+                                <button id="clearProviderHealthBtn" class="btn btn-text btn-sm text-error" i18n-text="clear">Clear</button>
+                            </div>
+                        </div>
+                        <ul id="providerHealthList" class="item-list product-record-list"></ul>
+                    </div>
+
+                    <div class="card">
+                        <div class="flex-between mb-2">
+                            <h3 class="card-title" i18n-text="translationHistoryTitle">Translation History</h3>
+                            <button id="clearHistoryBtn" class="btn btn-text btn-sm text-error" i18n-text="clear">Clear</button>
                         </div>
                         <ul id="translationHistoryList" class="item-list product-record-list"></ul>
                     </div>
+                </div>
 
-                    <div class="card">
-                        <div class="flex-between mb-2">
-                            <h3 class="card-title">Failed Retry Queue</h3>
-                            <button id="clearFailureQueueBtn" class="btn btn-text btn-sm text-error">Clear</button>
-                        </div>
-                        <ul id="failureQueueList" class="item-list product-record-list"></ul>
-                    </div>
+                <div class="card mt-4 product-note">
+                    <div class="product-record-main" i18n-text="failureHandlingTitle">Failure handling</div>
+                    <div class="product-record-sub" i18n-text="failureHandlingDescription">Page translation failures are handled in page context through automatic retry and provider health signals, not from the settings page.</div>
                 </div>
             </section>
 

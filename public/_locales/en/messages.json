@@ -1131,5 +1131,145 @@
   "navInputTranslation": {
     "message": "Input Translation",
     "description": "Navigation link for Input Translation settings."
+  },
+  "navProduct": {
+    "message": "Product",
+    "description": "Navigation link for product workflow settings."
+  },
+  "productSystemSettings": {
+    "message": "Product System",
+    "description": "Section heading for product workflow settings."
+  },
+  "glossaryTitle": {
+    "message": "Glossary",
+    "description": "Title for glossary settings."
+  },
+  "glossaryDescription": {
+    "message": "Preserve product names, terms, and proper nouns.",
+    "description": "Helper text for glossary settings."
+  },
+  "glossaryTermsLabel": {
+    "message": "Terms",
+    "description": "Label for glossary entries."
+  },
+  "glossaryEntriesPlaceholder": {
+    "message": "Foxlate => Foxlate\nOpenAI => OpenAI",
+    "description": "Placeholder for glossary entries."
+  },
+  "glossaryTermsHelp": {
+    "message": "One term per line. Use \"source => target\".",
+    "description": "Helper text for glossary entries."
+  },
+  "quickActionPanelTitle": {
+    "message": "Quick Action Panel",
+    "description": "Title for quick action panel settings."
+  },
+  "quickActionPanelDescription": {
+    "message": "Show contextual translation actions on selected page text.",
+    "description": "Helper text for quick action panel settings."
+  },
+  "quickActionSelectionLabel": {
+    "message": "Show when text is selected",
+    "description": "Label for showing quick actions on selected text."
+  },
+  "siteWizardTitle": {
+    "message": "Site Config Wizard",
+    "description": "Title for site rule wizard."
+  },
+  "siteWizardDomainPlaceholder": {
+    "message": "docs.example.com",
+    "description": "Placeholder for site wizard domain."
+  },
+  "siteWizardPresetArticle": {
+    "message": "Article",
+    "description": "Article preset for site wizard."
+  },
+  "siteWizardPresetDocs": {
+    "message": "Docs",
+    "description": "Docs preset for site wizard."
+  },
+  "siteWizardPresetApp": {
+    "message": "Web App",
+    "description": "Web app preset for site wizard."
+  },
+  "siteWizardCreateRule": {
+    "message": "Create Rule",
+    "description": "Button text to create a site rule from the wizard."
+  },
+  "providerHealthTitle": {
+    "message": "Provider Health",
+    "description": "Title for provider health diagnostics."
+  },
+  "refreshProductData": {
+    "message": "Refresh",
+    "description": "Button text to refresh product diagnostics."
+  },
+  "translationHistoryTitle": {
+    "message": "Translation History",
+    "description": "Title for translation history."
+  },
+  "clear": {
+    "message": "Clear",
+    "description": "Generic clear button text."
+  },
+  "failureHandlingTitle": {
+    "message": "Failure Handling",
+    "description": "Title for failure handling explanation."
+  },
+  "failureHandlingDescription": {
+    "message": "Page translation failures are handled in page context through automatic retry and provider health signals, not from the settings page.",
+    "description": "Explains why failed page translations are not retried from options."
+  },
+  "siteWizardDomainRequired": {
+    "message": "Enter a domain for the site wizard.",
+    "description": "Status message for missing site wizard domain."
+  },
+  "siteWizardRuleCreated": {
+    "message": "Site rule created.",
+    "description": "Status message after creating a site rule."
+  },
+  "translationHistoryCleared": {
+    "message": "Translation history cleared.",
+    "description": "Status message after clearing translation history."
+  },
+  "providerHealthCleared": {
+    "message": "Provider health cleared.",
+    "description": "Status message after clearing provider health."
+  },
+  "translationHistoryEmpty": {
+    "message": "No translation history yet.",
+    "description": "Empty state for translation history."
+  },
+  "providerHealthEmpty": {
+    "message": "No provider health data yet.",
+    "description": "Empty state for provider health."
+  },
+  "providerHealthSuccess": {
+    "message": "success",
+    "description": "Provider health success counter label."
+  },
+  "providerHealthFailure": {
+    "message": "failure",
+    "description": "Provider health failure counter label."
+  },
+  "providerStatusHealthy": {
+    "message": "healthy",
+    "description": "Provider healthy status label."
+  },
+  "providerStatusDegraded": {
+    "message": "degraded",
+    "description": "Provider degraded status label."
+  },
+  "qualityPreviewSource": {
+    "message": "Source",
+    "description": "Label for source length in quality preview."
+  },
+  "qualityPreviewResult": {
+    "message": "Result",
+    "description": "Label for translated result length in quality preview."
+  },
+  "qualityPreviewExpansion": {
+    "message": "Expansion",
+    "description": "Label for expansion ratio in quality preview."
   }
 }

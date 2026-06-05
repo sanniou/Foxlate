@@ -268,6 +268,29 @@
     overflow: auto;
 }
 
+.product-settings-grid,
+.product-diagnostics-grid {
+    display: grid;
+    align-items: stretch;
+    gap: 18px;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 0.82fr);
+}
+
+.product-settings-grid > .card,
+.product-diagnostics-grid > .card {
+    min-width: 0;
+    height: 100%;
+}
+
+.product-settings-grid .grid-2 {
+    align-items: end;
+}
+
+.product-note {
+    display: grid;
+    gap: 6px;
+}
+
 .product-record-item {
     display: grid;
     gap: 8px;
@@ -543,6 +566,8 @@ select[data-foxlate-layout-source] {
     }
 
     .settings-grid-2,
+    .product-settings-grid,
+    .product-diagnostics-grid,
     .grid-2 {
         grid-template-columns: 1fr;
     }

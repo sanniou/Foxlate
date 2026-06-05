@@ -1126,5 +1126,145 @@
   "navInputTranslation": {
     "message": "输入框翻译",
     "description": "输入框翻译设置的导航链接。"
+  },
+  "navProduct": {
+    "message": "产品",
+    "description": "产品工作流设置的导航链接。"
+  },
+  "productSystemSettings": {
+    "message": "产品系统",
+    "description": "产品工作流设置的部分标题。"
+  },
+  "glossaryTitle": {
+    "message": "术语表",
+    "description": "术语表设置标题。"
+  },
+  "glossaryDescription": {
+    "message": "保留产品名、术语和专有名词。",
+    "description": "术语表设置辅助文本。"
+  },
+  "glossaryTermsLabel": {
+    "message": "术语",
+    "description": "术语表条目标签。"
+  },
+  "glossaryEntriesPlaceholder": {
+    "message": "Foxlate => Foxlate\nOpenAI => OpenAI",
+    "description": "术语表条目占位符。"
+  },
+  "glossaryTermsHelp": {
+    "message": "每行一个术语，格式为“原文 => 译文”。",
+    "description": "术语表条目辅助文本。"
+  },
+  "quickActionPanelTitle": {
+    "message": "快捷操作面板",
+    "description": "快捷操作面板设置标题。"
+  },
+  "quickActionPanelDescription": {
+    "message": "在网页选中文本时显示上下文翻译操作。",
+    "description": "快捷操作面板设置辅助文本。"
+  },
+  "quickActionSelectionLabel": {
+    "message": "选中文本时显示",
+    "description": "选中文本时显示快捷操作的标签。"
+  },
+  "siteWizardTitle": {
+    "message": "站点配置向导",
+    "description": "站点规则向导标题。"
+  },
+  "siteWizardDomainPlaceholder": {
+    "message": "docs.example.com",
+    "description": "站点向导域名占位符。"
+  },
+  "siteWizardPresetArticle": {
+    "message": "文章",
+    "description": "站点向导文章预设。"
+  },
+  "siteWizardPresetDocs": {
+    "message": "文档",
+    "description": "站点向导文档预设。"
+  },
+  "siteWizardPresetApp": {
+    "message": "网页应用",
+    "description": "站点向导网页应用预设。"
+  },
+  "siteWizardCreateRule": {
+    "message": "创建规则",
+    "description": "从站点向导创建规则的按钮文本。"
+  },
+  "providerHealthTitle": {
+    "message": "服务健康状态",
+    "description": "服务健康诊断标题。"
+  },
+  "refreshProductData": {
+    "message": "刷新",
+    "description": "刷新产品诊断数据的按钮文本。"
+  },
+  "translationHistoryTitle": {
+    "message": "翻译历史",
+    "description": "翻译历史标题。"
+  },
+  "clear": {
+    "message": "清空",
+    "description": "通用清空按钮文本。"
+  },
+  "failureHandlingTitle": {
+    "message": "失败处理",
+    "description": "失败处理说明标题。"
+  },
+  "failureHandlingDescription": {
+    "message": "网页翻译失败会在网页上下文中通过自动重试和服务健康状态处理，不在设置页重试单条网页翻译。",
+    "description": "说明为什么不从设置页重试失败网页翻译。"
+  },
+  "siteWizardDomainRequired": {
+    "message": "请输入要配置的站点域名。",
+    "description": "站点向导缺少域名时的状态消息。"
+  },
+  "siteWizardRuleCreated": {
+    "message": "站点规则已创建。",
+    "description": "创建站点规则后的状态消息。"
+  },
+  "translationHistoryCleared": {
+    "message": "翻译历史已清空。",
+    "description": "清空翻译历史后的状态消息。"
+  },
+  "providerHealthCleared": {
+    "message": "服务健康状态已清空。",
+    "description": "清空服务健康状态后的状态消息。"
+  },
+  "translationHistoryEmpty": {
+    "message": "暂无翻译历史。",
+    "description": "翻译历史空状态。"
+  },
+  "providerHealthEmpty": {
+    "message": "暂无服务健康数据。",
+    "description": "服务健康状态空状态。"
+  },
+  "providerHealthSuccess": {
+    "message": "成功",
+    "description": "服务健康成功次数标签。"
+  },
+  "providerHealthFailure": {
+    "message": "失败",
+    "description": "服务健康失败次数标签。"
+  },
+  "providerStatusHealthy": {
+    "message": "正常",
+    "description": "服务健康正常状态标签。"
+  },
+  "providerStatusDegraded": {
+    "message": "异常",
+    "description": "服务健康异常状态标签。"
+  },
+  "qualityPreviewSource": {
+    "message": "原文",
+    "description": "质量预览中的原文长度标签。"
+  },
+  "qualityPreviewResult": {
+    "message": "译文",
+    "description": "质量预览中的译文长度标签。"
+  },
+  "qualityPreviewExpansion": {
+    "message": "膨胀比例",
+    "description": "质量预览中的膨胀比例标签。"
   }
 }
