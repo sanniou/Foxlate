@@ -1,86 +1,13 @@
 // src/content/summary/summary.view.js
 
 import browser from '../../lib/browser-polyfill.js';
-import { marked } from '../../lib/marked.esm.js';
 import { debounce } from '../../common/utils.js';
-import { floatingLayoutService } from '../layout/floating-layout-service.js';
 import { ResizeController } from '../layout/resize-controller.js';
 import { summaryLayoutController } from '../layout/summary-layout-controller.js';
-
-class SummaryButtonTooltip {
-    constructor(text) {
-        this.text = text;
-        this.element = document.createElement('div');
-        this.element.className = 'foxlate-summary-button-tooltip';
-        this.element.textContent = text;
-        document.body.appendChild(this.element);
-    }
-
-    show(anchorElement) {
-        if (!anchorElement || anchorElement.classList.contains('dragging')) return;
-        const box = floatingLayoutService.applyTextBox(this.element, this.text, {
-            minWidth: 72,
-            maxWidth: 220,
-            paddingX: 20,
-            paddingY: 12,
-            styleOverrides: {
-                fontSize: '12px',
-                lineHeight: '16px',
-                whiteSpace: 'normal',
-            },
-        });
-        floatingLayoutService.placeElement(this.element, {
-            anchorElement,
-            box,
-            margin: 10,
-            gap: 10,
-            preferredPlacements: ['left', 'right', 'bottom', 'top'],
-        });
-        this.element.classList.add('visible');
-    }
-
-    hide() {
-        this.element.classList.remove('visible');
-    }
-
-    destroy() {
-        this.element.remove();
-    }
-}
-
-export class SummaryButton {
-    constructor() {
-        this.element = null;
-        this.tooltip = null;
-        this.create();
-    }
-    create() {
-        this.element = document.createElement('div');
-        this.element.className = 'foxlate-summary-button';
-        
-        const tooltipText = browser.i18n.getMessage('summaryButtonTooltip') || 'Summarize';
-        this.element.setAttribute('aria-label', tooltipText);
-        this.tooltip = new SummaryButtonTooltip(tooltipText);
-
-        // Icons: Sparkles (Default) and Close (Active)
-        const sparklesIcon = `<svg class="icon-sparkles" xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 2l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg>`;
-        const closeIcon = `<svg class="icon-close" xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>`;
-
-        this.element.innerHTML = sparklesIcon + closeIcon;
-        this.element.addEventListener('mouseenter', () => this.tooltip?.show(this.element));
-        this.element.addEventListener('mouseleave', () => this.tooltip?.hide());
-        document.body.appendChild(this.element);
-    }
-    setPosition(x, y) {
-        const rect = this.element.getBoundingClientRect();
-        this.element.style.left = `${Math.max(0, Math.min(x, window.innerWidth - rect.width))}px`;
-        this.element.style.top = `${Math.max(0, Math.min(y, window.innerHeight - rect.height))}px`;
-    }
-    destroy() {
-        this.tooltip?.destroy();
-        this.element?.remove();
-    }
-}
+import { getSummaryIcon } from './summary-icons.js';
+import { SummaryMessageRenderer } from './summary-message-renderer.js';
+import { SummarySuggestionsView } from './summary-suggestions-view.js';
+export { SummaryButton } from './summary-button.view.js';
 
 export class SummaryDialog {
     // 定义常量
@@ -105,6 +32,10 @@ export class SummaryDialog {
         this.currentMessageTextByIndex = new Map();
         this.currentOriginalText = '';
         this.currentSuggestions = [];
+        this.messageRenderer = new SummaryMessageRenderer({
+            getIcon: name => this.getIcon(name),
+            getWidth: () => this.currentLayout?.width ?? SummaryDialog.DEFAULT_WIDTH,
+        });
 
         // 绑定事件处理函数，以便在移除时使用
         this.boundHandleSendMessage = () => {
@@ -229,6 +160,23 @@ export class SummaryDialog {
         this.textarea = this.element.querySelector('textarea');
         this.sendButton = this.element.querySelector('button.send-button');
         this.refreshButton = this.element.querySelector('button.refresh-button');
+        this.suggestionsView = new SummarySuggestionsView({
+            suggestionsArea: this.suggestionsArea,
+            suggestButton: this.suggestButton,
+            textarea: this.textarea,
+            getIcon: name => this.getIcon(name),
+            getWidth: () => this.currentLayout?.width ?? SummaryDialog.DEFAULT_WIDTH,
+            dispatchEvent: (type, detail) => this.dispatchEvent(type, detail),
+            applyTextareaLayout: () => this.applyTextareaLayout(),
+            updateSendButtonState: () => this.updateSendButtonState(),
+            clearInput: () => this.clearInput(),
+            onVisibilityChanged: () => {
+                this.currentSuggestions = this.suggestionsView.currentSuggestions;
+                if (this.isOpen && !this.userSize) {
+                    requestAnimationFrame(() => this.repositionDialog());
+                }
+            },
+        });
 
         // 添加事件监听器
         this.sendButton.addEventListener('click', this.boundHandleSendMessage);
@@ -281,218 +229,27 @@ export class SummaryDialog {
     }
 
     renderConversation(history, isLoading = false) {
-        if (!this.conversationArea) return;
-
-        // 确保 history 是一个数组
-        const validHistory = Array.isArray(history) ? history : [];
-        this.currentMessageTexts = validHistory
-            .filter(message => !message?.isHidden)
-            .map(message => this.getMessageText(message));
-        this.currentMessageTextByIndex = new Map(validHistory.map((message, index) => [index, this.getMessageText(message)]));
-        const messageCountChanged = validHistory.length !== this._renderedMessageCount;
-
-        // 完全重绘逻辑
-        if (this._fullRerenderNeeded || validHistory.length < this._renderedMessageCount) {
-            this.conversationArea.innerHTML = '';
-            this._renderedMessageCount = 0;
-            this._fullRerenderNeeded = false;
-        }
-
-        // 从历史记录更新消息
-        this.updateMessages(validHistory);
-
-        // 处理加载指示器
-        const loadingEl = this.conversationArea.querySelector('.foxlate-summary-message.loading');
-        if (isLoading) {
-            if (!loadingEl) {
-                const indicator = document.createElement('div');
-                indicator.className = 'foxlate-summary-message assistant loading';
-                indicator.innerHTML = `<div class="loading-indicator"></div>`;
-                this.conversationArea.appendChild(indicator);
-            }
-        } else {
-            if (loadingEl) {
-                loadingEl.remove();
-            }
-        }
-
-        // 仅在加载中或消息数量变化时滚动到底部
-        if (isLoading || messageCountChanged) {
-            requestAnimationFrame(() => {
-                this.conversationArea.scrollTop = this.conversationArea.scrollHeight;
-            });
-        }
-    }
-
-    updateMessages(history) {
-        // 优化：缓存消息元素选择器，避免重复查询
-        const messageSelector = '.foxlate-summary-message:not(.loading)';
-        const messageElements = this.conversationArea.querySelectorAll(messageSelector);
-        
-        // 移除已渲染但不再存在于 history 中的消息元素
-        if (messageElements.length > history.length) {
-            for (let i = history.length; i < messageElements.length; i++) {
-                messageElements[i].remove();
-            }
-        }
-
-        // 使用 DocumentFragment 批量添加新元素
-        const fragment = document.createDocumentFragment();
-        const elementsToReplace = new Map(); // 存储需要替换的元素
-
-        // 遍历 history，收集需要更新或新增的消息
-        history.forEach((message, index) => {
-            const existingEl = this.conversationArea.querySelector(`.foxlate-summary-message[data-index="${index}"]:not(.loading)`);
-            const newEl = this.createMessageElement(message, index);
-            
-            if (existingEl) {
-                elementsToReplace.set(existingEl, newEl);
-            } else {
-                fragment.appendChild(newEl);
-            }
+        const renderState = this.messageRenderer.renderConversation({
+            conversationArea: this.conversationArea,
+            history,
+            isLoading,
+            renderedMessageCount: this._renderedMessageCount,
+            fullRerenderNeeded: this._fullRerenderNeeded,
         });
 
-        // 批量添加新元素
-        if (fragment.children.length > 0) {
-            this.conversationArea.appendChild(fragment);
-        }
-
-        // 批量替换现有元素
-        elementsToReplace.forEach((newEl, existingEl) => {
-            existingEl.replaceWith(newEl);
-        });
-
-        this._renderedMessageCount = history.length;
-    }
-
-    renderMessage(message, index) {
-        if (message.isHidden) return;
-        const messageEl = document.createElement('div');
-        messageEl.className = `foxlate-summary-message ${message.role}`;
-        messageEl.dataset.index = index;
-        if (message.isError) messageEl.classList.add('error');
-        
-        // 确保能正确获取内容，处理刷新后的数据结构
-        let content;
-        if (message.role === 'user') {
-            content = message.content;
-        } else {
-            // 确保 message.contents 存在且是数组
-            const contents = message.contents || [];
-            const activeIndex = message.activeContentIndex || 0;
-            content = contents[activeIndex];
-        }
-        
-        messageEl.innerHTML = `<div class="message-content">${marked.parse(content)}</div>${this.getActionsHtml(message)}`;
-        this.conversationArea.appendChild(messageEl);
-    }
-
-    createMessageElement(message, index) {
-        // 优化：使用对象池模式复用元素
-        const messageEl = document.createElement('div');
-        messageEl.className = `foxlate-summary-message ${message.role} ${message.isError ? 'error' : ''}`;
-        messageEl.dataset.index = index;
-        if (message.isHidden) {
-            messageEl.style.display = 'none';
-        }
-
-        // 优化：缓存内容提取逻辑
-        let content;
-        if (message.role === 'user') {
-            content = message.content || '';
-        } else {
-            const contents = message.contents || [];
-            const activeIndex = message.activeContentIndex || 0;
-            content = contents[activeIndex] || ''; // 确保 content 有备用值
-        }
-
-        // 优化：使用模板元素缓存
-        const contentDiv = document.createElement('div');
-        contentDiv.className = 'message-content';
-        
-        // 安全性改进：添加 XSS 防护
-        try {
-            // 注意：生产环境中应该使用 DOMPurify 或类似库
-            contentDiv.innerHTML = marked.parse(content);
-        } catch (e) {
-            console.error('[Foxlate Summary] Markdown parsing error:', e);
-            contentDiv.textContent = content; // 降级到纯文本
-        }
-
-        messageEl.appendChild(contentDiv);
-        
-        // 优化：缓存操作按钮 HTML
-        const actionsHtml = this.getActionsHtml(message);
-        if (actionsHtml) {
-            const template = document.createElement('template');
-            template.innerHTML = actionsHtml;
-            messageEl.appendChild(template.content);
-        }
-
-        summaryLayoutController.applyMessageLayout(messageEl, content, {
-            width: this.currentLayout?.width ?? SummaryDialog.DEFAULT_WIDTH,
-            role: message.role,
-        });
-
-        return messageEl;
-    }
-
-    getMessageText(message) {
-        if (!message) return '';
-        if (message.role === 'user') {
-            return message.content || '';
-        }
-        const contents = message.contents || [];
-        const activeIndex = message.activeContentIndex || 0;
-        return contents[activeIndex] || '';
-    }
-
-    getActionsHtml(message) {
-        let buttons = `<button data-action="copy" aria-label="Copy">${this.getIcon('copy')}</button>`;
-        if (message.role === 'user') {
-            buttons += `<button data-action="edit" aria-label="Edit">${this.getIcon('edit')}</button>`;
-        } else if (message.isError) {
-            // 为错误消息添加重试按钮
-            if (message.retryCallback) {
-                buttons += `<button data-action="retry" aria-label="Retry">${this.getIcon('refresh')}</button>`;
-            }
-            buttons += `<button data-action="copy-error" aria-label="Copy Error">${this.getIcon('copy')}</button>`;
-        } else {
-            // 确保 message.contents 存在且是数组
-            const contents = message.contents || [];
-            if (contents.length > 1) {
-                const activeIndex = message.activeContentIndex || 0;
-                buttons += `
-                    <button data-action="history-prev" ${activeIndex === 0 ? 'disabled' : ''}>${this.getIcon('prev')}</button>
-                    <span>${activeIndex + 1}/${contents.length}</span>
-                    <button data-action="history-next" ${activeIndex === contents.length - 1 ? 'disabled' : ''}>${this.getIcon('next')}</button>
-                `;
-            }
-            buttons += `<button data-action="reroll" aria-label="Reroll">${this.getIcon('reroll')}</button>`;
-        }
-        return `<div class="message-actions">${buttons}</div>`;
+        this._renderedMessageCount = renderState.renderedMessageCount;
+        this._fullRerenderNeeded = renderState.fullRerenderNeeded;
+        this.currentMessageTexts = renderState.currentMessageTexts;
+        this.currentMessageTextByIndex = renderState.currentMessageTextByIndex;
     }
 
     enterEditMode(index, content) {
-        const messageEl = this.conversationArea.querySelector(`[data-index="${index}"]`);
-        if (!messageEl) return;
-        messageEl.classList.add('is-editing');
-        messageEl.innerHTML = `
-            <div class="message-edit-area">
-                <textarea rows="3">${content}</textarea>
-                <div class="message-actions">
-                    <button data-action="cancel-edit" aria-label="Cancel">${this.getIcon('cancel')}</button>
-                    <button data-action="save-edit" aria-label="Save">${this.getIcon('save')}</button>
-                </div>
-            </div>
-        `;
-        const textarea = messageEl.querySelector('textarea');
-        textarea.focus();
-        this.applyEditTextareaLayout(textarea, content);
-        // 为编辑模式的输入框添加输入事件监听，以更新发送按钮状态
-        textarea.addEventListener('input', () => {
-            this.applyEditTextareaLayout(textarea, textarea.value);
-            this.updateSendButtonState();
+        this.messageRenderer.enterEditMode({
+            conversationArea: this.conversationArea,
+            index,
+            content,
+            applyEditTextareaLayout: (textarea, value) => this.applyEditTextareaLayout(textarea, value),
+            updateSendButtonState: () => this.updateSendButtonState(),
         });
     }
 
@@ -516,132 +273,12 @@ export class SummaryDialog {
     }
 
     toggleSuggestions() {
-        if (this.suggestionsArea.classList.contains('is-visible')) {
-            this.suggestionsArea.classList.remove('is-visible');
-            this.suggestionsArea.innerHTML = '';
-            this.currentSuggestions = [];
-            if (this.isOpen && !this.userSize) {
-                this.repositionDialog();
-            }
-        } else {
-            this.suggestionsArea.classList.add('is-visible');
-            this.currentSuggestions = [];
-            this.suggestionsArea.innerHTML = `
-                <div class="foxlate-suggestion-loading">
-                    <div class="loading-indicator"></div>
-                    <span>${browser.i18n.getMessage('summaryLoadingSuggestions') || 'Loading suggestions...'}</span>
-                </div>
-            `;
-            // 只禁用建议按钮，不禁用发送按钮和输入框
-            this.suggestButton.disabled = true;
-            this.suggestButton.classList.add('loading');
-            this.dispatchEvent('infer-suggestions');
-            if (this.isOpen && !this.userSize) {
-                this.repositionDialog();
-            }
-        }
+        this.suggestionsView.toggleSuggestions();
     }
 
     renderSuggestions(suggestions) {
-        // 清空建议区域
-        this.suggestionsArea.innerHTML = '';
-        this.currentSuggestions = [];
-        this.suggestButton.disabled = false;
-        this.suggestButton.classList.remove('loading');
-
-        // 确保发送按钮在建议加载完成后保持启用状态
-        // 建议过程不应该影响发送按钮状态，只有在 AI 回复时才禁用
-        // 这里不直接修改发送按钮状态，让 updateDialogUI 来统一管理
-
-        let parsedSuggestions = [];
-        if (suggestions && suggestions.length > 0) {
-            if (typeof suggestions[0] === 'string' && suggestions[0].startsWith('```json')) {
-                try {
-                    const jsonString = suggestions[0].substring(7, suggestions[0].length - 3).trim();
-                    const tempSuggestions = JSON.parse(jsonString);
-                    if (Array.isArray(tempSuggestions)) parsedSuggestions = tempSuggestions;
-                    else parsedSuggestions = suggestions;
-                } catch (e) {
-                    console.error('[Foxlate Summary] Error parsing suggestions:', e);
-                    parsedSuggestions = suggestions;
-                }
-            } else {
-                parsedSuggestions = suggestions;
-            }
-            this.currentSuggestions = parsedSuggestions.map(suggestion => String(suggestion ?? ''));
-
-            // 优化：使用 DocumentFragment 批量操作 DOM
-            const fragment = document.createDocumentFragment();
-
-            parsedSuggestions.forEach(suggestion => {
-                const suggestionEl = document.createElement('div');
-                suggestionEl.className = 'foxlate-suggestion-item';
-                suggestionEl.dataset.suggestionText = String(suggestion ?? '');
-                
-                const textSpan = document.createElement('span');
-                textSpan.className = 'suggestion-text';
-                textSpan.textContent = suggestion;
-                
-                const editButton = document.createElement('button');
-                editButton.className = 'edit-suggestion-button';
-                editButton.dataset.suggestion = suggestion;
-                editButton.setAttribute('aria-label', 'Edit suggestion');
-                editButton.innerHTML = this.getIcon('edit');
-                
-                suggestionEl.appendChild(textSpan);
-                suggestionEl.appendChild(editButton);
-                fragment.appendChild(suggestionEl);
-            });
-
-            this.suggestionsArea.appendChild(fragment);
-            this.applySuggestionsLayout();
-
-            // 优化：使用事件委托处理点击事件
-            if (this._suggestionsClickHandler) {
-                this.suggestionsArea.removeEventListener('click', this._suggestionsClickHandler);
-            }
-            
-            this._suggestionsClickHandler = (e) => {
-                const suggestionItem = e.target.closest('.foxlate-suggestion-item');
-                const editButton = e.target.closest('.edit-suggestion-button');
-                
-                if (editButton) {
-                    // 处理编辑按钮点击
-                    const suggestion = editButton.dataset.suggestion;
-                    this.textarea.value = suggestion;
-                    this.applyTextareaLayout();
-                    // 更新发送按钮状态，因为现在有内容了
-                    this.updateSendButtonState();
-                    this.textarea.focus();
-                    this.toggleSuggestions();
-                } else if (suggestionItem) {
-                    // 处理建议项点击
-                    const textSpan = suggestionItem.querySelector('.suggestion-text');
-                    if (textSpan) {
-                        const suggestion = textSpan.textContent;
-                        this.dispatchEvent('send-message', { query: suggestion });
-                        this.toggleSuggestions();
-                        // 清空输入框（如果建议内容与输入框内容不同）
-                        if (this.textarea.value.trim() !== suggestion) {
-                            this.clearInput();
-                        }
-                    }
-                }
-            };
-            
-            this.suggestionsArea.addEventListener('click', this._suggestionsClickHandler);
-        } else {
-            this.currentSuggestions = [];
-            // 优化：使用createElement而不是innerHTML
-            const messageEl = document.createElement('div');
-            messageEl.className = 'foxlate-suggestion-message foxlate-suggestion-error';
-            messageEl.textContent = browser.i18n.getMessage('summaryNoSuggestions') || 'No suggestions available.';
-            this.suggestionsArea.appendChild(messageEl);
-        }
-
-        if (this.isOpen && !this.userSize) {
-            requestAnimationFrame(() => this.repositionDialog());
-        }
+        this.suggestionsView.renderSuggestions(suggestions);
+        this.currentSuggestions = this.suggestionsView.currentSuggestions;
     }
 
     applyTextareaLayout() {
@@ -661,30 +298,15 @@ export class SummaryDialog {
     }
 
     applyMessageLayouts() {
-        if (!this.conversationArea) return;
-        const width = this.currentLayout?.width ?? SummaryDialog.DEFAULT_WIDTH;
-        this.conversationArea.querySelectorAll('.foxlate-summary-message:not(.loading)').forEach(messageEl => {
-            if (messageEl.classList.contains('is-editing')) {
-                const textarea = messageEl.querySelector('textarea');
-                this.applyEditTextareaLayout(textarea, textarea?.value ?? '');
-                return;
-            }
-            const index = Number.parseInt(messageEl.dataset.index, 10);
-            const text = Number.isFinite(index) ? this.currentMessageTextByIndex.get(index) : messageEl.textContent;
-            summaryLayoutController.applyMessageLayout(messageEl, text, {
-                width,
-                role: messageEl.classList.contains('user') ? 'user' : 'assistant',
-            });
+        this.messageRenderer.applyMessageLayouts({
+            conversationArea: this.conversationArea,
+            currentMessageTextByIndex: this.currentMessageTextByIndex,
+            applyEditTextareaLayout: (textarea, value) => this.applyEditTextareaLayout(textarea, value),
         });
     }
 
     applySuggestionsLayout() {
-        if (!this.suggestionsArea) return;
-        const width = this.currentLayout?.width ?? SummaryDialog.DEFAULT_WIDTH;
-        this.suggestionsArea.querySelectorAll('.foxlate-suggestion-item').forEach(suggestionEl => {
-            const suggestionText = suggestionEl.dataset.suggestionText || suggestionEl.querySelector('.suggestion-text')?.textContent || '';
-            suggestionEl.style.minHeight = `${summaryLayoutController.estimateSuggestionHeight(suggestionText, width)}px`;
-        });
+        this.suggestionsView?.applySuggestionsLayout();
     }
 
     applyMeasuredContentLayout() {
@@ -717,19 +339,7 @@ export class SummaryDialog {
     }
 
     getIcon(name) {
-        const icons = {
-            send: '<svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 24 24" width="20"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>',
-            copy: '<svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>',
-            edit: '<svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>',
-            reroll: '<svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>',
-            save: '<svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>',
-            cancel: '<svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>',
-            prev: '<svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>',
-            next: '<svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>',
-            refresh: '<svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>',
-            suggest: '<svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16"><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17h8v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7z"/></svg>'
-        };
-        return icons[name] || '';
+        return getSummaryIcon(name);
     }
 
     show(buttonRect) {
@@ -863,15 +473,8 @@ export class SummaryDialog {
     }
 
     resetSuggestions() {
-        this.suggestionsArea.classList.remove('is-visible');
-        this.suggestionsArea.innerHTML = '';
+        this.suggestionsView.resetSuggestions();
         this.currentSuggestions = [];
-        this.suggestButton.disabled = false;
-        this.suggestButton.classList.remove('loading');
-        // 重置建议时不影响发送按钮状态，让 updateDialogUI 统一管理
-        if (this.isOpen && !this.userSize) {
-            this.repositionDialog();
-        }
     }
 
     setFullRerenderNeeded(needed) {
@@ -902,11 +505,7 @@ export class SummaryDialog {
         this.conversationArea?.removeEventListener('click', this.boundHandleConversationClick);
         this.tabsArea?.removeEventListener('click', this.boundHandleTabsAreaClick);
 
-        // 移除建议区域的事件监听器
-        if (this._suggestionsClickHandler && this.suggestionsArea) {
-            this.suggestionsArea.removeEventListener('click', this._suggestionsClickHandler);
-            this._suggestionsClickHandler = null;
-        }
+        this.suggestionsView?.destroy();
 
         // 移除窗口大小和滚动监听器 (确保在 hide() 之后再次调用 destroy() 时也能清理)
         window.removeEventListener('resize', this.debouncedHandleResizeAndScroll);

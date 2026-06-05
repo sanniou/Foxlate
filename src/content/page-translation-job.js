@@ -6,7 +6,6 @@ import { findAllSearchRoots, findTranslatableElements } from './translatable-ele
 
 function defaultLogError(context, error) {
     if (error && error.name === 'AbortError') {
-        console.log(`[Foxlate] Task was interrupted in ${context}:`, error.message);
         return;
     }
     console.error(`[Foxlate Content Script Error] in ${context}:`, error.message, error.stack);
@@ -106,11 +105,9 @@ export class PageTranslationJob {
 
     async start() {
         if (this.state !== 'idle') {
-            console.warn(`[Foxlate] Job is not idle (state: ${this.state}). Ignoring start request.`);
             return;
         }
 
-        console.log("[Foxlate] Starting page translation process...");
         this.state = 'starting';
         this.emitProgress();
 
@@ -143,7 +140,6 @@ export class PageTranslationJob {
 
     async revert() {
         if (this.state === 'reverting' || this.state === 'idle') {
-            console.warn(`[Foxlate] Job is already reverting or idle (state: ${this.state}). Ignoring revert request.`);
             return;
         }
         try {
@@ -161,7 +157,6 @@ export class PageTranslationJob {
             this.logError('revert (sending original status)', e);
         }
 
-        console.log("[Foxlate] Reverting entire page translation...");
         this.state = 'reverting';
 
         this.#stopObservers();
@@ -182,11 +177,8 @@ export class PageTranslationJob {
                     revertedCount++;
                 }
             }
-            console.log(`[Foxlate] Reverted ${revertedCount} translated elements.`);
-
             const leftoverWrappers = document.body.querySelectorAll('foxlate-wrapper[data-foxlate-generated="true"]');
             if (leftoverWrappers.length > 0) {
-                console.log(`[Foxlate] Cleaning up ${leftoverWrappers.length} leftover generated wrappers.`);
                 leftoverWrappers.forEach(wrapper => {
                     if (wrapper.parentNode) wrapper.replaceWith(...wrapper.childNodes);
                 });
@@ -208,7 +200,6 @@ export class PageTranslationJob {
             !this.isScrolling
         ) {
             this.state = 'translated';
-            console.log(`[Foxlate] Page translation completed.`);
             this.emitProgress();
             this.browser.runtime.sendMessage({
                 type: MESSAGE_TYPES.TRANSLATION_STATUS_UPDATE,
@@ -233,7 +224,6 @@ export class PageTranslationJob {
             childList: true,
             subtree: true
         });
-        console.log("[Foxlate] Mutation observer started.");
     }
 
     #startScrollObserver() {
@@ -266,7 +256,6 @@ export class PageTranslationJob {
         this.observedElements.clear();
         this.intersectionObserver = null;
         this.mutationObserver = null;
-        console.log("[Foxlate] Observers stopped.");
     }
 
     #stopScrollObserver() {
@@ -460,7 +449,6 @@ export class PageTranslationJob {
 
     #finishInitialScan() {
         this.initialScanInProgress = false;
-        console.log(`[Foxlate] Initial scan observed ${this.initialScanObservedCount} elements.`);
         this.emitProgress();
 
         if (this.initialScanObservedCount > 0) {
@@ -470,7 +458,6 @@ export class PageTranslationJob {
             return;
         }
 
-        console.warn("[Foxlate] No translatable elements found to observe initially.");
         this.state = 'translated';
         this.browser.runtime.sendMessage({
             type: MESSAGE_TYPES.TRANSLATION_STATUS_UPDATE,
@@ -629,7 +616,6 @@ export class PageTranslationJob {
         this.mutationQueue.clear();
 
         if (!this.settings) {
-            console.warn("[Foxlate] Mutation observed, but no settings found. Skipping.");
             return;
         }
 
@@ -646,7 +632,6 @@ export class PageTranslationJob {
 
         const newElements = this.findTranslatableElements(this.settings, searchRootsArray);
         if (newElements.length > 0) {
-            console.log(`[Foxlate] Found ${newElements.length} new dynamic elements to observe.`);
             this.#observeElements(newElements);
         }
         this.emitProgress();

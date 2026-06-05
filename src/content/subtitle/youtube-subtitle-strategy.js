@@ -1,197 +1,8 @@
 import browser from '../../lib/browser-polyfill.js';
-import { VideoSubtitleObserver } from './video-subtitle-observer.js';
-
-// 你可以将这个类放在一个新文件，例如 'subtitle-renderer.js'
-// 或者直接放在 youtube-subtitle-strategy.js 文件的顶部。
-
-class SubtitleRenderer {
-  constructor(options = {}) {
-    this.overlayId = 'san-reader-translation-overlay';
-    this.styleId = 'san-reader-renderer-styles';
-    this.overlay = null;
-    this.lastRenderedState = { lines: null, top: null, left: null }; // <--- 新增缓存属性
-
-    // 默认选项，并与传入的选项合并
-    this.options = {
-      align: 'left', // 默认左对齐，可设置为 'center'
-      fontSize: 1.8, // 单位是 rem
-      backgroundColor: 'rgba(8, 8, 8, 0.75)',
-      displayMode: 'off', // 新增：'off', 'translated', 'bilingual'
-      ...options
-    };
-
-    this.injectStyles();
-    console.log('[LOG][SubtitleRenderer] Initialized with Dynamic Positioning and Options.');
-  }
-
-  injectStyles() {
-    if (document.getElementById(this.styleId)) return;
-
-    const style = document.createElement('style');
-    style.id = this.styleId;
-    style.textContent = `
-        #${this.overlayId} {
-            position: absolute;
-            display: flex;
-            flex-direction: column;
-            width: 100%;
-            pointer-events: none;
-            z-index: 10;
-            transition: top 0.1s ease-out, opacity 0.1s ease-out;
-        }
-
-        /* [核心改动] 使用 data-align 属性来控制对齐 */
-        #${this.overlayId}[data-align="left"] {
-            align-items: flex-start; /* 左对齐 */
-        }
-        #${this.overlayId}[data-align="center"] {
-            align-items: center; /* 居中对齐 */
-        }
-
-        #${this.overlayId} .translation-line {
-            padding: 2px 8px;
-            color: #fff;
-            background-color: rgba(8, 8, 8, 0.75);
-            font-size: 1.8rem;
-            line-height: 1.4;
-            font-family: "YouTube Noto", Roboto, "Arial Unicode Ms", Arial, sans-serif;
-            white-space: pre-wrap;
-            text-shadow: 
-                0.05em 0.05em 0.1em rgba(0,0,0,0.9),
-                -0.05em -0.05em 0.1em rgba(0,0,0,0.9),
-                0.05em -0.05em 0.1em rgba(0,0,0,0.9),
-                -0.05em 0.05em 0.1em rgba(0,0,0,0.9);
-        }
-    `;
-    document.head.appendChild(style);
-  }
-
-  // 新增一个方法，用于从外部更新选项（例如，用户在设置页面更改了对齐方式）
-  updateOptions(newOptions) {
-    this.options = { ...this.options, ...newOptions };
-    if (this.overlay && newOptions.align) {
-      this.overlay.dataset.align = this.options.align;
-    }
-  }
-
-  // render 方法基本不变，但增加了对 data-align 属性的设置
-  render(linesData, captionWindow) {
-    const playerContainer = document.querySelector(YouTubeSubtitleStrategy.SELECTORS.PLAYER_CONTAINER);
-
-    if (!playerContainer || !captionWindow) {
-      this.hide();
-      return;
-    }
-
-    // 根据 displayMode 决定是否渲染
-    if (this.options.displayMode === 'off') {
-      this.hide();
-      return;
-    }
-
-    // --- 缓存检查 ---
-    // linesData 现在是 [{original: '...', translated: '...'}] 格式
-    const lines = linesData.filter(line => line.translated && line.translated.trim());
-    // 使用更可靠的分隔符来比较缓存
-    const linesJoined = lines.map(l => `${l.translated}\n${l.original}`).join('|');
-
-    // **重要修复**: 确保在原生字幕出现时，我们的字幕也能恢复显示
-    const isNativeSubsVisible = captionWindow.style.display !== 'none' && captionWindow.offsetHeight > 0;
-    if (!isNativeSubsVisible) {
-      if (this.lastRenderedState.lines !== null) { // 如果之前在显示，现在需要隐藏
-        this.hide();
-        this.lastRenderedState = { lines: null, top: null, left: null };
-      }
-      return;
-    }
-
-    const playerRect = playerContainer.getBoundingClientRect();
-    const nativeCaptionRect = captionWindow.getBoundingClientRect();
-
-    if (nativeCaptionRect.height === 0 || nativeCaptionRect.width === 0) {
-      this.hide();
-      return;
-    }
-
-    if (!this.overlay || !playerContainer.contains(this.overlay)) {
-      this.overlay = document.getElementById(this.overlayId);
-      if (!this.overlay) {
-        this.overlay = document.createElement('div');
-        this.overlay.id = this.overlayId;
-        playerContainer.appendChild(this.overlay);
-      } else if (this.overlay.parentElement !== playerContainer) {
-        playerContainer.appendChild(this.overlay);
-      }
-      // [核心改动] 初始化时设置对齐方式
-      this.overlay.dataset.align = this.options.align;
-    }
-
-    const top = (nativeCaptionRect.bottom - playerRect.top) + 6;
-    const left = nativeCaptionRect.left - playerRect.left;
-    const width = nativeCaptionRect.width;
-
-    // 如果内容和位置都和上次一样，直接返回，不做任何操作
-    if (this.lastRenderedState.lines === linesJoined && this.lastRenderedState.top === top) {
-      return;
-    }
-
-    // 更新缓存
-    this.lastRenderedState = { lines: linesJoined, top, left };
-
-    this.overlay.style.top = `${top}px`;
-    this.overlay.style.left = `${left}px`;
-    this.overlay.style.width = `${width}px`;
-    // **重要修复**: 主动恢复可见性
-    this.overlay.style.opacity = '1';
-    this.overlay.style.visibility = 'visible';
-
-    while (this.overlay.children.length > lines.length) {
-      this.overlay.lastChild.remove();
-    }
-
-    lines.forEach((lineData, index) => {
-      let lineElement = this.overlay.children[index];
-      let lineText;
-
-      if (this.options.displayMode === 'bilingual') {
-        lineText = `${lineData.translated}\n${lineData.original}`;
-      } else { // 'translated'
-        lineText = lineData.translated;
-      }
-
-      if (lineElement) {
-        if (lineElement.textContent !== lineText) {
-          lineElement.textContent = lineText;
-        }
-      } else {
-        lineElement = document.createElement('div');
-        lineElement.className = 'translation-line';
-        lineElement.textContent = lineText;
-        lineElement.style.fontSize = `${this.options.fontSize}rem`;
-        lineElement.style.backgroundColor = this.options.backgroundColor;
-        this.overlay.appendChild(lineElement);
-      }
-    });
-
-    if (lines.length === 0) {
-      this.hide();
-    }
-  }
-
-  hide() {
-    if (this.overlay) {
-      this.overlay.style.opacity = '0';
-      this.overlay.style.visibility = 'hidden';
-    }
-  }
-
-  destroy() {
-    console.log('[LOG][SubtitleRenderer.destroy] Destroying renderer resources.');
-    document.getElementById(this.overlayId)?.remove();
-    document.getElementById(this.styleId)?.remove();
-    this.overlay = null;
-  }
-}
+import { MESSAGE_TYPES } from '../../common/message-types.js';
+import { logContentError } from '../content-logger.js';
+import { YouTubeSubtitleRenderer } from './youtube-subtitle-renderer.js';
+import { parseYouTubeTimedSentences } from './youtube-subtitle-parser.js';
 
 class YouTubeSubtitleStrategy {
   // 将关键选择器和配置定义为静态常量，便于维护
@@ -211,7 +22,9 @@ class YouTubeSubtitleStrategy {
     this.onSubtitleChange = onSubtitleChange;
     this.timeUpdateHandler = null;
     this.videoElement = null;
-    this.renderer = new SubtitleRenderer(); // 在构造函数中直接实例化
+    this.renderer = new YouTubeSubtitleRenderer({
+      playerContainerSelector: YouTubeSubtitleStrategy.SELECTORS.PLAYER_CONTAINER,
+    });
     this.subtitleScript = [];
 
     // 绑定所有需要正确 `this` 上下文的处理器
@@ -220,29 +33,22 @@ class YouTubeSubtitleStrategy {
   }
 
   initialize() {
-    console.log("[ModernYouTubeStrategy] Initializing...");
-    // 异步请求设置，但不阻塞初始化流程
     window.getEffectiveSettings().then(settings => {
         this.settings = settings;
-        // 将设置传递给渲染器
         this.renderer.updateOptions({
             displayMode: this.settings?.subtitleSettings?.displayMode || 'off'
         });
-        console.log(`[ModernYouTubeStrategy] Settings loaded, display mode set to: ${this.renderer.options.displayMode}`);
-         // settings 加载完成后立即启动字幕更新
          if (this.settings?.subtitleSettings?.enabled) {
           this.startVideoObserver();
         }
     }).catch(err => {
-        console.error("[ModernYouTubeStrategy] Error loading settings:", err);
+        logContentError('YouTubeSubtitleStrategy.initialize', err);
     });
 
     this.injectNetworkInterceptor();
 
     document.addEventListener(YouTubeSubtitleStrategy.EVENT_NAME, this.handleInterceptedData);
     document.body.addEventListener('yt-navigate-finish', this.spaNavigationHandler);
-
-    console.log("[ModernYouTubeStrategy] Ready and waiting for subtitle network requests.");
   }
 
   /**
@@ -254,11 +60,9 @@ class YouTubeSubtitleStrategy {
     const newMode = this.settings?.subtitleSettings?.displayMode || 'off';
 
     if (!this.renderer) {
-      console.warn('[YouTubeSubtitleStrategy] Renderer not available, cannot update settings.');
       return;
     }
 
-    console.log(`[YouTubeSubtitleStrategy] Updating display mode from "${this.renderer.options.displayMode}" to "${newMode}".`);
     this.renderer.updateOptions({ displayMode: newMode });
 
     if (this.videoElement) {
@@ -282,7 +86,6 @@ class YouTubeSubtitleStrategy {
     const interceptorCode = (urlFragment, eventName) => {
       // --- [修复] 保存原始方法，以便将来恢复 ---
       if (!window.__foxlate_originals) {
-        console.log('[Interceptor] Storing original network functions.');
         window.__foxlate_originals = {
           fetch: window.fetch,
           xhrOpen: XMLHttpRequest.prototype.open,
@@ -311,10 +114,8 @@ class YouTubeSubtitleStrategy {
 
       XMLHttpRequest.prototype.send = function (...args) {
         if (this._requestURL && typeof this._requestURL === 'string' && this._requestURL.includes(urlFragment)) {
-          console.log('[Interceptor] XHR request detected:', this._requestURL);
           this.addEventListener('load', () => {
             if (this.readyState === 4) {
-              console.log('[Interceptor] XHR request finished. Dispatching data.');
               dispatchData(this.responseText);
             }
           });
@@ -328,13 +129,11 @@ class YouTubeSubtitleStrategy {
         const url = args[0] instanceof Request ? args[0].url : args[0];
 
         if (typeof url === 'string' && url.includes(urlFragment)) {
-          console.log('[Interceptor] Fetch request detected:', url);
           return originalFetch.apply(this, args).then(response => {
             const clonedResponse = response.clone();
             clonedResponse.text().then(text => {
-              console.log('[Interceptor] Fetch request finished. Dispatching data.');
               dispatchData(text);
-            }).catch(err => console.error('[Interceptor] Error reading fetch response:', err));
+            }).catch(() => {});
             return response;
           });
         }
@@ -345,7 +144,6 @@ class YouTubeSubtitleStrategy {
     script.textContent = `(${interceptorCode.toString()})('${YouTubeSubtitleStrategy.API_URL_FRAGMENT}', '${YouTubeSubtitleStrategy.EVENT_NAME}');`;
     (document.head || document.documentElement).appendChild(script);
     script.remove();
-    console.log("[ModernYouTubeStrategy] Universal network interceptor injected.");
   }
 
   /**
@@ -358,7 +156,6 @@ class YouTubeSubtitleStrategy {
 
     const cleanupCode = () => {
       if (window.__foxlate_originals) {
-        console.log('[Interceptor] Restoring original network functions.');
         window.fetch = window.__foxlate_originals.fetch;
         XMLHttpRequest.prototype.open = window.__foxlate_originals.xhrOpen;
         XMLHttpRequest.prototype.send = window.__foxlate_originals.xhrSend;
@@ -376,7 +173,6 @@ class YouTubeSubtitleStrategy {
    * @param {CustomEvent} event 
    */
   handleInterceptedData(event) {
-    console.log('[ModernYouTubeStrategy] Received subtitle data from interceptor.');
     this.processAndTranslateSubtitles(event.detail);
   }
 
@@ -387,86 +183,10 @@ class YouTubeSubtitleStrategy {
    */
 
   async processAndTranslateSubtitles(subtitleContent) {
-    console.log("[YouTubeStrategy] Final Refactor: Processing subtitles with precise sentence splitting.");
     try {
-      if (!subtitleContent || subtitleContent.trim() === '') throw new Error("Content is empty.");
-      const jsonData = JSON.parse(subtitleContent);
-      if (!jsonData || !Array.isArray(jsonData.events)) throw new Error("Invalid JSON format.");
-
-      // 步骤 1: 数据规整（与上一版相同）
-      const rawBlocks = [];
-      for (const event of jsonData.events) {
-        if (!event.segs) continue;
-        const text = event.segs.map(s => s.utf8).join('');
-        const trimmedText = text.trim();
-        if (trimmedText === '' || (trimmedText.startsWith('[') && trimmedText.endsWith(']'))) {
-          continue;
-        }
-        rawBlocks.push({
-          text: text.replace(/\n/g, ' ').trim(),
-          startTime: event.tStartMs,
-          endTime: event.tStartMs + (event.dDurationMs || 3000),
-        });
-      }
-
-      if (rawBlocks.length === 0) {
-        console.warn("[YouTubeStrategy] No valid text blocks found.");
-        return;
-      }
-
-      // --- 步骤 2 & 3 (核心重构): 使用缓冲区和循环来精确分割句子 ---
-      const timedSentences = [];
-      let sentenceBuffer = '';
-      let sentenceStartTime = -1;
-
-      const sentenceBoundaryRegex = /(.*?[.!?。？！])/; // 匹配到第一个句子结束符（非贪婪）
-
-      for (const block of rawBlocks) {
-        // 如果缓冲区为空，新句子的起点就是当前 block 的起点
-        if (sentenceBuffer.trim() === '') {
-          sentenceStartTime = block.startTime;
-        }
-
-        sentenceBuffer += block.text + ' ';
-
-        // **核心逻辑**: 循环从缓冲区中提取所有已完成的句子
-        while (sentenceBoundaryRegex.test(sentenceBuffer)) {
-          const match = sentenceBuffer.match(sentenceBoundaryRegex);
-          const sentenceText = match[1].trim();
-
-          if (sentenceText) {
-            timedSentences.push({
-              text: sentenceText,
-              startTime: sentenceStartTime,
-              // 句子的结束时间是完成该句子的这个 block 的结束时间
-              endTime: block.endTime,
-            });
-          }
-
-          // 从缓冲区移除已提取的句子
-          sentenceBuffer = sentenceBuffer.substring(match[0].length);
-
-          // 为缓冲区中剩余部分（下一句的开头）设定新的开始时间
-          // 如果还有剩余文字，新句子的起点就是当前这个 block 的时间点
-          if (sentenceBuffer.trim() !== '') {
-            sentenceStartTime = block.startTime;
-          }
-        }
-      }
-
-      // 处理循环结束后缓冲区里剩余的最后一句（可能没有标点）
-      const remainingText = sentenceBuffer.trim();
-      if (remainingText && sentenceStartTime !== -1) {
-        timedSentences.push({
-          text: remainingText,
-          startTime: sentenceStartTime,
-          // 结束时间是最后一个 block 的结束时间
-          endTime: rawBlocks[rawBlocks.length - 1].endTime,
-        });
-      }
+      const timedSentences = parseYouTubeTimedSentences(subtitleContent);
 
       if (timedSentences.length === 0) {
-        console.warn("[YouTubeStrategy] No sentences could be formed.");
         return;
       }
 
@@ -474,7 +194,6 @@ class YouTubeSubtitleStrategy {
       const originalTexts = timedSentences.map(s => s.text);
       // 确保在翻译前我们有有效的设置。
       if (!this.settings) {
-        console.warn("[YouTubeStrategy] Settings not loaded before translation, fetching now.");
         this.settings = await window.getEffectiveSettings();
       }
       const translatedTexts = await this.requestBatchTranslation(originalTexts, this.settings.targetLanguage, this.settings.translatorEngine);
@@ -487,11 +206,10 @@ class YouTubeSubtitleStrategy {
         translated: translatedTexts[i],
       }));
 
-      console.log(`[YouTubeStrategy] Final Refactor: Cached ${this.subtitleScript.length} timed sentences.`, this.subtitleScript);
       this.startVideoObserver();
 
     } catch (error) {
-      console.error(`[YouTubeStrategy] Critical failure in subtitle processing: ${error.message}.`);
+      logContentError('YouTubeSubtitleStrategy.processAndTranslateSubtitles', error);
       this.stopVideoObserver();
     }
   }
@@ -501,7 +219,7 @@ class YouTubeSubtitleStrategy {
       // 直接使用 await，因为 browser.runtime.sendMessage 返回一个 Promise
       // 消息格式与其他处理器保持一致，使用 payload
       const response = await browser.runtime.sendMessage({
-        type: 'TRANSLATE_BATCH',
+        type: MESSAGE_TYPES.TRANSLATE_BATCH,
         payload: { texts, targetLanguage, translatorEngine }
       });
       if (response && response.success) {
@@ -509,8 +227,8 @@ class YouTubeSubtitleStrategy {
       }
       throw new Error(response?.error || "从后台脚本收到的批量翻译响应无效。");
     } catch (error) {
-      console.error("[YouTubeStrategy] 批量翻译请求失败:", error);
-      throw error; // 重新抛出错误，以便调用者可以捕获它
+      logContentError('YouTubeSubtitleStrategy.requestBatchTranslation', error);
+      throw error;
     }
   }
 
@@ -540,9 +258,6 @@ class YouTubeSubtitleStrategy {
       translated: s.translated
     }));
 
-    // 无论 captionWindow 是否可见，都调用 render 方法。
-    // render 方法内部有足够的逻辑来处理所有情况（显示、隐藏、定位）。
-    // console.log(`[YouTubeStrategy] Current time: ${currentTimeMs}ms. Current sentence: `,currentSentences);
     this.renderer.render(linesData, captionWindow);
   }
 
@@ -555,12 +270,10 @@ class YouTubeSubtitleStrategy {
 
     const playerContainer = document.querySelector(YouTubeSubtitleStrategy.SELECTORS.PLAYER_CONTAINER);
     if (!playerContainer) {
-      console.error("[YouTubeStrategy] Cannot start observer: #movie_player not found.");
       return;
     }
     this.videoElement = playerContainer.querySelector(YouTubeSubtitleStrategy.SELECTORS.VIDEO_ELEMENT);
     if (!this.videoElement) {
-      console.error("[YouTubeStrategy] Cannot start observer: video element not found.");
       return;
     }
 
@@ -578,7 +291,6 @@ class YouTubeSubtitleStrategy {
     };
 
     this.videoElement.addEventListener('timeupdate', this.timeUpdateHandler);
-    console.log("[YouTubeStrategy] Throttled subtitle update listener added using requestAnimationFrame.");
 
     // 立即触发一次更新
     this.timeUpdateHandler();
@@ -587,7 +299,6 @@ class YouTubeSubtitleStrategy {
   stopVideoObserver() {
     if (this.videoElement && this.timeUpdateHandler) {
       this.videoElement.removeEventListener('timeupdate', this.timeUpdateHandler);
-      console.log("[YouTubeStrategy] Subtitle update listener removed.");
     }
     this.videoElement = null;
     this.timeUpdateHandler = null;
@@ -597,8 +308,6 @@ class YouTubeSubtitleStrategy {
    * 在YouTube SPA导航时重置状态。
    */
   spaNavigationHandler() {
-    console.log('[ModernYouTubeStrategy] SPA navigation detected. Resetting state.');
-    // 停止旧的观察者
     this.stopVideoObserver();
     this.renderer?.hide();
     // [修复] 清理已缓存的字幕脚本
@@ -607,7 +316,6 @@ class YouTubeSubtitleStrategy {
   }
 
   cleanup() {
-    console.log("[ModernYouTubeStrategy] Strategy cleaning up...");
     this.stopVideoObserver();
     this.subtitleScript = [];
     // [修复] 销毁 Renderer，移除其注入的 DOM 元素和样式

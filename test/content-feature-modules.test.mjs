@@ -26,6 +26,7 @@ async function bundleContentFeatureModules() {
         export { classifySummaryError, generateUserFriendlySummaryError } from ${JSON.stringify(path.join(projectRoot, 'src/content/summary/summary-error-messages.js'))};
         export { SubtitleManager } from ${JSON.stringify(path.join(projectRoot, 'src/content/subtitle/subtitle-manager.js'))};
         export { SubtitleRenderer } from ${JSON.stringify(path.join(projectRoot, 'src/content/subtitle/subtitle-renderer.js'))};
+        export { parseYouTubeTimedSentences } from ${JSON.stringify(path.join(projectRoot, 'src/content/subtitle/youtube-subtitle-parser.js'))};
     `);
     await writeFile(mockBrowserPath, 'export default globalThis.__foxlateBrowserMock;');
 
@@ -143,4 +144,22 @@ test('subtitle manager reports status through the message registry boundary', as
     window.getEffectiveSettings = async () => ({ subtitleSettings: { enabled: true } });
     await manager.registerStrategy(Strategy);
     assert.deepEqual(manager.getStatus(), { isSupported: true, isEnabled: true });
+});
+
+test('youtube subtitle parser normalizes segmented timed text into sentences', async () => {
+    setupDom();
+    const { parseYouTubeTimedSentences } = await bundleContentFeatureModules();
+    const timedText = JSON.stringify({
+        events: [
+            { tStartMs: 1000, dDurationMs: 700, segs: [{ utf8: 'Hello ' }] },
+            { tStartMs: 1700, dDurationMs: 800, segs: [{ utf8: 'world. Next' }] },
+            { tStartMs: 2500, dDurationMs: 900, segs: [{ utf8: ' line' }] },
+            { tStartMs: 3400, dDurationMs: 600, segs: [{ utf8: '[Music]' }] },
+        ],
+    });
+
+    assert.deepEqual(parseYouTubeTimedSentences(timedText), [
+        { text: 'Hello world.', startTime: 1000, endTime: 2500 },
+        { text: 'Next line', startTime: 1700, endTime: 3400 },
+    ]);
 });

@@ -64,7 +64,6 @@ export class PopupActions {
             this.renderer.renderTranslationButtonState(response.state);
         } catch (error) {
             if (error.message.includes('Receiving end does not exist')) {
-                console.log('[Popup] Content script not available on this page. Disabling translation controls.');
                 this.renderer.renderError(
                     this.browser.i18n.getMessage('popupTranslationNotAvailable') ||
                     'Translation is not available on this page.'
@@ -86,7 +85,6 @@ export class PopupActions {
             ? this.state.currentHostname
             : this.state.currentRuleSource;
 
-        console.log(`[Popup] Saving rule change for domain '${domainToUpdate}': ${key} = ${value}`);
         await this.settingsManager.saveDomainRuleProperty(domainToUpdate, key, value);
     }
 
@@ -144,14 +142,12 @@ export class PopupActions {
 
     async handleRuntimeMessage(request) {
         if (request.type === MESSAGE_TYPES.SETTINGS_UPDATED || request.type === MESSAGE_TYPES.RELOAD_TRANSLATION_JOB) {
-            console.log(`[Popup] Received '${request.type}' message. Reloading settings and UI.`);
             await this.loadAndApplySettings();
             await this.updateButtonStateFromContentScript();
             return;
         }
 
         if (request.type === MESSAGE_TYPES.TRANSLATION_STATUS_UPDATE && request.payload.tabId === this.state.activeTabId) {
-            console.log(`[Popup] Received 'TRANSLATION_STATUS_UPDATE' message. New state: ${request.payload.status}`);
             this.renderer.setPageControlsEnabled(true, Boolean(this.state.currentHostname));
             await this.updateButtonStateFromContentScript();
         }

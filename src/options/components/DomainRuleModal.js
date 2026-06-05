@@ -117,28 +117,18 @@ export class DomainRuleModal extends BaseComponent {
      * @returns {string} 引擎的显示名称。
      */
     #getEngineDisplayName(engineValue) {
-        console.log(`[DomainRuleModal] getEngineDisplayName 输入:`, engineValue);
-        
         if (!engineValue) {
-            console.log(`[DomainRuleModal] 引擎值为空，返回"未设置"`);
             return '未设置';
         }
         
         if (engineValue.startsWith('ai:')) {
             const engineId = engineValue.substring(3);
-            console.log(`[DomainRuleModal] AI引擎ID:`, engineId);
-            console.log(`[DomainRuleModal] 可用AI引擎:`, this.#state.allAiEngines);
             const engine = this.#state.allAiEngines.find(e => e.id === engineId);
-            const displayName = engine ? engine.name : engineValue;
-            console.log(`[DomainRuleModal] AI引擎显示名称:`, displayName);
-            return displayName;
+            return engine ? engine.name : engineValue;
         }
         
         const messageKey = Constants.SUPPORTED_ENGINES[engineValue];
-        console.log(`[DomainRuleModal] 内置引擎消息键:`, messageKey);
-        const displayName = messageKey ? browser.i18n.getMessage(messageKey) : engineValue;
-        console.log(`[DomainRuleModal] 内置引擎显示名称:`, displayName);
-        return displayName;
+        return messageKey ? browser.i18n.getMessage(messageKey) : engineValue;
     }
 
     #populateDropdowns() {
@@ -156,10 +146,7 @@ export class DomainRuleModal extends BaseComponent {
 
         // (新) 更新"使用默认"选项的提示文本
         const { globalSettings } = this.#state;
-        
-        console.log(`[DomainRuleModal] populateDropdowns 全局设置:`, globalSettings);
-        console.log(`[DomainRuleModal] populateDropdowns AI引擎列表:`, this.#state.allAiEngines);
-        
+
         const defaultLabel = browser.i18n.getMessage('useDefaultSetting');
 
         const updateHint = (selectElement, globalValue, valueMap = {}) => {
@@ -169,15 +156,7 @@ export class DomainRuleModal extends BaseComponent {
                 const settingKey = selectElement.id.replace('rule', '').toLowerCase();
                 // 特殊处理各个设置项的键名映射
                 let defaultKey =settingKey;
-                // 调试日志
-                console.log(`[DomainRuleModal] updateHint for ${selectElement.id}:`, {
-                    settingKey,
-                    defaultKey,
-                    globalValue,
-                    defaultValue: Constants.DEFAULT_SETTINGS[defaultKey],
-                    allAiEngines: this.#state.allAiEngines
-                });
-                
+
                 const effectiveValue = globalValue !== undefined ? globalValue : Constants.DEFAULT_SETTINGS[defaultKey];
                 let displayValue;
                 
@@ -185,29 +164,20 @@ export class DomainRuleModal extends BaseComponent {
                     // 对于翻译引擎，使用特殊处理逻辑
                     if (selectElement.id === 'ruleTranslatorEngine') {
                         displayValue = this.#getEngineDisplayName(effectiveValue);
-                        console.log(`[DomainRuleModal] 翻译引擎显示值:`, {
-                            effectiveValue,
-                            displayValue,
-                            allEngines: this.#state.allAiEngines
-                        });
                     } else {
                         // 对于其他选项，使用 valueMap 查找对应的显示名称
                         displayValue = valueMap[effectiveValue] ? browser.i18n.getMessage(valueMap[effectiveValue]) : effectiveValue;
                     }
                 } else {
                     displayValue = '未设置';
-                    // 调试：当文本空白时，显示原始数值
-                    console.log(`[DomainRuleModal] ${selectElement.id} 未设置，原始值:`, effectiveValue);
                 }
                 
                 // 如果 displayValue 仍然为空或未定义，使用原始值作为后备
                 if (!displayValue || displayValue.trim() === '') {
                     displayValue = effectiveValue || '未设置';
-                    console.log(`[DomainRuleModal] ${selectElement.id} 显示值为空，使用原始值:`, displayValue);
                 }
                 
                 const finalText = this.#getDefaultOptionText(displayValue, defaultLabel);
-                console.log(`[DomainRuleModal] ${selectElement.id} 最终文本:`, finalText);
                 defaultOption.textContent = finalText;
             }
         };

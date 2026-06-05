@@ -1,4 +1,5 @@
 import browser from '../lib/browser-polyfill.js';
+import { MESSAGE_TYPES } from '../common/message-types.js';
 
 export class TranslationRetryController {
     #browser;
@@ -108,7 +109,7 @@ export class TranslationRetryController {
 
         try {
             await this.#browser.tabs.sendMessage(tabId, {
-                type: 'TRANSLATION_RETRY_SCHEDULED',
+                type: MESSAGE_TYPES.TRANSLATION_RETRY_SCHEDULED,
                 payload: {
                     engine,
                     delayMs,

@@ -126,7 +126,6 @@ export class ContentRuntime {
             return { success: true };
         }
 
-        console.log('[Foxlate] Critical settings changed. Reverting and restarting translation job.');
         const tabId = this.currentPageJob.tabId;
         await this.currentPageJob.revert();
 
@@ -138,10 +137,8 @@ export class ContentRuntime {
     }
 
     handleSettingsUpdated(newSettings) {
-        console.log('[Content Script] Received settings update. Updating local cache.');
         if (this.currentPageJob && newSettings) {
             this.currentPageJob.settings = newSettings;
-            console.log('[Foxlate] Updated page translation job settings:', newSettings);
         }
 
         if (this.currentPageJob && ['translated', 'translating'].includes(this.currentPageJob.state)) {
@@ -196,7 +193,6 @@ export class ContentRuntime {
         if (isLoading) {
             this.currentSelectionTranslationId = translationId;
         } else if (translationId !== this.currentSelectionTranslationId) {
-            console.log(`[Foxlate] Ignored stale selection translation result. ID: ${translationId}`);
             return { success: true, ignored: true };
         }
 
@@ -211,8 +207,6 @@ export class ContentRuntime {
     toggleSubtitleTranslation(enabled) {
         if (this.window.subtitleManager?.toggle) {
             this.window.subtitleManager.toggle(enabled);
-        } else {
-            console.warn('[Content Script] Subtitle manager not available to toggle. This is expected on non-supported pages.');
         }
         return { success: true };
     }
@@ -229,7 +223,6 @@ export class ContentRuntime {
         let summarySettings = settings;
 
         if (!settings.summarySettings?.enabled) {
-            console.log('[Foxlate] Summary feature is not enabled in settings, temporarily enabling for shortcut.');
             summarySettings = {
                 ...settings,
                 summarySettings: {
@@ -245,7 +238,6 @@ export class ContentRuntime {
         }
 
         if (!this.window.summaryModuleInstance) {
-            console.log('[Foxlate] Failed to initialize summary module.');
             return { success: false, error: 'Failed to initialize summary module' };
         }
 
@@ -268,7 +260,6 @@ export class ContentRuntime {
 
         const handler = this.messageHandlers[request.type];
         if (!handler) {
-            console.warn(`[Content Script] Unhandled message type: ${request.type}`);
             return { success: false, error: `Unhandled message type: ${request.type}` };
         }
 
@@ -282,22 +273,18 @@ export class ContentRuntime {
 
     async initialize() {
         if (this.window.foxlateContentScriptInitialized) {
-            console.log('[Foxlate] Content script already initialized. Skipping re-initialization.');
             return;
         }
 
         this.window.foxlateContentScriptInitialized = true;
-        console.log('[Foxlate] Initializing content script...');
 
         this.window.getEffectiveSettings = this.getEffectiveSettings;
-        console.log('[Foxlate] Content script: getEffectiveSettings exposed to window');
 
         const settings = await this.getEffectiveSettings();
         if (settings.summarySettings?.enabled) {
             this.initializeSummary(settings);
         }
 
-        console.log('[Foxlate] Content script: About to initialize input handler');
         this.initializeInputHandler();
 
         this.browser.runtime.onMessage.addListener(this.handleMessage);

@@ -132,11 +132,9 @@ export class TabStateManager {
                     changed = true;
                 }
                 if (changed) {
-                    console.log(`[TabStateManager] Cleaned up state for closed tab ${tabId}.`);
                 }
                 if (states.injectedFrames && states.injectedFrames[tabId]) {
                     delete states.injectedFrames[tabId];
-                    console.log(`[TabStateManager] Cleaned up injection state for closed tab ${tabId}.`);
                 }
                 return states;
             });

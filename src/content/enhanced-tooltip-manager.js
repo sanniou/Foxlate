@@ -57,11 +57,7 @@ class EnhancedTooltipManager {
     #boundDocumentMouseMove = this.#handleDocumentMouseMove.bind(this);
     #boundDocumentMouseUp = this.#handleDocumentMouseUp.bind(this);
 
-    constructor() {
-        if (!this.#speechSynthesis) {
-            console.warn('[EnhancedTooltipManager] Speech Synthesis API is not supported.');
-        }
-    }
+    constructor() {}
 
     #createTooltip() {
         if (this.#tooltipEl) return;

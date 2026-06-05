@@ -1,4 +1,5 @@
 import browser from '../../lib/browser-polyfill.js';
+import { MESSAGE_TYPES } from '../../common/message-types.js';
 import { BaseComponent } from './BaseComponent.js';
 import { FormValidator } from '../validator.js';
 import { escapeHtml } from '../../common/utils.js';
@@ -317,7 +318,7 @@ export class AIEngineModal extends BaseComponent {
 
         try {
             const response = await browser.runtime.sendMessage({
-                type: 'TEST_CONNECTION',
+                type: MESSAGE_TYPES.TEST_CONNECTION,
                 payload: { engine: 'ai', settings: { ...engineData }, text: testText }
             });
 

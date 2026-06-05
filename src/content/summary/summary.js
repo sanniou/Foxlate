@@ -1,6 +1,7 @@
 // src/content/summary/summary.js
 
 import browser from '../../lib/browser-polyfill.js';
+import { MESSAGE_TYPES } from '../../common/message-types.js';
 import { SummaryState } from './summary.state.js';
 import { SummaryButton, SummaryDialog } from './summary.view.js';
 import { SummaryContentExtractor } from './summary-content-extractor.js';
@@ -246,7 +247,7 @@ class SummaryModule {
             if (!content.trim()) throw new Error('Failed to extract any meaningful content.');
 
             const response = await browser.runtime.sendMessage({
-                type: 'SUMMARIZE_CONTENT',
+                type: MESSAGE_TYPES.SUMMARIZE_CONTENT,
                 payload: { text: content, aiModel: this.settings.summarySettings?.aiModel, targetLang: this.settings.targetLanguage }
             });
 
@@ -281,7 +282,7 @@ class SummaryModule {
             }));
 
             const response = await browser.runtime.sendMessage({
-                type: 'CONVERSE_WITH_AI',
+                type: MESSAGE_TYPES.CONVERSE_WITH_AI,
                 payload: { history: historyForAI, aiModel: this.settings.summarySettings?.aiModel, targetLang: this.settings.targetLanguage }
             });
             if (!response.success) throw new Error(response.error);
@@ -307,7 +308,7 @@ class SummaryModule {
                 content: msg.role === 'user' ? msg.content : msg.contents[msg.activeContentIndex]
             }));
             const response = await browser.runtime.sendMessage({
-                type: 'INFER_SUGGESTIONS',
+                type: MESSAGE_TYPES.INFER_SUGGESTIONS,
                 payload: {
                     history: historyForAI,
                     aiModel: this.settings.summarySettings?.aiModel,

@@ -1,4 +1,5 @@
 import browser from '../lib/browser-polyfill.js';
+import { MESSAGE_TYPES } from '../common/message-types.js';
 import { SettingsManager } from '../common/settings-manager.js';
 import { shouldTranslate } from '../common/precheck.js';
 
@@ -58,7 +59,7 @@ export class OptionsActions {
 
     async updateCacheInfo() {
         try {
-            const info = await browser.runtime.sendMessage({ type: 'GET_CACHE_INFO' });
+            const info = await browser.runtime.sendMessage({ type: MESSAGE_TYPES.GET_CACHE_INFO });
             if (info) this.elements.cacheInfoDisplay.textContent = `${info.count} / ${info.limit}`;
         } catch (error) {
             console.error('Failed to get cache info:', error);
@@ -73,7 +74,7 @@ export class OptionsActions {
         );
         if (!confirmed) return;
 
-        await browser.runtime.sendMessage({ type: 'CLEAR_CACHE' });
+        await browser.runtime.sendMessage({ type: MESSAGE_TYPES.CLEAR_CACHE });
         await this.updateCacheInfo();
         this.showStatusMessage(browser.i18n.getMessage('clearCacheSuccess'));
     }
@@ -286,7 +287,7 @@ export class OptionsActions {
 
         try {
             const response = await browser.runtime.sendMessage({
-                type: 'TEST_TRANSLATE_TEXT',
+                type: MESSAGE_TYPES.TEST_TRANSLATE_TEXT,
                 payload: {
                     text: sourceText,
                     targetLang: this.elements.targetLanguage.value,
@@ -320,7 +321,7 @@ export class OptionsActions {
         this.elements.cloudSettingsInfo.textContent = browser.i18n.getMessage('cloudSettingsStatus');
 
         try {
-            const response = await browser.runtime.sendMessage({ type: 'GET_CLOUD_BACKUPS' });
+            const response = await browser.runtime.sendMessage({ type: MESSAGE_TYPES.GET_CLOUD_BACKUPS });
             if (response?.success && response.backups?.length > 0) {
                 response.backups.forEach(backup => {
                     const item = document.createElement('li');
@@ -363,7 +364,7 @@ export class OptionsActions {
 
         try {
             await browser.runtime.sendMessage({
-                type: 'UPLOAD_SETTINGS_TO_CLOUD',
+                type: MESSAGE_TYPES.UPLOAD_SETTINGS_TO_CLOUD,
                 payload: this.getCurrentSettingsState(),
             });
             this.showStatusMessage(browser.i18n.getMessage('settingsUploadedSuccess'));
@@ -383,7 +384,7 @@ export class OptionsActions {
 
         try {
             const response = await browser.runtime.sendMessage({
-                type: 'DOWNLOAD_SETTINGS_FROM_CLOUD',
+                type: MESSAGE_TYPES.DOWNLOAD_SETTINGS_FROM_CLOUD,
                 payload: { backupId },
             });
             if (!response?.success) {
@@ -410,7 +411,7 @@ export class OptionsActions {
         if (!confirmed) return;
 
         try {
-            await browser.runtime.sendMessage({ type: 'DELETE_CLOUD_BACKUP', payload: { backupId } });
+            await browser.runtime.sendMessage({ type: MESSAGE_TYPES.DELETE_CLOUD_BACKUP, payload: { backupId } });
             this.showStatusMessage(browser.i18n.getMessage('deleteBackupSuccess'));
             this.renderCloudDataList();
         } catch (error) {
