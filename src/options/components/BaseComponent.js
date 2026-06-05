@@ -84,4 +84,35 @@ export class BaseComponent {
     _handleEscKey() {
         // 子类需要重写此方法来实现具体的关闭逻辑
     }
+
+    _openModalSurface(modalElement, {
+        resetScroll = false,
+    } = {}) {
+        document.body.classList.add('modal-open');
+        modalElement.style.display = 'flex';
+        modalElement.offsetWidth;
+        modalElement.classList.add('is-visible');
+        this._addEscKeyHandler();
+
+        if (resetScroll) {
+            const scrollableContent = modalElement.querySelector('#domainRuleForm, .modal-scroll-content');
+            if (scrollableContent) scrollableContent.scrollTop = 0;
+            else modalElement.scrollTop = 0;
+        }
+    }
+
+    _closeModalSurface(modalElement) {
+        if (!modalElement.classList.contains('is-visible')) return;
+
+        modalElement.classList.remove('is-visible');
+        const onTransitionEnd = () => {
+            modalElement.style.display = 'none';
+            modalElement.removeEventListener('transitionend', onTransitionEnd);
+            if (document.querySelectorAll('.modal-backdrop.is-visible').length === 0) {
+                document.body.classList.remove('modal-open');
+                this._removeEscKeyHandler();
+            }
+        };
+        modalElement.addEventListener('transitionend', onTransitionEnd);
+    }
 }

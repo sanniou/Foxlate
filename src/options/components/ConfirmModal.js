@@ -31,12 +31,12 @@ export class ConfirmModal extends BaseComponent {
             this.on('confirm', confirmHandler);
             this.on('cancel', cancelHandler);
 
-            this.#openModal(this.#elements.confirmModal);
+            this._openModalSurface(this.#elements.confirmModal);
         });
     }
 
     close() {
-        this.#closeModal(this.#elements.confirmModal);
+        this._closeModalSurface(this.#elements.confirmModal);
     }
 
     #bindEvents() {
@@ -48,29 +48,6 @@ export class ConfirmModal extends BaseComponent {
 
         bindClick(this.#elements.confirmModalConfirmBtn, () => this.emit('confirm'));
         bindClick(this.#elements.confirmModalCancelBtn, () => this.emit('cancel'));
-    }
-
-    #openModal(modalElement) {
-        document.body.classList.add('modal-open');
-        modalElement.style.display = 'flex';
-        modalElement.offsetWidth; // Trigger reflow
-        modalElement.classList.add('is-visible');
-        this._addEscKeyHandler();
-    }
-
-    #closeModal(modalElement) {
-        if (!modalElement.classList.contains('is-visible')) return;
-
-        modalElement.classList.remove('is-visible');
-        const onTransitionEnd = () => {
-            modalElement.style.display = 'none';
-            modalElement.removeEventListener('transitionend', onTransitionEnd);
-            if (document.querySelectorAll('.modal-backdrop.is-visible').length === 0) {
-                document.body.classList.remove('modal-open');
-                this._removeEscKeyHandler();
-            }
-        };
-        modalElement.addEventListener('transitionend', onTransitionEnd);
     }
 
     /**

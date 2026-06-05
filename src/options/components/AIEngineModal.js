@@ -126,18 +126,18 @@ export class AIEngineModal extends BaseComponent {
                     element.value = editingEngine[engineKey] ?? defaultValue;
                 }
             }
-            this.#openModal(modal);
+            this._openModalSurface(modal);
         } else {
-            this.#closeModal(modal);
+            this._closeModalSurface(modal);
         }
     }
 
     #renderImportModal() {
         const modal = this.#elements.importAiEngineModal;
         if (this.#state.isImportModalOpen) {
-            this.#openModal(modal);
+            this._openModalSurface(modal);
         } else {
-            this.#closeModal(modal);
+            this._closeModalSurface(modal);
         }
     }
 
@@ -393,29 +393,6 @@ export class AIEngineModal extends BaseComponent {
         if (this.#elements.closeAiEngineModalBtn) {
             this.#elements.closeAiEngineModalBtn.addEventListener('click', () => this.close());
         }
-    }
-
-    #openModal(modalElement) {
-        document.body.classList.add('modal-open');
-        modalElement.style.display = 'flex';
-        modalElement.offsetWidth; 
-        modalElement.classList.add('is-visible');
-        this._addEscKeyHandler();
-    }
-
-    #closeModal(modalElement) {
-        if (!modalElement.classList.contains('is-visible')) return;
-
-        modalElement.classList.remove('is-visible');
-        const onTransitionEnd = () => {
-            modalElement.style.display = 'none';
-            modalElement.removeEventListener('transitionend', onTransitionEnd);
-            if (document.querySelectorAll('.modal-backdrop.is-visible').length === 0) {
-                document.body.classList.remove('modal-open');
-                this._removeEscKeyHandler();
-            }
-        };
-        modalElement.addEventListener('transitionend', onTransitionEnd);
     }
 
     _handleEscKey() {

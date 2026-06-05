@@ -22,6 +22,8 @@ async function bundleOptionsModules() {
         export { OptionsActions } from ${JSON.stringify(path.join(projectRoot, 'src/options/options-actions.js'))};
         export { OptionsApp } from ${JSON.stringify(path.join(projectRoot, 'src/options/options-app.js'))};
         export { createStatusMessenger } from ${JSON.stringify(path.join(projectRoot, 'src/options/options-page-shell.js'))};
+        export { BaseComponent } from ${JSON.stringify(path.join(projectRoot, 'src/options/components/BaseComponent.js'))};
+        export { addButtonRipple } from ${JSON.stringify(path.join(projectRoot, 'src/options/components/InteractionFeedback.js'))};
         export { createOptionsEventHandlers } from ${JSON.stringify(path.join(projectRoot, 'src/options/options-events.js'))};
         export { enhanceThemedSelects } from ${JSON.stringify(path.join(projectRoot, 'src/options/components/ThemedSelect.js'))};
     `);
@@ -343,4 +345,39 @@ test('options entry stays a bootstrap module after architecture split', async ()
     assert.match(source, /bootstrapOptionsPage/);
     assert.ok(source.split('\n').length <= 8);
     assert.doesNotMatch(source, /SettingsManager|rootReducer|querySelector|getElementById/);
+});
+
+test('options UI primitives centralize modal surfaces and button ripple feedback', async () => {
+    const dom = setupDom(`
+        <div id="modal" class="modal-backdrop"></div>
+        <button id="action" class="btn">Action</button>
+    `);
+    const { BaseComponent, addButtonRipple } = await bundleOptionsModules();
+
+    class TestComponent extends BaseComponent {
+        open(modal) {
+            this._openModalSurface(modal);
+        }
+        close(modal) {
+            this._closeModalSurface(modal);
+        }
+        _handleEscKey() {}
+    }
+
+    const component = new TestComponent();
+    const modal = dom.window.document.querySelector('#modal');
+    component.open(modal);
+    assert.equal(modal.style.display, 'flex');
+    assert.equal(modal.classList.contains('is-visible'), true);
+    assert.equal(dom.window.document.body.classList.contains('modal-open'), true);
+
+    component.close(modal);
+    modal.dispatchEvent(new dom.window.Event('transitionend'));
+    assert.equal(modal.style.display, 'none');
+    assert.equal(dom.window.document.body.classList.contains('modal-open'), false);
+
+    const button = dom.window.document.querySelector('#action');
+    button.getBoundingClientRect = () => ({ left: 10, top: 20, width: 80, height: 40 });
+    addButtonRipple(button, new dom.window.MouseEvent('click', { clientX: 30, clientY: 45 }));
+    assert.equal(button.querySelectorAll('.ripple').length, 1);
 });

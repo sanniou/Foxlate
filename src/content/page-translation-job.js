@@ -1,4 +1,5 @@
 import browser from '../lib/browser-polyfill.js';
+import { MESSAGE_TYPES } from '../common/message-types.js';
 import { DisplayManager } from './display-manager.js';
 import { DOMWalker } from './dom-walker.js';
 import { findAllSearchRoots, findTranslatableElements } from './translatable-elements.js';
@@ -114,7 +115,7 @@ export class PageTranslationJob {
         this.emitProgress();
 
         this.browser.runtime.sendMessage({
-            type: 'TRANSLATION_STATUS_UPDATE',
+            type: MESSAGE_TYPES.TRANSLATION_STATUS_UPDATE,
             payload: { status: 'loading', tabId: this.tabId }
         }).catch(e => this.logError('start (sending loading status)', e));
 
@@ -146,14 +147,14 @@ export class PageTranslationJob {
             return;
         }
         try {
-            await this.browser.runtime.sendMessage({ type: 'STOP_TRANSLATION', payload: { tabId: this.tabId } });
+            await this.browser.runtime.sendMessage({ type: MESSAGE_TYPES.STOP_TRANSLATION, payload: { tabId: this.tabId } });
         } catch (e) {
             this.logError('revert (sending STOP_TRANSLATION)', e);
         }
 
         try {
             await this.browser.runtime.sendMessage({
-                type: 'TRANSLATION_STATUS_UPDATE',
+                type: MESSAGE_TYPES.TRANSLATION_STATUS_UPDATE,
                 payload: { status: 'original', tabId: this.tabId }
             });
         } catch (e) {
@@ -210,7 +211,7 @@ export class PageTranslationJob {
             console.log(`[Foxlate] Page translation completed.`);
             this.emitProgress();
             this.browser.runtime.sendMessage({
-                type: 'TRANSLATION_STATUS_UPDATE',
+                type: MESSAGE_TYPES.TRANSLATION_STATUS_UPDATE,
                 payload: { status: 'translated', tabId: this.tabId }
             }).catch(e => this.logError('checkCompletion (sending completed status)', e));
         }
@@ -472,7 +473,7 @@ export class PageTranslationJob {
         console.warn("[Foxlate] No translatable elements found to observe initially.");
         this.state = 'translated';
         this.browser.runtime.sendMessage({
-            type: 'TRANSLATION_STATUS_UPDATE',
+            type: MESSAGE_TYPES.TRANSLATION_STATUS_UPDATE,
             payload: { status: 'translated', tabId: this.tabId }
         }).catch(e => this.logError('initial scan (sending translated status)', e));
     }

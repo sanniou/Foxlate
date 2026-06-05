@@ -1,7 +1,13 @@
 import browser from '../lib/browser-polyfill.js';
-import * as Constants from './constants.js';
-import { generateUniqueEngineId } from './utils.js';
-import { DEFAULT_STRATEGY_MAP } from '../content/subtitle/strategy-manifest.js';
+import {
+    generateDefaultSettings,
+    prepareSettingsForStorage,
+    removeAiEngineFromSettings,
+    resolveEffectiveSettings,
+    setDomainRuleProperty,
+    upsertAiEngine,
+    validateSettings,
+} from './settings-domain.js';
 
 export class SettingsManager {
     // --- Private Static State ---  
@@ -86,22 +92,6 @@ export class SettingsManager {
     }
 
     /**
-     * @private
-     * (新) 智能地合并两个逗号分隔的选择器字符串，同时移除重复项和多余的空格。
-     * @param {string} baseSelectors - 基础选择器字符串（例如，全局规则）。
-     * @param {string} additionalSelectors - 要添加的选择器字符串（例如，域名规则）。
-     * @returns {string} 一个干净、无重复的合并后选择器字符串。
-     */
-    static #mergeSelectors(baseSelectors, additionalSelectors) {
-        const base = (baseSelectors || '').split(',').map(s => s.trim()).filter(Boolean);
-        const additional = (additionalSelectors || '').split(',').map(s => s.trim()).filter(Boolean);
-        // 使用 Set 自动处理重复项
-        const combined = new Set([...base, ...additional]);
-        return Array.from(combined).join(', ');
-    }
-
-
-    /**
      * (私有) 使设置缓存失效，当设置更改时调用。
      */
     static #invalidateCache() {
@@ -113,8 +103,7 @@ export class SettingsManager {
      * @returns {object} 默认设置对象。
      */
     static generateDefaultSettings() {
-        const defaultSettings = structuredClone(Constants.DEFAULT_SETTINGS);
-        return defaultSettings;
+        return generateDefaultSettings();
     }
 
     /**
@@ -131,32 +120,7 @@ export class SettingsManager {
         const localData = await browser.storage.local.get('settings');
         let storedSettings = localData.settings;
 
-        const defaultSettings = SettingsManager.generateDefaultSettings();
-
-        const settingsToValidate = storedSettings || defaultSettings;
-
-        const validatedSettings = { ...defaultSettings, ...settingsToValidate };
-
-        // 为现有的域名规则添加时间戳（如果没有的话）
-        if (validatedSettings.domainRules) {
-            for (const domain in validatedSettings.domainRules) {
-                if (!validatedSettings.domainRules[domain].addedAt) {
-                    // 为现有规则分配一个基于域名哈希的时间戳，确保排序的一致性
-                    // 这样可以避免每次加载时都分配新的时间戳导致排序变化
-                    validatedSettings.domainRules[domain].addedAt = SettingsManager.#generateDomainTimestamp(domain);
-                }
-            }
-        }
-
-        // Deep merge for translationSelector
-        const storedDefaultSelector = settingsToValidate.translationSelector?.default;
-        const defaultDefaultSelector = defaultSettings.translationSelector.default;
-        validatedSettings.translationSelector = settingsToValidate.translationSelector || {};
-        if (typeof storedDefaultSelector === 'object' && storedDefaultSelector !== null) {
-            validatedSettings.translationSelector.default = { ...defaultDefaultSelector, ...storedDefaultSelector };
-        } else {
-            validatedSettings.translationSelector.default = defaultDefaultSelector;
-        }
+        const validatedSettings = validateSettings(storedSettings);
 
         SettingsManager.#validatedSettingsCache = structuredClone(validatedSettings); // 缓存未编译但已验证的设置
         return validatedSettings;
@@ -186,63 +150,6 @@ export class SettingsManager {
     }
 
     /**
-     * @private
-     * 根据全局设置、域名规则和默认策略，计算最终生效的字幕设置。
-     * @param {string} hostname - 当前页面的主机名。
-     * @param {object} domainRule - 匹配到的域名规则。
-     * @returns {object} 最终的字幕设置对象。
-     */
-    static #calculateEffectiveSubtitleSettings(hostname, domainRule) {
-        if (domainRule.subtitleSettings) {
-            // 情况 1: 用户为此域名定义了字幕设置。与默认值合并以确保所有属性都存在。
-            return {
-                enabled: false, strategy: 'none', displayMode: 'off', ...domainRule.subtitleSettings
-            };
-        } else if (DEFAULT_STRATEGY_MAP.has(hostname)) {
-            // 情况 2: 没有用户规则，但存在默认策略。默认启用注入。
-            return {
-                enabled: true,
-                strategy: DEFAULT_STRATEGY_MAP.get(hostname),
-                displayMode: 'off' // 默认隐藏，用户可以在弹出窗口中启用它
-            };
-        } else {
-            // 情况 3: 没有用户规则，也没有默认策略。
-            return { enabled: false, strategy: 'none', displayMode: 'off' };
-        }
-    }
-
-    /**
-     * @private
-     * 根据全局设置和域名规则，计算最终生效的 CSS 选择器。
-     * @param {object} globalSelector - 全局的选择器设置。
-     * @param {object} ruleSelector - 域名规则中的选择器设置。
-     * @param {boolean} override - 是否覆盖而不是合并选择器。
-     * @returns {object} 最终的选择器对象 { inline, block, exclude }。
-     */
-    static #calculateEffectiveSelectorSettings(globalSelector, ruleSelector, override) {
-        // 默认选择器现在只包含 content 和 exclude
-        const defaultSelector = globalSelector || { content: '', exclude: '' };
-
-        let finalContentSelector = defaultSelector.content || '';
-        let finalExcludeSelector = defaultSelector.exclude || '';
-
-        if (ruleSelector) {
-            // 域名规则的选择器也只包含 content 和 exclude
-            const ruleContent = ruleSelector.content || '';
-            const ruleExclude = ruleSelector.exclude || '';
-            if (override) {
-                finalContentSelector = ruleContent;
-                finalExcludeSelector = ruleExclude;
-            } else {
-                finalContentSelector = SettingsManager.#mergeSelectors(finalContentSelector, ruleContent);
-                finalExcludeSelector = SettingsManager.#mergeSelectors(finalExcludeSelector, ruleExclude);
-            }
-        }
-
-        return { content: finalContentSelector, exclude: finalExcludeSelector };
-    }
-
-    /**
      * 为给定的主机名计算有效设置，通过合并全局设置和特定于域的规则。
      * @param {string} [hostname] - 当前页面的主机名。
      * @returns {Promise<object>} 一个 Promise，解析为最终的有效设置对象。
@@ -255,45 +162,7 @@ export class SettingsManager {
 
         const settings = await SettingsManager.getValidatedSettings();
 
-        const domainRules = settings.domainRules || {};
-        let domainRule = {};
-        let ruleSource = 'default';
-
-        if (hostname) {
-            const matchingDomain = Object.keys(domainRules)
-                .filter(d => hostname.endsWith(d))
-                .sort((a, b) => b.length - a.length)[0];
-
-            if (matchingDomain) {
-                const rule = domainRules[matchingDomain];
-                if (rule.applyToSubdomains !== false || hostname === matchingDomain) {
-                    domainRule = rule;
-                    ruleSource = matchingDomain;
-                }
-            }
-        }
-
-        // Start with global settings as the base and merge the domain rule
-        const effectiveSettings = { ...settings, ...domainRule, source: ruleSource };
-
-        // (已优化) 解析所有值为 'default' 的规则属性，将其替换为全局设置的实际值。
-        // 这确保了 getEffectiveSettings 的调用者永远不会收到 'default' 字符串。
-        const keysToResolve = ['autoTranslate', 'translatorEngine', 'targetLanguage', 'sourceLanguage', 'displayMode'];
-        for (const key of keysToResolve) {
-            if (effectiveSettings[key] === 'default') {
-                // 从原始的全局设置 (settings) 中获取回退值
-                effectiveSettings[key] = settings[key];
-            }
-        }
-
-        // --- 字幕和选择器逻辑 (已重构) ---
-        effectiveSettings.subtitleSettings = SettingsManager.#calculateEffectiveSubtitleSettings(hostname, domainRule);
-
-        effectiveSettings.translationSelector = SettingsManager.#calculateEffectiveSelectorSettings(
-            settings.translationSelector?.default,
-            domainRule.cssSelector,
-            domainRule.cssSelectorOverride || false
-        );
+        const effectiveSettings = resolveEffectiveSettings(settings, hostname);
 
         SettingsManager.#effectiveSettingsCache.set(hostname, structuredClone(effectiveSettings));
         return effectiveSettings;
@@ -310,8 +179,7 @@ export class SettingsManager {
     static async saveLocalSettings(settings) {
         const oldSettings = await this.getValidatedSettings();
 
-        const settingsToSave = structuredClone(settings);
-        delete settingsToSave.source;
+        const settingsToSave = prepareSettingsForStorage(settings);
 
         await browser.storage.local.set({ settings: settingsToSave });
 
@@ -323,8 +191,7 @@ export class SettingsManager {
      * @param {object} settings - 要上传的设置对象。
      */
     static async uploadSettingsToCloud(settings) {
-        const settingsToUpload = structuredClone(settings);
-        delete settingsToUpload.source;
+        const settingsToUpload = prepareSettingsForStorage(settings);
 
         // 尝试保存到 sync
         try {
@@ -341,21 +208,8 @@ export class SettingsManager {
          * @param {string|null} existingId - 如果是编辑，则为现有引擎的 ID。
          */
     static async saveAiEngine(engineData, existingId = null) {
-        const engineId = existingId || generateUniqueEngineId();
-        const engineToSave = { id: engineId, ...engineData };
-
         const settings = await this.getValidatedSettings();
-        const engineIndex = settings.aiEngines.findIndex(e => e.id === engineId);
-
-        if (engineIndex > -1) {
-            // 更新现有引擎
-            settings.aiEngines[engineIndex] = { ...settings.aiEngines[engineIndex], ...engineToSave };
-        } else {
-            // 添加新引擎
-            settings.aiEngines.push({ ...engineToSave });
-        }
-
-        await this.saveLocalSettings(settings);
+        await this.saveLocalSettings(upsertAiEngine(settings, engineData, existingId));
     }
 
     /**
@@ -364,14 +218,7 @@ export class SettingsManager {
      */
     static async removeAiEngine(engineId) {
         const settings = await this.getValidatedSettings();
-        settings.aiEngines = settings.aiEngines.filter(e => e.id !== engineId);
-
-        if (settings.translatorEngine === `ai:${engineId}`) {
-            const firstAiEngine = settings.aiEngines[0]; // Get the first available AI engine
-            settings.translatorEngine = firstAiEngine ? `ai:${firstAiEngine.id}` : 'google';
-        }
-
-        await this.saveLocalSettings(settings);
+        await this.saveLocalSettings(removeAiEngineFromSettings(settings, engineId));
     }
     /**
      * (新) 保存单个域名规则的属性。
@@ -387,19 +234,7 @@ export class SettingsManager {
         }
 
         const settings = await this.getValidatedSettings();
-        const rule = settings.domainRules[domain] || {};
-
-        // 将特殊业务逻辑封装在此处
-        if (key === 'subtitleDisplayMode') {
-            if (!rule.subtitleSettings) rule.subtitleSettings = {};
-            rule.subtitleSettings.enabled = true; // 启用字幕是更改显示模式的副作用
-            rule.subtitleSettings.displayMode = value;
-        } else {
-            rule[key] = value;
-        }
-
-        settings.domainRules[domain] = rule;
-        await this.saveLocalSettings(settings);
+        await this.saveLocalSettings(setDomainRuleProperty(settings, domain, key, value));
     }
     /**
      * 清除 effectiveSettingsCache
@@ -408,21 +243,4 @@ export class SettingsManager {
         SettingsManager.#effectiveSettingsCache.clear();
     }
 
-    /**
-     * @private
-     * 为域名生成一个一致的时间戳，用于排序现有规则
-     * @param {string} domain - 域名
-     * @returns {number} 基于域名哈希的时间戳
-     */
-    static #generateDomainTimestamp(domain) {
-        // 使用简单的字符串哈希算法生成一致的数字
-        let hash = 0;
-        for (let i = 0; i < domain.length; i++) {
-            const char = domain.charCodeAt(i);
-            hash = ((hash << 5) - hash) + char;
-            hash = hash & hash; // 转换为32位整数
-        }
-        // 将哈希值转换为正数，并加上一个基准时间戳，确保时间戳在合理范围内
-        return Math.abs(hash) + 1600000000000; // 2020年作为基准年
-    }
 }

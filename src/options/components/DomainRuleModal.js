@@ -94,10 +94,10 @@ export class DomainRuleModal extends BaseComponent {
             this.#elements.ruleSummaryAiModel.value = summarySettings.aiModel ?? '';
             this.#elements.ruleSummarySettingsGroup.style.display = this.#elements.ruleEnableSummary.checked ? 'block' : 'none';
 
-            this.#openModal(modal);
+            this._openModalSurface(modal, { resetScroll: true });
             this.#validator.clearAllErrors();
         } else {
-            this.#closeModal(modal);
+            this._closeModalSurface(modal);
         }
     }
 
@@ -344,32 +344,6 @@ export class DomainRuleModal extends BaseComponent {
 
         this.#elements.domainRuleModal.addEventListener('input', (e) => this.#handleInputChange(e));
         this.#elements.domainRuleModal.addEventListener('change', (e) => this.#handleInputChange(e));
-    }
-
-    #openModal(modalElement) {
-        document.body.classList.add('modal-open');
-        modalElement.style.display = 'flex';
-        modalElement.offsetWidth; // Trigger reflow
-        modalElement.classList.add('is-visible');
-        this._addEscKeyHandler();
-        const scrollableContent = modalElement.querySelector('#domainRuleForm, .modal-scroll-content');
-        if (scrollableContent) scrollableContent.scrollTop = 0;
-        else modalElement.scrollTop = 0;
-    }
-
-    #closeModal(modalElement) {
-        if (!modalElement.classList.contains('is-visible')) return;
-
-        modalElement.classList.remove('is-visible');
-        const onTransitionEnd = () => {
-            modalElement.style.display = 'none';
-            modalElement.removeEventListener('transitionend', onTransitionEnd);
-            if (document.querySelectorAll('.modal-backdrop.is-visible').length === 0) {
-                document.body.classList.remove('modal-open');
-                this._removeEscKeyHandler();
-            }
-        };
-        modalElement.addEventListener('transitionend', onTransitionEnd);
     }
 
     /**

@@ -1,6 +1,7 @@
 
 import browser from '../lib/browser-polyfill.js';
 import { SettingsManager } from '../common/settings-manager.js';
+import { MESSAGE_TYPES } from '../common/message-types.js';
 import { shouldTranslate } from '../common/precheck.js';
 import { TranslatorManager } from '../background/translator-manager.js';
 import * as Constants from '../common/constants.js';
@@ -195,7 +196,7 @@ async function handleSelectionTranslation(tab, source, frameId) {
 
     // Immediately send "loading" state for better UX.
     browser.tabs.sendMessage(tab.id, {
-        type: 'DISPLAY_SELECTION_TRANSLATION', // 这个消息会被所有框架的 content-script 监听到
+        type: MESSAGE_TYPES.DISPLAY_SELECTION_TRANSLATION, // 这个消息会被所有框架的 content-script 监听到
         payload: { ...basePayload, isLoading: true }
     }, { frameId: targetFrameId }).catch((e) => logError('handleSelectionTranslation (Send Loading)', e));
 
@@ -237,7 +238,7 @@ async function handleSelectionTranslation(tab, source, frameId) {
 
     // Send the final result, combining the base and result payloads.
     browser.tabs.sendMessage(tab.id, {
-        type: 'DISPLAY_SELECTION_TRANSLATION', // 同样，只发送给目标框架
+        type: MESSAGE_TYPES.DISPLAY_SELECTION_TRANSLATION, // 同样，只发送给目标框架
         payload: { ...basePayload, ...resultPayload }
     }, { frameId: targetFrameId }).catch(e => logError('handleSelectionTranslation (Send Result)', e));
 }
@@ -245,7 +246,7 @@ async function handleSelectionTranslation(tab, source, frameId) {
 // --- Message Handlers ---
 
 const messageHandlers = {
-    async TRANSLATE_TEXT(request, sender) {
+    async [MESSAGE_TYPES.TRANSLATE_TEXT](request, sender) {
         // 此处理器现在只服务于内容脚本的页面翻译请求。
         const { text, targetLang, sourceLang, elementId, translatorEngine, tabId } = request.payload;
         const originTabId = sender.tab?.id || tabId;
@@ -260,7 +261,7 @@ const messageHandlers = {
         try {
             const result = await TranslatorManager.translateText(text, targetLang, sourceLang, translatorEngine, originTabId);
             await browser.tabs.sendMessage(originTabId, {
-                type: 'TRANSLATE_TEXT_RESULT',
+                type: MESSAGE_TYPES.TRANSLATE_TEXT_RESULT,
                 payload: {
                     elementId: elementId,
                     success: !result.error,
@@ -273,7 +274,7 @@ const messageHandlers = {
             logError('TRANSLATE_TEXT (execution)', error);
             try {
                 await browser.tabs.sendMessage(originTabId, {
-                    type: 'TRANSLATE_TEXT_RESULT',
+                    type: MESSAGE_TYPES.TRANSLATE_TEXT_RESULT,
                     payload: { elementId, success: false, translatedText: '', wasTranslated: false, error: error.message }
                 });
             } catch (e) {
@@ -284,7 +285,7 @@ const messageHandlers = {
         }
     },
 
-    async TRANSLATE_TEXT_BATCH(request, sender) {
+    async [MESSAGE_TYPES.TRANSLATE_TEXT_BATCH](request, sender) {
         const { batchId, items, targetLang, sourceLang = 'auto', translatorEngine, tabId } = request.payload;
         const originTabId = sender.tab?.id || tabId;
 
@@ -298,7 +299,7 @@ const messageHandlers = {
             const texts = items.map(item => item.text);
             const results = await TranslatorManager.translateBatch(texts, targetLang, sourceLang, translatorEngine, originTabId);
             await browser.tabs.sendMessage(originTabId, {
-                type: 'TRANSLATE_TEXT_BATCH_RESULT',
+                type: MESSAGE_TYPES.TRANSLATE_TEXT_BATCH_RESULT,
                 payload: {
                     batchId,
                     items: items.map((item, index) => {
@@ -317,7 +318,7 @@ const messageHandlers = {
             logError('TRANSLATE_TEXT_BATCH (execution)', error);
             try {
                 await browser.tabs.sendMessage(originTabId, {
-                    type: 'TRANSLATE_TEXT_BATCH_RESULT',
+                    type: MESSAGE_TYPES.TRANSLATE_TEXT_BATCH_RESULT,
                     payload: {
                         batchId,
                         items: items.map(item => ({
@@ -338,7 +339,7 @@ const messageHandlers = {
     },
 
     // 新增：专门用于选项页测试翻译的处理器
-    async TEST_TRANSLATE_TEXT(request) {
+    async [MESSAGE_TYPES.TEST_TRANSLATE_TEXT](request) {
         const { text, targetLang, sourceLang, translatorEngine } = request.payload;
         const result = await TranslatorManager.translateText(text, targetLang, sourceLang, translatorEngine);
         return {
@@ -349,7 +350,7 @@ const messageHandlers = {
         };
     },
 
-    async TRANSLATE_BATCH(request) {
+    async [MESSAGE_TYPES.TRANSLATE_BATCH](request) {
         const { texts, targetLanguage, translatorEngine, hostname } = request.payload;
         if (!Array.isArray(texts)) {
             throw new Error("Invalid payload: 'texts' must be an array.");
@@ -372,21 +373,21 @@ const messageHandlers = {
     },
 
     // (新) 处理内容总结请求
-    async SUMMARIZE_CONTENT(request, sender) {
+    async [MESSAGE_TYPES.SUMMARIZE_CONTENT](request, sender) {
         const { text, aiModel, targetLang } = request.payload;
         const tabId = sender.tab?.id;
         return TranslatorManager.summarize(text, aiModel, targetLang, tabId);
     },
 
     // (新) 处理与 AI 的通用对话请求
-    async CONVERSE_WITH_AI(request, sender) {
+    async [MESSAGE_TYPES.CONVERSE_WITH_AI](request, sender) {
         const { history, aiModel, targetLang } = request.payload;
         const tabId = sender.tab?.id;
         return TranslatorManager.converse(history, aiModel, targetLang, tabId);
     },
 
     // (新) 处理 AI 建议请求
-    async INFER_SUGGESTIONS(request, sender) {
+    async [MESSAGE_TYPES.INFER_SUGGESTIONS](request, sender) {
         const { history, aiModel, targetLang } = request.payload;
         const tabId = sender.tab?.id;
         const result = await TranslatorManager.inferSuggestions(history, aiModel, targetLang, tabId);
@@ -410,7 +411,7 @@ const messageHandlers = {
     },
 
     // (新) 处理输入框翻译请求
-    async translateInputText(request, sender) {
+    async [MESSAGE_TYPES.TRANSLATE_INPUT_TEXT](request, sender) {
         const { text, targetLang } = request.payload; // 从 payload 中解构出 targetLang
         const tabId = sender.tab?.id;
         const tabUrl = sender.tab?.url;
@@ -450,7 +451,7 @@ const messageHandlers = {
         }
     },
 
-    async TEST_CONNECTION(request) {
+    async [MESSAGE_TYPES.TEST_CONNECTION](request) {
         const { engine, settings, text } = request.payload;
         if (engine !== 'ai') {
             return { success: false, error: `Connection test is only supported for AI engines, but got: ${engine}` };
@@ -470,16 +471,16 @@ const messageHandlers = {
         }
     },
 
-    async GET_EFFECTIVE_SETTINGS(request) {
+    async [MESSAGE_TYPES.GET_EFFECTIVE_SETTINGS](request) {
         const { hostname } = request.payload;
         return SettingsManager.getEffectiveSettings(hostname);
     },
 
-    async GET_VALIDATED_SETTINGS() { // Still needed by options.js
+    async [MESSAGE_TYPES.GET_VALIDATED_SETTINGS]() { // Still needed by options.js
         return SettingsManager.getValidatedSettings();
     },
 
-    async TOGGLE_TRANSLATION_REQUEST(request) {
+    async [MESSAGE_TYPES.TOGGLE_TRANSLATION_REQUEST](request) {
         console.log("[Foxlate] TOGGLE_TRANSLATION_REQUEST: Received from background script.", request.payload.tabId);
         const { tabId } = request.payload;
         const scriptsReady = await ensureScriptsInjected(tabId, 0, [...CSS_FILES, ...CORE_SCRIPT_FILES]);
@@ -492,11 +493,11 @@ const messageHandlers = {
         // 委托内容脚本处理切换。
         // 内容脚本现在将通过 TRANSLATION_STATUS_UPDATE 消息异步报告状态变化（例如，'loading', 'original'），
         // 这提供了一个更准确的状态更新时间点。
-        await browser.tabs.sendMessage(tabId, { type: 'TOGGLE_TRANSLATION_REQUEST_AT_CONTENT', payload: { tabId } });
+        await browser.tabs.sendMessage(tabId, { type: MESSAGE_TYPES.TOGGLE_TRANSLATION_REQUEST_AT_CONTENT, payload: { tabId } });
         return { success: true };
     },
 
-    async TOGGLE_DISPLAY_MODE(request) {
+    async [MESSAGE_TYPES.TOGGLE_DISPLAY_MODE](request) {
         const { tabId, hostname } = request.payload;
         if (!tabId || !hostname) {
             throw new Error("Missing tabId or hostname for TOGGLE_DISPLAY_MODE");
@@ -513,12 +514,12 @@ const messageHandlers = {
 
         // 重用现有的 SAVE_RULE_CHANGE 处理器来保存更改，从而将保存逻辑集中化，
         // 避免代码重复。
-        await messageHandlers.SAVE_RULE_CHANGE({ payload: { hostname, ruleSource: currentRuleSource, key: 'displayMode', value: newMode } });
+        await messageHandlers[MESSAGE_TYPES.SAVE_RULE_CHANGE]({ payload: { hostname, ruleSource: currentRuleSource, key: 'displayMode', value: newMode } });
 
         // 通知内容脚本更新其 UI
         try {
             await browser.tabs.sendMessage(tabId, {
-                type: 'UPDATE_DISPLAY_MODE',
+                type: MESSAGE_TYPES.UPDATE_DISPLAY_MODE,
                 payload: { displayMode: newMode }
             });
         } catch (e) {
@@ -530,8 +531,19 @@ const messageHandlers = {
         return { success: true, newMode: newMode };
     },
 
+    async [MESSAGE_TYPES.SAVE_RULE_CHANGE](request) {
+        const { hostname, ruleSource, key, value } = request.payload;
+        if (!hostname || !key) {
+            throw new Error('Missing hostname or key for SAVE_RULE_CHANGE');
+        }
+
+        const domainToUpdate = ruleSource === 'default' ? hostname : ruleSource;
+        await SettingsManager.saveDomainRuleProperty(domainToUpdate, key, value);
+        return { success: true };
+    },
+
     // 新增：处理字幕翻译开关状态更新
-    async UPDATE_SUBTITLE_TRANSLATION_STATUS(request, sender) {
+    async [MESSAGE_TYPES.UPDATE_SUBTITLE_TRANSLATION_STATUS](request, sender) {
         const { tabId, enabled, disabled } = request.payload;
         try {
             await browser.action.setIcon({ tabId, path: enabled ? "icons/icon48.png" : "icons/icon48-disabled.png" });
@@ -544,7 +556,7 @@ const messageHandlers = {
         return { success: true };
     },
     // ** 新增中断处理器 **
-    async STOP_TRANSLATION(request) {
+    async [MESSAGE_TYPES.STOP_TRANSLATION](request) {
         const { tabId } = request.payload;
         await TranslatorManager.interruptAll();
 
@@ -553,7 +565,7 @@ const messageHandlers = {
         return { success: true };
     },
 
-    async TRANSLATION_STATUS_UPDATE(request, sender) {
+    async [MESSAGE_TYPES.TRANSLATION_STATUS_UPDATE](request, sender) {
         const { status, tabId } = request.payload;
         if (tabId) {
             await setBadgeAndState(tabId, status);
@@ -576,11 +588,11 @@ const messageHandlers = {
         return { success: true };
     },
 
-    PING() {
+    [MESSAGE_TYPES.PING]() {
         return { status: 'PONG' };
     },
 
-    GET_TAB_ID(request, sender) {
+    [MESSAGE_TYPES.GET_TAB_ID](request, sender) {
         if (sender.tab) {
             return Promise.resolve({ tabId: sender.tab.id });
         }
@@ -590,19 +602,19 @@ const messageHandlers = {
         });
     },
 
-    async GET_CACHE_INFO() {
+    async [MESSAGE_TYPES.GET_CACHE_INFO]() {
         // 委托给 TranslatorManager 获取缓存信息
         return TranslatorManager.getCacheInfo();
     },
 
-     async CLEAR_CACHE() {
+     async [MESSAGE_TYPES.CLEAR_CACHE]() {
          // 委托给 TranslatorManager 清空缓存
          await TranslatorManager.clearCache();
          return { success: true };
      },
  
      // --- Cloud Sync Handlers ---
-     async GET_CLOUD_BACKUPS() {
+     async [MESSAGE_TYPES.GET_CLOUD_BACKUPS]() {
          try {
              const backups = await getCloudBackupItems();
              // 按时间戳降序排序（最新的在前）
@@ -614,7 +626,7 @@ const messageHandlers = {
          }
      },
  
-     async UPLOAD_SETTINGS_TO_CLOUD(request) {
+     async [MESSAGE_TYPES.UPLOAD_SETTINGS_TO_CLOUD](request) {
          try {
              const settingsToUpload = request.payload;
              const timestamp = Date.now();
@@ -652,7 +664,7 @@ const messageHandlers = {
          }
      },
 
-    async DOWNLOAD_SETTINGS_FROM_CLOUD(request) {
+    async [MESSAGE_TYPES.DOWNLOAD_SETTINGS_FROM_CLOUD](request) {
         try {
             const { backupId } = request.payload;
             if (!backupId) {
@@ -670,7 +682,7 @@ const messageHandlers = {
         }
     },
 
-    async DELETE_CLOUD_BACKUP(request) {
+    async [MESSAGE_TYPES.DELETE_CLOUD_BACKUP](request) {
         try {
             const { backupId } = request.payload;
             if (!backupId) {
@@ -722,7 +734,7 @@ browser.commands.onCommand.addListener(async (command, tab) => {
             // Instead of sending a message to self (which can be a bit unreliable),
             // we directly call the handler function. This is more robust and avoids race conditions.
             const request = { payload: { tabId: tab.id } };
-            await messageHandlers.TOGGLE_TRANSLATION_REQUEST(request);
+            await messageHandlers[MESSAGE_TYPES.TOGGLE_TRANSLATION_REQUEST](request);
         } catch (e) {
             logError('onCommand (toggle-translation)', e);
         }
@@ -736,7 +748,7 @@ browser.commands.onCommand.addListener(async (command, tab) => {
         }
         try {
             const hostname = new URL(tab.url).hostname;
-            await messageHandlers.TOGGLE_DISPLAY_MODE({ payload: { tabId: tab.id, hostname: hostname } });
+            await messageHandlers[MESSAGE_TYPES.TOGGLE_DISPLAY_MODE]({ payload: { tabId: tab.id, hostname: hostname } });
         } catch (e) {
             logError('onCommand (toggle-display-mode)', e);
         }
@@ -758,7 +770,7 @@ browser.commands.onCommand.addListener(async (command, tab) => {
             
             // 发送消息到内容脚本处理 summary 切换
             await browser.tabs.sendMessage(tab.id, {
-                type: 'TOGGLE_SUMMARY_REQUEST',
+                type: MESSAGE_TYPES.TOGGLE_SUMMARY_REQUEST,
                 payload: { tabId: tab.id }
             });
         } catch (e) {
@@ -825,7 +837,7 @@ async function handleNavigation(details) {
                 console.log(`[Auto-Translate] Rule matched for '${hostname}'. Initiating translation for tab ${tabId}.`);
                 // 委托内容脚本处理翻译请求。
                 // 内容脚本将在翻译实际开始时发送一个 'loading' 状态更新。
-                await browser.tabs.sendMessage(tabId, { type: 'TRANSLATE_PAGE_REQUEST', payload: { tabId } });
+                await browser.tabs.sendMessage(tabId, { type: MESSAGE_TYPES.TRANSLATE_PAGE_REQUEST, payload: { tabId } });
             }
         } catch (error) {
             // 只记录错误，不中断流程，因为自动翻译失败不应影响其他功能。
@@ -909,7 +921,7 @@ SettingsManager.on('settingsChanged', async ({ newValue, oldValue }) => {
         needsReTranslation = true;
     }
 
-    const messageType = needsReTranslation ? 'RELOAD_TRANSLATION_JOB' : 'SETTINGS_UPDATED';
+    const messageType = needsReTranslation ? MESSAGE_TYPES.RELOAD_TRANSLATION_JOB : MESSAGE_TYPES.SETTINGS_UPDATED;
     if (__DEBUG__) {
         console.log(`[Service Worker] Settings changed. Notifying content scripts with '${messageType}'.`);
     }
