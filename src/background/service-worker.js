@@ -1,948 +1,212 @@
-
 import browser from '../lib/browser-polyfill.js';
-import { SettingsManager } from '../common/settings-manager.js';
 import { MESSAGE_TYPES } from '../common/message-types.js';
-import { shouldTranslate } from '../common/precheck.js';
+import { SettingsManager } from '../common/settings-manager.js';
 import { TranslatorManager } from '../background/translator-manager.js';
-import * as Constants from '../common/constants.js';
 import TabStateManager from './tab-state-manager.js';
 import { createEnsureScriptsInjected } from './script-injector.js';
-import { SUBTITLE_STRATEGIES, SUBTITLE_MANAGER_SCRIPT, DEFAULT_STRATEGY_MAP } from '../content/subtitle/strategy-manifest.js';
-const CSS_FILES = ["content/style.css", "content/enhanced-style.css", "content/summary/summary.css"];
+import { CORE_SCRIPT_FILES, CSS_FILES } from './background-constants.js';
+import { logBackgroundError } from './background-logger.js';
+import { setBadgeAndState } from './badge-state.js';
+import { createBackgroundMessageHandlers } from './background-message-handlers.js';
+import { createCloudBackupStore } from './cloud-backup-store.js';
+import { createNavigationHandler } from './navigation-handler.js';
+import { createSelectionTranslationHandler } from './selection-translation.js';
+import { createSubtitleInjector } from './subtitle-injection.js';
 
-const CORE_SCRIPT_FILES = ["content/content-script.js"];
-
-// --- Dynamically build strategy maps from the manifest ---
-const CLOUD_BACKUP_PREFIX = 'foxlate_backup_';
-const MAX_CLOUD_BACKUPS = 10;
-// We create these Maps at startup for performance. Map lookups (O(1)) are much faster
-// than searching an array (O(n)) on every navigation event.
-const STRATEGY_FILE_MAP = new Map(
-    SUBTITLE_STRATEGIES.map(strategy => [strategy.name, strategy.file])
-);
-
-/**
- * Centralized error logger.
- * @param {string} context - The context in which the error occurred.
- * @param {Error} error - The error object.
- */
-function logError(context, error) {
-    if (error instanceof Error) {
-        // AbortError 是一个受控的中断，不是真正的错误。记录它用于调试，但不应视为错误。
-        if (error.name === 'AbortError') {
-            console.log(`[Foxlate] Task was interrupted in ${context}:`, error.message);
-            return;
-        }
-        console.error(`[Foxlate Error] in ${context}:`, error.message, error.stack);
-    } else {
-        console.error(`[Foxlate Error] in ${context}:`, error || 'An unknown error occurred.');
-    }
-}
-
-const ensureScriptsInjected = createEnsureScriptsInjected({ browserApi: browser, tabStateManager: TabStateManager, logError });
-
-// --- Subtitle Strategy Injection Logic ---
-
-/**
- * Handles the logic for injecting subtitle strategies based on user and default rules.
- * @param {number} tabId - The ID of the tab.
- * @param {object} changeInfo - Information about the tab update.
- * @param {object} tab - The tab object itself.
- */
-async function handleSubtitleInjection(tabId, frameId, url) {
-    // 只在主框架且有有效 URL 时执行
-    if (frameId !== 0 || !url || !url.startsWith('http')) {
-        return;
-    }
-
-    try {
-        const currentUrl = new URL(url);
-        const hostname = currentUrl.hostname;
-
-        const settings = await SettingsManager.getValidatedSettings();
-        const userRules = settings.domainRules || {};
-
-        let strategyToInject = null;
-
-        // 1. 检查用户规则
-        if (userRules[hostname] && userRules[hostname].subtitleStrategy) {
-            const userChoice = userRules[hostname].subtitleStrategy;
-            if (userChoice !== 'none') {
-                strategyToInject = userChoice;
-            } else {
-                console.log(`[Subtitle Injector] User has disabled subtitle translation for ${hostname}.`);
-                return; // 用户明确禁用了
-            }
-        } else {
-            // 2. 检查默认规则
-            if (DEFAULT_STRATEGY_MAP.has(hostname)) {
-                strategyToInject = DEFAULT_STRATEGY_MAP.get(hostname);
-            }
-        }
-
-        // 3. 如果找到策略，则注入
-        if (strategyToInject) {
-            const scriptFile = STRATEGY_FILE_MAP.get(strategyToInject);
-            if (scriptFile) {
-                console.log(`[Subtitle Injector] Rule matched. Attempting to inject strategy '${strategyToInject}' for ${hostname}.`);
-                // 使用统一的注入函数
-                await ensureScriptsInjected(tabId, frameId, [SUBTITLE_MANAGER_SCRIPT, scriptFile]);
-            } else {
-                logError('handleSubtitleInjection', new Error(`Strategy '${strategyToInject}' is defined but no script file was found.`));
-            }
-        }
-    } catch (error) {
-        logError('handleSubtitleInjection', error);
-    }
-}
-
-// --- Context Menu Setup ---
-browser.runtime.onInstalled.addListener(() => {
-    browser.contextMenus.create({
-        id: "translate-selection",
-        title: browser.i18n.getMessage("contextMenuTitle"),
-        contexts: ["selection"],
-    });
-    console.log("Context menu created.");
+const ensureScriptsInjected = createEnsureScriptsInjected({
+    browserApi: browser,
+    tabStateManager: TabStateManager,
+    logError: logBackgroundError,
 });
 
-/**
- * Injects a script into the tab to get the selected text and its position.
- * @param {number} tabId - The ID of the tab to inject the script into.
- * @param {number} frameId - The ID of the frame to inject the script into.
- * @returns {Promise<{text: string, coords: {clientX: number, clientY: number}}|null>}
- */
-async function getSelectionDetailsFromTab(tabId, frameId) {
-    try {
-        const injectionResults = await browser.scripting.executeScript({
-            target: { tabId: tabId, frameIds: [frameId] },
-            func: () => {
-                const selection = window.getSelection();
-                if (selection && selection.rangeCount > 0) {
-                    const range = selection.getRangeAt(0);
-                    const rect = range.getBoundingClientRect();
-                    // Return the text and the coordinates to position the tooltip
-                    return {
-                        text: selection.toString(),
-                        coords: {
-                            // 使用纯粹的视口相对坐标。getBoundingClientRect() 返回的正是我们需要的。
-                            // CSS 将使用 position:fixed，因此我们不再需要关心页面滚动。
-                            clientX: rect.left + rect.width / 2,
-                            clientY: rect.bottom + 10 // 在选区下方 10px
-                        }
-                    };
-                }
-                return null;
-            },
-        });
-        // executeScript returns an array of results, one for each frame. We want the first one.
-        if (injectionResults && injectionResults[0] && injectionResults[0].result) {
-            return injectionResults[0].result;
-        }
-    } catch (e) {
-        // This can happen on pages where content scripts are not allowed to run.
-        logError('getSelectionDetailsFromTab', e);
-    }
-    return null;
-}
+const updateBadgeAndState = (tabId, state) => setBadgeAndState({
+    browserApi: browser,
+    tabStateManager: TabStateManager,
+}, tabId, state);
 
-/**
- * Handles the translation for selected text from any source (context menu, shortcut).
- * @param {object} tab - The tab where the selection was made.
- * @param {string} source - The source of the trigger ('contextMenu' or 'shortcut').
- * @param {number} [frameId] - The frame where the selection was made. If not provided, it will be detected.
- */
-async function handleSelectionTranslation(tab, source, frameId) {
-    let targetFrameId = frameId;
-    let selectionDetails;
+const cloudBackups = createCloudBackupStore({
+    browserApi: browser,
+    logError: logBackgroundError,
+});
 
-    // 如果没有提供 frameId (例如，来自快捷键)，则尝试在所有框架中查找选区。
-    if (typeof targetFrameId !== 'number') {
-        const results = await browser.scripting.executeScript({
-            target: { tabId: tab.id, allFrames: true },
-            func: () => window.getSelection().toString().trim() ? window.getSelection().toString() : null
-        });
+const handleSubtitleInjection = createSubtitleInjector({
+    ensureScriptsInjected,
+    logError: logBackgroundError,
+});
 
-        const frameWithSelection = results.find(r => r.result);
-        if (!frameWithSelection) {
-            console.log("No text selected in any frame.");
-            return;
-        }
-        targetFrameId = frameWithSelection.frameId;
-    }
+const handleSelectionTranslation = createSelectionTranslationHandler({
+    browserApi: browser,
+    ensureScriptsInjected,
+    logError: logBackgroundError,
+    cssFiles: CSS_FILES,
+    coreScriptFiles: CORE_SCRIPT_FILES,
+});
 
-    // 确保核心内容脚本已准备好在目标框架中显示结果。
-    const scriptsReady = await ensureScriptsInjected(tab.id, targetFrameId, [...CSS_FILES, ...CORE_SCRIPT_FILES]);
-    if (!scriptsReady) {
-        logError('handleSelectionTranslation', new Error(`Could not inject scripts into tab ${tab.id}, frame ${targetFrameId}.`));
-        return;
-    }
+const messageHandlers = createBackgroundMessageHandlers({
+    browserApi: browser,
+    settingsManager: SettingsManager,
+    translatorManager: TranslatorManager,
+    tabStateManager: TabStateManager,
+    ensureScriptsInjected,
+    setBadgeAndState: updateBadgeAndState,
+    cloudBackups,
+    logError: logBackgroundError,
+    cssFiles: CSS_FILES,
+    coreScriptFiles: CORE_SCRIPT_FILES,
+});
 
-    // 从确定的目标框架中获取选区详情。
-    // 注意：内容脚本现在负责显示UI，所以我们只需要在目标框架中注入脚本。
-    selectionDetails = await getSelectionDetailsFromTab(tab.id, targetFrameId);
+const handleNavigation = createNavigationHandler({
+    browserApi: browser,
+    ensureScriptsInjected,
+    handleSubtitleInjection,
+    tabStateManager: TabStateManager,
+    logError: logBackgroundError,
+    cssFiles: CSS_FILES,
+    coreScriptFiles: CORE_SCRIPT_FILES,
+});
 
-    if (!selectionDetails || !selectionDetails.text.trim()) {
-        console.log("No text selected or could not retrieve selection.");
-        return;
-    }
-
-    const { text: selectionText, coords } = selectionDetails;
-    // Create a unique ID to prevent race conditions with multiple quick selections.
-    const translationId = `sel-${Date.now()}`;
-
-    // Create a base payload to reduce repetition.
-    const basePayload = { coords, source, translationId, originalText: selectionText };
-
-    // Immediately send "loading" state for better UX.
-    browser.tabs.sendMessage(tab.id, {
-        type: MESSAGE_TYPES.DISPLAY_SELECTION_TRANSLATION, // 这个消息会被所有框架的 content-script 监听到
-        payload: { ...basePayload, isLoading: true }
-    }, { frameId: targetFrameId }).catch((e) => logError('handleSelectionTranslation (Send Loading)', e));
-
-    // Perform translation and prepare the result part of the payload.
-    let resultPayload;
-    try {
-        const hostname = new URL(tab.url).hostname;
-        const effectiveRule = await SettingsManager.getEffectiveSettings(hostname);
-
-        // (已重构) shouldTranslate 现在使用内置规则，不再需要 precheckRules。
-        // 此处启用日志记录，以便在调试时查看预检决策。
-        const precheckResult = shouldTranslate(selectionText, effectiveRule, true);
-
-        if (!precheckResult.result) {
-            // 如果预校验失败，则不进行翻译。
-            // 我们将发送一个“成功”的响应，但内容是附带提示的原文。
-            console.log(`[Foxlate] Pre-check failed for selection: "${selectionText}". Reason:`, precheckResult.log?.join(' '));
-            resultPayload = {
-                success: true, // 操作本身是成功的，只是没有翻译。
-                translatedText: selectionText,
-                error: null,
-            };
-        } else {
-            // 预校验通过，继续进行翻译。
-            const result = await TranslatorManager.translateText(selectionText, effectiveRule.targetLanguage, 'auto', effectiveRule.translatorEngine, tab.id);
-            resultPayload = {
-                success: !result.error,
-                translatedText: result.text,
-                error: result.error,
-            };
-        }
-    } catch (error) {
-        logError('handleSelectionTranslation (Translation Process)', error);
-        resultPayload = {
-            success: false,
-            error: error.message,
-        };
-    }
-
-    // Send the final result, combining the base and result payloads.
-    browser.tabs.sendMessage(tab.id, {
-        type: MESSAGE_TYPES.DISPLAY_SELECTION_TRANSLATION, // 同样，只发送给目标框架
-        payload: { ...basePayload, ...resultPayload }
-    }, { frameId: targetFrameId }).catch(e => logError('handleSelectionTranslation (Send Result)', e));
-}
-
-// --- Message Handlers ---
-
-const messageHandlers = {
-    async [MESSAGE_TYPES.TRANSLATE_TEXT](request, sender) {
-        // 此处理器现在只服务于内容脚本的页面翻译请求。
-        const { text, targetLang, sourceLang, elementId, translatorEngine, tabId } = request.payload;
-        const originTabId = sender.tab?.id || tabId;
-
-        // 防御性检查，确保调用者是内容脚本
-        if (!originTabId || !elementId) {
-            const errorMsg = 'Invalid TRANSLATE_TEXT call: Missing originTabId or elementId. This handler is for content scripts only.';
-            logError('TRANSLATE_TEXT', new Error(errorMsg));
-            return;
-        }
-
-        try {
-            const result = await TranslatorManager.translateText(text, targetLang, sourceLang, translatorEngine, originTabId);
-            await browser.tabs.sendMessage(originTabId, {
-                type: MESSAGE_TYPES.TRANSLATE_TEXT_RESULT,
-                payload: {
-                    elementId: elementId,
-                    success: !result.error,
-                    translatedText: result.text,
-                    wasTranslated: result.translated,
-                    error: result.error || null
-                }
-            });
-        } catch (error) {
-            logError('TRANSLATE_TEXT (execution)', error);
-            try {
-                await browser.tabs.sendMessage(originTabId, {
-                    type: MESSAGE_TYPES.TRANSLATE_TEXT_RESULT,
-                    payload: { elementId, success: false, translatedText: '', wasTranslated: false, error: error.message }
-                });
-            } catch (e) {
-                if (!e.message.includes("Receiving end does not exist")) {
-                    logError('TRANSLATE_TEXT (sending error)', e);
-                }
-            }
-        }
-    },
-
-    async [MESSAGE_TYPES.TRANSLATE_TEXT_BATCH](request, sender) {
-        const { batchId, items, targetLang, sourceLang = 'auto', translatorEngine, tabId } = request.payload;
-        const originTabId = sender.tab?.id || tabId;
-
-        if (!originTabId || !Array.isArray(items)) {
-            const errorMsg = 'Invalid TRANSLATE_TEXT_BATCH call: Missing originTabId or items.';
-            logError('TRANSLATE_TEXT_BATCH', new Error(errorMsg));
-            return;
-        }
-
-        try {
-            const texts = items.map(item => item.text);
-            const results = await TranslatorManager.translateBatch(texts, targetLang, sourceLang, translatorEngine, originTabId);
-            await browser.tabs.sendMessage(originTabId, {
-                type: MESSAGE_TYPES.TRANSLATE_TEXT_BATCH_RESULT,
-                payload: {
-                    batchId,
-                    items: items.map((item, index) => {
-                        const result = results[index] || {};
-                        return {
-                            elementId: item.elementId,
-                            success: !result.error,
-                            translatedText: result.text || '',
-                            wasTranslated: !!result.translated,
-                            error: result.error || null
-                        };
-                    })
-                }
-            });
-        } catch (error) {
-            logError('TRANSLATE_TEXT_BATCH (execution)', error);
-            try {
-                await browser.tabs.sendMessage(originTabId, {
-                    type: MESSAGE_TYPES.TRANSLATE_TEXT_BATCH_RESULT,
-                    payload: {
-                        batchId,
-                        items: items.map(item => ({
-                            elementId: item.elementId,
-                            success: false,
-                            translatedText: '',
-                            wasTranslated: false,
-                            error: error.message
-                        }))
-                    }
-                });
-            } catch (e) {
-                if (!e.message.includes("Receiving end does not exist")) {
-                    logError('TRANSLATE_TEXT_BATCH (sending error)', e);
-                }
-            }
-        }
-    },
-
-    // 新增：专门用于选项页测试翻译的处理器
-    async [MESSAGE_TYPES.TEST_TRANSLATE_TEXT](request) {
-        const { text, targetLang, sourceLang, translatorEngine } = request.payload;
-        const result = await TranslatorManager.translateText(text, targetLang, sourceLang, translatorEngine);
-        return {
-            success: !result.error,
-            translatedText: { text: result.text, translated: result.translated },
-            error: result.error || null,
-            log: result.log || []
-        };
-    },
-
-    async [MESSAGE_TYPES.TRANSLATE_BATCH](request) {
-        const { texts, targetLanguage, translatorEngine, hostname } = request.payload;
-        if (!Array.isArray(texts)) {
-            throw new Error("Invalid payload: 'texts' must be an array.");
-        }
-
-        // 如果调用方没有提供语言或引擎，则从全局设置中获取作为后备。
-        // (已修复) 使用 getEffectiveSettings(hostname) 来获取正确的、针对特定域的设置。
-        let finalTargetLang = targetLanguage;
-        let finalEngine = translatorEngine;
-
-        if (!finalTargetLang || !finalEngine) {
-            const settings = await SettingsManager.getEffectiveSettings(hostname);
-            finalTargetLang = finalTargetLang || settings.targetLanguage;
-            finalEngine = finalEngine || settings.translatorEngine;
-        }
-
-        const results = await TranslatorManager.translateBatch(texts, finalTargetLang, 'auto', finalEngine);
-        const translatedTexts = results.map(r => r.text);
-        return { success: true, translatedTexts };
-    },
-
-    // (新) 处理内容总结请求
-    async [MESSAGE_TYPES.SUMMARIZE_CONTENT](request, sender) {
-        const { text, aiModel, targetLang } = request.payload;
-        const tabId = sender.tab?.id;
-        return TranslatorManager.summarize(text, aiModel, targetLang, tabId);
-    },
-
-    // (新) 处理与 AI 的通用对话请求
-    async [MESSAGE_TYPES.CONVERSE_WITH_AI](request, sender) {
-        const { history, aiModel, targetLang } = request.payload;
-        const tabId = sender.tab?.id;
-        return TranslatorManager.converse(history, aiModel, targetLang, tabId);
-    },
-
-    // (新) 处理 AI 建议请求
-    async [MESSAGE_TYPES.INFER_SUGGESTIONS](request, sender) {
-        const { history, aiModel, targetLang } = request.payload;
-        const tabId = sender.tab?.id;
-        const result = await TranslatorManager.inferSuggestions(history, aiModel, targetLang, tabId);
-
-        if (!result.success) {
-            return result;
-        }
-
-        try {
-            let suggestions = [];
-            if (!Array.isArray(result.suggestions)) {
-                throw new Error("AI did not return a JSON array of suggestions.");
-            }
-            suggestions = result.suggestions;
-            return { success: true, suggestions };
-        } catch (parseError) {
-            logError('INFER_SUGGESTIONS (JSON parse)', parseError);
-            // 如果解析失败，将原始文本作为单个建议返回
-            return { success: true, suggestions: [result.text] };
-        }
-    },
-
-    // (新) 处理输入框翻译请求
-    async [MESSAGE_TYPES.TRANSLATE_INPUT_TEXT](request, sender) {
-        const { text, targetLang } = request.payload; // 从 payload 中解构出 targetLang
-        const tabId = sender.tab?.id;
-        const tabUrl = sender.tab?.url;
-
-        if (!tabId || !tabUrl) {
-            logError('translateInputText', new Error('Request must come from a tab with a URL.'));
-            return { success: false, error: 'Invalid sender context.' };
-        }
-
-        try {
-            const hostname = new URL(tabUrl).hostname;
-            const effectiveRule = await SettingsManager.getEffectiveSettings(hostname);
-            const inputSettings = effectiveRule.inputTranslationSettings || {};
-
-            // 优先级: 魔法词指定 > 输入设置 > 全局设置
-            const finalTargetLang = targetLang || (inputSettings.targetLanguage !== 'auto' ? inputSettings.targetLanguage : effectiveRule.targetLanguage);
-            
-            // 优先级: 输入设置 > 全局设置
-            const finalEngine = (inputSettings.translatorEngine !== 'default' ? inputSettings.translatorEngine : effectiveRule.translatorEngine);
-
-            const result = await TranslatorManager.translateText(
-                text,
-                finalTargetLang, // 使用最终确定的目标语言
-                'auto',
-                finalEngine,
-                tabId
-            );
-
-            return {
-                success: !result.error,
-                translatedText: result.text,
-                error: result.error || null
-            };
-        } catch (error) {
-            logError('translateInputText (execution)', error);
-            return { success: false, error: error.message };
-        }
-    },
-
-    async [MESSAGE_TYPES.TEST_CONNECTION](request) {
-        const { engine, settings, text } = request.payload;
-        if (engine !== 'ai') {
-            return { success: false, error: `Connection test is only supported for AI engines, but got: ${engine}` };
-        }
-        const { AITranslator } = await import('../background/translators/ai-translator.js');
-        const translator = new AITranslator();
-        try {
-            // 直接使用从 payload 传来的临时设置调用翻译器。
-            const result = await translator.translate(text, 'EN', 'auto', settings);
-
-            // 返回与 TRANSLATE_TEXT 处理器一致的数据结构，
-            // 这是选项页面 UI 所期望的。
-            return { success: true, translatedText: { text: result.text, translated: true } };
-        } catch (error) {
-            logError('TEST_CONNECTION handler', error);
-            return { success: false, error: error.message };
-        }
-    },
-
-    async [MESSAGE_TYPES.GET_EFFECTIVE_SETTINGS](request) {
-        const { hostname } = request.payload;
-        return SettingsManager.getEffectiveSettings(hostname);
-    },
-
-    async [MESSAGE_TYPES.GET_VALIDATED_SETTINGS]() { // Still needed by options.js
-        return SettingsManager.getValidatedSettings();
-    },
-
-    async [MESSAGE_TYPES.TOGGLE_TRANSLATION_REQUEST](request) {
-        console.log("[Foxlate] TOGGLE_TRANSLATION_REQUEST: Received from background script.", request.payload.tabId);
-        const { tabId } = request.payload;
-        const scriptsReady = await ensureScriptsInjected(tabId, 0, [...CSS_FILES, ...CORE_SCRIPT_FILES]);
-        if (!scriptsReady) {
-            // If scripts can't be injected, we can't do anything.
-            // We should also clear any lingering state for this tab.
-            await setBadgeAndState(tabId, 'original');
-            throw new Error(`Failed to inject scripts into tab ${tabId}.`);
-        }
-        // 委托内容脚本处理切换。
-        // 内容脚本现在将通过 TRANSLATION_STATUS_UPDATE 消息异步报告状态变化（例如，'loading', 'original'），
-        // 这提供了一个更准确的状态更新时间点。
-        await browser.tabs.sendMessage(tabId, { type: MESSAGE_TYPES.TOGGLE_TRANSLATION_REQUEST_AT_CONTENT, payload: { tabId } });
-        return { success: true };
-    },
-
-    async [MESSAGE_TYPES.TOGGLE_DISPLAY_MODE](request) {
-        const { tabId, hostname } = request.payload;
-        if (!tabId || !hostname) {
-            throw new Error("Missing tabId or hostname for TOGGLE_DISPLAY_MODE");
-        }
-
-        const displayModes = Object.keys(Constants.DISPLAY_MODES);
-
-        const effectiveSettings = await SettingsManager.getEffectiveSettings(hostname);
-        const { displayMode: currentMode, source: currentRuleSource } = effectiveSettings;
-
-        const currentIndex = displayModes.indexOf(currentMode);
-        const nextIndex = (currentIndex + 1) % displayModes.length;
-        const newMode = displayModes[nextIndex];
-
-        // 重用现有的 SAVE_RULE_CHANGE 处理器来保存更改，从而将保存逻辑集中化，
-        // 避免代码重复。
-        await messageHandlers[MESSAGE_TYPES.SAVE_RULE_CHANGE]({ payload: { hostname, ruleSource: currentRuleSource, key: 'displayMode', value: newMode } });
-
-        // 通知内容脚本更新其 UI
-        try {
-            await browser.tabs.sendMessage(tabId, {
-                type: MESSAGE_TYPES.UPDATE_DISPLAY_MODE,
-                payload: { displayMode: newMode }
-            });
-        } catch (e) {
-            if (!e.message.includes("Receiving end does not exist")) {
-                logError('TOGGLE_DISPLAY_MODE (sending update)', e);
-            }
-        }
-
-        return { success: true, newMode: newMode };
-    },
-
-    async [MESSAGE_TYPES.SAVE_RULE_CHANGE](request) {
-        const { hostname, ruleSource, key, value } = request.payload;
-        if (!hostname || !key) {
-            throw new Error('Missing hostname or key for SAVE_RULE_CHANGE');
-        }
-
-        const domainToUpdate = ruleSource === 'default' ? hostname : ruleSource;
-        await SettingsManager.saveDomainRuleProperty(domainToUpdate, key, value);
-        return { success: true };
-    },
-
-    // 新增：处理字幕翻译开关状态更新
-    async [MESSAGE_TYPES.UPDATE_SUBTITLE_TRANSLATION_STATUS](request, sender) {
-        const { tabId, enabled, disabled } = request.payload;
-        try {
-            await browser.action.setIcon({ tabId, path: enabled ? "icons/icon48.png" : "icons/icon48-disabled.png" });
-            await browser.action.setTitle({ tabId, title: enabled ? "Foxlate (Subtitles Enabled)" : "Foxlate (Subtitles Disabled)" });
-            // 你还可以选择存储这个状态，以便在标签页重新加载时保持状态一致。
-            // 例如，使用 browser.storage.session.set({ [`subtitle_${tabId}`]: enabled });
-        } catch (error) {
-            logError('UPDATE_SUBTITLE_TRANSLATION_STATUS', error);
-        }
-        return { success: true };
-    },
-    // ** 新增中断处理器 **
-    async [MESSAGE_TYPES.STOP_TRANSLATION](request) {
-        const { tabId } = request.payload;
-        await TranslatorManager.interruptAll();
-
-        // 可选：发送一个通用的“中断已完成”消息，如果 content-script 需要知道的话。
-        // await browser.tabs.sendMessage(tabId, { type: 'TRANSLATION_INTERRUPTED' });
-        return { success: true };
-    },
-
-    async [MESSAGE_TYPES.TRANSLATION_STATUS_UPDATE](request, sender) {
-        const { status, tabId } = request.payload;
-        if (tabId) {
-            await setBadgeAndState(tabId, status);
-            // When the content script reports its state, update the session-based auto-translate list.
-            if (sender.tab?.url) {
-                try {
-                    const hostname = new URL(sender.tab.url).hostname;
-                    if (status === 'translated' || status === 'loading') {
-                        await TabStateManager.registerTabForAutoTranslation(tabId, hostname);
-                    } else if (status === 'original') {
-                        await TabStateManager.unregisterTabForAutoTranslation(tabId);
-                    }
-                } catch (e) {
-                    logError('TRANSLATION_STATUS_UPDATE (session management)', e);
-                }
-            }
-        } else {
-            logError('TRANSLATION_STATUS_UPDATE', new Error('Missing tabId in status update payload.'));
-        }
-        return { success: true };
-    },
-
-    [MESSAGE_TYPES.PING]() {
-        return { status: 'PONG' };
-    },
-
-    [MESSAGE_TYPES.GET_TAB_ID](request, sender) {
-        if (sender.tab) {
-            return Promise.resolve({ tabId: sender.tab.id });
-        }
-        // 如果发送方不是tab（例如popup），则需要查询活动tab
-        return browser.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
-            return { tabId: tab?.id };
-        });
-    },
-
-    async [MESSAGE_TYPES.GET_CACHE_INFO]() {
-        // 委托给 TranslatorManager 获取缓存信息
-        return TranslatorManager.getCacheInfo();
-    },
-
-     async [MESSAGE_TYPES.CLEAR_CACHE]() {
-         // 委托给 TranslatorManager 清空缓存
-         await TranslatorManager.clearCache();
-         return { success: true };
-     },
- 
-     // --- Cloud Sync Handlers ---
-     async [MESSAGE_TYPES.GET_CLOUD_BACKUPS]() {
-         try {
-             const backups = await getCloudBackupItems();
-             // 按时间戳降序排序（最新的在前）
-             backups.sort((a, b) => b.timestamp - a.timestamp);
-             return { success: true, backups };
-         } catch (error) {
-             logError('GET_CLOUD_BACKUPS', error);
-             return { success: false, error: error.message };
-         }
-     },
- 
-     async [MESSAGE_TYPES.UPLOAD_SETTINGS_TO_CLOUD](request) {
-         try {
-             const settingsToUpload = request.payload;
-             const timestamp = Date.now();
-             const backupId = `${CLOUD_BACKUP_PREFIX}${timestamp}`;
-             const backupItem = {
-                 id: backupId,
-                 timestamp: timestamp,
-                 settings: settingsToUpload
-             };
- 
-             await browser.storage.sync.set({ [backupId]: backupItem });
- 
-             // (已重构) 备份轮换逻辑
-             const allBackups = await getCloudBackupItems();
- 
-             if (allBackups.length > MAX_CLOUD_BACKUPS) {
-                 // 1. 根据对象内部可靠的时间戳属性进行升序排序（最旧的在前）
-                 allBackups.sort((a, b) => a.timestamp - b.timestamp);
- 
-                 // 2. 确定需要删除的备份数量
-                 const backupsToRemoveCount = allBackups.length - MAX_CLOUD_BACKUPS;
- 
-                 // 3. 提取最旧备份的 ID（即存储键）
-                 const keysToRemove = allBackups.slice(0, backupsToRemoveCount).map(backup => backup.id);
- 
-                 // 4. 执行删除
-                 await browser.storage.sync.remove(keysToRemove);
-                 console.log(`[Cloud Sync] Rotated backups, removed ${keysToRemove.length} oldest item(s).`);
-             }
- 
-             return { success: true };
-         } catch (error) {
-             logError('UPLOAD_SETTINGS_TO_CLOUD', error);
-             return { success: false, error: error.message };
-         }
-     },
-
-    async [MESSAGE_TYPES.DOWNLOAD_SETTINGS_FROM_CLOUD](request) {
-        try {
-            const { backupId } = request.payload;
-            if (!backupId) {
-                throw new Error("Backup ID is required.");
-            }
-            const data = await browser.storage.sync.get(backupId);
-            if (data && data[backupId]) {
-                return { success: true, settings: data[backupId].settings };
-            } else {
-                throw new Error("Backup not found.");
-            }
-        } catch (error) {
-            logError('DOWNLOAD_SETTINGS_FROM_CLOUD', error);
-            return { success: false, error: error.message };
-        }
-    },
-
-    async [MESSAGE_TYPES.DELETE_CLOUD_BACKUP](request) {
-        try {
-            const { backupId } = request.payload;
-            if (!backupId) {
-                throw new Error("Backup ID is required.");
-            }
-            await browser.storage.sync.remove(backupId);
-            return { success: true };
-        } catch (error) {
-            logError('DELETE_CLOUD_BACKUP', error);
-            return { success: false, error: error.message };
-        }
-    },
-};
-
-/**
- * @private
- * (新) 从云端存储中获取所有备份条目。
- * @returns {Promise<Array<object>>} 一个解析为备份对象数组的 Promise。
- */
-async function getCloudBackupItems() {
-    const allItems = await browser.storage.sync.get(null);
-    // 通过检查值而不是键来过滤，这样更健壮
-    return Object.values(allItems)
-        .filter(item =>
-            item && typeof item === 'object' &&
-            typeof item.id === 'string' && item.id.startsWith(CLOUD_BACKUP_PREFIX) &&
-            typeof item.timestamp === 'number'
-        );
-}
-// --- Main Event Listeners ---
+browser.runtime.onInstalled.addListener(() => {
+    browser.contextMenus.create({
+        id: 'translate-selection',
+        title: browser.i18n.getMessage('contextMenuTitle'),
+        contexts: ['selection'],
+    });
+    console.log('Context menu created.');
+});
 
 browser.commands.onCommand.addListener(async (command, tab) => {
     if (!tab?.id) return;
 
-    if (command === "translate-selection") { // 快捷键触发时没有 frameId
+    if (command === 'translate-selection') {
         handleSelectionTranslation(tab, 'shortcut');
         return;
     }
 
-    if (command === "toggle-translation") {
-        // Pre-flight check: Do not attempt to message tabs where content scripts cannot run.
-        if (!tab || !tab.id || tab.url?.startsWith('about:') || tab.url?.startsWith('moz-extension:') || tab.url?.startsWith('chrome:')) {
+    if (command === 'toggle-translation') {
+        if (isProtectedTab(tab)) {
             console.log(`[Foxlate] Command '${command}' ignored on protected page: ${tab?.url}`);
             return;
         }
 
-        // Send the request to the service worker itself to use the unified handler.
         try {
-            // Instead of sending a message to self (which can be a bit unreliable),
-            // we directly call the handler function. This is more robust and avoids race conditions.
-            const request = { payload: { tabId: tab.id } };
-            await messageHandlers[MESSAGE_TYPES.TOGGLE_TRANSLATION_REQUEST](request);
-        } catch (e) {
-            logError('onCommand (toggle-translation)', e);
+            await messageHandlers[MESSAGE_TYPES.TOGGLE_TRANSLATION_REQUEST]({ payload: { tabId: tab.id } });
+        } catch (error) {
+            logBackgroundError('onCommand (toggle-translation)', error);
         }
+        return;
     }
 
-    if (command === "toggle-display-mode") {
-        // Pre-flight check
-        if (!tab || !tab.id || !tab.url || tab.url.startsWith('about:') || tab.url.startsWith('moz-extension:') || tab.url.startsWith('chrome:')) {
+    if (command === 'toggle-display-mode') {
+        if (isProtectedTab(tab)) {
             console.log(`[Foxlate] Command '${command}' ignored on protected page: ${tab?.url}`);
             return;
         }
+
         try {
-            const hostname = new URL(tab.url).hostname;
-            await messageHandlers[MESSAGE_TYPES.TOGGLE_DISPLAY_MODE]({ payload: { tabId: tab.id, hostname: hostname } });
-        } catch (e) {
-            logError('onCommand (toggle-display-mode)', e);
+            await messageHandlers[MESSAGE_TYPES.TOGGLE_DISPLAY_MODE]({
+                payload: { tabId: tab.id, hostname: new URL(tab.url).hostname },
+            });
+        } catch (error) {
+            logBackgroundError('onCommand (toggle-display-mode)', error);
         }
+        return;
     }
 
-    if (command === "toggle-summary") {
-        // Pre-flight check
-        if (!tab || !tab.id || !tab.url || tab.url.startsWith('about:') || tab.url.startsWith('moz-extension:') || tab.url.startsWith('chrome:')) {
+    if (command === 'toggle-summary') {
+        if (isProtectedTab(tab)) {
             console.log(`[Foxlate] Command '${command}' ignored on protected page: ${tab?.url}`);
             return;
         }
+
         try {
-            // 确保核心内容脚本已准备好
             const scriptsReady = await ensureScriptsInjected(tab.id, 0, [...CSS_FILES, ...CORE_SCRIPT_FILES]);
             if (!scriptsReady) {
-                logError('onCommand (toggle-summary)', new Error(`Failed to inject scripts into tab ${tab.id}.`));
+                logBackgroundError('onCommand (toggle-summary)', new Error(`Failed to inject scripts into tab ${tab.id}.`));
                 return;
             }
-            
-            // 发送消息到内容脚本处理 summary 切换
+
             await browser.tabs.sendMessage(tab.id, {
                 type: MESSAGE_TYPES.TOGGLE_SUMMARY_REQUEST,
-                payload: { tabId: tab.id }
+                payload: { tabId: tab.id },
             });
-        } catch (e) {
-            logError('onCommand (toggle-summary)', e);
+        } catch (error) {
+            logBackgroundError('onCommand (toggle-summary)', error);
         }
     }
 });
 
 browser.contextMenus.onClicked.addListener((info, tab) => {
-    if (info.menuItemId === "translate-selection") {
-        // 右键菜单事件提供了 frameId
+    if (info.menuItemId === 'translate-selection') {
         handleSelectionTranslation(tab, 'contextMenu', info.frameId);
     }
 });
 
 browser.runtime.onMessage.addListener((request, sender) => {
-    if (__DEBUG__) {
+    if (globalThis.__DEBUG__) {
         console.log(`[Service Worker] Received message: ${JSON.stringify(request)}`);
     }
+
     const handler = messageHandlers[request.type];
-    if (handler) {
-        // Return the promise from the handler directly. The polyfill handles the asynchronicity.
-        // This is a cleaner, more modern pattern than using `sendResponse` and `return true`.
-        // A final .catch is added as a safety net in case a handler throws an unexpected error.
-        return handler(request, sender).catch(error => {
-            logError(`onMessage Listener (request type: ${request.type})`, error);
-            return { success: false, error: "An unexpected error occurred in the service worker." };
-        });
+    if (!handler) {
+        console.warn(`No handler found for message type: ${request.type}`);
+        return Promise.resolve();
     }
-    console.warn(`No handler found for message type: ${request.type}`);
-    return Promise.resolve(); // Explicitly resolve for unhandled messages.
+
+    return handler(request, sender).catch(error => {
+        logBackgroundError(`onMessage Listener (request type: ${request.type})`, error);
+        return { success: false, error: 'An unexpected error occurred in the service worker.' };
+    });
 });
 
-/**
- * A unified handler for navigation events to check for auto-translation.
- * Handles both full page loads and SPA navigation.
- */
-async function handleNavigation(details) {
-    const { tabId, url, frameId } = details;
+browser.webNavigation.onCompleted.addListener(handleNavigation, { url: [{ schemes: ['http', 'https'] }] });
+browser.webNavigation.onHistoryStateUpdated.addListener(handleNavigation, { url: [{ schemes: ['http', 'https'] }] });
 
-    // 防御性检查：确保我们只在有效的、可注入脚本的页面上操作。
-    // 虽然监听器已经过滤了协议，但这是一个额外的安全层。
-    if (!url || !url.startsWith('http')) {
-        return;
-    }
-
-    // --- 主框架专属逻辑 ---
-    // 所有只应在页面顶层文档执行一次的操作都应放在这里。
-    if (frameId === 0) {
-        // 1. 注入核心内容脚本
-        const coreScriptsReady = await ensureScriptsInjected(tabId, frameId, [...CSS_FILES, ...CORE_SCRIPT_FILES]);
-        if (!coreScriptsReady) {
-            logError(`handleNavigation for ${url}`, new Error("Failed to inject core scripts. Aborting further actions."));
-            return; // 如果核心脚本注入失败，后续操作无法进行，直接返回。
-        }
-
-        // 2. 处理自动翻译
-        try {
-            const hostname = new URL(url).hostname;
-            const effectiveRule = await SettingsManager.getEffectiveSettings(hostname);
-            const isSessionTranslate = await TabStateManager.isTabRegisteredForAutoTranslation(tabId, hostname);
-
-            if (effectiveRule.autoTranslate === 'always' || isSessionTranslate) {
-                console.log(`[Auto-Translate] Rule matched for '${hostname}'. Initiating translation for tab ${tabId}.`);
-                // 委托内容脚本处理翻译请求。
-                // 内容脚本将在翻译实际开始时发送一个 'loading' 状态更新。
-                await browser.tabs.sendMessage(tabId, { type: MESSAGE_TYPES.TRANSLATE_PAGE_REQUEST, payload: { tabId } });
-            }
-        } catch (error) {
-            // 只记录错误，不中断流程，因为自动翻译失败不应影响其他功能。
-            logError(`handleNavigation (auto-translate) for ${url}`, error);
-        }
-    }
-
-    // --- 所有框架通用逻辑 ---
-    // 这个逻辑需要在每个框架（包括 iframe）中运行。
-    // 3. 按需注入字幕策略脚本
-    // handleSubtitleInjection 内部有自己的 frameId 检查，所以在这里调用是安全的。
-    await handleSubtitleInjection(tabId, frameId, url);
-}
-
-// Listen for both full page loads and history state updates (for SPAs).
-browser.webNavigation.onCompleted.addListener(handleNavigation, { url: [{ schemes: ["http", "https"] }] });
-browser.webNavigation.onHistoryStateUpdated.addListener(handleNavigation, { url: [{ schemes: ["http", "https"] }] });
-
-/**
- * (已重构) 设置标签页的徽章和状态。
- * 此函数现在将状态持久化委托给 TabStateManager，并只负责更新 UI（徽章）。
- * @param {number} tabId
- * @param {string} state - 'loading', 'translated', 或 'original'
- */
-async function setBadgeAndState(tabId, state) {
-    // 1. 将状态持久化委托给管理器。
-    await TabStateManager.setTabStatus(tabId, state);
-
-    // 2. 处理 UI（徽章）更新。
-    if (state === 'original' || !state) {
-        await browser.action.setBadgeText({ tabId, text: '' });
-    } else {
-        let badgeText = '';
-        let badgeColor = '';
-        switch (state) {
-            case 'loading':
-                badgeText = '...';
-                badgeColor = '#6750A4';
-                break;
-            case 'translated':
-                badgeText = '✓';
-                badgeColor = '#006D3D';
-                break;
-            default:
-                break;
-        }
-        await browser.action.setBadgeText({ tabId, text: badgeText });
-        if (badgeText) {
-            await browser.action.setBadgeBackgroundColor({ tabId, color: badgeColor });
-        }
-    }
-}
-
-// --- (新) 统一的设置变更监听器 ---
 SettingsManager.on('settingsChanged', async ({ newValue, oldValue }) => {
-    // 定义哪些设置的更改需要完全重新翻译页面
     const criticalKeys = [
         'targetLanguage',
         'translatorEngine',
         'precheckRules',
         'translationSelector',
-        'deeplxApiUrl', // 影响 deeplx 引擎
-        'aiEngines'     // 影响 AI 引擎
+        'deeplxApiUrl',
+        'aiEngines',
     ];
 
-    let needsReTranslation = false;
-    // 仅当新旧值都存在时才进行比较
-    if (oldValue && newValue) {
-        for (const key of criticalKeys) {
-            // 使用 JSON.stringify 进行深比较，适用于对象和数组
-            if (JSON.stringify(oldValue[key]) !== JSON.stringify(newValue[key])) {
-                needsReTranslation = true;
-                if (__DEBUG__) {
-                    console.log(`[Foxlate] Critical setting '${key}' changed. Page re-translation required.`);
-                }
-                break;
-            }
-        }
-    } else {
-        // 如果没有旧值（例如，首次安装或重置后），则假定需要重新翻译
-        needsReTranslation = true;
-    }
-
+    const needsReTranslation = shouldReloadTranslationJob({ oldValue, newValue, criticalKeys });
     const messageType = needsReTranslation ? MESSAGE_TYPES.RELOAD_TRANSLATION_JOB : MESSAGE_TYPES.SETTINGS_UPDATED;
-    if (__DEBUG__) {
+    if (globalThis.__DEBUG__) {
         console.log(`[Service Worker] Settings changed. Notifying content scripts with '${messageType}'.`);
     }
 
-    // (优化) 只通知那些当前有活动翻译的标签页
     const activeTabIds = await TabStateManager.getActiveTabIds();
     for (const tabId of activeTabIds) {
-        browser.tabs.sendMessage(tabId, { type: messageType, payload: { newValue } }).catch(e => {
-            if (!e.message.includes("Receiving end does not exist")) {
-                logError('settingsChanged listener (notify tab)', e);
+        browser.tabs.sendMessage(tabId, { type: messageType, payload: { newValue } }).catch(error => {
+            if (!error.message.includes('Receiving end does not exist')) {
+                logBackgroundError('settingsChanged listener (notify tab)', error);
             }
         });
     }
 
-    // (新) 同时，向扩展的其余部分（如 popup）广播一个通用更新消息。
-    // 这确保了即使弹窗是打开的，它也能收到设置更新的通知。
-    browser.runtime.sendMessage({ type: messageType, payload: { newValue, oldValue } }).catch(e => {
-        // 忽略错误，因为可能没有其他监听器（例如，弹窗未打开）
-    });
-
-    // 更新依赖于设置的后台服务
+    browser.runtime.sendMessage({ type: messageType, payload: { newValue, oldValue } }).catch(() => {});
     TranslatorManager.updateConcurrencyLimit();
     TranslatorManager.updateCacheSize();
 });
+
+function isProtectedTab(tab) {
+    return !tab?.id ||
+        !tab.url ||
+        tab.url.startsWith('about:') ||
+        tab.url.startsWith('moz-extension:') ||
+        tab.url.startsWith('chrome:');
+}
+
+function shouldReloadTranslationJob({ oldValue, newValue, criticalKeys }) {
+    if (!oldValue || !newValue) return true;
+
+    return criticalKeys.some(key => {
+        const hasChanged = JSON.stringify(oldValue[key]) !== JSON.stringify(newValue[key]);
+        if (hasChanged && globalThis.__DEBUG__) {
+            console.log(`[Foxlate] Critical setting '${key}' changed. Page re-translation required.`);
+        }
+        return hasChanged;
+    });
+}

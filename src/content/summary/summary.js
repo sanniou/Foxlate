@@ -3,6 +3,8 @@
 import browser from '../../lib/browser-polyfill.js';
 import { SummaryState } from './summary.state.js';
 import { SummaryButton, SummaryDialog } from './summary.view.js';
+import { SummaryContentExtractor } from './summary-content-extractor.js';
+import { generateUserFriendlySummaryError } from './summary-error-messages.js';
 
 // 常量定义
 const CONSTANTS = {
@@ -23,6 +25,7 @@ class SummaryModule {
         this.positionButtonX = 0; // Initialize
         this.positionButtonY = 0; // Initialize
         this.selectionContext = null; // { text: string, rect: DOMRect }
+        this.contentExtractor = new SummaryContentExtractor({ settings });
         this.boundHandleSelection = this.handleSelection.bind(this);
 
         this.init();
@@ -233,7 +236,7 @@ class SummaryModule {
         this.summaryDialog.setFullRerenderNeeded(true);
         try {
             let content = text;
-            if (!content) content = await this.extractPageContent();
+            if (!content) content = await this.contentExtractor.extractPageContent();
 
             // 更新状态中的原文内容
             if (tab.originalContent !== content) {
@@ -255,68 +258,10 @@ class SummaryModule {
             this.state.updateTab(tab.id, { history: newHistory, state: 'summarized' });
         } catch (error) {
             console.error('[Foxlate Summary] Error:', error);
-            const errorMessage = this.generateUserFriendlyErrorMessage(error);
+            const errorMessage = generateUserFriendlySummaryError(error);
             const retryCallback = () => this.fetchSummaryForTab(tab, text);
             this.state.addErrorMessageToTab(tab.id, errorMessage, retryCallback);
         }
-    }
-
-    preProcessDOM(doc) {
-        // 移除常见的不必要元素
-        const selectorsToRemove = ['header', 'footer', 'nav', 'aside', '.ad', '#ad', '[class*="advert"]'];
-        selectorsToRemove.forEach(selector => {
-            doc.querySelectorAll(selector).forEach(el => el.remove());
-        });
-
-        // 清理所有元素的class，避免Readability的误判
-        doc.querySelectorAll('*').forEach(el => {
-            el.removeAttribute('class');
-        });
-    }
-
-    async extractPageContent() {
-        const selector = this.settings.summarySettings?.mainBodySelector;
-        let content = '';
-
-        const getReadabilityContent = async (doc) => {
-            try {
-                const { default: Readability } = await import('../../lib/readability.esm.js');
-                this.preProcessDOM(doc); // 预处理DOM
-                const reader = new Readability(doc);
-                const article = reader.parse();
-                if (!article?.textContent) {
-                    return '';
-                }
-                // 优化：将多个连续的空白行和换行符替换为单个换行符，以保留段落结构
-                return article.textContent.replace(/(\s*\n\s*){2,}/g, '\n').trim();
-            } catch (e) {
-                console.warn('[Foxlate Summary] Readability processing failed.', e);
-                return '';
-            }
-        };
-
-        if (selector) {
-            const element = document.querySelector(selector);
-            if (element) {
-                const doc = document.implementation.createHTMLDocument('');
-                doc.body.innerHTML = element.innerHTML;
-                content = await getReadabilityContent(doc);
-                if (!content) {
-                    content = element.innerText;
-                }
-            }
-        }
-
-        if (!content) {
-            const docClone = document.cloneNode(true);
-            content = await getReadabilityContent(docClone);
-        }
-
-        if (!content) {
-            console.warn('[Foxlate Summary] Fallback to body.innerText.');
-            content = document.body.innerText;
-        }
-        return content;
     }
 
     async handleSendMessage(query) {
@@ -345,7 +290,7 @@ class SummaryModule {
             this.state.updateTab(tab.id, { state: 'summarized' });
         } catch (error) {
             console.error('[Foxlate Summary] AI response error:', error);
-            const errorMessage = this.generateUserFriendlyErrorMessage(error);
+            const errorMessage = generateUserFriendlySummaryError(error);
             const retryCallback = () => this.getAIResponseForTab(tab, isReroll);
             this.state.addErrorMessageToTab(tab.id, errorMessage, retryCallback);
         }
@@ -404,7 +349,7 @@ class SummaryModule {
                         await message.retryCallback();
                     } catch (error) {
                         console.error('[Foxlate Summary] Retry failed:', error);
-                        const errorMessage = this.generateUserFriendlyErrorMessage(error);
+                        const errorMessage = generateUserFriendlySummaryError(error);
                         const retryCallback = () => message.retryCallback();
                         this.state.addErrorMessageToTab(activeTab.id, errorMessage, retryCallback);
                     }
@@ -460,63 +405,6 @@ class SummaryModule {
             this.summaryButton.element.classList.remove('rotated');
         }
         this.summaryDialog.resetSuggestions(); // Reset suggestion bar
-    }
-
-    /**
-     * 生成用户友好的错误消息
-     * @param {Error} error - 错误对象
-     * @returns {string} 格式化的错误消息
-     */
-    generateUserFriendlyErrorMessage(error) {
-        const errorType = this.classifyError(error);
-        const baseMessage = error.message || '未知错误';
-        
-        switch (errorType) {
-            case 'network':
-                return `**网络连接错误**\n\n无法连接到服务器。请检查您的网络连接，然后重试。\n\n详细信息：${baseMessage}`;
-            case 'timeout':
-                return `**请求超时**\n\n服务器响应时间过长。请稍后重试。\n\n详细信息：${baseMessage}`;
-            case 'auth':
-                return `**认证失败**\n\n请检查您的 API 密钥配置，然后重试。\n\n详细信息：${baseMessage}`;
-            case 'rate_limit':
-                return `**请求频率限制**\n\n请求过于频繁，请稍等片刻后重试。\n\n详细信息：${baseMessage}`;
-            case 'content_empty':
-                return `**内容为空**\n\n无法提取到有效内容进行总结。请尝试选择其他文本或刷新页面。\n\n详细信息：${baseMessage}`;
-            case 'server_error':
-                return `**服务器错误**\n\n服务器暂时无法处理请求。请稍后重试。\n\n详细信息：${baseMessage}`;
-            default:
-                return `**发生错误**\n\n处理请求时遇到了问题。请重试，如果问题持续存在，请联系支持。\n\n详细信息：${baseMessage}`;
-        }
-    }
-
-    /**
-     * 分类错误类型
-     * @param {Error} error - 错误对象
-     * @returns {string} 错误类型
-     */
-    classifyError(error) {
-        const message = error.message.toLowerCase();
-        
-        if (message.includes('network') || message.includes('fetch') || message.includes('connection')) {
-            return 'network';
-        }
-        if (message.includes('timeout') || message.includes('time out')) {
-            return 'timeout';
-        }
-        if (message.includes('unauthorized') || message.includes('auth') || message.includes('401') || message.includes('403')) {
-            return 'auth';
-        }
-        if (message.includes('rate limit') || message.includes('429') || message.includes('too many requests')) {
-            return 'rate_limit';
-        }
-        if (message.includes('empty') || message.includes('no content') || message.includes('failed to extract')) {
-            return 'content_empty';
-        }
-        if (message.includes('500') || message.includes('502') || message.includes('503') || message.includes('server error')) {
-            return 'server_error';
-        }
-        
-        return 'unknown';
     }
 
     destroy() {

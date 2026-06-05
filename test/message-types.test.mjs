@@ -38,8 +38,9 @@ test('message type registry has stable unique values', async () => {
 });
 
 test('service worker owns the internal save-rule-change protocol handler', async () => {
-    const source = await readFile(path.join(projectRoot, 'src/background/service-worker.js'), 'utf8');
-    assert.match(source, /MESSAGE_TYPES\.SAVE_RULE_CHANGE/);
-    assert.match(source, /saveDomainRuleProperty/);
-    assert.doesNotMatch(source, /messageHandlers\.SAVE_RULE_CHANGE/);
+    const serviceWorkerSource = await readFile(path.join(projectRoot, 'src/background/service-worker.js'), 'utf8');
+    const handlerSource = await readFile(path.join(projectRoot, 'src/background/background-message-handlers.js'), 'utf8');
+    assert.match(handlerSource, /MESSAGE_TYPES\.SAVE_RULE_CHANGE/);
+    assert.match(handlerSource, /saveDomainRuleProperty/);
+    assert.doesNotMatch(serviceWorkerSource, /messageHandlers\.SAVE_RULE_CHANGE/);
 });

@@ -3,37 +3,32 @@ import { SettingsManager } from '../common/settings-manager.js';
 import { DeepLxTranslator } from './translators/deeplx-translator.js';
 import { GoogleTranslator } from './translators/google-translator.js';
 import { AITranslator } from './translators/ai-translator.js';
+import { createTranslationCacheKey, TranslationCacheStore } from './translation-cache-store.js';
+import { TranslationRetryController } from './translation-retry-controller.js';
 
 import * as Constants from '../common/constants.js';
 export class TranslatorManager {
   // --- Private Static State ---
-  static #translationCache = new Map();
   static #inFlightRequests = new Map();
   static #translators = {
     deeplx: new DeepLxTranslator(),
     google: new GoogleTranslator(),
     ai: new AITranslator(),
   };
+  static #cacheStore = new TranslationCacheStore({ browserApi: browser });
+  static #retryController = new TranslationRetryController({ browserApi: browser });
   static #taskQueue = [];
   static #activeTasks = new Map();
   static #taskIdCounter = 0;
-  // --- 静态配置 ---
-  static #SAVE_CACHE_DEBOUNCE_DELAY = 2000; // 2秒的防抖延迟
-  static #saveCacheDebounceTimer = null;
   static #MAX_CONCURRENT_REQUESTS = 5;
-  static #maxCacheSize = 5000; // 默认缓存大小，可以被用户设置覆盖
-  static #STORAGE_KEY = 'translationCache';
-  static #MAX_RETRY_ATTEMPTS = 2;
-  static #RETRY_BASE_DELAY_MS = 1200;
-  static #RETRY_MAX_DELAY_MS = 12000;
-  static #engineBackoffState = new Map();
 
   // --- Static Initialization Block ---
   // This block runs once when the class is loaded, setting up initial values.
   static {
     (async () => {
         try {
-            await this.#loadCacheFromStorage();
+            const loadedCount = await this.#cacheStore.load();
+            console.log(`[TranslatorManager] Loaded ${loadedCount} items from persistent cache.`);
             await this.updateConcurrencyLimit();
             await this.updateCacheSize();
         } catch (e) {
@@ -54,150 +49,6 @@ export class TranslatorManager {
   }
 
   // --- Private Static Methods ---
-
-  static async #loadCacheFromStorage() {
-    try {
-        const result = await browser.storage.local.get(this.#STORAGE_KEY);
-        if (result[this.#STORAGE_KEY]) {
-            // 从普通对象重建 Map
-            this.#translationCache = new Map(Object.entries(result[this.#STORAGE_KEY]));
-            console.log(`[TranslatorManager] Loaded ${this.#translationCache.size} items from persistent cache.`);
-        }
-    } catch (e) {
-        console.error("[TranslatorManager] Failed to load cache from storage.", e);
-    }
-  }
-
-  static async #saveCacheToStorage() {
-      try {
-          // 将 Map 转换为可序列化的普通对象
-          const plainObject = Object.fromEntries(this.#translationCache);
-          await browser.storage.local.set({ [this.#STORAGE_KEY]: plainObject });
-      } catch (e) {
-          console.error("[TranslatorManager] Failed to save cache to storage.", e);
-      }
-  }
-
-  /**
-   * (新) 使用防抖机制将缓存写入持久化存储。
-   * 这可以防止在短时间内进行大量翻译时（例如，页面加载）频繁地写入存储，
-   * 将多次写入操作合并为一次，从而显著提高性能。
-   */
-  static #debouncedSaveCache() {
-      if (this.#saveCacheDebounceTimer) {
-          clearTimeout(this.#saveCacheDebounceTimer);
-      }
-      this.#saveCacheDebounceTimer = setTimeout(() => {
-          this.#saveCacheToStorage();
-          this.#saveCacheDebounceTimer = null; // 清理计时器ID
-      }, this.#SAVE_CACHE_DEBOUNCE_DELAY);
-  }
-
-  static #setCache(key, value) {
-      this.#translationCache.set(key, value);
-      this.#enforceCacheLimit();
-  }
-
-  static #isRetryableError(error) {
-      const message = String(error?.message || '').toLowerCase();
-      return message.includes('429') ||
-          message.includes('rate limit') ||
-          message.includes('too many requests') ||
-          message.includes('timeout') ||
-          message.includes('network') ||
-          message.includes('temporarily') ||
-          message.includes('503') ||
-          message.includes('502');
-  }
-
-  static #getEngineBackoffDelay(engine) {
-      const state = this.#engineBackoffState.get(engine);
-      if (!state) return 0;
-      return Math.max(0, state.until - Date.now());
-  }
-
-  static async #sleep(ms, signal) {
-      if (ms <= 0) return;
-      if (signal?.aborted) {
-          throw new DOMException('Translation was interrupted by the user.', 'AbortError');
-      }
-      await new Promise((resolve, reject) => {
-          const timer = setTimeout(resolve, ms);
-          const handleAbort = () => {
-              clearTimeout(timer);
-              reject(new DOMException('Translation was interrupted by the user.', 'AbortError'));
-          };
-          signal?.addEventListener?.('abort', handleAbort, { once: true });
-      });
-  }
-
-  static #recordBackoff(engine, attempt, error) {
-      const previous = this.#engineBackoffState.get(engine);
-      const failures = previous?.failures ?? 0;
-      const jitter = Math.floor(Math.random() * 250);
-      const delayMs = Math.min(
-          this.#RETRY_MAX_DELAY_MS,
-          this.#RETRY_BASE_DELAY_MS * Math.pow(2, Math.max(failures, attempt)) + jitter
-      );
-      this.#engineBackoffState.set(engine, {
-          failures: failures + 1,
-          until: Date.now() + delayMs,
-          lastError: error?.message || String(error),
-      });
-      return delayMs;
-  }
-
-  static #clearBackoff(engine) {
-      this.#engineBackoffState.delete(engine);
-  }
-
-  static async #notifyRetry(tabId, { engine, delayMs, attempt, error }) {
-      if (!tabId || !browser.tabs?.sendMessage) return;
-      try {
-          await browser.tabs.sendMessage(tabId, {
-              type: 'TRANSLATION_RETRY_SCHEDULED',
-              payload: {
-                  engine,
-                  delayMs,
-                  attempt,
-                  error: error?.message || null,
-              },
-          });
-      } catch (notifyError) {
-          if (!notifyError.message?.includes('Receiving end does not exist')) {
-              console.warn('[TranslatorManager] Failed to notify retry state:', notifyError);
-          }
-      }
-  }
-
-  static async #executeWithRetry({ engine, tabId, signal, log, operation }) {
-      for (let attempt = 0; attempt <= this.#MAX_RETRY_ATTEMPTS; attempt++) {
-          const preDelay = this.#getEngineBackoffDelay(engine);
-          if (preDelay > 0) {
-              log.push(`Engine cooldown before retry: ${Math.ceil(preDelay)}ms`);
-              await this.#notifyRetry(tabId, { engine, delayMs: preDelay, attempt, error: null });
-              await this.#sleep(preDelay, signal);
-          }
-
-          try {
-              const result = await operation();
-              this.#clearBackoff(engine);
-              await this.#notifyRetry(tabId, { engine, delayMs: 0, attempt, error: null });
-              return result;
-          } catch (error) {
-              if (error.name === 'AbortError') throw error;
-              if (!this.#isRetryableError(error) || attempt >= this.#MAX_RETRY_ATTEMPTS) {
-                  throw error;
-              }
-
-              const delayMs = this.#recordBackoff(engine, attempt, error);
-              log.push(`Retryable translation error. Attempt ${attempt + 1}/${this.#MAX_RETRY_ATTEMPTS}. Backing off ${delayMs}ms.`);
-              await this.#notifyRetry(tabId, { engine, delayMs, attempt: attempt + 1, error });
-              await this.#sleep(delayMs, signal);
-          }
-      }
-      throw new Error('Retry loop exited unexpectedly.');
-  }
 
   static #preProcess(text) {
       if (typeof text !== 'string') return '';
@@ -329,7 +180,7 @@ export class TranslatorManager {
           // 此函数仅在缓存未命中时调用，因此我们直接记录缓存未命中。
           log.push(browser.i18n.getMessage('logEntryCacheMiss'));
 
-          const cacheKey = `${sourceLang}:${targetLang}:${processedText}`;
+          const cacheKey = createTranslationCacheKey(sourceLang, targetLang, processedText);
 
           // 步骤 1: 解析出最终要使用的翻译器和配置
           const { translator, engine: resolvedEngine, config } = await this.#resolveTranslatorForText(processedText, engine, log);
@@ -356,7 +207,7 @@ export class TranslatorManager {
           }
 
           // 步骤 3: 使用解析出的翻译器执行翻译
-          const { text: translatedResult, log: translatorLog } = await this.#executeWithRetry({
+          const { text: translatedResult, log: translatorLog } = await this.#retryController.execute({
               engine: resolvedEngine,
               tabId,
               signal,
@@ -367,10 +218,9 @@ export class TranslatorManager {
           log.push(browser.i18n.getMessage('logEntryTranslationSuccess'));
 
           if (translatedResult) {
-              this.#setCache(cacheKey, translatedResult);
+              this.#cacheStore.set(cacheKey, translatedResult);
           }
-          // (优化) 不再每次都立即写入存储，而是使用防抖函数来批量处理。
-          this.#debouncedSaveCache();
+          this.#cacheStore.scheduleSave();
           const finalResult = this.#postProcess(translatedResult);
           return { text: finalResult, translated: true, log: log };
       } catch (error) {
@@ -412,7 +262,7 @@ export class TranslatorManager {
       log.push(`AI batch translation started. Count: ${items.length}`);
 
       try {
-          const { texts: translatedTexts, log: translatorLog = [] } = await this.#executeWithRetry({
+          const { texts: translatedTexts, log: translatorLog = [] } = await this.#retryController.execute({
               engine,
               tabId,
               signal,
@@ -430,7 +280,7 @@ export class TranslatorManager {
           const results = translatedTexts.map((translatedText, index) => {
               const item = items[index];
               if (translatedText) {
-                  this.#setCache(item.cacheKey, translatedText);
+                  this.#cacheStore.set(item.cacheKey, translatedText);
               }
               return {
                   index: item.index,
@@ -440,7 +290,7 @@ export class TranslatorManager {
               };
           });
 
-          this.#debouncedSaveCache();
+          this.#cacheStore.scheduleSave();
           return results;
       } catch (error) {
           if (error.name === 'AbortError') throw error;
@@ -454,16 +304,6 @@ export class TranslatorManager {
               log: [...log, browser.i18n.getMessage('logEntryTranslationError', errorMessage)],
               error: errorMessage,
           }));
-      }
-  }
-
-  static #enforceCacheLimit() {
-      // 当缓存超出大小时，移除最旧的条目。
-      // Map 会记住原始的插入顺序，所以这是一种有效的 FIFO 驱逐策略。
-      while (this.#translationCache.size > this.#maxCacheSize) {
-          // map.keys().next().value 获取第一个（即最旧的）键
-          const oldestKey = this.#translationCache.keys().next().value;
-          this.#translationCache.delete(oldestKey);
       }
   }
 
@@ -500,20 +340,15 @@ export class TranslatorManager {
     if (!processedText) {
       return Promise.resolve({ text: "", translated: false, log: [browser.i18n.getMessage('logEntryPrecheckNoTranslation')] });
     }
-    const cacheKey = `${sourceLang}:${targetLang}:${processedText}`;
+    const cacheKey = createTranslationCacheKey(sourceLang, targetLang, processedText);
 
     // 1. 检查永久缓存
-    if (this.#translationCache.has(cacheKey)) {
+    if (this.#cacheStore.has(cacheKey)) {
       const log = [
         browser.i18n.getMessage('logEntryStart', [text, sourceLang, targetLang]),
         browser.i18n.getMessage('logEntryCacheHit')
       ];
-      const cachedResult = this.#translationCache.get(cacheKey);
-
-      // 实现 LRU 策略：当一个条目被访问时，将它移动到 Map 的末尾，
-      // 表示它是“最近使用的”。这可以防止常用翻译被不常用的新翻译挤出缓存。
-      this.#translationCache.delete(cacheKey);
-      this.#translationCache.set(cacheKey, cachedResult);
+      const cachedResult = this.#cacheStore.touch(cacheKey);
 
       return Promise.resolve({ text: this.#postProcess(cachedResult), translated: true, log });
     }
@@ -574,11 +409,9 @@ export class TranslatorManager {
               continue;
           }
 
-          const cacheKey = `${sourceLang}:${targetLang}:${processedText}`;
-          if (this.#translationCache.has(cacheKey)) {
-              const cachedResult = this.#translationCache.get(cacheKey);
-              this.#translationCache.delete(cacheKey);
-              this.#translationCache.set(cacheKey, cachedResult);
+          const cacheKey = createTranslationCacheKey(sourceLang, targetLang, processedText);
+          if (this.#cacheStore.has(cacheKey)) {
+              const cachedResult = this.#cacheStore.touch(cacheKey);
               results[index] = {
                   text: this.#postProcess(cachedResult),
                   translated: true,
@@ -782,10 +615,8 @@ export class TranslatorManager {
   static async updateCacheSize() {
       const settings = await SettingsManager.getValidatedSettings();
       const size = settings.cacheSize; // 假设设置项名为 cacheSize
-      if (size && typeof size === 'number' && size >= 0) {
-          this.#maxCacheSize = size;
-      }
-      console.log(`[TranslatorManager] Cache size limit updated to ${this.#maxCacheSize}`);
+      const cacheLimit = this.#cacheStore.updateLimit(size);
+      console.log(`[TranslatorManager] Cache size limit updated to ${cacheLimit}`);
   }
 
   /**
@@ -794,14 +625,13 @@ export class TranslatorManager {
    */
   static async getCacheInfo() {
       return {
-          count: this.#translationCache.size,
-          limit: this.#maxCacheSize
+          count: this.#cacheStore.size,
+          limit: this.#cacheStore.limit
       };
   }
 
   static async clearCache() {
-      this.#translationCache.clear();
-      await this.#saveCacheToStorage();
+      await this.#cacheStore.clear();
       console.log("[TranslatorManager] Translation cache has been cleared.");
   }
 }
