@@ -515,9 +515,9 @@ export class OptionsActions {
             items,
             emptyText: browser.i18n.getMessage('translationHistoryEmpty') || 'No translation history yet.',
             renderItem: (item) => `
-                <div class="product-record-main">${escapeHtml(item.translatedText || '')}</div>
-                <div class="product-record-sub">${escapeHtml(item.sourceText || '')}</div>
-                <div class="product-record-sub">${escapeHtml([item.engine, item.targetLang, item.hostname, this.formatDate(item.createdAt)].filter(Boolean).join(' · '))}</div>
+                <div class="ui-record-main">${escapeHtml(item.translatedText || '')}</div>
+                <div class="ui-record-sub">${escapeHtml(item.sourceText || '')}</div>
+                <div class="ui-record-sub">${escapeHtml([item.engine, item.targetLang, item.hostname, this.formatDate(item.createdAt)].filter(Boolean).join(' · '))}</div>
             `,
         });
     }
@@ -534,11 +534,11 @@ export class OptionsActions {
                 const failureLabel = browser.i18n.getMessage('providerHealthFailure') || 'failure';
                 return `
                 <div class="flex-between">
-                    <div class="product-record-main">${escapeHtml(item.engine || 'default')}</div>
-                    <span class="health-pill" data-status="${escapeHtml(status)}">${escapeHtml(this.getProviderStatusLabel(status))}</span>
+                    <div class="ui-record-main">${escapeHtml(item.engine || 'default')}</div>
+                    <span class="ui-status-pill" data-status="${escapeHtml(status)}">${escapeHtml(this.getProviderStatusLabel(status))}</span>
                 </div>
-                <div class="product-record-sub">${escapeHtml(`${successLabel} ${item.successCount || 0} · ${failureLabel} ${item.failureCount || 0} · ${item.lastLatencyMs ?? 0}ms`)}</div>
-                <div class="product-record-sub">${escapeHtml(item.lastError || this.formatDate(item.lastCheckedAt))}</div>
+                <div class="ui-record-sub">${escapeHtml(`${successLabel} ${item.successCount || 0} · ${failureLabel} ${item.failureCount || 0} · ${item.lastLatencyMs ?? 0}ms`)}</div>
+                <div class="ui-record-sub">${escapeHtml(item.lastError || this.formatDate(item.lastCheckedAt))}</div>
             `;
             },
         });
@@ -557,7 +557,7 @@ export class OptionsActions {
 
         items.slice(0, 12).forEach(item => {
             const li = document.createElement('li');
-            li.className = 'product-record-item';
+            li.className = 'ui-record-item';
             li.innerHTML = renderItem(item);
             listElement.appendChild(li);
         });
@@ -583,16 +583,16 @@ export class OptionsActions {
         const translatedLength = translatedText.length;
         const ratio = sourceLength > 0 ? translatedLength / sourceLength : 0;
         preview.innerHTML = `
-            <div class="quality-preview-item">
-                <span class="product-record-sub">${escapeHtml(browser.i18n.getMessage('qualityPreviewSource') || 'Source')}</span>
+            <div class="ui-metric-item">
+                <span class="ui-record-sub">${escapeHtml(browser.i18n.getMessage('qualityPreviewSource') || 'Source')}</span>
                 <strong>${sourceLength}</strong>
             </div>
-            <div class="quality-preview-item">
-                <span class="product-record-sub">${escapeHtml(browser.i18n.getMessage('qualityPreviewResult') || 'Result')}</span>
+            <div class="ui-metric-item">
+                <span class="ui-record-sub">${escapeHtml(browser.i18n.getMessage('qualityPreviewResult') || 'Result')}</span>
                 <strong>${translatedLength}</strong>
             </div>
-            <div class="quality-preview-item">
-                <span class="product-record-sub">${escapeHtml(browser.i18n.getMessage('qualityPreviewExpansion') || 'Expansion')}</span>
+            <div class="ui-metric-item">
+                <span class="ui-record-sub">${escapeHtml(browser.i18n.getMessage('qualityPreviewExpansion') || 'Expansion')}</span>
                 <strong>${escapeHtml(ratio.toFixed(2))}x</strong>
             </div>
         `;

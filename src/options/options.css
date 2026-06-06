@@ -263,91 +263,6 @@
     box-shadow: inset 3px 0 0 var(--color-primary), var(--shadow-xs);
 }
 
-.product-record-list {
-    max-height: 360px;
-    overflow: auto;
-}
-
-.product-settings-grid,
-.product-diagnostics-grid {
-    display: grid;
-    align-items: stretch;
-    gap: 18px;
-    grid-template-columns: minmax(0, 1fr) minmax(320px, 0.82fr);
-}
-
-.product-settings-grid > .card,
-.product-diagnostics-grid > .card {
-    min-width: 0;
-    height: 100%;
-}
-
-.product-settings-grid .grid-2 {
-    align-items: end;
-}
-
-.product-note {
-    display: grid;
-    gap: 6px;
-}
-
-.product-record-item {
-    display: grid;
-    gap: 8px;
-    padding: 12px;
-}
-
-.product-record-main {
-    color: var(--color-text-main);
-    font-size: var(--text-sm);
-    font-weight: var(--font-semibold);
-    line-height: 1.45;
-    overflow-wrap: anywhere;
-}
-
-.product-record-sub {
-    color: var(--color-text-muted);
-    font-size: 12px;
-    line-height: 1.45;
-    overflow-wrap: anywhere;
-}
-
-.health-pill {
-    display: inline-flex;
-    align-items: center;
-    min-height: 24px;
-    padding: 2px 8px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--color-success) 14%, transparent);
-    color: var(--color-success);
-    font-size: 12px;
-    font-weight: var(--font-bold);
-}
-
-.health-pill[data-status="degraded"] {
-    background: color-mix(in srgb, var(--color-error) 14%, transparent);
-    color: var(--color-error);
-}
-
-.quality-preview {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
-}
-
-.quality-preview-item {
-    min-height: 54px;
-    padding: 10px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    background: var(--color-surface-container);
-}
-
-.quality-preview-item span,
-.quality-preview-item strong {
-    display: block;
-}
-
 .nav-link.active::before {
     background: var(--gradient-brand);
     color: var(--color-on-primary);
@@ -566,8 +481,8 @@ select[data-foxlate-layout-source] {
     }
 
     .settings-grid-2,
-    .product-settings-grid,
-    .product-diagnostics-grid,
+    .ui-card-grid,
+    .ui-diagnostics-grid,
     .grid-2 {
         grid-template-columns: 1fr;
     }

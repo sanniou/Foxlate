@@ -1,20 +1,14 @@
 import * as Constants from '../common/constants.js';
-import replaceStrategy from './strategies/replace-strategy.js';
-import appendStrategy from './strategies/append-strategy.js';
-import enhancedContextMenuStrategy from './strategies/enhanced-context-menu-strategy.js';
-import hoverStrategy from './strategies/hover-strategy.js';
+import { resolveDisplayLanguageContext } from './display/display-language-context.js';
+import { DisplayStateStore } from './display/display-state-store.js';
+import { defaultDisplayStrategyRegistry } from './display/display-strategy-registry.js';
 
 
 export class DisplayManager {
 
     static STATES = Constants.DISPLAY_MANAGER_STATES;
 
-    static _strategies = {
-        replace: replaceStrategy,
-        append: appendStrategy,
-        enhancedContextMenu: enhancedContextMenuStrategy,
-        hover: hoverStrategy,
-    };
+    static strategyRegistry = defaultDisplayStrategyRegistry;
 
     // 使用 WeakMap 来存储元素状态。
     // WeakMap 对键（DOM 元素）使用弱引用，当元素从 DOM 中被移除且没有其他引用时，
@@ -26,23 +20,24 @@ export class DisplayManager {
     // 跟踪临时的、非 DOM 绑定的翻译任务，例如右键菜单。
     static activeEphemeralTargets = new Map();
 
+    static stateStore = new DisplayStateStore({
+        states: DisplayManager.STATES,
+        elementStates: DisplayManager.elementStates,
+        elementRegistry: DisplayManager.elementRegistry,
+        activeEphemeralTargets: DisplayManager.activeEphemeralTargets,
+    });
+
     static getElementState(element) {
         // 只返回状态字符串，如 "TRANSLATED"
-        return (this.elementStates.get(element) || {}).state || this.STATES.ORIGINAL;
+        return this.stateStore.getState(element);
     }
 
     static getElementData(element) {
-        return this.elementStates.get(element);
+        return this.stateStore.getData(element);
     }
 
     static setElementState(element, newState, data = null) {
-        const currentState = this.elementStates.get(element) || {};
-        const newData = data ? { ...currentState, ...data, state: newState } : { ...currentState, state: newState };
-        this.elementStates.set(element, newData);
- 
-        if (element instanceof HTMLElement) {
-            element.dataset.foxlateState = newState.toLowerCase();
-        }
+        this.stateStore.setState(element, newState, data);
 
         // 根据新状态更新 UI
         this.updateElementUI(element, newState);
@@ -56,54 +51,27 @@ export class DisplayManager {
         }
 
         let options = {};
-        // 仅当策略是增强型右键菜单时，才获取语言配置
-        if (displayMode === 'enhancedContextMenu') {
-            try {
-                // window.getEffectiveSettings 由 content-script.js 暴露
-                const settings = await window.getEffectiveSettings();
-                // 仅当源语言不是 'auto' 时，才需要获取其 speechCode。
-                // 'auto' 本身对于工具提示是一个有效值，用于表示自动检测。
-                if (!settings.sourceLanguage || settings.sourceLanguage === 'auto') {
-                    const { getSpeechCode } = await import('../common/utils.js');
-                    options.langConfig = {
-                        sourceLang: 'auto',
-                        targetLang: getSpeechCode(settings.targetLanguage)
-                    };
-                } else {
-                    // 如果源语言是 'auto'，则不应有此逻辑分支，因为划词翻译的源语言总是 'auto'。
-                    // 但作为防御性编程，我们保留此逻辑。
-                    const { getSpeechCode } = await import('../common/utils.js');
-                    options.langConfig = {
-                        sourceLang: getSpeechCode(settings.sourceLanguage),
-                        targetLang: getSpeechCode(settings.targetLanguage)
-                    };
-                }
-            } catch (error) {
-                console.error('[DisplayManager] Failed to get effective settings for enhanced context menu.', error);
-            }
+        try {
+            options = await resolveDisplayLanguageContext(displayMode);
+        } catch (error) {
+            console.error('[DisplayManager] Failed to resolve display language context.', error);
         }
 
-        const strategy = this.getStrategy(displayMode);
-        if (strategy && strategy.updateUI) {
-            strategy.updateUI(element, state, this, options); // 将 DisplayManager 实例和选项传递给策略
-        } else {
+        if (!this.strategyRegistry.update({ displayMode, target: element, state, manager: this, options })) {
             console.error(`[DisplayManager] Strategy "${displayMode}" not found or does not have an updateUI method.`);
         }
     }
 
     static revert(elementOrObject) {
         // 1. 从状态或元素中安全地获取显示模式
-        const stateData = this.elementStates.get(elementOrObject);
+        const stateData = this.stateStore.getData(elementOrObject);
         const displayMode = stateData?.strategy || elementOrObject?.dataset?.translationStrategy;
         // (优化) 在 dataset 被清理前，提前获取 elementId。
         // 这是修复内存泄漏的关键，确保我们总能从 elementRegistry 中移除条目。
         const elementId = (elementOrObject instanceof HTMLElement) ? elementOrObject.dataset?.translationId : null;
 
         // 2. 获取并调用策略的还原方法
-        const strategy = this.getStrategy(displayMode);
-        if (strategy && strategy.revert) {
-            strategy.revert(elementOrObject, this); // 策略负责清理其自身添加的UI
-        }
+        this.strategyRegistry.revert(displayMode, elementOrObject, this);
 
         // 3. DisplayManager 负责清理其自身的通用标记和状态
         // 这种检查是合理的，因为 DisplayManager 确实需要区分它管理的两种目标
@@ -115,16 +83,14 @@ export class DisplayManager {
             delete elementOrObject.dataset.foxlateState;
         }
 
-        this.elementStates.delete(elementOrObject);
+        this.stateStore.deleteTarget(elementOrObject);
 
         // 4. 如果是临时目标，则从活动映射中移除
-        if (this.activeEphemeralTargets.has(displayMode) && this.activeEphemeralTargets.get(displayMode) === elementOrObject) {
-            this.activeEphemeralTargets.delete(displayMode);
-        }
+        this.stateStore.removeActiveEphemeral(displayMode, elementOrObject);
 
         // (优化) 在方法结束前，使用之前获取的 elementId 清理注册表
         if (elementId) {
-            this.elementRegistry.delete(elementId);
+            this.stateStore.removeElementId(elementId);
         }
 
         // (新) 如果元素是由脚本生成的包裹器，则用其内容替换它（“解包”）。
@@ -136,12 +102,12 @@ export class DisplayManager {
     }
 
     static getStrategy(displayMode) {
-        return this._strategies[displayMode];
+        return this.strategyRegistry.get(displayMode);
     }
 
     static updateDisplayMode(newDisplayMode) {
         // 不再使用 querySelectorAll，而是遍历我们的注册表
-        for (const [elementId, weakRef] of this.elementRegistry.entries()) {
+        for (const [elementId, weakRef] of this.stateStore.entries()) {
             const element = weakRef.deref();
 
             // 如果元素不存在了（已被GC），或者不是一个“已翻译”状态的元素，则跳过
@@ -150,18 +116,14 @@ export class DisplayManager {
                 continue;
             }
             const oldDisplayMode = element.dataset.translationStrategy;
-            const oldStrategy = this.getStrategy(oldDisplayMode);
 
             // 只调用策略的还原方法，而不触及 DisplayManager 的状态。
             // 这会清理旧的UI，但保留元素为“已翻译”状态。
-            if (oldStrategy && oldStrategy.revert) {
-                oldStrategy.revert(element, this);
-            }
+            this.strategyRegistry.revert(oldDisplayMode, element, this);
 
             // 更新 dataset 和状态中的策略
             element.dataset.translationStrategy = newDisplayMode;
-            const currentState = this.elementStates.get(element) || {};
-            this.elementStates.set(element, { ...currentState, strategy: newDisplayMode });
+            this.stateStore.patchData(element, { strategy: newDisplayMode });
 
             // 使用新策略重新应用“已翻译”状态的UI
             this.updateElementUI(element, this.STATES.TRANSLATED);
@@ -170,17 +132,11 @@ export class DisplayManager {
 
     static registerElement(elementId, element) {
         // 我们存储的是一个对元素的弱引用
-        this.elementRegistry.set(elementId, new WeakRef(element));
+        this.stateStore.registerElement(elementId, element);
     }
 
     static findElementById(elementId) {
-        const weakRef = this.elementRegistry.get(elementId);
-        if (weakRef) {
-            // .deref() 方法可以获取到被引用的对象
-            // 如果对象已被垃圾回收，则返回 undefined
-            return weakRef.deref();
-        }
-        return undefined;
+        return this.stateStore.findElementById(elementId);
     }
 
     static displayLoading(element, displayMode, initialState = {}) {
@@ -222,12 +178,7 @@ export class DisplayManager {
      * during a full page revert, ensuring no UI elements are left behind.
      */
     static hideAllEphemeralUI() {
-        // Iterate through all known strategies and call their global cleanup method if it exists.
-        // This is a clean, decoupled way to handle global state resets. We pass the DisplayManager
-        // class itself to the cleanup method to avoid global dependencies in the strategy.
-        for (const strategy of Object.values(this._strategies)) {
-            strategy?.globalCleanup?.(this);
-        }
+        this.strategyRegistry.globalCleanup(this);
     }
 
     /**
@@ -239,8 +190,9 @@ export class DisplayManager {
         const { isLoading, success, translatedText, error, coords, source, originalText, displayMode = 'enhancedContextMenu' } = payload;
         let target;
         if (isLoading) {
-            if (this.activeEphemeralTargets.has(displayMode)) {
-                this.revert(this.activeEphemeralTargets.get(displayMode));
+            const activeTarget = this.stateStore.getActiveEphemeral(displayMode);
+            if (activeTarget) {
+                this.revert(activeTarget);
             }
 
             target = {
@@ -252,10 +204,10 @@ export class DisplayManager {
                 },
                 frameId: frameId // 存储框架ID
             };
-            this.activeEphemeralTargets.set(displayMode, target);
+            this.stateStore.setActiveEphemeral(displayMode, target);
             this.displayLoading(target, displayMode);
         } else {
-            target = this.activeEphemeralTargets.get(displayMode);
+            target = this.stateStore.getActiveEphemeral(displayMode);
             if (!target) return;
 
             if (success) {

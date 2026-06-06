@@ -113,7 +113,7 @@
                         <button id="toggleLogBtn" class="btn btn-text" i18n-text="testLogButton">Show Log</button>
                     </div>
                     <div id="test-result-area" class="alert mt-2" style="display:none;"></div>
-                    <div id="test-quality-preview" class="quality-preview mt-2" style="display:none;"></div>
+                    <div id="test-quality-preview" class="ui-metric-grid mt-2" style="display:none;"></div>
                     <pre id="log-content" class="log-box mt-2" style="display:none;"></pre>
                 </div>
             </section>
@@ -121,7 +121,7 @@
             <!-- Product -->
             <section id="product" class="content-panel">
                 <h2 class="section-title" i18n-text="productSystemSettings">Product System</h2>
-                <div class="product-settings-grid">
+                <div class="ui-card-grid">
                     <div class="card">
                         <div class="flex-between mb-4">
                             <div>
@@ -174,7 +174,7 @@
                     </div>
                 </div>
 
-                <div class="product-diagnostics-grid mt-4">
+                <div class="ui-diagnostics-grid mt-4">
                     <div class="card">
                         <div class="flex-between mb-2">
                             <h3 class="card-title" i18n-text="providerHealthTitle">Provider Health</h3>
@@ -183,7 +183,7 @@
                                 <button id="clearProviderHealthBtn" class="btn btn-text btn-sm text-error" i18n-text="clear">Clear</button>
                             </div>
                         </div>
-                        <ul id="providerHealthList" class="item-list product-record-list"></ul>
+                        <ul id="providerHealthList" class="item-list ui-record-list"></ul>
                     </div>
 
                     <div class="card">
@@ -191,13 +191,13 @@
                             <h3 class="card-title" i18n-text="translationHistoryTitle">Translation History</h3>
                             <button id="clearHistoryBtn" class="btn btn-text btn-sm text-error" i18n-text="clear">Clear</button>
                         </div>
-                        <ul id="translationHistoryList" class="item-list product-record-list"></ul>
+                        <ul id="translationHistoryList" class="item-list ui-record-list"></ul>
                     </div>
                 </div>
 
-                <div class="card mt-4 product-note">
-                    <div class="product-record-main" i18n-text="failureHandlingTitle">Failure handling</div>
-                    <div class="product-record-sub" i18n-text="failureHandlingDescription">Page translation failures are handled in page context through automatic retry and provider health signals, not from the settings page.</div>
+                <div class="card mt-4 ui-note">
+                    <div class="ui-record-main" i18n-text="failureHandlingTitle">Failure handling</div>
+                    <div class="ui-record-sub" i18n-text="failureHandlingDescription">Page translation failures are handled in page context through automatic retry and provider health signals, not from the settings page.</div>
                 </div>
             </section>
 

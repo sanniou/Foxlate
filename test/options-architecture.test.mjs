@@ -381,3 +381,28 @@ test('options UI primitives centralize modal surfaces and button ripple feedback
     addButtonRipple(button, new dom.window.MouseEvent('click', { clientX: 30, clientY: 45 }));
     assert.equal(button.querySelectorAll('.ripple').length, 1);
 });
+
+test('product options compose shared UI system primitives instead of local product-only classes', async () => {
+    const html = await readFile(path.join(projectRoot, 'src/options/options.html'), 'utf8');
+    const optionsCss = await readFile(path.join(projectRoot, 'src/options/options.css'), 'utf8');
+    const commonCss = await readFile(path.join(projectRoot, 'src/common/common.css'), 'utf8');
+    const actionsSource = await readFile(path.join(projectRoot, 'src/options/options-actions.js'), 'utf8');
+
+    assert.match(html, /i18n-text="productSystemSettings"/);
+    assert.doesNotMatch(html, /Failed Retry Queue|failed retry queue/i);
+    assert.match(html, /class="ui-card-grid"/);
+    assert.match(html, /class="ui-diagnostics-grid mt-4"/);
+    assert.match(html, /class="item-list ui-record-list"/);
+    assert.doesNotMatch(html, /class="[^"]*product-(settings-grid|diagnostics-grid|record|note)/);
+
+    assert.match(actionsSource, /ui-record-item/);
+    assert.match(actionsSource, /ui-status-pill/);
+    assert.match(actionsSource, /ui-metric-item/);
+    assert.doesNotMatch(actionsSource, /product-record-|health-pill|quality-preview-item/);
+
+    assert.match(commonCss, /\.ui-card-grid/);
+    assert.match(commonCss, /\.ui-record-item/);
+    assert.match(commonCss, /\.ui-status-pill/);
+    assert.match(commonCss, /\.ui-metric-grid/);
+    assert.doesNotMatch(optionsCss, /product-record-|product-settings-grid|product-diagnostics-grid|health-pill|quality-preview/);
+});

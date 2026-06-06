@@ -1,9 +1,10 @@
-import { detectSpeechLang } from '../common/utils.js';
 import browser from '../lib/browser-polyfill.js';
 import { floatingLayoutService } from './layout/floating-layout-service.js';
-import { ResizeController } from './layout/resize-controller.js';
 import { createTooltipContent } from './tooltip/tooltip-content-view.js';
 import { createTooltipIcon } from './tooltip/tooltip-icons.js';
+import { TooltipDragController } from './tooltip/tooltip-drag-controller.js';
+import { TooltipResizeController } from './tooltip/tooltip-resize-controller.js';
+import { TooltipSpeechController } from './tooltip/tooltip-speech-controller.js';
 
 // --- Constants ---
 const POSITION_OFFSET = 10;
@@ -16,25 +17,13 @@ const COPY_FEEDBACK_DURATION = 1500;
 class EnhancedTooltipManager {
     #tooltipEl = null;
     #activeHideHandler = null;
-    #speechSynthesis = window.speechSynthesis;
-    #currentUtterance = null;
-    #isPlaying = false;
-    #currentLanguage = 'auto'; // 'auto', 'source', or 'target'
     #sourceLang = 'auto'; // 将由 franc 检测
     #targetLang = null; // 目标语言，必须通过 show 方法的选项进行配置
     #isPinned = false;
-    // 新增：用于拖动状态的属性
-    #isDragging = false;
-    #dragStartX = 0;
-    #dragStartY = 0;
-    #dragOffsetX = 0;
-    #dragOffsetY = 0;
-    #resizeController = null;
-    #userSize = null;
     #lastPositionContext = null;
-    #activeDragHeader = null;
-    #boundDocumentMouseMove = this.#handleDocumentMouseMove.bind(this);
-    #boundDocumentMouseUp = this.#handleDocumentMouseUp.bind(this);
+    #dragController = new TooltipDragController();
+    #resizeController = new TooltipResizeController();
+    #speechController = new TooltipSpeechController();
 
     constructor() {}
 
@@ -77,10 +66,11 @@ class EnhancedTooltipManager {
             const maxBodyHeight = Math.max(160, Math.min(360, window.innerHeight - 140));
             body.style.maxHeight = `${maxBodyHeight}px`;
         }
-        if (this.#userSize) {
-            this.#tooltipEl.style.width = `${this.#userSize.width}px`;
-            this.#tooltipEl.style.height = `${this.#userSize.height}px`;
-            this.#tooltipEl.style.minHeight = `${this.#userSize.height}px`;
+        if (this.#resizeController.userSize) {
+            const { width, height } = this.#resizeController.userSize;
+            this.#tooltipEl.style.width = `${width}px`;
+            this.#tooltipEl.style.height = `${height}px`;
+            this.#tooltipEl.style.minHeight = `${height}px`;
         }
         return box;
     }
@@ -101,9 +91,8 @@ class EnhancedTooltipManager {
         if (!this.#tooltipEl) return;
         this.#isPinned = isPinned;
         this.#tooltipEl.classList.toggle('pinned', this.#isPinned);
-        const header = this.#tooltipEl.querySelector('.foxlate-panel-header');
         const pinBtn = this.#tooltipEl.querySelector('.foxlate-pin-btn');
-        header?.classList.toggle('draggable', this.#isPinned);
+        this.#dragController.setPinned(this.#isPinned);
         if (pinBtn) {
             pinBtn.innerHTML = '';
             pinBtn.appendChild(createTooltipIcon(this.#isPinned ? 'unpin' : 'pin'));
@@ -116,26 +105,22 @@ class EnhancedTooltipManager {
 
     #attachResizeController() {
         if (!this.#tooltipEl) return;
-        this.#resizeController?.destroy();
-        this.#resizeController = new ResizeController(this.#tooltipEl, {
+        this.#resizeController.attach(this.#tooltipEl, {
             minWidth: 280,
             minHeight: 140,
             maxWidth: Math.max(280, Math.min(560, window.innerWidth - 20)),
             maxHeight: Math.max(140, window.innerHeight - 20),
             margin: POSITION_OFFSET,
-            handles: ['n', 'e', 's', 'w', 'ne', 'se', 'sw', 'nw'],
             onResizeStart: () => {
                 this.#setPinned(true);
             },
             onResize: ({ width, height }) => {
-                this.#userSize = { width, height };
                 const body = this.#tooltipEl.querySelector('.foxlate-panel-body');
                 if (body) {
                     body.style.maxHeight = `${Math.max(80, height - 96)}px`;
                 }
             },
-            onResizeEnd: ({ width, height }) => {
-                this.#userSize = { width, height };
+            onResizeEnd: () => {
                 if (!this.#isPinned && this.#lastPositionContext) {
                     this.#updatePosition(this.#lastPositionContext);
                 }
@@ -148,9 +133,8 @@ class EnhancedTooltipManager {
         if (this.#tooltipEl) {
             this.#tooltipEl.classList.remove('visible');
         }
-        this.#stopSpeech();
+        this.#speechController.stop(this.#tooltipEl, browser);
         this.#removeHideListeners();
-        this.#removeDragListeners();
     }
 
     #removeHideListeners() {
@@ -159,78 +143,6 @@ class EnhancedTooltipManager {
             window.removeEventListener('scroll', this.#activeHideHandler, true);
             this.#activeHideHandler = null;
         }
-    }
-
-    #removeDragListeners() {
-        document.removeEventListener('mousemove', this.#boundDocumentMouseMove);
-        document.removeEventListener('mouseup', this.#boundDocumentMouseUp);
-        this.#isDragging = false;
-        if (this.#activeDragHeader) {
-            this.#activeDragHeader.style.cursor = '';
-            this.#activeDragHeader = null;
-        }
-    }
-
-    #stopSpeech() {
-        if (this.#speechSynthesis?.speaking) {
-            this.#speechSynthesis.cancel();
-        }
-        this.#isPlaying = false;
-        this.#currentUtterance = null;
-        this.#updateSpeechButtons();
-    }
-
-    #speakText(text, language = 'auto') {
-        this.#stopSpeech();
-        if (!text || !text.trim() || !this.#speechSynthesis) return;
-
-        this.#currentUtterance = new SpeechSynthesisUtterance(text);
-        
-        // 根据类型（'source' 或 'target'）设置正确的语言代码
-        if (language === 'target') {
-            this.#currentUtterance.lang = this.#targetLang;
-        } else {
-            // 对于源文本，如果未提供语言，则动态检测
-            this.#currentUtterance.lang = this.#sourceLang === 'auto' ? detectSpeechLang(text) : this.#sourceLang;
-        }
-
-        this.#currentUtterance.onstart = () => {
-            this.#isPlaying = true;
-            this.#updateSpeechButtons();
-        };
-
-        this.#currentUtterance.onend = () => {
-            this.#isPlaying = false;
-            this.#currentUtterance = null;
-            this.#updateSpeechButtons();
-        };
-
-        this.#currentUtterance.onerror = (event) => {
-            console.error('[EnhancedTooltipManager] Speech synthesis error:', event);
-            this.#isPlaying = false;
-            this.#currentUtterance = null;
-            this.#updateSpeechButtons();
-        };
-
-        this.#speechSynthesis.speak(this.#currentUtterance);
-    }
-
-    #updateSpeechButtons() {
-        if (!this.#tooltipEl) return;
-
-        const updateButton = (selector, lang) => {
-            const btn = this.#tooltipEl.querySelector(selector);
-            if (!btn) return;
-
-            const isThisPlaying = this.#isPlaying && this.#currentLanguage === lang;
-            btn.innerHTML = ''; // Clear existing icon
-            btn.appendChild(createTooltipIcon(isThisPlaying ? 'stop' : 'play'));
-            btn.title = browser.i18n.getMessage(isThisPlaying ? 'tooltipStopReading' : (lang === 'source' ? 'tooltipReadSource' : 'tooltipReadTarget'));
-            btn.classList.toggle('playing', isThisPlaying);
-        };
-
-        updateButton('.source-speech-btn', 'source');
-        updateButton('.target-speech-btn', 'target');
     }
 
     show(sourceText, translatedText, options = {}) {
@@ -247,6 +159,7 @@ class EnhancedTooltipManager {
 
         this.#sourceLang = sourceLang;
         this.#targetLang = targetLang;
+        this.#speechController.configure({ sourceLang, targetLang });
 
         if (this.#isPinned) {
             this.#isPinned = false;
@@ -283,6 +196,8 @@ class EnhancedTooltipManager {
 
         const header = this.#tooltipEl.querySelector('.foxlate-panel-header');
         const pinBtn = this.#tooltipEl.querySelector('.foxlate-pin-btn');
+        this.#dragController.attach(this.#tooltipEl, header);
+        this.#dragController.setPinned(this.#isPinned);
 
         this.#tooltipEl.querySelector('.foxlate-close-btn')?.addEventListener('click', (e) => {
             // 确保关闭按钮总是能工作
@@ -298,51 +213,8 @@ class EnhancedTooltipManager {
             // if (!this.#isPinned) { onHide?.(); }
         });
 
-        header?.addEventListener('mousedown', (e) => {
-            if (!this.#isPinned) return;
-            this.#isDragging = true;
-            this.#activeDragHeader = header;
-            const rect = this.#tooltipEl.getBoundingClientRect();
-            this.#dragStartX = e.clientX;
-            this.#dragStartY = e.clientY;
-            this.#dragOffsetX = e.clientX - rect.left;
-            this.#dragOffsetY = e.clientY - rect.top;
-            header.style.cursor = 'grabbing';
-            document.removeEventListener('mousemove', this.#boundDocumentMouseMove);
-            document.removeEventListener('mouseup', this.#boundDocumentMouseUp);
-            document.addEventListener('mousemove', this.#boundDocumentMouseMove);
-            document.addEventListener('mouseup', this.#boundDocumentMouseUp);
-        });
-
         this.#attachSectionListeners('source', sourceText);
         this.#attachSectionListeners('target', translatedText);
-    }
-
-    #handleDocumentMouseMove(e) {
-        if (!this.#isDragging || !this.#isPinned || !this.#tooltipEl) return;
-        e.preventDefault();
-
-        let x = e.clientX - this.#dragOffsetX;
-        let y = e.clientY - this.#dragOffsetY;
-        const tooltipRect = this.#tooltipEl.getBoundingClientRect();
-        const viewportWidth = window.innerWidth;
-        const viewportHeight = window.innerHeight;
-
-        x = Math.max(0, Math.min(x, viewportWidth - tooltipRect.width));
-        y = Math.max(0, Math.min(y, viewportHeight - tooltipRect.height));
-
-        this.#tooltipEl.style.left = `${x}px`;
-        this.#tooltipEl.style.top = `${y}px`;
-    }
-
-    #handleDocumentMouseUp() {
-        if (!this.#isDragging) return;
-        this.#isDragging = false;
-        if (this.#activeDragHeader) {
-            this.#activeDragHeader.style.cursor = 'grab';
-        }
-        document.removeEventListener('mousemove', this.#boundDocumentMouseMove);
-        document.removeEventListener('mouseup', this.#boundDocumentMouseUp);
     }
 
 
@@ -375,12 +247,7 @@ class EnhancedTooltipManager {
         const speechBtn = section.querySelector(`.${type}-speech-btn`);
         speechBtn?.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (this.#isPlaying && this.#currentLanguage === type) {
-                this.#stopSpeech();
-            } else {
-                this.#currentLanguage = type;
-                this.#speakText(text, type);
-            }
+            this.#speechController.toggle(text, type, this.#tooltipEl, browser);
         });
 
         // Copy button

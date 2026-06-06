@@ -257,3 +257,38 @@ test('content-script entry stays a bootstrap module after runtime split', async 
     assert.ok(source.split('\n').length <= 8);
     assert.doesNotMatch(source, /PageTranslationJob|DisplayManager|TRANSLATE_TEXT_BATCH|onMessage\.addListener/);
 });
+
+test('display manager delegates state, language context, and strategy dispatch to display system modules', async () => {
+    const displayManagerSource = await readFile(path.join(projectRoot, 'src/content/display-manager.js'), 'utf8');
+    const registrySource = await readFile(path.join(projectRoot, 'src/content/display/display-strategy-registry.js'), 'utf8');
+    const languageSource = await readFile(path.join(projectRoot, 'src/content/display/display-language-context.js'), 'utf8');
+
+    assert.match(displayManagerSource, /DisplayStateStore/);
+    assert.match(displayManagerSource, /defaultDisplayStrategyRegistry/);
+    assert.match(displayManagerSource, /resolveDisplayLanguageContext/);
+    assert.doesNotMatch(displayManagerSource, /_strategies/);
+    assert.doesNotMatch(displayManagerSource, /new ReplaceStrategy|new AppendStrategy|new HoverStrategy/);
+
+    assert.match(registrySource, /class DisplayStrategyRegistry/);
+    assert.match(registrySource, /replaceStrategy/);
+    assert.match(registrySource, /globalCleanup/);
+    assert.match(languageSource, /enhancedContextMenu/);
+    assert.match(languageSource, /getSpeechCode/);
+});
+
+test('tooltip and hover display surfaces are split into focused controllers', async () => {
+    const enhancedTooltipSource = await readFile(path.join(projectRoot, 'src/content/enhanced-tooltip-manager.js'), 'utf8');
+    const hoverStrategySource = await readFile(path.join(projectRoot, 'src/content/strategies/hover-strategy.js'), 'utf8');
+    const hoverSurfaceSource = await readFile(path.join(projectRoot, 'src/content/tooltip/hover-tooltip-surface.js'), 'utf8');
+
+    assert.match(enhancedTooltipSource, /TooltipDragController/);
+    assert.match(enhancedTooltipSource, /TooltipResizeController/);
+    assert.match(enhancedTooltipSource, /TooltipSpeechController/);
+    assert.doesNotMatch(enhancedTooltipSource, /detectSpeechLang|new ResizeController/);
+
+    assert.match(hoverStrategySource, /HoverTooltipSurface/);
+    assert.doesNotMatch(hoverStrategySource, /createElement\('div'\)|new ResizeController|placeElement/);
+    assert.match(hoverSurfaceSource, /class HoverTooltipSurface/);
+    assert.match(hoverSurfaceSource, /ResizeController/);
+    assert.match(hoverSurfaceSource, /floatingLayoutService/);
+});
