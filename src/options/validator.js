@@ -48,7 +48,7 @@ export class FormValidator {
     }
 
     setError(element, message) {
-        const field = element.closest('.input-group, .m3-form-field');
+        const field = element.closest('.input-group');
         if (!field) return;
 
         field.classList.add('is-invalid');
@@ -64,7 +64,7 @@ export class FormValidator {
     }
 
     clearAllErrors() {
-        this.form.querySelectorAll('.input-group.is-invalid, .m3-form-field.is-invalid').forEach(field => {
+        this.form.querySelectorAll('.input-group.is-invalid').forEach(field => {
             field.classList.remove('is-invalid');
             const errorDiv = field.querySelector('.text-error, .error-message');
             if (errorDiv) errorDiv.textContent = '';
@@ -78,7 +78,7 @@ export class FormValidator {
     }
 
     _shakeFirstError() {
-        const firstInvalidField = this.form.querySelector('.input-group.is-invalid, .m3-form-field.is-invalid');
+        const firstInvalidField = this.form.querySelector('.input-group.is-invalid');
         if (firstInvalidField) {
             firstInvalidField.classList.add('error-shake');
             setTimeout(() => firstInvalidField.classList.remove('error-shake'), 500);

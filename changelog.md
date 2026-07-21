@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.6.1] - 2026-07-22
+
+### 🐛 Fixes
+*   **Release integrity:** `manifest.base.json` version is a `0.0.0` placeholder; dist version always comes from `package.json`. Automated gates cover Chrome `service_worker` vs Firefox `scripts` shapes.
+*   **Options:** remove leftover Material Design 3 `.m3-form-field` selectors from the validator.
+
+### ♻️ Refactors / Quality
+*   **Design tokens:** content surfaces keep isolated CSS variables but brand colors are parity-tested against `--fox-*` (light + dark).
+*   **Tooling:** bigpowers specs cockpit (`specs/`) for R1–R3 planning.
+
 ## [1.6.0] - 2025-12-23
 
 ### ✨ Features

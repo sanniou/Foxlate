@@ -1,6 +1,6 @@
 story_id: e01s03
 title: Content 色板与 --fox-* 一致性门禁
-status: failing
+status: passing
 bcps: 3
 risk: P2
 delta: MODIFIED
@@ -9,7 +9,7 @@ tasks:
     description: 新增 design-token-parity 测试（light 关键色）
     verify: "node --test test/design-token-parity.test.mjs"
     risk: P2
-    status: failing
+    status: passing
     security: none
     allure:
       severity: normal
@@ -18,7 +18,7 @@ tasks:
     description: 覆盖 dark 媒体查询关键色；修漂移
     verify: "node --test test/design-token-parity.test.mjs"
     risk: P2
-    status: failing
+    status: passing
     security: none
     allure:
       severity: normal
@@ -27,7 +27,7 @@ tasks:
     description: content CSS 顶部注释 + 全量测试
     verify: "npm test"
     risk: P2
-    status: failing
+    status: passing
     security: none
     allure:
       severity: normal

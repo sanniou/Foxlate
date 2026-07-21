@@ -1,6 +1,6 @@
 story_id: e01s02
 title: 清除 MD3 类名残留
-status: failing
+status: passing
 bcps: 1
 risk: P3
 delta: REMOVED
@@ -9,7 +9,7 @@ tasks:
     description: validator.js 移除 .m3-form-field
     verify: "! grep -R --include='*.js' -n 'm3-form-field' src"
     risk: P3
-    status: failing
+    status: passing
     security: none
     allure:
       severity: minor
@@ -18,7 +18,7 @@ tasks:
     description: src 无 m3 类选择器残留
     verify: "! grep -R --include='*.js' --include='*.css' --include='*.html' -nE 'm3-form-field|\\.m3-|m3-button' src"
     risk: P3
-    status: failing
+    status: passing
     security: none
     allure:
       severity: minor
@@ -27,7 +27,7 @@ tasks:
     description: 全量测试通过
     verify: "npm test"
     risk: P3
-    status: failing
+    status: passing
     security: none
     allure:
       severity: minor

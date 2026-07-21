@@ -1,6 +1,8 @@
 /*
   Foxlate Content Script Styles
   Self-contained to avoid polluting host pages.
+  Brand colors mirror --fox-* from src/common/common.css (intentionally isolated;
+  do not inject common.css into host pages). Guarded by test/design-token-parity.test.mjs.
 */
 
 .foxlate-panel,

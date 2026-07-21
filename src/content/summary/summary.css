@@ -1,4 +1,6 @@
-/* Foxlate summary assistant surface. Standalone for host-page safety. */
+/* Foxlate summary assistant surface. Standalone for host-page safety.
+   Brand colors mirror --fox-* from common.css (isolated on purpose).
+   Guarded by test/design-token-parity.test.mjs. */
 
 .foxlate-summary-button {
     position: fixed;

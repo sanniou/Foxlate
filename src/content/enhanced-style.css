@@ -1,4 +1,6 @@
-/* Foxlate enhanced tooltip surface. Standalone for host-page safety. */
+/* Foxlate enhanced tooltip surface. Standalone for host-page safety.
+   Brand colors mirror --fox-* from common.css (isolated on purpose).
+   Guarded by test/design-token-parity.test.mjs. */
 
 .foxlate-enhanced-panel {
     --fl-color-primary: #0891b2;
