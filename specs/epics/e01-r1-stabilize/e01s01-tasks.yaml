@@ -1,0 +1,43 @@
+story_id: e01s01
+title: 发布完整性门禁（版本 SoT + 双目标构建）
+status: failing
+bcps: 3
+risk: P1
+delta: MODIFIED
+tasks:
+  - id: e01s01-t01
+    description: 新增 test/build-manifest.test.mjs，断言 dist version == package.json
+    verify: "node --test test/build-manifest.test.mjs"
+    risk: P1
+    status: failing
+    security: none
+    allure:
+      severity: high
+      categories: ["build", "release"]
+  - id: e01s01-t02
+    description: 断言 Chrome service_worker / Firefox scripts 形状
+    verify: "node --test test/build-manifest.test.mjs"
+    risk: P1
+    status: failing
+    security: none
+    allure:
+      severity: high
+      categories: ["build", "chrome", "firefox"]
+  - id: e01s01-t03
+    description: manifest.base.json version 改为 0.0.0 占位
+    verify: "node -e \"const v=require('./public/manifest.base.json').version; if(v!=='0.0.0') process.exit(1)\""
+    risk: P2
+    status: failing
+    security: none
+    allure:
+      severity: normal
+      categories: ["build"]
+  - id: e01s01-t04
+    description: Preflight 全绿
+    verify: "npm test && npm run build:firefox && npm run build:chrome"
+    risk: P1
+    status: failing
+    security: none
+    allure:
+      severity: high
+      categories: ["preflight"]

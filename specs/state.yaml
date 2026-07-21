@@ -1,0 +1,20 @@
+workflow_mode: solo-git
+session:
+  active_flow: plan_release
+  epic: e01
+  story: e01s01
+  started_at: "2026-07-22T02:41:11+08:00"
+git:
+  branch: main
+  head: a9c1dfa6648657bcadc91783230447f995f8f895
+handoff:
+  next_skill: kickoff-branch
+  note: "e01 已切片+plan-work。下一步 kickoff-branch 再 develop-tdd（建议顺序 e01s01→s02→s03）。"
+metrics:
+  story_start: "2026-07-22T02:41:11+08:00"
+product:
+  version: "1.6.0"
+  release_track: R1-stabilize
+epic_cycle:
+  epic_id: e01
+  story_bcps: 3

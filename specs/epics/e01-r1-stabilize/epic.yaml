@@ -1,0 +1,35 @@
+id: e01
+slug: r1-stabilize
+title: R1 Stabilize
+track: R1
+target_version: "1.6.1"
+status: planned
+wsjf: 8
+goal: |
+  在不重做 1.6.0 UI 的前提下，收紧发布完整性、清掉 MD3 残留、
+  用可运行门禁锁定 content 色板与 --fox-* 一致，并证明 Chrome/Firefox 双构建可用。
+out_of_scope:
+  - popup/options 布局重写
+  - 从 plans/archive 实现 indigo MD3
+  - Chrome 商店上架素材（属 e02）
+  - 原生 Translator API / 独立面板（属 e03）
+stories:
+  - id: e01s01
+    title: 发布完整性门禁（版本 SoT + 双目标构建）
+    bcps: 3
+    risk: P1
+    status: planned
+    delta: MODIFIED
+  - id: e01s02
+    title: 清除 MD3 类名残留
+    bcps: 1
+    risk: P3
+    status: planned
+    delta: REMOVED
+  - id: e01s03
+    title: Content 色板与 --fox-* 一致性门禁
+    bcps: 3
+    risk: P2
+    status: planned
+    delta: MODIFIED
+total_bcps: 7

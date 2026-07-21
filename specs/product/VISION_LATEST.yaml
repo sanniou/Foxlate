@@ -1,0 +1,17 @@
+vision: |
+  Foxlate is a deep-configurable browser translation extension that stays
+  zero-config useful by default. Firefox-first; expand reach to Chromium
+  while keeping multi-engine power users productive.
+north_star: Seamless webpage translation with optional AI depth.
+audience:
+  primary: Chinese-speaking users who read foreign web content daily
+  secondary: Power users who need domain rules, custom engines, subtitles
+positioning:
+  - multi-engine (DeepLx, Google, OpenAI-compatible)
+  - domain rules + content selectors
+  - subtitles (YouTube, Bilibili)
+  - AI page summary + chat
+non_goals_near_term:
+  - full redesign of shipped 1.6.0 product UI
+  - PDF translation pipeline
+  - multi-engine sprawl without demand

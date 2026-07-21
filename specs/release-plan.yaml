@@ -1,0 +1,51 @@
+target_version: "1.6.1"
+baseline_version: "1.6.0"
+tracks:
+  - id: R1
+    name: stabilize
+    target: "1.6.1"
+    status: planned
+  - id: R2
+    name: reach-chromium
+    target: "1.7.0"
+    status: backlog
+  - id: R3
+    name: differentiator
+    target: "1.8.0"
+    status: backlog
+epics:
+  - id: e01
+    slug: r1-stabilize
+    title: R1 Stabilize（版本门禁、MD3 清理、content token 奇偶）
+    track: R1
+    wsjf: 8
+    status: planned
+    total_bcps: 7
+    capsule: specs/epics/e01-r1-stabilize/
+    stories:
+      - id: e01s01
+        title: 发布完整性门禁
+        bcps: 3
+        risk: P1
+      - id: e01s02
+        title: 清除 MD3 类名残留
+        bcps: 1
+        risk: P3
+      - id: e01s03
+        title: Content 色板与 --fox-* 一致性门禁
+        bcps: 3
+        risk: P2
+  - id: e02
+    slug: r2-chromium-reach
+    title: R2 Chromium 打包与商店就绪
+    track: R2
+    wsjf: 7
+    status: backlog
+    stories: []
+  - id: e03
+    slug: r3-differentiator
+    title: R3 原生 Translator API 或独立面板（二选一）
+    track: R3
+    wsjf: 5
+    status: backlog
+    stories: []

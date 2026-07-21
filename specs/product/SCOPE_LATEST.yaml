@@ -1,0 +1,23 @@
+# R1–R3 product scope (post-roadmap analysis 2026-07-22)
+version_target: "1.6.1 → 1.8.0"
+in_scope:
+  R1_stabilize:
+    - single version source of truth (package.json → manifest)
+    - remove MD3 class leftovers (.m3-form-field)
+    - archive obsolete design drafts (done at seed)
+    - content-layer token alignment pass (tooltip/summary/subtitle vs --fox-*)
+    - Chrome local load smoke documented
+    - ship 1.6.1 maintenance release
+  R2_reach:
+    - Chrome/Edge packaging verification
+    - store listing prep (assets, permissions review)
+    - SW lifecycle / re-injection checks on Chromium
+  R3_differentiator:
+    - ONE of: Chrome Translator/Language Detector API engine OR standalone translate panel
+out_of_scope:
+  - rewrite of popup/options layout (already shipped 1.6.0)
+  - re-implementing plans/archive design tokens (indigo MD3)
+  - PDF translation
+  - new design system parallel to --fox-*
+open_decisions:
+  - R3 pick: native-api vs standalone-panel (defer until R2)
