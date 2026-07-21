@@ -1,22 +1,18 @@
 workflow_mode: solo-git
 session:
-  active_flow: release_branch
-  epic: e01
+  active_flow: none
+  epic: null
   story: null
-  started_at: "2026-07-22T02:41:11+08:00"
+  started_at: null
 git:
-  branch: feat/e01-r1-stabilize
-  head: pending
+  branch: main
+  head: d394d9b
 handoff:
-  next_skill: release-branch
-  note: "UAT pass; landing e01 as 1.6.1 via solo-git squash."
+  next_skill: survey-context
+  note: "e01 R1 1.6.1 landed on main. Next: e02 Chromium reach or survey-context."
 metrics:
   story_start: "2026-07-22T02:41:11+08:00"
   story_end: "2026-07-22T03:30:00+08:00"
 product:
   version: "1.6.1"
-  release_track: R1-stabilize
-epic_cycle:
-  epic_id: e01
-  story_bcps: 7
-traceability_override: "CONCERNS accepted, reason: no gate-trace matrix yet; e01 stories tagged in new tests"
+  release_track: R2-reach
