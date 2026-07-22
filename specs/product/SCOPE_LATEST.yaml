@@ -1,23 +1,25 @@
-# R1–R3 product scope (post-roadmap analysis 2026-07-22)
-version_target: "1.6.1 → 1.8.0"
+# Product scope — post 1.6.2
+version_shipped:
+  - "1.6.1" # R1 stabilize
+  - "1.6.2" # core polish (strategies/rules/display/panels)
+version_target: "1.7.0"
 in_scope:
-  R1_stabilize:
-    - single version source of truth (package.json → manifest)
-    - remove MD3 class leftovers (.m3-form-field)
-    - archive obsolete design drafts (done at seed)
-    - content-layer token alignment pass (tooltip/summary/subtitle vs --fox-*)
-    - Chrome local load smoke documented
-    - ship 1.6.1 maintenance release
   R2_reach:
-    - Chrome/Edge packaging verification
-    - store listing prep (assets, permissions review)
-    - SW lifecycle / re-injection checks on Chromium
+    - Chrome/Edge packaging verification beyond build target
+    - Service worker idle / re-injection smoke on Chromium
+    - Store listing prep (assets, privacy, permissions review)
+    - README badges / listing copy when ready
   R3_differentiator:
     - ONE of: Chrome Translator/Language Detector API engine OR standalone translate panel
+  optional_polish_backlog:
+    - empty-result toast when fallback selector engages
+    - quick-action secondary "copy translation"
+    - pixel-level strategy error chrome unify
 out_of_scope:
-  - rewrite of popup/options layout (already shipped 1.6.0)
-  - re-implementing plans/archive design tokens (indigo MD3)
+  - full popup/options redesign (shipped 1.6.0 + polished 1.6.2)
   - PDF translation
-  - new design system parallel to --fox-*
+  - multi-engine sprawl without demand
+  - plans/archive indigo MD3 reimplementation
 open_decisions:
-  - R3 pick: native-api vs standalone-panel (defer until R2)
+  - R3 pick: native-api vs standalone-panel (decide after R2)
+  - Whether to ship AMO 1.6.2 listing bump before Chromium store work

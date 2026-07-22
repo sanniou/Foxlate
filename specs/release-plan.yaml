@@ -1,9 +1,13 @@
 target_version: "1.7.0"
-baseline_version: "1.6.1"
+baseline_version: "1.6.2"
 tracks:
   - id: R1
     name: stabilize
     target: "1.6.1"
+    status: done
+  - id: R1.5
+    name: core-polish
+    target: "1.6.2"
     status: done
   - id: R2
     name: reach-chromium
@@ -16,23 +20,30 @@ tracks:
 epics:
   - id: e01
     slug: r1-stabilize
-    title: R1 Stabilize（版本门禁、MD3 清理、content token 奇偶）
-    track: R1
-    wsjf: 8
     status: done
-    total_bcps: 7
     capsule: specs/epics/archive/e01-r1-stabilize/
+  - id: e04
+    slug: core-polish
+    status: done
+    capsule: specs/epics/archive/e04-core-polish/
   - id: e02
     slug: r2-chromium-reach
-    title: R2 Chromium 打包与商店就绪
+    title: R2 Chromium packaging, SW lifecycle, store readiness
     track: R2
-    wsjf: 7
+    wsjf: 8
     status: planned
+    stories: []
+  - id: e05
+    slug: core-polish-backlog
+    title: Optional residual polish (empty-result toast, copy-on-panel, pixel-level error chrome)
+    track: R1.5
+    wsjf: 3
+    status: backlog
     stories: []
   - id: e03
     slug: r3-differentiator
-    title: R3 原生 Translator API 或独立面板（二选一）
+    title: R3 Native Translator API OR standalone panel (pick one)
     track: R3
-    wsjf: 5
+    wsjf: 6
     status: backlog
     stories: []
