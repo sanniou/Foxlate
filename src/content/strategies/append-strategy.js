@@ -33,9 +33,9 @@ class AppendStrategy {
         const wrapper = document.createElement(tag);
         const classNames = ['foxlate-appended-text', `foxlate-appended-${appendType}`, ...additionalClasses];
         wrapper.className = classNames.join(' ');
-        // (新) 添加一个明确的标记，以便 DOMWalker 可以在源头识别并忽略此元素，
-        // 防止对已追加的译文进行重复翻译。
+        // Mark so DOMWalker skips re-translating our own chrome.
         wrapper.dataset.foxlateAppendedText = 'true';
+        wrapper.dataset.foxlateRole = 'translation';
         return wrapper;
     }
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.6.3] - 2026-07-22
+
+### 🐛 Fixes
+*   **Display mode switch:** After translating in append (or any mode), switching Replace / Append / Hover responds again. Root cause: `SETTINGS_UPDATED` applied raw global storage over hostname-effective settings and could overwrite `UPDATE_DISPLAY_MODE`.
+*   **Async UI paint:** `displayLoading` / `displayTranslation` / `updateDisplayMode` await strategy paints so mode switches do not race.
+*   **Loading indicators:** Restore themed cyan spinners for replace / append / hover (replace spinner node previously had no CSS).
+
+### ✨ UX
+*   **Soft append / hover:** Translations inherit host type; append uses a light separator / hairline bar; hover is dotted underline only — no card chrome.
+
+### ♻️ Quality
+*   Tests: `test/display-mode-switch.test.mjs` (append→replace, replace→hover, SETTINGS_UPDATED effective resolve).
+*   Core review notes: `specs/verifications/e05-core-review.md`.
+
 ## [1.6.2] - 2026-07-22
 
 ### ✨ Features / UX

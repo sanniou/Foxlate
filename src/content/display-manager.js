@@ -38,9 +38,8 @@ export class DisplayManager {
 
     static setElementState(element, newState, data = null) {
         this.stateStore.setState(element, newState, data);
-
-        // 根据新状态更新 UI
-        this.updateElementUI(element, newState);
+        // Return the UI update promise so callers (and mode switches) can await paint.
+        return this.updateElementUI(element, newState);
     }
 
     static async updateElementUI(element, state) {
@@ -105,29 +104,55 @@ export class DisplayManager {
         return this.strategyRegistry.get(displayMode);
     }
 
-    static updateDisplayMode(newDisplayMode) {
-        // 不再使用 querySelectorAll，而是遍历我们的注册表
+    static async updateDisplayMode(newDisplayMode) {
+        if (!newDisplayMode || !this.strategyRegistry.get(newDisplayMode)) {
+            console.warn(`[DisplayManager] updateDisplayMode ignored unknown mode: ${newDisplayMode}`);
+            return;
+        }
+
+        const tasks = [];
+
+        // Walk the registry of live translated elements (not querySelectorAll).
         for (const [elementId, weakRef] of this.stateStore.entries()) {
             const element = weakRef.deref();
 
-            // 如果元素不存在了（已被GC），或者不是一个“已翻译”状态的元素，则跳过
-            if (!element || this.getElementState(element) !== this.STATES.TRANSLATED) {
-                console.log(`[Foxlate] Element ${elementId} is not a translated element. Skipping. state: ${this.getElementState(element)}`)
+            if (!element) {
+                this.stateStore.removeElementId(elementId);
                 continue;
             }
-            const oldDisplayMode = element.dataset.translationStrategy;
 
-            // 只调用策略的还原方法，而不触及 DisplayManager 的状态。
-            // 这会清理旧的UI，但保留元素为“已翻译”状态。
+            const state = this.getElementState(element);
+            // Only re-skin elements that already have a finished translation payload.
+            if (state !== this.STATES.TRANSLATED && state !== this.STATES.ERROR) {
+                continue;
+            }
+
+            const data = this.getElementData(element) || {};
+            const oldDisplayMode = element.dataset.translationStrategy || data.strategy;
+            if (oldDisplayMode === newDisplayMode) {
+                continue;
+            }
+
+            // Strip previous strategy chrome without clearing DisplayManager state.
             this.strategyRegistry.revert(oldDisplayMode, element, this);
 
-            // 更新 dataset 和状态中的策略
+            // Defensive restore when leaving replace if revert left mixed DOM.
+            if (
+                element instanceof HTMLElement
+                && typeof data.originalContent === 'string'
+                && oldDisplayMode === 'replace'
+                && element.innerHTML !== data.originalContent
+            ) {
+                element.innerHTML = data.originalContent;
+            }
+
             element.dataset.translationStrategy = newDisplayMode;
             this.stateStore.patchData(element, { strategy: newDisplayMode });
 
-            // 使用新策略重新应用“已翻译”状态的UI
-            this.updateElementUI(element, this.STATES.TRANSLATED);
+            tasks.push(this.updateElementUI(element, state));
         }
+
+        await Promise.all(tasks);
     }
 
     static registerElement(elementId, element) {
@@ -142,34 +167,26 @@ export class DisplayManager {
     static displayLoading(element, displayMode, initialState = {}) {
         if (!displayMode) {
             console.error("[DisplayManager] displayLoading requires a displayMode.", element);
-            return;
+            return Promise.resolve();
         }
-        // 在状态机生命周期的开始，将策略存储在元素上。
         element.dataset.translationStrategy = displayMode;
-        // 将所有初始状态（如 originalContent 和 translationUnit）存储起来。
         const loadingState = { ...initialState, strategy: displayMode };
-        this.setElementState(element, this.STATES.LOADING, loadingState);
+        return this.setElementState(element, this.STATES.LOADING, loadingState);
     }
 
     static displayTranslation(element, { translatedText, plainText = null }) {
-        // 验证输入。
         if (typeof translatedText !== 'string') {
             const errorMessage = `Invalid translatedText type: expected string, got ${typeof translatedText}. This indicates a bug in the translation pipeline.`;
             console.error(`[DisplayManager] ${errorMessage}`, { element, receivedValue: translatedText });
-            this.displayError(element, errorMessage);
-            return;
+            return this.displayError(element, errorMessage);
         }
 
-        // 如果未提供 plainText，则从带标签的文本中派生它作为后备。
-        // 这确保了所有策略都能安全地访问到一个纯净的文本版本。
         const derivedPlainText = plainText ?? translatedText.replace(/<(\/)?t\d+>/g, '');
-        // 将翻译结果与已有的状态（包含 originalContent 和 translationUnit）合并。
-        // 策略将从状态管理器中获取这些数据以更新UI。
-        this.setElementState(element, this.STATES.TRANSLATED, { translatedText, plainText: derivedPlainText });
+        return this.setElementState(element, this.STATES.TRANSLATED, { translatedText, plainText: derivedPlainText });
     }
 
     static displayError(element, errorMessage) {
-        this.setElementState(element, this.STATES.ERROR, { errorMessage });
+        return this.setElementState(element, this.STATES.ERROR, { errorMessage });
     }
 
     /**

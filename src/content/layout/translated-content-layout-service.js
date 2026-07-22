@@ -60,8 +60,8 @@ class TranslatedContentLayoutService {
         appendedElement.style.setProperty('--foxlate-translation-measured-height', `${Math.ceil(measurement.height)}px`);
         appendedElement.style.setProperty('--foxlate-translation-line-count', String(measurement.lineCount));
         if (appendType === 'block') {
+            // Cap width only — do not force minHeight (keeps append visually light).
             appendedElement.style.maxWidth = `${availableWidth}px`;
-            appendedElement.style.minHeight = `${Math.min(Math.ceil(measurement.height), 360)}px`;
         }
         return measurement;
     }

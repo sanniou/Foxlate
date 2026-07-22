@@ -1,27 +1,23 @@
-# Security Review — feat/e04-core-polish
+# Security Review — e05 mode-switch + soft display
 
+**Branch:** `feat/e05-mode-switch-and-soft-display`  
 **Date:** 2026-07-22  
-**Branch:** feat/e04-core-polish  
-**Scope:** Core polish (defaults, display modes, panels, rules UX)
-
-## Summary
-
-No trust-boundary or network changes. Selector defaults and UI only; fallback content selector is still user-overridable via settings.
+**Scope:** content-runtime settings path, display-manager mode switch, append strategy DOM, style.css
 
 ## Findings
 
-| Severity | Confidence | Finding | Status |
-|----------|------------|---------|--------|
-| — | — | None | — |
+| Sev | Finding | Confidence | Status |
+|-----|---------|------------|--------|
+| — | No HIGH findings | — | — |
 
-## Paths reviewed
+## Notes
 
-- `src/common/constants.js` — default/fallback selectors
-- `src/content/translatable-elements.js` — empty-match fallback (one-shot)
-- `src/popup/*` — site-scoped settings writes (existing SettingsManager path)
-- `src/content/quick-action-panel.js` — position clamp only
-- strategies — CSS state classes
+- `SETTINGS_UPDATED` now re-resolves via `getEffectiveSettings()` — does not trust raw global payload for job settings.
+- `updateDisplayMode` only re-skins elements already in TRANSLATED/ERROR; no new message surface.
+- Append loading/translation wrappers use `data-foxlate-role`; no `innerHTML` of untrusted strings beyond existing `reconstructDOM` / `escapeHtml` paths.
+- CSS-only spinner/soft-display changes — no new privileged APIs.
+- Tests: 90 pass; dual browser build green.
 
 ## Verdict
 
-**PASS** — safe to land as 1.6.2.
+**PASS** — safe to land as 1.6.3 fix.

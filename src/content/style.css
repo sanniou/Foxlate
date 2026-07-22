@@ -259,46 +259,52 @@
     text-decoration-skip-ink: none;
 }
 
+/* Append: blend into host page — inherit type, no card chrome. */
 .foxlate-appended-text {
     position: relative;
-    display: inline-block;
+    display: inline;
     max-width: min(100%, var(--foxlate-translation-measured-width, 100%));
-    padding-left: 10px;
-    color: var(--fl-sys-color-primary);
-    font-weight: 650;
+    margin-left: 0.35em;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    color: inherit;
+    font: inherit;
+    font-weight: inherit;
+    letter-spacing: inherit;
+    line-height: inherit;
+    opacity: 0.88;
     overflow-wrap: anywhere;
 }
 
 .foxlate-appended-text::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 0.15em;
-    bottom: 0.15em;
-    width: 2px;
-    border-radius: 2px;
-    background: linear-gradient(180deg, var(--fl-sys-color-primary), var(--fl-sys-color-accent));
-    opacity: 0.92;
-}
-
-.foxlate-appended-block::before {
-    content: "\A";
-    display: block;
-    line-height: 0.5;
-    white-space: pre;
+    content: "·";
+    display: inline;
+    margin-right: 0.35em;
+    color: color-mix(in srgb, currentColor 42%, transparent);
+    font-weight: 400;
 }
 
 .foxlate-appended-block {
     display: block;
-    width: fit-content;
+    width: auto;
     max-width: min(100%, var(--foxlate-translation-measured-width, 100%));
-    margin-top: 7px;
-    padding: 9px 11px 9px 13px;
-    border: 1px solid var(--fl-sys-color-outline);
-    border-radius: var(--fl-sys-radius);
-    background: var(--fl-sys-color-surface);
-    box-shadow: 0 12px 26px -22px rgba(20, 35, 52, 0.48);
-    color: var(--fl-sys-color-on-surface);
+    margin-top: 0.35em;
+    margin-left: 0;
+    padding: 0;
+    border: 0;
+    border-left: 2px solid color-mix(in srgb, currentColor 22%, transparent);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    padding-left: 0.65em;
+    color: inherit;
+    opacity: 0.9;
+}
+
+.foxlate-appended-block::before {
+    content: none;
 }
 
 [data-foxlate-layout-source="pretext"],
@@ -306,60 +312,126 @@
     overflow-wrap: anywhere;
 }
 
+/*
+  Shared themed spinner (cyan brand).
+  Used by: replace (.foxlate-inline-loading), append (.foxlate-appended-text.loading),
+  and hover loading (::after on .foxlate-loading-highlight).
+*/
+.foxlate-inline-loading,
 .foxlate-appended-text.loading {
-    padding-left: 20px;
-    font-size: 0;
+    position: relative;
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    margin-left: 0.4em;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    vertical-align: -0.12em;
+    font-size: 12px;
+    line-height: 0;
+    opacity: 1;
+    color: transparent;
 }
 
+.foxlate-inline-loading::before,
 .foxlate-appended-text.loading::before {
-    all: unset;
     content: "";
     position: absolute;
-    left: 0;
-    top: 50%;
-    display: inline-block;
-    width: 16px;
-    height: 16px;
-    border: 2px solid var(--fl-sys-color-outline);
-    border-top-color: var(--fl-sys-color-primary);
+    inset: 0;
+    box-sizing: border-box;
+    border: 2px solid color-mix(in srgb, var(--fl-sys-color-primary, #0891b2) 28%, transparent);
+    border-top-color: var(--fl-sys-color-primary, #0891b2);
+    border-right-color: color-mix(in srgb, var(--fl-sys-color-accent, #7c3aed) 70%, var(--fl-sys-color-primary, #0891b2));
     border-radius: 50%;
-    animation: foxlate-circular-progress 1s linear infinite;
+    animation: foxlate-spin 0.7s linear infinite;
+}
+
+.foxlate-appended-block.loading {
+    display: inline-block;
+    margin-top: 0.35em;
+    margin-left: 0;
+    border-left: 0;
+    padding-left: 0;
 }
 
 .foxlate-appended-text.error {
-    color: var(--fl-sys-color-on-error-container);
+    display: inline;
+    width: auto;
+    height: auto;
+    color: var(--fl-sys-color-error, #e11d48);
+    opacity: 1;
+    font-size: inherit;
+    line-height: inherit;
 }
 
 .foxlate-appended-text.error::before {
-    background: var(--fl-sys-color-error);
+    content: "!";
+    position: static;
+    display: inline;
+    margin-right: 0.35em;
+    border: 0;
+    animation: none;
+    color: var(--fl-sys-color-error, #e11d48);
 }
 
+/* Hover: hairline underline only — no fill, no padding bloat. */
 .foxlate-hover-highlight {
-    border-radius: 5px;
-    background:
-        linear-gradient(90deg, color-mix(in srgb, var(--fl-sys-color-primary) 16%, transparent), color-mix(in srgb, var(--fl-sys-color-accent) 12%, transparent));
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--fl-sys-color-primary) 12%, transparent);
-    padding: 0 2px;
-    transition:
-        background-color var(--fl-sys-transition),
-        box-shadow var(--fl-sys-transition);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+    text-decoration-line: underline;
+    text-decoration-style: dotted;
+    text-decoration-thickness: from-font;
+    text-underline-offset: 0.18em;
+    text-decoration-color: color-mix(in srgb, currentColor 38%, transparent);
+    transition: text-decoration-color var(--fl-sys-transition, 180ms ease);
+    cursor: help;
 }
 
 .foxlate-hover-highlight:hover {
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--fl-sys-color-primary) 28%, transparent);
+    text-decoration-color: color-mix(in srgb, currentColor 72%, transparent);
+    box-shadow: none;
 }
 
-.foxlate-replacing,
-.foxlate-state-loading {
-    opacity: 0.72;
+.foxlate-replacing {
+    opacity: 0.78;
 }
 
+/* Hover loading: keep text readable + brand spinner after the node. */
 .foxlate-loading-highlight {
-    border-radius: 5px;
-    background: color-mix(in srgb, var(--fl-sys-color-primary) 10%, transparent);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--fl-sys-color-primary) 18%, transparent);
-    outline: 1px dashed color-mix(in srgb, var(--fl-sys-color-primary) 40%, transparent);
-    outline-offset: 1px;
+    position: relative;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    outline: none;
+    opacity: 0.88;
+    text-decoration-line: underline;
+    text-decoration-style: dashed;
+    text-decoration-thickness: from-font;
+    text-underline-offset: 0.18em;
+    text-decoration-color: color-mix(in srgb, var(--fl-sys-color-primary, #0891b2) 55%, transparent);
+}
+
+.foxlate-loading-highlight::after {
+    content: "";
+    display: inline-block;
+    width: 0.85em;
+    height: 0.85em;
+    margin-left: 0.4em;
+    vertical-align: -0.08em;
+    box-sizing: border-box;
+    border: 2px solid color-mix(in srgb, var(--fl-sys-color-primary, #0891b2) 28%, transparent);
+    border-top-color: var(--fl-sys-color-primary, #0891b2);
+    border-right-color: color-mix(in srgb, var(--fl-sys-color-accent, #7c3aed) 70%, var(--fl-sys-color-primary, #0891b2));
+    border-radius: 50%;
+    animation: foxlate-spin 0.7s linear infinite;
+}
+
+.foxlate-state-loading {
+    /* hook for future; opacity handled per-strategy so spinner stays crisp */
 }
 
 @keyframes foxlate-circular-progress {
@@ -375,9 +447,19 @@
     .foxlate-panel,
     .foxlate-performance-hud,
     .foxlate-appended-text,
-    .foxlate-hover-highlight {
+    .foxlate-hover-highlight,
+    .foxlate-inline-loading,
+    .foxlate-loading-highlight {
         transition-duration: 0.001ms !important;
         animation-duration: 0.001ms !important;
+    }
+
+    .foxlate-inline-loading::before,
+    .foxlate-appended-text.loading::before,
+    .foxlate-loading-highlight::after {
+        animation: none;
+        border-color: var(--fl-sys-color-primary, #0891b2);
+        opacity: 0.55;
     }
 }
 .foxlate-quick-action-panel {

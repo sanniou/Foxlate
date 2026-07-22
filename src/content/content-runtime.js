@@ -140,21 +140,32 @@ export class ContentRuntime {
         return { success: true };
     }
 
-    handleSettingsUpdated(newSettings) {
-        if (this.currentPageJob && newSettings) {
-            this.currentPageJob.settings = newSettings;
+    async handleSettingsUpdated(_newSettings) {
+        // Always re-resolve *effective* settings for this hostname.
+        // Raw storage payloads are global-shaped (nested translationSelector.default,
+        // no domain overlays) and must not replace the page job settings or drive
+        // display-mode switches — that caused append→replace/hover to no-op after
+        // SETTINGS_UPDATED overwrote a correct UPDATE_DISPLAY_MODE.
+        const effective = await this.getEffectiveSettings();
+
+        if (this.currentPageJob && effective) {
+            this.currentPageJob.settings = effective;
         }
 
-        if (this.currentPageJob && ['translated', 'translating'].includes(this.currentPageJob.state)) {
-            this.displayManager.updateDisplayMode(newSettings.displayMode);
+        if (
+            this.currentPageJob
+            && effective?.displayMode
+            && ['translated', 'translating'].includes(this.currentPageJob.state)
+        ) {
+            await this.displayManager.updateDisplayMode(effective.displayMode);
         }
 
         if (this.window.subtitleManager?.updateSettings) {
-            this.window.subtitleManager.updateSettings(newSettings);
+            this.window.subtitleManager.updateSettings(effective);
         }
 
-        this.initializeSummary(newSettings);
-        this.quickActionPanel?.updateSettings(newSettings);
+        this.initializeSummary(effective);
+        this.quickActionPanel?.updateSettings(effective);
         return { success: true };
     }
 
@@ -173,11 +184,12 @@ export class ContentRuntime {
         this.performanceHud.updateRetry({ retryDelayMs: payload.delayMs || 0 });
     }
 
-    updateDisplayMode(displayMode) {
+    async updateDisplayMode(displayMode) {
         if (this.currentPageJob?.settings) {
             this.currentPageJob.settings.displayMode = displayMode;
         }
-        this.displayManager.updateDisplayMode(displayMode);
+        await this.displayManager.updateDisplayMode(displayMode);
+        return { success: true };
     }
 
     getTranslationStatus() {

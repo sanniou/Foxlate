@@ -41,8 +41,8 @@ export function createContentMessageHandlers(runtime) {
             return { success: true };
         },
 
-        [MESSAGE_TYPES.UPDATE_DISPLAY_MODE](request) {
-            runtime.updateDisplayMode(request.payload?.displayMode);
+        async [MESSAGE_TYPES.UPDATE_DISPLAY_MODE](request) {
+            await runtime.updateDisplayMode(request.payload?.displayMode);
             return { success: true };
         },
 
