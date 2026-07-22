@@ -107,8 +107,18 @@ export function findAllSearchRoots(rootNode, { cssFilePath, logger = console } =
  * @param {Node[]} rootNodes - 要在其中搜索的根节点。
  * @returns {HTMLElement[]} 一个包含最适合翻译的容器元素的数组。
  */
+function isExcludedBySelector(element, excludeSelector) {
+    if (!excludeSelector || !element?.closest) return false;
+    try {
+        return Boolean(element.closest(excludeSelector));
+    } catch {
+        return false;
+    }
+}
+
 export function findTranslatableElements(effectiveSettings, rootNodes = [document.body], options = {}) {
     const contentSelector = effectiveSettings?.translationSelector?.content?.trim();
+    const excludeSelector = effectiveSettings?.translationSelector?.exclude?.trim() || '';
     const skipFallback = options.skipFallback === true;
 
     if (!contentSelector) {
@@ -122,10 +132,15 @@ export function findTranslatableElements(effectiveSettings, rootNodes = [documen
             continue;
         }
 
-        if (root.nodeType === Node.ELEMENT_NODE && selectorQuery.matches(root)) {
+        if (root.nodeType === Node.ELEMENT_NODE && selectorQuery.matches(root)
+            && !isExcludedBySelector(root, excludeSelector)) {
             allCandidates.add(root);
         }
-        selectorQuery.queryAll(root).forEach(el => allCandidates.add(el));
+        for (const el of selectorQuery.queryAll(root)) {
+            if (!isExcludedBySelector(el, excludeSelector)) {
+                allCandidates.add(el);
+            }
+        }
         if (selectorQuery.isInvalid()) {
             return [];
         }
@@ -182,7 +197,9 @@ export function findTranslatableElements(effectiveSettings, rootNodes = [documen
                 wrapperElement.dataset.foxlateGenerated = 'true';
                 parent.insertBefore(wrapperElement, consecutiveOrphans[0]);
                 consecutiveOrphans.forEach(node => wrapperElement.appendChild(node));
-                finalCandidates.add(wrapperElement);
+                if (!isExcludedBySelector(wrapperElement, excludeSelector)) {
+                    finalCandidates.add(wrapperElement);
+                }
             }
             consecutiveOrphans = [];
         };
@@ -212,5 +229,6 @@ export function findTranslatableElements(effectiveSettings, rootNodes = [documen
         wrapOrphans();
     }
 
-    return Array.from(finalCandidates).filter(el => !el.dataset.translationId);
+    return Array.from(finalCandidates).filter(el =>
+        !el.dataset.translationId && !isExcludedBySelector(el, excludeSelector));
 }

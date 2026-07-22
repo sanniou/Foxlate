@@ -157,6 +157,30 @@ test('resolveEffectiveSettings only merges whitelisted domain rule fields', asyn
     assert.equal(effective.junkField, undefined);
 });
 
+test('resolveEffectiveSettings merges domain summarySettings mainBodySelector', async () => {
+    const { resolveEffectiveSettings } = await loadSettingsDomain();
+    const settings = {
+        summarySettings: {
+            enabled: true,
+            aiModel: 'a',
+            mainBodySelector: 'article',
+        },
+        domainRules: {
+            'news.example': {
+                summarySettings: {
+                    mainBodySelector: '.story-body',
+                },
+            },
+        },
+        translationSelector: { default: { content: 'p', exclude: 'nav' } },
+    };
+
+    const effective = resolveEffectiveSettings(settings, 'news.example');
+    assert.equal(effective.summarySettings.mainBodySelector, '.story-body');
+    assert.equal(effective.summarySettings.enabled, true);
+    assert.equal(effective.summarySettings.aiModel, 'a');
+});
+
 test('resolveEffectiveSettings accepts translationSelector alias on domain rules', async () => {
     const { resolveEffectiveSettings } = await loadSettingsDomain();
     const settings = createBaseSettings();

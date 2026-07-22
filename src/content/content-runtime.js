@@ -272,7 +272,7 @@ export class ContentRuntime {
                 summarySettings: {
                     enabled: true,
                     aiModel: settings.aiEngines?.length > 0 ? settings.aiEngines[0].id : null,
-                    mainBodySelector: settings.summarySettings?.mainBodySelector || 'article, .content, .post, main',
+                    mainBodySelector: settings.summarySettings?.mainBodySelector,
                 },
             };
         }

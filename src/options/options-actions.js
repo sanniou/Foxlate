@@ -456,18 +456,19 @@ export class OptionsActions {
 
         const presets = {
             article: {
-                content: 'article, main, .content, .post, .entry-content, [role="main"]',
-                exclude: 'nav, aside, footer, header, pre, code, kbd, samp',
+                content: 'article, main, [role="main"], .content, .post, .entry-content, h1, h2, h3, p, li',
+                exclude: 'nav, aside, footer, header, [role="navigation"], pre, code, kbd, samp, .sidebar, .toc',
                 displayMode: 'append',
             },
             docs: {
-                content: 'main, article, .docs-content, .documentation, [role="main"], h1, h2, h3, p, li, td, th',
-                exclude: 'nav, .sidebar, .toc, pre, code, kbd, samp',
+                content: 'main, article, [role="main"], .docs-content, .documentation, .markdown-body, h1, h2, h3, p, li, td, th',
+                exclude: 'nav, .sidebar, .toc, [role="navigation"], pre, code, kbd, samp',
                 displayMode: 'append',
             },
+            // Prose leaves in app shells — not every button/tab chrome label.
             app: {
-                content: 'label, button, [role="button"], [role="tab"], [role="menuitem"], p, h1, h2, h3, li, td, th',
-                exclude: 'pre, code, kbd, samp, input, textarea',
+                content: 'main, [role="main"], [role="dialog"] p, [role="dialog"] h1, [role="dialog"] h2, [role="dialog"] li, p, h1, h2, h3, li, td, th, label',
+                exclude: 'nav, aside, footer, header, pre, code, kbd, samp, input, textarea, button, [role="button"]',
                 displayMode: 'hover',
             },
         };

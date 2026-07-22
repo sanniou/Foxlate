@@ -64,6 +64,12 @@ export function validateSettings(storedSettings) {
         enabled: validatedSettings.quickActionPanel?.enabled !== false,
         showOnSelection: validatedSettings.quickActionPanel?.showOnSelection !== false,
     };
+    validatedSettings.summarySettings = {
+        ...defaultSettings.summarySettings,
+        ...(settingsToValidate.summarySettings || {}),
+        mainBodySelector: settingsToValidate.summarySettings?.mainBodySelector
+            || defaultSettings.summarySettings.mainBodySelector,
+    };
 
     return validatedSettings;
 }
@@ -172,6 +178,17 @@ export function resolveEffectiveSettings(settings, hostname) {
         selectorOverride,
     );
 
+    // Domain summarySettings (mainBodySelector / enabled / aiModel) overlay globals.
+    const globalSummary = settings.summarySettings || {};
+    const ruleSummary = domainRule.summarySettings || {};
+    effectiveSettings.summarySettings = {
+        ...globalSummary,
+        ...ruleSummary,
+        mainBodySelector: ruleSummary.mainBodySelector
+            || globalSummary.mainBodySelector
+            || Constants.DEFAULT_SUMMARY_MAIN_BODY,
+    };
+
     return effectiveSettings;
 }
 
@@ -218,6 +235,7 @@ export const DOMAIN_RULE_WRITABLE_KEYS = Object.freeze([
     'applyToSubdomains',
     'subtitleSettings',
     'subtitleDisplayMode',
+    'summarySettings',
 ]);
 
 export function setDomainRuleProperty(settings, domain, key, value) {

@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.7.3] - 2026-07-22
+
+### 🐛 Scope / rules
+*   **Candidate exclude:** `findTranslatableElements` now drops nodes under `translationSelector.exclude` before observe/translate (was only applied later in DOMWalker).
+*   **Default content:** prose leaves only — drop button/label/tab/link chrome from default content selector; add `[role=main]`.
+*   **Default exclude:** richer shell (`role=search`, form, sidebar/toc/breadcrumb/pagination).
+*   **Summary body:** `DEFAULT_SUMMARY_MAIN_BODY`; pick largest matching node (not first `querySelector`); domain `summarySettings` merged into effective.
+*   **Site wizard presets:** article/docs/app retargeted to prose scope.
+
+### ♻️ Quality
+*   Scope rules review; summary extractor + exclude candidate tests; suite **101**.
+
 ## [1.7.2] - 2026-07-22
 
 ### ♻️ Core

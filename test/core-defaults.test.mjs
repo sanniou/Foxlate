@@ -41,6 +41,7 @@ test('default page translation favors replace mode and shell-safe selectors', as
         DEFAULT_TRANSLATION_CONTENT,
         DEFAULT_TRANSLATION_EXCLUDE,
         FALLBACK_TRANSLATION_CONTENT,
+        DEFAULT_SUMMARY_MAIN_BODY,
         DISPLAY_MODES,
     } = await loadModule(`
         export {
@@ -48,6 +49,7 @@ test('default page translation favors replace mode and shell-safe selectors', as
             DEFAULT_TRANSLATION_CONTENT,
             DEFAULT_TRANSLATION_EXCLUDE,
             FALLBACK_TRANSLATION_CONTENT,
+            DEFAULT_SUMMARY_MAIN_BODY,
             DISPLAY_MODES,
         } from ${JSON.stringify(path.join(projectRoot, 'src/common/constants.js'))};
     `);
@@ -59,11 +61,17 @@ test('default page translation favors replace mode and shell-safe selectors', as
     assert.match(DEFAULT_TRANSLATION_EXCLUDE, /\[role="navigation"\]/);
     assert.match(DEFAULT_TRANSLATION_CONTENT, /main/);
     assert.match(DEFAULT_TRANSLATION_CONTENT, /article/);
+    assert.match(DEFAULT_TRANSLATION_CONTENT, /\[role="main"\]/);
     assert.doesNotMatch(DEFAULT_TRANSLATION_CONTENT, /(^|,\s*)div(,|$)/);
+    assert.doesNotMatch(DEFAULT_TRANSLATION_CONTENT, /button/);
+    assert.doesNotMatch(DEFAULT_TRANSLATION_CONTENT, /\[role="tab"\]/);
     assert.match(FALLBACK_TRANSLATION_CONTENT, /section/);
     assert.match(FALLBACK_TRANSLATION_CONTENT, /div/);
     assert.equal(DEFAULT_SETTINGS.translationSelector.default.exclude, DEFAULT_TRANSLATION_EXCLUDE);
     assert.equal(DEFAULT_SETTINGS.translationSelector.default.content, DEFAULT_TRANSLATION_CONTENT);
+    assert.equal(DEFAULT_SETTINGS.summarySettings.mainBodySelector, DEFAULT_SUMMARY_MAIN_BODY);
+    assert.match(DEFAULT_SUMMARY_MAIN_BODY, /article/);
+    assert.match(DEFAULT_SUMMARY_MAIN_BODY, /main/);
 });
 
 test('clampPanelPosition keeps the quick-action panel inside the viewport', async () => {

@@ -25,15 +25,19 @@ export const SUPPORTED_ENGINES = {
 
 // Shell chrome to skip by default (nav/footer/chrome). Content script styles also mark foxlate nodes.
 export const DEFAULT_TRANSLATION_EXCLUDE =
-    'nav, footer, aside, header, [role="navigation"], [role="banner"], [role="contentinfo"], [role="complementary"], pre, code, kbd, samp, noscript';
+    'nav, footer, aside, header, [role="navigation"], [role="banner"], [role="contentinfo"], [role="complementary"], [role="search"], pre, code, kbd, samp, noscript, form, .sidebar, .toc, .breadcrumb, .pagination';
 
-// Prefer semantic content leaves over bare `div` to reduce chrome noise.
+// Prefer semantic *prose* leaves — not chrome controls (button/label/tab/link).
 export const DEFAULT_TRANSLATION_CONTENT =
-    'main, article, h1, h2, h3, h4, h5, h6, p, li, td, th, blockquote, dd, dt, caption, figcaption, label, button, [role="tab"], [role="link"]';
+    'main, article, [role="main"], h1, h2, h3, h4, h5, h6, p, li, td, th, blockquote, dd, dt, caption, figcaption';
 
 // Used only when the preferred selector matches nothing (legacy markup without main/article).
 export const FALLBACK_TRANSLATION_CONTENT =
     'main, article, section, h1, h2, h3, h4, h5, h6, p, li, td, th, blockquote, dd, dt, caption, figcaption, div';
+
+// Summary body scope: article-ish containers (not every p/li — that is page-translate scope).
+export const DEFAULT_SUMMARY_MAIN_BODY =
+    'article, main, [role="main"], .content, .post, .entry-content, .markdown-body, .post-content, #content';
 
 export const DEFAULT_SETTINGS = {
     translatorEngine: 'google',
@@ -53,7 +57,11 @@ export const DEFAULT_SETTINGS = {
     domainRules: {},
     cacheSize: 5000, // Number of translation items to cache
     parallelRequests: 5, // Number of parallel translation requests
-    summarySettings: {},
+    summarySettings: {
+        enabled: false,
+        aiModel: null,
+        mainBodySelector: DEFAULT_SUMMARY_MAIN_BODY,
+    },
     glossary: {
       enabled: true,
       entries: [],

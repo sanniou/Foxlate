@@ -49,7 +49,19 @@ class SummaryModule {
         let targetElement = document.body;
         let initialX, initialY;
         if (mainBodySelector) {
-            const foundElement = document.querySelector(mainBodySelector);
+            // Same “largest match” rule as SummaryContentExtractor (not first querySelector hit).
+            let foundElement = null;
+            try {
+                const nodes = Array.from(document.querySelectorAll(mainBodySelector));
+                foundElement = nodes.reduce((best, node) => {
+                    if (!best) return node;
+                    const bestLen = (best.innerText || best.textContent || '').trim().length;
+                    const nodeLen = (node.innerText || node.textContent || '').trim().length;
+                    return nodeLen > bestLen ? node : best;
+                }, null);
+            } catch {
+                foundElement = null;
+            }
             if (foundElement) {
                 targetElement = foundElement;
                 const targetRect = targetElement.getBoundingClientRect();

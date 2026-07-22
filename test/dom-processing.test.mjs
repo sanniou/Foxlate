@@ -219,6 +219,27 @@ test('findTranslatableElements returns leaves and wraps mixed parent orphan text
     assert.equal(elements.some(el => el.id === 'done'), false);
 });
 
+test('findTranslatableElements drops candidates under exclude selector before leaf pick', async () => {
+    const { findTranslatableElements } = await loadDomModules();
+    const dom = setupDom(`
+        <main>
+            <p id="body">Article body</p>
+            <nav><p id="nav-p">Skip me</p></nav>
+            <aside><p id="aside-p">Also skip</p></aside>
+        </main>
+    `);
+    const settings = {
+        translationSelector: {
+            content: 'p',
+            exclude: 'nav, aside',
+        },
+    };
+
+    const elements = findTranslatableElements(settings, [dom.window.document.body]);
+    const ids = elements.map(el => el.id).filter(Boolean);
+    assert.deepEqual(ids, ['body']);
+});
+
 test('findTranslatableElements falls back when preferred content selector matches nothing', async () => {
     const { findTranslatableElements } = await loadDomModules();
     // Legacy page: no main/article, only a div paragraph shell.
