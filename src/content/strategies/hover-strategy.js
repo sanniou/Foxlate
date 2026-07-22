@@ -44,8 +44,13 @@ class HoverStrategy {
      * @param {HTMLElement} element - 目标元素。
      */
     revert(element) {
-        // 移除所有可能由该策略添加的样式。
-        element.classList.remove('foxlate-hover-highlight', 'foxlate-loading-highlight');
+        element.classList.remove(
+            'foxlate-hover-highlight',
+            'foxlate-loading-highlight',
+            'foxlate-state-loading',
+            'foxlate-state-error',
+            'foxlate-state-translated',
+        );
 
         if (element._foxlateHoverHandlers) {
             element.removeEventListener('mouseenter', element._foxlateHoverHandlers.handleMouseEnter);
@@ -76,11 +81,11 @@ class HoverStrategy {
                 // revert 已在 switch 外部调用，此处无需操作。
                 break;
             case Constants.DISPLAY_MANAGER_STATES.LOADING:
-                // 使用一个不同的高亮样式来表示正在加载
-                element.classList.add('foxlate-loading-highlight');
+                element.classList.add('foxlate-loading-highlight', 'foxlate-state-loading');
                 break;
             case Constants.DISPLAY_MANAGER_STATES.TRANSLATED:
                 if (data && data.plainText && data.originalContent) {
+                    element.classList.add('foxlate-state-translated');
                     this.displayTranslation(element, data.originalContent, data.plainText, false);
                 } else {
                     this.revert(element);
@@ -89,8 +94,8 @@ class HoverStrategy {
             case Constants.DISPLAY_MANAGER_STATES.ERROR:
                 const errorPrefix = browser.i18n.getMessage('contextMenuErrorPrefix') || 'Error';
                 const errorMessage = data?.errorMessage || 'Translation Error';
-                const fullErrorMessage = `⚠️ ${errorPrefix}: ${errorMessage}`;
-                // 当发生错误时，原文和译文都显示错误信息
+                const fullErrorMessage = `${errorPrefix}: ${errorMessage}`;
+                element.classList.add('foxlate-state-error');
                 this.displayTranslation(element, data.originalContent, fullErrorMessage, true);
                 break;
             default:

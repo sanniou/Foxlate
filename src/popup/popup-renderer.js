@@ -43,11 +43,16 @@ export class PopupRenderer {
 
     populateStaticSelects() {
         this.populateSelect(this.elements.subtitleDisplayModeSelect, Constants.SUBTITLE_DISPLAY_MODES);
+        // Display modes use segmented control in the popup (see renderDisplayMode).
+    }
 
-        const popupDisplayModes = Object.fromEntries(
-            Object.entries(Constants.DISPLAY_MODES).map(([key, value]) => [key, value.popupKey])
-        );
-        this.populateSelect(this.elements.displayModeSelect, popupDisplayModes);
+    renderDisplayMode(displayMode) {
+        const buttons = this.elements.displayModeButtons || [];
+        for (const button of buttons) {
+            const active = button.dataset.mode === displayMode;
+            button.classList.toggle('is-active', active);
+            button.setAttribute('aria-checked', active ? 'true' : 'false');
+        }
     }
 
     renderEffectiveSettings(settings) {
@@ -66,13 +71,30 @@ export class PopupRenderer {
         delete targetLanguages.auto;
         this.populateSelect(this.elements.targetLanguageSelect, targetLanguages, settings.targetLanguage);
 
-        this.elements.displayModeSelect.value = settings.displayMode;
+        this.renderDisplayMode(settings.displayMode || Constants.DEFAULT_SETTINGS.displayMode);
+        this.renderGlossaryIndicator(settings);
     }
 
     renderRuleIndicator(ruleSource) {
-        this.elements.currentRuleIndicator.textContent = ruleSource === 'default'
-            ? this.browser.i18n.getMessage('popupRuleDefault') || 'Using default settings'
-            : ruleSource;
+        if (ruleSource === 'default' || !ruleSource) {
+            this.elements.currentRuleIndicator.textContent =
+                this.browser.i18n.getMessage('popupRuleDefault') || 'Using default settings';
+            return;
+        }
+        const siteLabel = this.browser.i18n.getMessage('popupRuleSite') || 'Site';
+        this.elements.currentRuleIndicator.textContent = `${siteLabel} · ${ruleSource}`;
+    }
+
+    renderGlossaryIndicator(settings = {}) {
+        const el = this.elements.glossaryIndicator;
+        if (!el) return;
+        const glossary = settings.glossary || {};
+        const entries = Array.isArray(glossary.entries) ? glossary.entries : [];
+        const on = glossary.enabled !== false && entries.length > 0;
+        el.hidden = !on;
+        if (on) {
+            el.textContent = this.browser.i18n.getMessage('popupGlossaryOn') || 'Glossary on';
+        }
     }
 
     renderTranslationButtonState(state = 'original') {
@@ -99,7 +121,10 @@ export class PopupRenderer {
 
     setPageControlsEnabled(enabled, hasHostname) {
         this.elements.translatePageBtn.disabled = !enabled;
-        this.elements.displayModeSelect.disabled = !enabled;
+        for (const button of this.elements.displayModeButtons || []) {
+            button.disabled = !enabled || !hasHostname;
+        }
+        this.elements.displayModeGroup?.classList.toggle('is-disabled', !enabled || !hasHostname);
         this.elements.sourceLanguageSelect.disabled = !enabled;
         this.elements.targetLanguageSelect.disabled = !enabled;
         this.elements.engineSelect.disabled = !enabled;

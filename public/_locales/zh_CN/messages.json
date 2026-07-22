@@ -679,7 +679,6 @@
     "message": "总结 AI 模型",
     "description": "内容总结的 AI 模型选择标签。"
   },
-  
   "errorMainBodySelectorRequired": {
     "message": "启用内容总结时，必须指定主体内容选择器。",
     "description": "验证错误信息。"
@@ -1266,5 +1265,33 @@
   "qualityPreviewExpansion": {
     "message": "膨胀比例",
     "description": "质量预览中的膨胀比例标签。"
+  },
+  "popupDisplayModeSiteHint": {
+    "message": "已保存到此网站规则",
+    "description": "显示模式分段控件下的提示。"
+  },
+  "precheckBuiltinTitle": {
+    "message": "内置内容过滤",
+    "description": "说明预检为内置规则。"
+  },
+  "precheckBuiltinDescription": {
+    "message": "自动跳过 URL、邮箱、纯数字/符号、代码块标记，以及已是目标语言的文本。暂不支持自定义正则预检规则。",
+    "description": "内置预检说明。"
+  },
+  "popupGlossaryOn": {
+    "message": "术语表已开",
+    "description": "术语表有条目时的 footer 标记。"
+  },
+  "selectionEntryHelp": {
+    "message": "选区翻译入口：快选面板（主）、右键菜单、Alt+S。若与页面冲突，可在「产品」设置中关闭快选面板。",
+    "description": "选区入口说明。"
+  },
+  "popupRuleSite": {
+    "message": "站点",
+    "description": "站点规则指示前缀。"
+  },
+  "popupSelectionEntryHint": {
+    "message": "选区：快选面板 · 右键 · Alt+S",
+    "description": "Popup 选区入口微提示。"
   }
 }

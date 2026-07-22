@@ -23,18 +23,30 @@ export const SUPPORTED_ENGINES = {
     'deeplx': 'deeplx',
 };
 
+// Shell chrome to skip by default (nav/footer/chrome). Content script styles also mark foxlate nodes.
+export const DEFAULT_TRANSLATION_EXCLUDE =
+    'nav, footer, aside, header, [role="navigation"], [role="banner"], [role="contentinfo"], [role="complementary"], pre, code, kbd, samp, noscript';
+
+// Prefer semantic content leaves over bare `div` to reduce chrome noise.
+export const DEFAULT_TRANSLATION_CONTENT =
+    'main, article, h1, h2, h3, h4, h5, h6, p, li, td, th, blockquote, dd, dt, caption, figcaption, label, button, [role="tab"], [role="link"]';
+
+// Used only when the preferred selector matches nothing (legacy markup without main/article).
+export const FALLBACK_TRANSLATION_CONTENT =
+    'main, article, section, h1, h2, h3, h4, h5, h6, p, li, td, th, blockquote, dd, dt, caption, figcaption, div';
+
 export const DEFAULT_SETTINGS = {
     translatorEngine: 'google',
     targetLanguage: 'ZH',
-    displayMode: 'append',
+    // replace = clean reading default; append/hover remain one click away in popup.
+    displayMode: 'replace',
     translateAfterScrollIdle: true,
     scrollIdleDelayMs: 300,
     deeplxApiUrl: '',
     translationSelector: {
         default: {
-            // 用于匹配需要翻译的页面元素。
-            content: 'h1, h2, h3, h4, h5, h6, label, button, [role="tab"], [role="link"], p, div, li, td, th, blockquote, pre, dd, dt, caption, figcaption, article, section',
-            exclude: 'pre, kbd, samp' // 新增：全局排除选择器
+            content: DEFAULT_TRANSLATION_CONTENT,
+            exclude: DEFAULT_TRANSLATION_EXCLUDE,
         }
     },
     aiEngines: [],

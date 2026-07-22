@@ -13,6 +13,12 @@ class AppendStrategy {
      */
     revert(element) {
         element.querySelector('.foxlate-appended-text')?.remove();
+        element.classList.remove(
+            'foxlate-state-loading',
+            'foxlate-state-error',
+            'foxlate-state-translated',
+        );
+        element.title = '';
     }
 
     /**
@@ -48,7 +54,9 @@ class AppendStrategy {
                 break;
 
             case Constants.DISPLAY_MANAGER_STATES.LOADING:
-                const loadingIndicator = this.#createAppendWrapper(appendType, ['loading']);
+                element.classList.add('foxlate-state-loading');
+                const loadingIndicator = this.#createAppendWrapper(appendType, ['loading', 'foxlate-state-loading']);
+                loadingIndicator.setAttribute('aria-hidden', 'true');
                 element.appendChild(loadingIndicator);
                 break;
 
@@ -58,6 +66,7 @@ class AppendStrategy {
                     return;
                 }
 
+                element.classList.add('foxlate-state-translated');
                 const appendedElement = this.#createAppendWrapper(appendType);
                 try {
                     // (优化) 统一使用 reconstructDOM。该函数可以同时处理带标签的文本和纯文本，
@@ -81,8 +90,11 @@ class AppendStrategy {
                 const errorPrefix = browser.i18n.getMessage('contextMenuErrorPrefix') || 'Error';
                 const errorMessage = errorData?.errorMessage || 'Translation Error';
 
-                const errorElement = this.#createAppendWrapper(appendType, ['error']);
-                errorElement.textContent = `${errorPrefix}: ${errorMessage}`; // (优化) 移除 '⚠️' 表情符号，改用 CSS 伪元素实现图标，以获得更好的一致性和外观。
+                element.classList.add('foxlate-state-error');
+                const fullError = `${errorPrefix}: ${errorMessage}`;
+                element.title = fullError;
+                const errorElement = this.#createAppendWrapper(appendType, ['error', 'foxlate-state-error']);
+                errorElement.textContent = fullError;
                 element.appendChild(errorElement);
                 break;
 

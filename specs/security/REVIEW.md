@@ -1,12 +1,12 @@
-# Security Review — feat/e01-r1-stabilize
+# Security Review — feat/e04-core-polish
 
 **Date:** 2026-07-22  
-**Branch:** feat/e01-r1-stabilize  
-**Scope:** e01 R1 stabilize (version gate, MD3 cleanup, content token parity)
+**Branch:** feat/e04-core-polish  
+**Scope:** Core polish (defaults, display modes, panels, rules UX)
 
 ## Summary
 
-No security-sensitive paths changed. Diff is tests + placeholder version + selector cleanup + CSS comments.
+No trust-boundary or network changes. Selector defaults and UI only; fallback content selector is still user-overridable via settings.
 
 ## Findings
 
@@ -16,12 +16,12 @@ No security-sensitive paths changed. Diff is tests + placeholder version + selec
 
 ## Paths reviewed
 
-- `public/manifest.base.json` — version placeholder only; build still injects package.json
-- `test/build-manifest.test.mjs` — local spawn of `build.js`, no network
-- `src/options/validator.js` — DOM selector narrowing
-- `test/design-token-parity.test.mjs` — CSS parse only
-- content CSS comments — docs only
+- `src/common/constants.js` — default/fallback selectors
+- `src/content/translatable-elements.js` — empty-match fallback (one-shot)
+- `src/popup/*` — site-scoped settings writes (existing SettingsManager path)
+- `src/content/quick-action-panel.js` — position clamp only
+- strategies — CSS state classes
 
 ## Verdict
 
-**PASS** — safe to land.
+**PASS** — safe to land as 1.6.2.

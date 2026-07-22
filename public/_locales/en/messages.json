@@ -1271,5 +1271,33 @@
   "qualityPreviewExpansion": {
     "message": "Expansion",
     "description": "Label for expansion ratio in quality preview."
+  },
+  "popupDisplayModeSiteHint": {
+    "message": "Saved for this site",
+    "description": "Hint under display mode segmented control."
+  },
+  "precheckBuiltinTitle": {
+    "message": "Built-in content filters",
+    "description": "Title explaining precheck is built-in."
+  },
+  "precheckBuiltinDescription": {
+    "message": "Foxlate skips URLs, emails, pure numbers/symbols, code fences, and text already in the target language. Custom regex pre-check rules are not configurable.",
+    "description": "Description of built-in precheck behavior."
+  },
+  "popupGlossaryOn": {
+    "message": "Glossary on",
+    "description": "Footer chip when glossary has entries."
+  },
+  "selectionEntryHelp": {
+    "message": "Selection translation: quick panel (primary), context menu, and Alt+S. Disable the panel in Product settings if it conflicts with the page.",
+    "description": "Help text for selection entry points."
+  },
+  "popupRuleSite": {
+    "message": "Site",
+    "description": "Prefix for site-scoped rule indicator."
+  },
+  "popupSelectionEntryHint": {
+    "message": "Selection: quick panel · right-click · Alt+S",
+    "description": "Popup micro-hint for selection entry points."
   }
 }

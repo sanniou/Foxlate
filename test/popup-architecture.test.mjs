@@ -60,6 +60,10 @@ function installBrowserMock() {
                     displayModeTranslated: 'Translated',
                     displayModeBilingual: 'Bilingual',
                     displayModeOriginal: 'Original',
+                    popupDisplayModeReplace: 'Replace',
+                    popupDisplayModeAppend: 'Append',
+                    popupDisplayModeHover: 'Hover',
+                    popupDisplayModeSiteHint: 'Saved for this site',
                     subtitleDisplayModeOff: 'Off',
                     subtitleDisplayModeTranslated: 'Translated',
                     subtitleDisplayModeBilingual: 'Bilingual',
@@ -108,11 +112,16 @@ function setupDom() {
         <select id="sourceLanguageSelect"></select>
         <select id="targetLanguageSelect"></select>
         <select id="engineSelect"></select>
-        <select id="displayModeSelect"></select>
+        <div id="displayModeGroup" class="segmented" role="radiogroup">
+            <button type="button" class="segment" data-mode="replace" role="radio">Replace</button>
+            <button type="button" class="segment" data-mode="append" role="radio">Append</button>
+            <button type="button" class="segment" data-mode="hover" role="radio">Hover</button>
+        </div>
         <button id="translatePageBtn"><span class="btn-text"></span></button>
         <input type="checkbox" id="autoTranslate">
         <input type="checkbox" id="scrollIdleTranslation">
         <span id="currentRuleIndicator"></span>
+        <span id="glossaryIndicator" class="meta-pill" hidden></span>
         <button id="openOptionsBtn"></button>
         <button id="swapLanguagesBtn"></button>
         <select id="subtitleDisplayModeSelect"></select>
@@ -203,4 +212,16 @@ test('popup action layer uses host-scoped settings and message registry protocol
     assert.deepEqual(saved, [['docs.example.com', 'targetLanguage', 'zh-CN']]);
     assert.equal(messages[0].type, 'TOGGLE_TRANSLATION_REQUEST');
     assert.equal(messages[0].payload.tabId, 9);
+
+    const tabMessages = [];
+    browserApi.tabs.sendMessage = async (_tabId, message) => {
+        tabMessages.push(message);
+        return { state: 'original' };
+    };
+    await actions.handleDisplayModeChange('hover');
+    assert.equal(elements.displayModeGroup.querySelector('[data-mode="hover"]').classList.contains('is-active'), true);
+    assert.deepEqual(saved.at(-1), ['docs.example.com', 'displayMode', 'hover']);
+    assert.equal(tabMessages[0].type, 'UPDATE_DISPLAY_MODE');
+    assert.equal(tabMessages[0].payload.displayMode, 'hover');
+    assert.equal(state.currentRuleSource, 'docs.example.com');
 });

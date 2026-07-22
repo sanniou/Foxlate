@@ -219,6 +219,21 @@ test('findTranslatableElements returns leaves and wraps mixed parent orphan text
     assert.equal(elements.some(el => el.id === 'done'), false);
 });
 
+test('findTranslatableElements falls back when preferred content selector matches nothing', async () => {
+    const { findTranslatableElements } = await loadDomModules();
+    // Legacy page: no main/article, only a div paragraph shell.
+    const dom = setupDom('<div id="legacy"><p id="legacy-p">Body copy</p></div>');
+    const settings = {
+        translationSelector: {
+            content: 'main, article',
+            fallbackContent: 'div, p',
+        },
+    };
+
+    const elements = findTranslatableElements(settings, [dom.window.document.body]);
+    assert.equal(elements.some(el => el.id === 'legacy-p' || el.id === 'legacy'), true);
+});
+
 test('findTranslatableElements returns no candidates instead of throwing for invalid content selector', async () => {
     const { findTranslatableElements } = await loadDomModules();
     const dom = setupDom('<main><p id="target">Body</p></main>');

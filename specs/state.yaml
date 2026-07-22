@@ -1,18 +1,17 @@
 workflow_mode: solo-git
 session:
-  active_flow: none
-  epic: null
-  story: null
-  started_at: null
+  active_flow: verify_work
+  epic: e04
+  story: e04s01
+  started_at: "2026-07-22T04:00:00+08:00"
 git:
-  branch: main
-  head: d394d9b
+  branch: feat/e04-core-polish
+  head: pending
 handoff:
-  next_skill: survey-context
-  note: "e01 R1 1.6.1 landed on main. Next: e02 Chromium reach or survey-context."
+  next_skill: release-branch
+  note: "e04 三轮核心打磨完成（整体 8.1）。UAT 后 solo-git land；建议版本 1.6.2。"
 metrics:
-  story_start: "2026-07-22T02:41:11+08:00"
-  story_end: "2026-07-22T03:30:00+08:00"
+  story_start: "2026-07-22T04:00:00+08:00"
 product:
   version: "1.6.1"
-  release_track: R2-reach
+  release_track: core-polish

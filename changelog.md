@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.6.2] - 2026-07-22
+
+### ✨ Features / UX
+*   **Defaults:** New installs default to **replace** display mode; content selectors prefer semantic leaves and exclude nav/footer/aside chrome (with a one-shot broader fallback when nothing matches).
+*   **Popup display modes:** Segmented Replace / Append / Hover control; changes save as a **site rule** with `Site · hostname` indicator.
+*   **Selection:** Viewport-clamped quick-action panel; popup micro-hint for entry points (quick panel · right-click · Alt+S).
+*   **Glossary chip:** Footer shows when glossary is enabled with entries.
+
+### ♻️ Refactors / Quality
+*   Shared `foxlate-state-loading|error|translated` classes across replace/append/hover strategies.
+*   README + Options: built-in pre-check filters documented (no custom regex).
+*   Tests for defaults, selector fallback, panel clamp, and popup site-scoped display mode.
+
 ## [1.6.1] - 2026-07-22
 
 ### 🐛 Fixes

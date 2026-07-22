@@ -1,0 +1,14 @@
+id: e04
+slug: core-polish
+title: Core polish — strategies, rules, display modes, panels
+track: R1.5
+target_version: "1.6.2"
+status: in_progress
+wsjf: 9
+goal: |
+  打磨页译核心：默认可读、显示模式可发现、规则轻路径、面板与策略状态一致。
+stories:
+  - id: e04s01
+    title: 默认可读 + popup 显示模式分段 + 快选夹紧 + 策略状态 + 文档
+    bcps: 8
+    status: in_progress

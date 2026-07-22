@@ -1,6 +1,23 @@
 import browser from '../lib/browser-polyfill.js';
 import { MESSAGE_TYPES } from '../common/message-types.js';
 
+/** Pure viewport clamp used by the floating quick-action panel. */
+export function clampPanelPosition({
+    clientX = 0,
+    clientY = 0,
+    panelWidth = 112,
+    panelHeight = 40,
+    viewportWidth = 0,
+    viewportHeight = 0,
+    gutter = 8,
+} = {}) {
+    let left = clientX - panelWidth / 2;
+    let top = clientY + gutter;
+    left = Math.min(Math.max(gutter, left), Math.max(gutter, viewportWidth - panelWidth - gutter));
+    top = Math.min(Math.max(gutter, top), Math.max(gutter, viewportHeight - panelHeight - gutter));
+    return { left, top };
+}
+
 function getSelectionPayload(win = window) {
     const selection = win.getSelection();
     const text = selection?.toString().trim();
@@ -96,13 +113,26 @@ export class QuickActionPanel {
 
     #show(selectionPayload) {
         this.#ensurePanel();
-        this.#panel.style.left = `${Math.max(8, selectionPayload.coords.clientX - 52)}px`;
-        this.#panel.style.top = `${Math.max(8, selectionPayload.coords.clientY)}px`;
+        this.#positionPanel(selectionPayload.coords);
         this.#panel.dataset.visible = 'true';
         this.#panel.querySelector('[data-action="translate"]').onclick = () => {
             this.hide();
             this.#onTranslate?.(selectionPayload);
         };
+    }
+
+    /** Clamp panel inside the viewport with an 8px gutter. */
+    #positionPanel(coords) {
+        const { left, top } = clampPanelPosition({
+            clientX: coords?.clientX || 0,
+            clientY: coords?.clientY || 0,
+            panelWidth: this.#panel.offsetWidth || 112,
+            panelHeight: this.#panel.offsetHeight || 40,
+            viewportWidth: this.#window.innerWidth || 0,
+            viewportHeight: this.#window.innerHeight || 0,
+        });
+        this.#panel.style.left = `${left}px`;
+        this.#panel.style.top = `${top}px`;
     }
 
     #ensurePanel() {

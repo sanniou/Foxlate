@@ -12,5 +12,9 @@ export function bindPopupEvents({ elements, actions, browserApi }) {
     elements.scrollIdleTranslationCheckbox.addEventListener('change', event => actions.saveChangeToRule('translateAfterScrollIdle', event.target.checked));
     elements.subtitleDisplayModeSelect.addEventListener('change', event => actions.saveChangeToRule('subtitleDisplayMode', event.target.value));
     elements.autoTranslateCheckbox.addEventListener('change', event => actions.handleAutoTranslateChange(event.target.checked));
-    elements.displayModeSelect.addEventListener('change', event => actions.handleDisplayModeChange(event.target.value));
+    elements.displayModeGroup?.addEventListener('click', event => {
+        const button = event.target.closest('[data-mode]');
+        if (!button || button.disabled) return;
+        actions.handleDisplayModeChange(button.dataset.mode);
+    });
 }

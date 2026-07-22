@@ -1,4 +1,4 @@
-import { SKIPPED_TAGS } from '../common/constants.js';
+import { FALLBACK_TRANSLATION_CONTENT, SKIPPED_TAGS } from '../common/constants.js';
 
 function createContentSelectorQuery(selector) {
     let invalidSelectorError = null;
@@ -131,6 +131,20 @@ export function findTranslatableElements(effectiveSettings, rootNodes = [documen
     }
 
     if (allCandidates.size === 0) {
+        // Empty preferred selector (e.g. pages without main/article): one-shot broader fallback.
+        const allowFallback = !effectiveSettings?.translationSelector?.__skipFallback;
+        const fallback = (effectiveSettings?.translationSelector?.fallbackContent
+            || FALLBACK_TRANSLATION_CONTENT).trim();
+        if (allowFallback && fallback && fallback !== contentSelector) {
+            return findTranslatableElements({
+                ...effectiveSettings,
+                translationSelector: {
+                    ...effectiveSettings.translationSelector,
+                    content: fallback,
+                    __skipFallback: true,
+                },
+            }, rootNodes);
+        }
         return [];
     }
 

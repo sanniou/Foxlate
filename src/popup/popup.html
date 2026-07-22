@@ -35,6 +35,7 @@
             <button id="translatePageBtn" class="btn btn-primary btn-lg btn-full">
                 <span class="btn-text" i18n-text="popupTranslatePage">Translate Page</span>
             </button>
+            <p class="entry-hint" i18n-text="popupSelectionEntryHint">Selection: quick panel · right-click · Alt+S</p>
 
             <section class="quick-settings" aria-label="Translation settings">
                 <div class="settings-row">
@@ -42,9 +43,14 @@
                         <label class="mini-label" for="engineSelect" i18n-text="translationEngine">Engine</label>
                     <select id="engineSelect" class="form-control form-control-sm"></select>
                 </div>
-                <div class="input-group">
-                        <label class="mini-label" for="displayModeSelect" i18n-text="displayMode">Display</label>
-                    <select id="displayModeSelect" class="form-control form-control-sm"></select>
+                <div class="input-group display-mode-field">
+                        <span class="mini-label" id="displayModeLabel" i18n-text="displayMode">Display</span>
+                        <div id="displayModeGroup" class="segmented" role="radiogroup" aria-labelledby="displayModeLabel">
+                            <button type="button" class="segment" data-mode="replace" role="radio" aria-checked="false" i18n-text="popupDisplayModeReplace">Replace</button>
+                            <button type="button" class="segment" data-mode="append" role="radio" aria-checked="false" i18n-text="popupDisplayModeAppend">Append</button>
+                            <button type="button" class="segment" data-mode="hover" role="radio" aria-checked="false" i18n-text="popupDisplayModeHover">Hover</button>
+                        </div>
+                        <p class="field-hint" i18n-text="popupDisplayModeSiteHint">Saved for this site</p>
                 </div>
                 </div>
                 <div class="toggle-list">
@@ -87,6 +93,7 @@
 
         <footer>
             <span id="currentRuleIndicator" class="meta-text"></span>
+            <span id="glossaryIndicator" class="meta-text meta-pill" hidden i18n-text="popupGlossaryOn">Glossary on</span>
             <span id="versionDisplay" class="meta-text"></span>
         </footer>
     </div>

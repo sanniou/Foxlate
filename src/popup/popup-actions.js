@@ -86,6 +86,14 @@ export class PopupActions {
             : this.state.currentRuleSource;
 
         await this.settingsManager.saveDomainRuleProperty(domainToUpdate, key, value);
+        this.#markSiteRuleActive(domainToUpdate);
+    }
+
+    /** After any site-scoped write, surface the hostname as the active rule source. */
+    #markSiteRuleActive(domain) {
+        if (!domain) return;
+        this.state.currentRuleSource = domain;
+        this.renderer.renderRuleIndicator(domain);
     }
 
     async handleTranslateButtonClick() {
@@ -124,6 +132,9 @@ export class PopupActions {
     }
 
     async handleDisplayModeChange(displayMode) {
+        if (!displayMode) return;
+
+        this.renderer.renderDisplayMode(displayMode);
         await this.saveChangeToRule('displayMode', displayMode);
 
         if (!this.state.activeTabId) return;
