@@ -1,3 +1,16 @@
+/**
+ * Extension message protocol (content ↔ SW ↔ popup/options).
+ *
+ * Translation I/O (do not confuse):
+ * - TRANSLATE_TEXT / TRANSLATE_TEXT_RESULT — single page element (content script)
+ * - TRANSLATE_TEXT_BATCH / TRANSLATE_TEXT_BATCH_RESULT — AI page-element batch (content)
+ * - TRANSLATE_BATCH — fire-and-return batch for selection / subtitle / quick-action (no element map)
+ * - TRANSLATE_INPUT_TEXT — input-box helper (legacy camelCase wire value; keep stable)
+ *
+ * Display mode:
+ * - TOGGLE_DISPLAY_MODE — popup/command → SW (may inject scripts)
+ * - UPDATE_DISPLAY_MODE — SW → content (reskin strategies)
+ */
 export const MESSAGE_TYPES = Object.freeze({
     CLEAR_CACHE: 'CLEAR_CACHE',
     CONVERSE_WITH_AI: 'CONVERSE_WITH_AI',
@@ -9,6 +22,7 @@ export const MESSAGE_TYPES = Object.freeze({
     GET_EFFECTIVE_SETTINGS: 'GET_EFFECTIVE_SETTINGS',
     GET_PROVIDER_HEALTH: 'GET_PROVIDER_HEALTH',
     GET_TRANSLATION_HISTORY: 'GET_TRANSLATION_HISTORY',
+    /** Prefer sender.tab.id; kept for non-tab callers / diagnostics. */
     GET_TAB_ID: 'GET_TAB_ID',
     GET_VALIDATED_SETTINGS: 'GET_VALIDATED_SETTINGS',
     INFER_SUGGESTIONS: 'INFER_SUGGESTIONS',

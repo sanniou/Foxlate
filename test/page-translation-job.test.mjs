@@ -170,6 +170,8 @@ test('PageTranslationJob starts and completes when no elements are found', async
     assert.equal(document.body.dataset.translationSession, 'active');
     assert.equal(observers.mutationInstances[0].observed[0].element, document.body);
     assert.deepEqual(browserMock.messages.map(message => message.payload?.status), ['loading', 'translated']);
+    assert.equal(browserMock.messages.at(-1).payload.emptyCandidates, true);
+    assert.equal(job.getProgressSnapshot().emptyCandidates, true);
 });
 
 test('PageTranslationJob observes initial elements and translates intersecting entries', async () => {

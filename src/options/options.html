@@ -14,17 +14,30 @@
                 <img src="/icons/icon-48.png" alt="Logo" class="sidebar-logo">
                 <span class="sidebar-title">Foxlate</span>
             </div>
-            <nav id="settings-nav">
-                <ul>
-                    <li><a href="#general" class="nav-link active"><span class="nav-text" i18n-text="navGeneral">General</span></a></li>
-                    <li><a href="#page-translation" class="nav-link"><span class="nav-text" i18n-text="navPageTranslation">Page Translation</span></a></li>
-                    <li><a href="#engine" class="nav-link"><span class="nav-text" i18n-text="navEngine">Engine</span></a></li>
-                    <li><a href="#product" class="nav-link"><span class="nav-text" i18n-text="navProduct">Product</span></a></li>
-                    <li><a href="#input-translation" class="nav-link"><span class="nav-text" i18n-text="navInputTranslation">Input</span></a></li>
-                    <li><a href="#rules" class="nav-link"><span class="nav-text" i18n-text="navRules">Rules</span></a></li>
-                    <li><a href="#cache" class="nav-link"><span class="nav-text" i18n-text="navCache">Cache</span></a></li>
-                    <li><a href="#data" class="nav-link"><span class="nav-text" i18n-text="navData">Data</span></a></li>
-                </ul>
+            <nav id="settings-nav" aria-label="Settings">
+                <div class="nav-group">
+                    <div class="nav-group-label">Translate</div>
+                    <ul>
+                        <li><a href="#general" class="nav-link active"><span class="nav-text" i18n-text="navGeneral">General</span></a></li>
+                        <li><a href="#page-translation" class="nav-link"><span class="nav-text" i18n-text="navPageTranslation">Page Translation</span></a></li>
+                        <li><a href="#input-translation" class="nav-link"><span class="nav-text" i18n-text="navInputTranslation">Input</span></a></li>
+                        <li><a href="#rules" class="nav-link"><span class="nav-text" i18n-text="navRules">Rules</span></a></li>
+                    </ul>
+                </div>
+                <div class="nav-group">
+                    <div class="nav-group-label">Engines</div>
+                    <ul>
+                        <li><a href="#engine" class="nav-link"><span class="nav-text" i18n-text="navEngine">Engine</span></a></li>
+                        <li><a href="#product" class="nav-link"><span class="nav-text" i18n-text="navProduct">Product</span></a></li>
+                    </ul>
+                </div>
+                <div class="nav-group">
+                    <div class="nav-group-label">System</div>
+                    <ul>
+                        <li><a href="#cache" class="nav-link"><span class="nav-text" i18n-text="navCache">Cache</span></a></li>
+                        <li><a href="#data" class="nav-link"><span class="nav-text" i18n-text="navData">Data</span></a></li>
+                    </ul>
+                </div>
             </nav>
         </aside>
 
@@ -211,9 +224,8 @@
 
             <!-- Rules -->
             <section id="rules" class="content-panel">
-                <h2 i18n-text="ruleManagement" class="section-title">Rule Management</h2>
-                <div class="flex-between mb-2">
-                    <h3 class="card-title" i18n-text="domainSpecificRules">Domain Rules</h3>
+                <div class="flex-between">
+                    <h2 i18n-text="ruleManagement" class="section-title">Domain Rules</h2>
                     <button id="addDomainRuleBtn" class="btn btn-primary btn-sm" i18n-text="addDomainRule">Add Rule</button>
                 </div>
                 <ul id="domainRulesList" class="item-list"></ul>

@@ -1,8 +1,8 @@
-# Security Review — e05 mode-switch + soft display
+# Security Review — 1.7.0 integrate (e06 UI + core R1)
 
-**Branch:** `feat/e05-mode-switch-and-soft-display`  
+**Branch:** `feat/e06-ui-redesign`  
 **Date:** 2026-07-22  
-**Scope:** content-runtime settings path, display-manager mode switch, append strategy DOM, style.css
+**Scope:** settings-domain effective merge, translate messaging, content CSS/UI chrome
 
 ## Findings
 
@@ -12,12 +12,12 @@
 
 ## Notes
 
-- `SETTINGS_UPDATED` now re-resolves via `getEffectiveSettings()` — does not trust raw global payload for job settings.
-- `updateDisplayMode` only re-skins elements already in TRANSLATED/ERROR; no new message surface.
-- Append loading/translation wrappers use `data-foxlate-role`; no `innerHTML` of untrusted strings beyond existing `reconstructDOM` / `escapeHtml` paths.
-- CSS-only spinner/soft-display changes — no new privileged APIs.
-- Tests: 90 pass; dual browser build green.
+- **Settings:** `resolveEffectiveSettings` whitelist merge prevents domain rules from clobbering nested globals (`aiEngines`, `glossary`). Writable domain keys guarded in `setDomainRuleProperty`.
+- **Messaging:** content page translates rely on `sender.tab.id` (already trusted path); optional `payload.tabId` remains fallback. No new privileged surfaces.
+- **UI/CSS:** popup/options/content chrome only; no new host injection beyond existing content styles.
+- **Extraction:** `skipFallback` is a call option, not attacker-controlled storage.
+- Tests: 92 pass; dual browser builds green.
 
 ## Verdict
 
-**PASS** — safe to land as 1.6.3 fix.
+**PASS** — safe to land as 1.7.0.

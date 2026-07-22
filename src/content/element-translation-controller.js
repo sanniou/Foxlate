@@ -112,29 +112,28 @@ export class ElementTranslationController {
     }
 
     #sendSingleTranslation({ elementId, text, targetLang, sourceLang, translatorEngine }) {
-        this.browser.runtime.sendMessage({ type: MESSAGE_TYPES.GET_TAB_ID })
-            .then(response => this.browser.runtime.sendMessage({
-                type: MESSAGE_TYPES.TRANSLATE_TEXT,
-                payload: {
-                    text,
-                    targetLang,
-                    sourceLang,
-                    elementId,
-                    translatorEngine,
-                    tabId: response?.tabId,
-                },
-            }))
-            .catch(error => {
-                this.logError('ElementTranslationController.sendSingleTranslation', error);
-                const currentPageJob = this.getCurrentPageJob();
-                if (currentPageJob) {
-                    currentPageJob.recordTranslationCompleted({ success: false });
-                    currentPageJob.checkCompletion();
-                }
-                const element = this.displayManager.findElementById(elementId);
-                if (element) {
-                    this.displayManager.displayError(element, error.message || 'Translation request failed.');
-                }
-            });
+        // tabId optional: SW prefers sender.tab.id (content-script origin).
+        const currentPageJob = this.getCurrentPageJob();
+        this.browser.runtime.sendMessage({
+            type: MESSAGE_TYPES.TRANSLATE_TEXT,
+            payload: {
+                text,
+                targetLang,
+                sourceLang,
+                elementId,
+                translatorEngine,
+                tabId: currentPageJob?.tabId,
+            },
+        }).catch(error => {
+            this.logError('ElementTranslationController.sendSingleTranslation', error);
+            if (currentPageJob) {
+                currentPageJob.recordTranslationCompleted({ success: false });
+                currentPageJob.checkCompletion();
+            }
+            const element = this.displayManager.findElementById(elementId);
+            if (element) {
+                this.displayManager.displayError(element, error.message || 'Translation request failed.');
+            }
+        });
     }
 }

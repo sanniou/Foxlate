@@ -80,7 +80,12 @@ export class PageTranslationJob {
             mutationQueueSize: this.mutationQueue.size,
             pendingScrollCount: this.pendingScrollTranslationElements.size,
             isScrolling: this.isScrolling,
-        }, extra);
+        }, {
+            emptyCandidates: this.initialScanObservedCount === 0
+                && !this.initialScanInProgress
+                && this.progress.activeTranslations === 0,
+            ...extra,
+        });
     }
 
     emitProgress(extra = {}) {
@@ -396,9 +401,14 @@ export class PageTranslationJob {
         }
 
         this.state = 'translated';
+        this.emitProgress({ emptyCandidates: true });
         this.browser.runtime.sendMessage({
             type: MESSAGE_TYPES.TRANSLATION_STATUS_UPDATE,
-            payload: { status: 'translated', tabId: this.tabId }
+            payload: {
+                status: 'translated',
+                tabId: this.tabId,
+                emptyCandidates: true,
+            },
         }).catch(e => this.logError('initial scan (sending translated status)', e));
     }
 

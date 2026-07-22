@@ -107,8 +107,9 @@ export function findAllSearchRoots(rootNode, { cssFilePath, logger = console } =
  * @param {Node[]} rootNodes - 要在其中搜索的根节点。
  * @returns {HTMLElement[]} 一个包含最适合翻译的容器元素的数组。
  */
-export function findTranslatableElements(effectiveSettings, rootNodes = [document.body]) {
+export function findTranslatableElements(effectiveSettings, rootNodes = [document.body], options = {}) {
     const contentSelector = effectiveSettings?.translationSelector?.content?.trim();
+    const skipFallback = options.skipFallback === true;
 
     if (!contentSelector) {
         return [];
@@ -132,18 +133,16 @@ export function findTranslatableElements(effectiveSettings, rootNodes = [documen
 
     if (allCandidates.size === 0) {
         // Empty preferred selector (e.g. pages without main/article): one-shot broader fallback.
-        const allowFallback = !effectiveSettings?.translationSelector?.__skipFallback;
         const fallback = (effectiveSettings?.translationSelector?.fallbackContent
             || FALLBACK_TRANSLATION_CONTENT).trim();
-        if (allowFallback && fallback && fallback !== contentSelector) {
+        if (!skipFallback && fallback && fallback !== contentSelector) {
             return findTranslatableElements({
                 ...effectiveSettings,
                 translationSelector: {
                     ...effectiveSettings.translationSelector,
                     content: fallback,
-                    __skipFallback: true,
                 },
-            }, rootNodes);
+            }, rootNodes, { skipFallback: true });
         }
         return [];
     }

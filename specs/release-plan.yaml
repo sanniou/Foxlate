@@ -1,5 +1,5 @@
 target_version: "1.7.0"
-baseline_version: "1.6.2"
+baseline_version: "1.7.0"
 tracks:
   - id: R1
     name: stabilize
@@ -7,11 +7,15 @@ tracks:
     status: done
   - id: R1.5
     name: core-polish
-    target: "1.6.2"
+    target: "1.7.0"
     status: done
+  - id: R1.7
+    name: ui-redesign
+    target: "1.7.0"
+    status: active
   - id: R2
     name: reach-chromium
-    target: "1.7.0"
+    target: "1.7.x"
     status: planned
   - id: R3
     name: differentiator
@@ -26,6 +30,18 @@ epics:
     slug: core-polish
     status: done
     capsule: specs/epics/archive/e04-core-polish/
+  - id: e06
+    slug: ui-redesign
+    title: Calm tool chrome redesign (popup, options, floating content UI)
+    track: R1.7
+    wsjf: 9
+    status: active
+    direction: specs/product/UI_REDESIGN_DIRECTION.md
+    stories:
+      - e06s01 # P1 calm tokens + popup + content floating panels
+      - e06s02 # P2 options shell + modals
+      - e06s03 # P3 summary/enhanced alignment
+      - e06s04 # P4 dark-mode + a11y polish
   - id: e02
     slug: r2-chromium-reach
     title: R2 Chromium packaging, SW lifecycle, store readiness

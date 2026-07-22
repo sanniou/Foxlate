@@ -112,22 +112,50 @@ export function calculateEffectiveSelectorSettings(globalSelector, ruleSelector,
     return { content: finalContentSelector, exclude: finalExcludeSelector };
 }
 
+/** Scalar overrides a domain rule may apply onto hostname-effective settings. */
+export const DOMAIN_RULE_OVERRIDE_KEYS = Object.freeze([
+    'autoTranslate',
+    'translatorEngine',
+    'targetLanguage',
+    'sourceLanguage',
+    'displayMode',
+]);
+
+/**
+ * Build hostname-effective settings without flattening the entire domain rule
+ * (which used to clobber nested globals like aiEngines / glossary).
+ */
 export function resolveEffectiveSettings(settings, hostname) {
     const domainRules = settings.domainRules || {};
     const { domainRule, ruleSource } = findMatchingDomainRule(domainRules, hostname);
-    const effectiveSettings = { ...settings, ...domainRule, source: ruleSource };
+    const effectiveSettings = {
+        ...settings,
+        source: ruleSource,
+    };
 
-    for (const key of ['autoTranslate', 'translatorEngine', 'targetLanguage', 'sourceLanguage', 'displayMode']) {
+    for (const key of DOMAIN_RULE_OVERRIDE_KEYS) {
+        if (domainRule[key] !== undefined) {
+            effectiveSettings[key] = domainRule[key];
+        }
+    }
+
+    for (const key of DOMAIN_RULE_OVERRIDE_KEYS) {
         if (effectiveSettings[key] === 'default') {
             effectiveSettings[key] = settings[key];
         }
     }
 
     effectiveSettings.subtitleSettings = calculateEffectiveSubtitleSettings(hostname, domainRule);
+
+    // Prefer canonical translationSelector; keep cssSelector as legacy alias.
+    const ruleSelector = domainRule.translationSelector || domainRule.cssSelector;
+    const selectorOverride = domainRule.translationSelectorOverride
+        ?? domainRule.cssSelectorOverride
+        ?? false;
     effectiveSettings.translationSelector = calculateEffectiveSelectorSettings(
         settings.translationSelector?.default,
-        domainRule.cssSelector,
-        domainRule.cssSelectorOverride || false
+        ruleSelector,
+        selectorOverride,
     );
 
     return effectiveSettings;
@@ -166,7 +194,24 @@ export function removeAiEngineFromSettings(settings, engineId) {
     return nextSettings;
 }
 
+/** Keys popup/options may write onto a domain rule (plus subtitleDisplayMode alias). */
+export const DOMAIN_RULE_WRITABLE_KEYS = Object.freeze([
+    ...DOMAIN_RULE_OVERRIDE_KEYS,
+    'cssSelector',
+    'cssSelectorOverride',
+    'translationSelector',
+    'translationSelectorOverride',
+    'applyToSubdomains',
+    'subtitleSettings',
+    'subtitleDisplayMode',
+]);
+
 export function setDomainRuleProperty(settings, domain, key, value) {
+    if (!DOMAIN_RULE_WRITABLE_KEYS.includes(key)) {
+        console.warn(`[settings-domain] ignored non-writable domain rule key: ${key}`);
+        return settings;
+    }
+
     const nextSettings = structuredClone(settings);
     const rule = nextSettings.domainRules[domain] || {};
 

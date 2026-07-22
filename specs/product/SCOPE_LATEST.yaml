@@ -1,9 +1,14 @@
-# Product scope — post 1.6.2
+# Product scope — post 1.7.0
 version_shipped:
   - "1.6.1" # R1 stabilize
   - "1.6.2" # core polish (strategies/rules/display/panels)
+  - "1.7.0" # mode-switch fix + soft display + themed loading
 version_target: "1.7.0"
 in_scope:
+  R1.7_ui_redesign:
+    - Calm tool chrome across popup / options / floating content UI
+    - Keep --fox-* tokens; quieter glass; denser popup; shared panel recipe
+    - Direction: specs/product/UI_REDESIGN_DIRECTION.md
   R2_reach:
     - Chrome/Edge packaging verification beyond build target
     - Service worker idle / re-injection smoke on Chromium
@@ -16,10 +21,11 @@ in_scope:
     - quick-action secondary "copy translation"
     - pixel-level strategy error chrome unify
 out_of_scope:
-  - full popup/options redesign (shipped 1.6.0 + polished 1.6.2)
+  - plans/archive indigo MD3 reimplementation
+  - new design-token system alongside --fox-*
+  - Lit rewrite of popup/options
   - PDF translation
   - multi-engine sprawl without demand
-  - plans/archive indigo MD3 reimplementation
 open_decisions:
   - R3 pick: native-api vs standalone-panel (decide after R2)
-  - Whether to ship AMO 1.6.2 listing bump before Chromium store work
+  - Ship 1.7 UI redesign before or after Chromium store packaging (default: UI P1+P2 first)

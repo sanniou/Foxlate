@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.7.0] - 2026-07-22
+
+### ✨ UI
+*   **Calm tool chrome:** solid primary CTAs, denser popup (single control surface, full-width display modes, stateful loading CTA), quieter options shell with grouped nav and stacked lists.
+*   **Floating panels:** pill quick-action; tighter selection tooltips; soft append/hover + themed loading retained from 1.6.3.
+
+### 🐛 Core
+*   **Effective settings:** domain rules no longer flatten-merge over globals (`aiEngines` / `glossary` safe). Whitelisted scalar overrides only.
+*   **Selector alias:** domain `translationSelector` accepted alongside legacy `cssSelector`.
+*   **Translate path:** page single/batch requests skip redundant `GET_TAB_ID`; SW uses `sender.tab.id`.
+*   **Extraction:** `findTranslatableElements` uses `options.skipFallback` (no settings pollution); empty scan emits `emptyCandidates`.
+
+### ♻️ Quality
+*   Core pipeline review + scorecard (R1 overall **8.3**); layout review; 92 tests.
+
 ## [1.6.3] - 2026-07-22
 
 ### 🐛 Fixes

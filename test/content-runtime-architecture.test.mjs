@@ -149,7 +149,6 @@ test('translation batch queue groups compatible AI requests under one protocol m
         runtime: {
             async sendMessage(message) {
                 sentMessages.push(message);
-                if (message.type === 'GET_TAB_ID') return { tabId: 42 };
                 return {};
             },
         },
@@ -177,8 +176,9 @@ test('translation batch queue groups compatible AI requests under one protocol m
     });
     await new Promise(resolve => setTimeout(resolve, 0));
 
-    assert.equal(sentMessages[0].type, 'GET_TAB_ID');
-    assert.deepEqual(sentMessages[1], {
+    // No GET_TAB_ID hop — SW uses sender.tab.id for content-script batches.
+    assert.equal(sentMessages.length, 1);
+    assert.deepEqual(sentMessages[0], {
         type: 'TRANSLATE_TEXT_BATCH',
         payload: {
             batchId: 'fb-batch-1',
@@ -189,7 +189,7 @@ test('translation batch queue groups compatible AI requests under one protocol m
             targetLang: 'zh',
             sourceLang: 'auto',
             translatorEngine: 'ai:model',
-            tabId: 42,
+            tabId: undefined,
         },
     });
     assert.equal(batchStates.at(-1).inFlight, 1);

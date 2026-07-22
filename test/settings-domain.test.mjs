@@ -128,6 +128,48 @@ test('resolveEffectiveSettings applies default subtitle strategies without domai
     });
 });
 
+test('resolveEffectiveSettings only merges whitelisted domain rule fields', async () => {
+    const { resolveEffectiveSettings } = await loadSettingsDomain();
+    const settings = createBaseSettings();
+    settings.aiEngines = [{ id: 'one', name: 'One' }, { id: 'two', name: 'Two' }];
+    settings.glossary = { enabled: true, entries: [{ source: 'a', target: 'b' }] };
+    settings.domainRules = {
+        'example.com': {
+            displayMode: 'hover',
+            // Pollution: must not wipe globals when flattened into effective.
+            aiEngines: [],
+            glossary: { enabled: false, entries: [] },
+            junkField: 'nope',
+        },
+    };
+
+    const effective = resolveEffectiveSettings(settings, 'example.com');
+    assert.equal(effective.displayMode, 'hover');
+    assert.equal(effective.aiEngines.length, 2);
+    assert.equal(effective.glossary.enabled, true);
+    assert.equal(effective.junkField, undefined);
+});
+
+test('resolveEffectiveSettings accepts translationSelector alias on domain rules', async () => {
+    const { resolveEffectiveSettings } = await loadSettingsDomain();
+    const settings = createBaseSettings();
+    settings.domainRules = {
+        'example.com': {
+            translationSelector: {
+                content: '.post-body',
+                exclude: '.promo',
+            },
+            translationSelectorOverride: true,
+        },
+    };
+
+    const effective = resolveEffectiveSettings(settings, 'www.example.com');
+    assert.deepEqual(effective.translationSelector, {
+        content: '.post-body',
+        exclude: '.promo',
+    });
+});
+
 test('settings domain mutators update AI engines and rule properties immutably', async () => {
     const {
         removeAiEngineFromSettings,
@@ -151,4 +193,8 @@ test('settings domain mutators update AI engines and rule properties immutably',
         displayMode: 'bilingual',
     });
     assert.deepEqual(settings.domainRules, {});
+
+    const ignored = setDomainRuleProperty(settings, 'example.com', 'aiEngines', []);
+    assert.equal(ignored, settings);
+    assert.equal(ignored.domainRules['example.com'], undefined);
 });

@@ -120,11 +120,10 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 14px;
+    gap: 8px;
+    padding: 9px 11px;
     border-bottom: 1px solid var(--fl-color-border);
-    background:
-        linear-gradient(135deg, color-mix(in srgb, var(--fl-color-primary) 12%, transparent), color-mix(in srgb, var(--fl-color-accent) 9%, transparent)),
-        var(--fl-color-surface);
+    background: var(--fl-color-surface);
     cursor: default;
 }
 
@@ -152,9 +151,9 @@
 }
 
 .foxlate-panel-body {
-    max-height: 310px;
+    max-height: 300px;
     overflow-y: auto;
-    background: var(--fl-color-surface-dim);
+    background: var(--fl-color-surface);
 }
 
 .foxlate-text-section {
@@ -170,7 +169,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 12px;
+    padding: 8px 11px;
     cursor: pointer;
     user-select: none;
     transition: background-color var(--fl-transition);
@@ -190,10 +189,10 @@
 
 .foxlate-text-content {
     max-height: 500px;
-    padding: 0 14px 13px;
+    padding: 0 11px 11px;
     color: var(--fl-color-text-main);
-    font-size: 14px;
-    line-height: 1.62;
+    font-size: 13px;
+    line-height: 1.55;
     opacity: 1;
     overflow-wrap: anywhere;
     transition:

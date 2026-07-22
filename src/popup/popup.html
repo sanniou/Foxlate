@@ -7,52 +7,54 @@
 </head>
 <body>
     <div class="app-container">
-        <!-- Header -->
         <header class="header">
             <div class="brand">
                 <img src="/icons/icon-48.png" alt="Logo" class="logo">
                 <span class="title">Foxlate</span>
             </div>
-            <button id="openOptionsBtn" class="btn btn-icon" title="Settings">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            <button id="openOptionsBtn" class="btn btn-icon" title="Settings" aria-label="Settings">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
             </button>
         </header>
 
         <main>
-            <!-- Language Selector -->
-            <div class="card lang-selector">
-                <select id="sourceLanguageSelect" class="lang-select"></select>
-                <button id="swapLanguagesBtn" class="btn btn-icon btn-sm">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16V4M7 4L3 8M7 4L11 8M17 8V20M17 20L21 16M17 20L13 16"/></svg>
+            <!-- Zone A: language pair -->
+            <div class="card lang-selector" role="group" aria-label="Languages">
+                <select id="sourceLanguageSelect" class="lang-select" aria-label="Source language"></select>
+                <button id="swapLanguagesBtn" class="btn btn-icon btn-sm swap-btn" title="Swap languages" aria-label="Swap languages">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 16V4M7 4L3 8M7 4L11 8M17 8V20M17 20L21 16M17 20L13 16"/></svg>
                 </button>
-                <select id="targetLanguageSelect" class="lang-select"></select>
+                <select id="targetLanguageSelect" class="lang-select" aria-label="Target language"></select>
             </div>
 
-            <!-- Error Banner -->
-            <div id="error-display" class="alert alert-error" style="display: none;"></div>
+            <div id="error-display" class="alert alert-error" style="display: none;" role="alert"></div>
 
-            <!-- Primary Action -->
-            <button id="translatePageBtn" class="btn btn-primary btn-lg btn-full">
+            <!-- Zone B: primary action -->
+            <button id="translatePageBtn" class="btn btn-primary btn-lg btn-full translate-cta" type="button">
+                <span class="btn-spinner" aria-hidden="true"></span>
                 <span class="btn-text" i18n-text="popupTranslatePage">Translate Page</span>
             </button>
             <p class="entry-hint" i18n-text="popupSelectionEntryHint">Selection: quick panel · right-click · Alt+S</p>
 
-            <section class="quick-settings" aria-label="Translation settings">
-                <div class="settings-row">
-                <div class="input-group">
-                        <label class="mini-label" for="engineSelect" i18n-text="translationEngine">Engine</label>
-                    <select id="engineSelect" class="form-control form-control-sm"></select>
+            <!-- Zone C: one control surface (engine + mode + site toggles) -->
+            <section class="control-surface" aria-label="Translation settings">
+                <div class="control-block">
+                    <label class="mini-label" for="engineSelect" i18n-text="translationEngine">Engine</label>
+                    <select id="engineSelect" class="form-control form-control-sm control-select"></select>
                 </div>
-                <div class="input-group display-mode-field">
+
+                <div class="control-block display-mode-field">
+                    <div class="control-block-head">
                         <span class="mini-label" id="displayModeLabel" i18n-text="displayMode">Display</span>
-                        <div id="displayModeGroup" class="segmented" role="radiogroup" aria-labelledby="displayModeLabel">
-                            <button type="button" class="segment" data-mode="replace" role="radio" aria-checked="false" i18n-text="popupDisplayModeReplace">Replace</button>
-                            <button type="button" class="segment" data-mode="append" role="radio" aria-checked="false" i18n-text="popupDisplayModeAppend">Append</button>
-                            <button type="button" class="segment" data-mode="hover" role="radio" aria-checked="false" i18n-text="popupDisplayModeHover">Hover</button>
-                        </div>
-                        <p class="field-hint" i18n-text="popupDisplayModeSiteHint">Saved for this site</p>
+                        <span class="field-hint" i18n-text="popupDisplayModeSiteHint">Saved for this site</span>
+                    </div>
+                    <div id="displayModeGroup" class="segmented" role="radiogroup" aria-labelledby="displayModeLabel">
+                        <button type="button" class="segment" data-mode="replace" role="radio" aria-checked="false" i18n-text="popupDisplayModeReplace">Replace</button>
+                        <button type="button" class="segment" data-mode="append" role="radio" aria-checked="false" i18n-text="popupDisplayModeAppend">Append</button>
+                        <button type="button" class="segment" data-mode="hover" role="radio" aria-checked="false" i18n-text="popupDisplayModeHover">Hover</button>
+                    </div>
                 </div>
-                </div>
+
                 <div class="toggle-list">
                     <label class="toggle-row" title="Always translate this site">
                         <span class="toggle-copy">
@@ -60,10 +62,8 @@
                             <span class="toggle-description" i18n-text="popupAutoTranslateDescription">Always translate this site</span>
                         </span>
                         <span class="switch">
-                        <input type="checkbox" id="autoTranslate">
-                        <span class="switch-track">
-                            <span class="switch-thumb"></span>
-                        </span>
+                            <input type="checkbox" id="autoTranslate">
+                            <span class="switch-track"><span class="switch-thumb"></span></span>
                         </span>
                     </label>
                     <label class="toggle-row" title="Translate after scrolling stops">
@@ -73,17 +73,13 @@
                         </span>
                         <span class="switch">
                             <input type="checkbox" id="scrollIdleTranslation">
-                            <span class="switch-track">
-                                <span class="switch-thumb"></span>
-                            </span>
+                            <span class="switch-track"><span class="switch-thumb"></span></span>
                         </span>
                     </label>
                 </div>
             </section>
 
-            <!-- Subtitle Controls (Hidden by default) -->
             <div class="subtitle-section" style="display: none;">
-                <div class="divider"></div>
                 <div class="input-group flex-row flex-between">
                     <label class="input-label" i18n-text="subtitleDisplayMode">Subtitles</label>
                     <select id="subtitleDisplayModeSelect" class="form-control form-control-sm" style="width: auto;"></select>
@@ -91,12 +87,12 @@
             </div>
         </main>
 
-        <footer>
-            <span id="currentRuleIndicator" class="meta-text"></span>
+        <footer class="popup-footer">
+            <span id="currentRuleIndicator" class="meta-text meta-site"></span>
             <span id="glossaryIndicator" class="meta-text meta-pill" hidden i18n-text="popupGlossaryOn">Glossary on</span>
-            <span id="versionDisplay" class="meta-text"></span>
+            <span id="versionDisplay" class="meta-text meta-version"></span>
         </footer>
     </div>
-    <script src="popup.js" type="module"></script> 
+    <script src="popup.js" type="module"></script>
 </body>
 </html>

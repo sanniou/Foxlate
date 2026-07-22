@@ -114,20 +114,18 @@ export class TranslationBatchQueue {
         const itemsToFlush = this.queue;
         this.queue = [];
 
-        this.browser.runtime.sendMessage({ type: MESSAGE_TYPES.GET_TAB_ID })
-            .then(response => {
-                const tabId = response?.tabId;
-                for (const group of groupBatchItems(itemsToFlush)) {
-                    this.#sendGroup(group, tabId);
-                }
-            })
-            .catch(error => {
-                this.logError('TranslationBatchQueue.flush (get tab id)', error);
-                for (const item of itemsToFlush) {
-                    this.#emitFailure(item, error);
-                }
-                this.updateBatchState();
-            });
+        // tabId optional: SW prefers sender.tab.id for content-script batches.
+        try {
+            for (const group of groupBatchItems(itemsToFlush)) {
+                this.#sendGroup(group, undefined);
+            }
+        } catch (error) {
+            this.logError('TranslationBatchQueue.flush', error);
+            for (const item of itemsToFlush) {
+                this.#emitFailure(item, error);
+            }
+            this.updateBatchState();
+        }
     }
 
     #sendGroup(group, tabId) {

@@ -102,11 +102,20 @@ export class PopupRenderer {
         const buttonText = button.querySelector('.btn-text');
         if (!buttonText) return;
 
-        button.classList.remove('loading', 'revert');
-        button.dataset.state = state;
+        // Map page-job states → CTA chrome states.
+        const chromeState = state === 'translating' ? 'loading'
+            : state === 'translated' ? 'translated'
+            : 'original';
 
-        switch (state) {
+        button.classList.remove('loading', 'revert');
+        button.dataset.state = chromeState;
+
+        switch (chromeState) {
             case 'loading':
+                buttonText.textContent = this.browser.i18n.getMessage('popupTranslating')
+                    || 'Translating…';
+                button.classList.add('loading');
+                break;
             case 'translated':
                 buttonText.textContent = this.browser.i18n.getMessage('popupShowOriginal');
                 button.classList.add('revert');
@@ -116,7 +125,8 @@ export class PopupRenderer {
                 break;
         }
 
-        this.layoutService.applyElement(button, { minWidth: 160, paddingX: 40 });
+        // Dense CTA: avoid inflating measured min-width past the popup column.
+        this.layoutService.applyElement(button, { minWidth: 140, paddingX: 28 });
     }
 
     setPageControlsEnabled(enabled, hasHostname) {
