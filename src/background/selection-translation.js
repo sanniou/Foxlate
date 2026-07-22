@@ -1,7 +1,4 @@
 import { MESSAGE_TYPES } from '../common/message-types.js';
-import { SettingsManager } from '../common/settings-manager.js';
-import { shouldTranslate } from '../common/precheck.js';
-import { TranslatorManager } from './translator-manager.js';
 
 async function getSelectionDetailsFromTab({
     browserApi,
@@ -33,12 +30,14 @@ async function getSelectionDetailsFromTab({
     }
 }
 
+/**
+ * SW only finds the frame + injects scripts, then hands off to content
+ * `translateSelectionPayload` (single display/I/O path).
+ */
 export function createSelectionTranslationHandler({
     browserApi,
     ensureScriptsInjected,
     logError,
-    settingsManager = SettingsManager,
-    translatorManager = TranslatorManager,
     cssFiles,
     coreScriptFiles,
 }) {
@@ -71,53 +70,17 @@ export function createSelectionTranslationHandler({
             return;
         }
 
-        const { text: selectionText, coords } = selectionDetails;
-        const translationId = `sel-${Date.now()}`;
-        const basePayload = { coords, source, translationId, originalText: selectionText };
-
-        browserApi.tabs.sendMessage(tab.id, {
-            type: MESSAGE_TYPES.DISPLAY_SELECTION_TRANSLATION,
-            payload: { ...basePayload, isLoading: true },
-        }, { frameId: targetFrameId }).catch(error => logError('handleSelectionTranslation (Send Loading)', error));
-
-        let resultPayload;
         try {
-            const hostname = new URL(tab.url).hostname;
-            const effectiveRule = await settingsManager.getEffectiveSettings(hostname);
-            const precheckResult = shouldTranslate(selectionText, effectiveRule, true);
-
-            if (!precheckResult.result) {
-                console.log(`[Foxlate] Pre-check failed for selection: "${selectionText}". Reason:`, precheckResult.log?.join(' '));
-                resultPayload = {
-                    success: true,
-                    translatedText: selectionText,
-                    error: null,
-                };
-            } else {
-                const result = await translatorManager.translateText(
-                    selectionText,
-                    effectiveRule.targetLanguage,
-                    'auto',
-                    effectiveRule.translatorEngine,
-                    tab.id
-                );
-                resultPayload = {
-                    success: !result.error,
-                    translatedText: result.text,
-                    error: result.error,
-                };
-            }
+            await browserApi.tabs.sendMessage(tab.id, {
+                type: MESSAGE_TYPES.TRANSLATE_SELECTION_REQUEST,
+                payload: {
+                    text: selectionDetails.text,
+                    coords: selectionDetails.coords,
+                    source: source || 'contextMenu',
+                },
+            }, { frameId: targetFrameId });
         } catch (error) {
-            logError('handleSelectionTranslation (Translation Process)', error);
-            resultPayload = {
-                success: false,
-                error: error.message,
-            };
+            logError('handleSelectionTranslation (content handoff)', error);
         }
-
-        browserApi.tabs.sendMessage(tab.id, {
-            type: MESSAGE_TYPES.DISPLAY_SELECTION_TRANSLATION,
-            payload: { ...basePayload, ...resultPayload },
-        }, { frameId: targetFrameId }).catch(error => logError('handleSelectionTranslation (Send Result)', error));
     };
 }

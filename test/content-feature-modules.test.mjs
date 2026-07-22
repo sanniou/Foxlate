@@ -107,6 +107,10 @@ test('input text utilities own sentence extraction, range replacement, and langu
 test('input translation client sends TRANSLATE_INPUT_TEXT and replaces target value', async () => {
     setupDom();
     const sent = [];
+    const events = [];
+    document.addEventListener('foxlate:inputTranslated', (event) => {
+        events.push(event.detail);
+    });
     const browserApi = {
         runtime: {
             async sendMessage(message) {
@@ -130,6 +134,9 @@ test('input translation client sends TRANSLATE_INPUT_TEXT and replaces target va
     assert.equal(sent[0].payload.text, 'Hello world');
     assert.equal(sent[0].payload.source, 'inputHandler');
     assert.equal(target.value, '你好世界');
+    assert.equal(events.length, 1);
+    assert.equal(events[0].translatedText, '你好世界');
+    assert.equal(events[0].originalText, 'Hello world');
 });
 
 test('summary error module classifies common retryable failures', async () => {

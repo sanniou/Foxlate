@@ -165,7 +165,6 @@ SettingsManager.on('settingsChanged', async ({ newValue, oldValue }) => {
     const criticalKeys = [
         'targetLanguage',
         'translatorEngine',
-        'precheckRules',
         'translationSelector',
         'deeplxApiUrl',
         'aiEngines',

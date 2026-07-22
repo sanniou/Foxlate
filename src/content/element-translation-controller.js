@@ -41,7 +41,10 @@ export class ElementTranslationController {
 
         const { sourceText, plainText, translationUnit } = domWalkerResult;
         const { result: shouldTranslateResult } = shouldTranslate(plainText, effectiveSettings);
-        if (!shouldTranslateResult) return;
+        if (!shouldTranslateResult) {
+            this.getCurrentPageJob()?.recordPrecheckSkipped?.();
+            return;
+        }
 
         const currentPageJob = this.getCurrentPageJob();
         if (currentPageJob) {

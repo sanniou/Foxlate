@@ -3,6 +3,7 @@ export class PageTranslationProgress {
     startedTranslations = 0;
     completedTranslations = 0;
     failedTranslations = 0;
+    precheckSkipped = 0;
 
     snapshot({
         state,
@@ -22,6 +23,7 @@ export class PageTranslationProgress {
             started: this.startedTranslations,
             completed: this.completedTranslations,
             failed: this.failedTranslations,
+            precheckSkipped: this.precheckSkipped,
             isScrolling,
             ...extra,
         };
@@ -39,6 +41,10 @@ export class PageTranslationProgress {
         } else {
             this.failedTranslations++;
         }
+    }
+
+    recordPrecheckSkipped() {
+        this.precheckSkipped++;
     }
 
     clearActive() {

@@ -483,17 +483,12 @@ export class OptionsActions {
                 translatorEngine: 'default',
                 targetLanguage: 'default',
                 displayMode: selectedPreset.displayMode,
-                // Dual-write: canonical translationSelector + legacy cssSelector for older rule UIs.
+                // Canonical only; validateSettings dual-fills legacy cssSelector for old readers.
                 translationSelector: {
                     content: selectedPreset.content,
                     exclude: selectedPreset.exclude,
                 },
                 translationSelectorOverride: true,
-                cssSelector: {
-                    content: selectedPreset.content,
-                    exclude: selectedPreset.exclude,
-                },
-                cssSelectorOverride: true,
             },
         };
 

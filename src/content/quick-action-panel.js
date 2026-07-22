@@ -1,5 +1,5 @@
 import browser from '../lib/browser-polyfill.js';
-import { MESSAGE_TYPES } from '../common/message-types.js';
+import { getSelectionPayload, translateSelectionPayload } from './selection-translate.js';
 
 /** Pure viewport clamp used by the floating quick-action panel. */
 export function clampPanelPosition({
@@ -16,27 +16,6 @@ export function clampPanelPosition({
     left = Math.min(Math.max(gutter, left), Math.max(gutter, viewportWidth - panelWidth - gutter));
     top = Math.min(Math.max(gutter, top), Math.max(gutter, viewportHeight - panelHeight - gutter));
     return { left, top };
-}
-
-function getSelectionPayload(win = window) {
-    const selection = win.getSelection();
-    const text = selection?.toString().trim();
-    if (!selection || !text || selection.rangeCount === 0) {
-        return null;
-    }
-
-    const rect = selection.getRangeAt(0).getBoundingClientRect();
-    if (!rect || (rect.width === 0 && rect.height === 0)) {
-        return null;
-    }
-
-    return {
-        text,
-        coords: {
-            clientX: rect.left + rect.width / 2,
-            clientY: rect.bottom + 10,
-        },
-    };
 }
 
 export class QuickActionPanel {
@@ -148,42 +127,10 @@ export class QuickActionPanel {
     }
 }
 
-export async function translateQuickSelection({
-    browserApi = browser,
-    win = window,
-    displaySelectionTranslation,
-    selectionPayload,
-}) {
-    const translationId = `quick-${Date.now()}`;
-    const basePayload = {
-        translationId,
-        coords: selectionPayload.coords,
-        source: 'quick-action',
-        originalText: selectionPayload.text,
-    };
-
-    displaySelectionTranslation({ ...basePayload, isLoading: true });
-
-    try {
-        const response = await browserApi.runtime.sendMessage({
-            type: MESSAGE_TYPES.TRANSLATE_BATCH,
-            payload: {
-                texts: [selectionPayload.text],
-                hostname: win.location.hostname,
-            },
-        });
-        const translatedText = response?.translatedTexts?.[0] || selectionPayload.text;
-        displaySelectionTranslation({
-            ...basePayload,
-            success: !!response?.success,
-            translatedText,
-            error: response?.success ? null : (response?.error || 'Translation failed'),
-        });
-    } catch (error) {
-        displaySelectionTranslation({
-            ...basePayload,
-            success: false,
-            error: error.message,
-        });
-    }
+/** @deprecated use translateSelectionPayload — kept name for content-runtime call sites */
+export async function translateQuickSelection(options) {
+    return translateSelectionPayload({
+        ...options,
+        source: options.source || 'quick-action',
+    });
 }

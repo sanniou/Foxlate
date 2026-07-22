@@ -9,7 +9,8 @@ import { logContentError } from './content-logger.js';
 import { TranslationBatchQueue } from './translation-batch-queue.js';
 import { ElementTranslationController } from './element-translation-controller.js';
 import { createContentMessageHandlers } from './content-message-handlers.js';
-import { QuickActionPanel, translateQuickSelection } from './quick-action-panel.js';
+import { QuickActionPanel } from './quick-action-panel.js';
+import { translateSelectionPayload } from './selection-translate.js';
 
 function defaultGenerateId() {
     return self.crypto.randomUUID();
@@ -194,7 +195,7 @@ export class ContentRuntime {
 
     getTranslationStatus() {
         if (!this.currentPageJob) {
-            return { state: 'original', emptyCandidates: false };
+            return { state: 'original', emptyCandidates: false, allPrecheckSkipped: false };
         }
 
         let state = 'original';
@@ -204,11 +205,30 @@ export class ContentRuntime {
             state = 'translated';
         }
 
-        const emptyCandidates = Boolean(
-            this.currentPageJob.getProgressSnapshot?.().emptyCandidates,
-        );
+        const snap = this.currentPageJob.getProgressSnapshot?.() || {};
+        return {
+            state,
+            emptyCandidates: Boolean(snap.emptyCandidates),
+            allPrecheckSkipped: Boolean(snap.allPrecheckSkipped),
+        };
+    }
 
-        return { state, emptyCandidates };
+    async translateSelectionRequest(payload = {}) {
+        const text = payload.text?.trim();
+        if (!text) {
+            return { success: false, error: 'No selection' };
+        }
+        return translateSelectionPayload({
+            browserApi: this.browser,
+            win: this.window,
+            selectionPayload: {
+                text,
+                coords: payload.coords || { clientX: 0, clientY: 0 },
+            },
+            source: payload.source || 'selection',
+            displaySelectionTranslation: (p) => this.displaySelectionTranslation(p),
+            getEffectiveSettings: this.getEffectiveSettings,
+        });
     }
 
     displaySelectionTranslation(payload = {}) {
@@ -314,11 +334,13 @@ export class ContentRuntime {
             browserApi: this.browser,
             win: this.window,
             settings,
-            onTranslate: (selectionPayload) => translateQuickSelection({
+            onTranslate: (selectionPayload) => translateSelectionPayload({
                 browserApi: this.browser,
                 win: this.window,
                 selectionPayload,
+                source: 'quick-action',
                 displaySelectionTranslation: (payload) => this.displaySelectionTranslation(payload),
+                getEffectiveSettings: this.getEffectiveSettings,
             }),
         });
         this.quickActionPanel.initialize(settings);

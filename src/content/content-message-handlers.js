@@ -54,6 +54,10 @@ export function createContentMessageHandlers(runtime) {
             return runtime.displaySelectionTranslation(request.payload);
         },
 
+        [MESSAGE_TYPES.TRANSLATE_SELECTION_REQUEST](request) {
+            return runtime.translateSelectionRequest(request.payload);
+        },
+
         [MESSAGE_TYPES.TOGGLE_SUBTITLE_TRANSLATION](request) {
             return runtime.toggleSubtitleTranslation(request.payload?.enabled);
         },

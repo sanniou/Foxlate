@@ -631,6 +631,10 @@
     "message": "No translatable text found. Try different content selectors in Options.",
     "description": "Shown when page translation finishes with zero extractable candidates."
   },
+  "popupAllPrecheckSkipped": {
+    "message": "Found text, but filters skipped all of it (same language, URLs, code…).",
+    "description": "Shown when page nodes existed but every candidate failed built-in precheck."
+  },
   "commandToggleTranslation": {
     "message": "Toggle displaying translation/original text",
     "description": "Description for the command that toggles page translation."

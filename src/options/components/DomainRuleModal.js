@@ -208,20 +208,18 @@ export class DomainRuleModal extends BaseComponent {
             [ELEMENT_IDS.RULE_SOURCE_LANGUAGE_SELECT]: (val) => this.#state.editingRule.sourceLanguage = val,
             [ELEMENT_IDS.RULE_DISPLAY_MODE_SELECT]: (val) => this.#state.editingRule.displayMode = val,
             [ELEMENT_IDS.RULE_CSS_SELECTOR_OVERRIDE_CHECKBOX]: (val) => {
-                this.#state.editingRule.cssSelectorOverride = val;
                 this.#state.editingRule.translationSelectorOverride = val;
+                delete this.#state.editingRule.cssSelectorOverride;
             },
             [ELEMENT_IDS.RULE_CONTENT_SELECTOR]: (val) => {
-                if (!this.#state.editingRule.cssSelector) this.#state.editingRule.cssSelector = {};
                 if (!this.#state.editingRule.translationSelector) this.#state.editingRule.translationSelector = {};
-                this.#state.editingRule.cssSelector.content = val;
                 this.#state.editingRule.translationSelector.content = val;
+                delete this.#state.editingRule.cssSelector;
             },
             [ELEMENT_IDS.RULE_EXCLUDE_SELECTOR_TEXTAREA]: (val) => {
-                if (!this.#state.editingRule.cssSelector) this.#state.editingRule.cssSelector = {};
                 if (!this.#state.editingRule.translationSelector) this.#state.editingRule.translationSelector = {};
-                this.#state.editingRule.cssSelector.exclude = val;
                 this.#state.editingRule.translationSelector.exclude = val;
+                delete this.#state.editingRule.cssSelector;
             },
             [ELEMENT_IDS.RULE_ENABLE_SUBTITLE_CHECKBOX]: (val) => {
                 if (!this.#state.editingRule.subtitleSettings) this.#state.editingRule.subtitleSettings = {};

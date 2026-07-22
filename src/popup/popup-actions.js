@@ -63,11 +63,16 @@ export class PopupActions {
             this.renderer.setPageControlsEnabled(true, Boolean(this.state.currentHostname));
             this.renderer.renderTranslationButtonState(response.state);
 
-            // Soft notice when a job finished but matched zero extractable nodes.
+            // Soft notices when a job finished without useful output.
             if (response.state === 'translated' && response.emptyCandidates) {
                 this.renderer.renderError(
                     this.browser.i18n.getMessage('popupEmptyCandidates')
                     || 'No translatable text found on this page. Adjust content selectors in Options if needed.',
+                );
+            } else if (response.state === 'translated' && response.allPrecheckSkipped) {
+                this.renderer.renderError(
+                    this.browser.i18n.getMessage('popupAllPrecheckSkipped')
+                    || 'Found text, but built-in filters skipped all of it (same language, URLs, code, …).',
                 );
             }
         } catch (error) {

@@ -73,6 +73,20 @@ export class PageTranslationJob {
     }
 
     getProgressSnapshot(extra = {}) {
+        const idle =
+            !this.initialScanInProgress
+            && this.progress.activeTranslations === 0
+            && this.mutationQueue.size === 0
+            && this.pendingScrollTranslationElements.size === 0
+            && !this.isScrolling;
+        const emptyCandidates = this.initialScanObservedCount === 0 && idle;
+        // Nodes found, all intersected, every candidate failed built-in precheck.
+        const allPrecheckSkipped = idle
+            && this.initialScanObservedCount > 0
+            && this.observedElements.size === 0
+            && this.progress.startedTranslations === 0
+            && this.progress.precheckSkipped > 0;
+
         return this.progress.snapshot({
             state: this.state,
             observedCount: this.observedElements.size,
@@ -81,9 +95,8 @@ export class PageTranslationJob {
             pendingScrollCount: this.pendingScrollTranslationElements.size,
             isScrolling: this.isScrolling,
         }, {
-            emptyCandidates: this.initialScanObservedCount === 0
-                && !this.initialScanInProgress
-                && this.progress.activeTranslations === 0,
+            emptyCandidates,
+            allPrecheckSkipped,
             ...extra,
         });
     }
@@ -100,6 +113,12 @@ export class PageTranslationJob {
     recordTranslationCompleted({ success = true } = {}) {
         this.progress.recordCompleted({ success });
         this.emitProgress();
+    }
+
+    recordPrecheckSkipped() {
+        this.progress.recordPrecheckSkipped();
+        this.emitProgress();
+        this.checkCompletion();
     }
 
     async start() {
@@ -182,10 +201,16 @@ export class PageTranslationJob {
             !this.isScrolling
         ) {
             this.state = 'translated';
+            const snap = this.getProgressSnapshot();
             this.emitProgress();
             this.browser.runtime.sendMessage({
                 type: MESSAGE_TYPES.TRANSLATION_STATUS_UPDATE,
-                payload: { status: 'translated', tabId: this.tabId }
+                payload: {
+                    status: 'translated',
+                    tabId: this.tabId,
+                    emptyCandidates: Boolean(snap.emptyCandidates),
+                    allPrecheckSkipped: Boolean(snap.allPrecheckSkipped),
+                },
             }).catch(e => this.logError('checkCompletion (sending completed status)', e));
         }
     }
@@ -396,6 +421,10 @@ export class PageTranslationJob {
         if (this.initialScanObservedCount > 0) {
             if (this.state === 'starting') {
                 this.state = 'translating';
+            }
+            // If intersections already precheck-skipped every visible node, finish the job.
+            if (this.observedElements.size === 0) {
+                this.checkCompletion();
             }
             return;
         }

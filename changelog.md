@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.7.2] - 2026-07-22
+
+### ♻️ Core
+*   **Selection single path:** context menu / shortcut inject then hand off to content `translateSelectionPayload` (same as quick-action); shared precheck skip.
+*   **Input event:** realm-safe `CustomEvent` for `foxlate:inputTranslated`.
+*   **Precheck all-skipped:** popup notice when nodes exist but every candidate fails built-in filters.
+
+### 🧹 Cleanup
+*   Remove duplicate root `plans/*.md` (archive remains); drop dead `precheckRules` critical-key; options write `translationSelector` only.
+
+### ♻️ Quality
+*   selection-translate tests; suite **97**.
+
 ## [1.7.1] - 2026-07-22
 
 ### 🐛 Fixes / UX

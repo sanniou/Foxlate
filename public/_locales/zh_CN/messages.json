@@ -471,6 +471,10 @@
     "message": "未找到可翻译文本。可在选项中调整内容选择器。",
     "description": "整页翻译结束但未提取到候选节点时的提示。"
   },
+  "popupAllPrecheckSkipped": {
+    "message": "找到了文本，但内置过滤全部跳过（已是目标语言、URL、代码等）。",
+    "description": "页面有节点但预检全部跳过时的提示。"
+  },
   "popupAlwaysTranslate": {
     "message": "总是翻译此网站"
   },

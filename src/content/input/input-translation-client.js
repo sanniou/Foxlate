@@ -35,14 +35,18 @@ export class InputTranslationClient {
 
             if (result?.translatedText) {
                 replaceTextContent(target, result.translatedText, replaceRange);
-                this.document.dispatchEvent(new CustomEvent('foxlate:inputTranslated', {
-                    detail: {
-                        target,
-                        originalText: text,
-                        translatedText: result.translatedText,
-                        targetLang: targetLangOverride,
-                    },
-                }));
+                // Prefer the document's own CustomEvent (jsdom-safe when global CustomEvent is wrong realm).
+                const EventCtor = this.document.defaultView?.CustomEvent || globalThis.CustomEvent;
+                if (typeof EventCtor === 'function') {
+                    this.document.dispatchEvent(new EventCtor('foxlate:inputTranslated', {
+                        detail: {
+                            target,
+                            originalText: text,
+                            translatedText: result.translatedText,
+                            targetLang: targetLangOverride,
+                        },
+                    }));
+                }
             } else if (result?.error) {
                 console.error('[Foxlate] Translation error:', result.error);
             }
