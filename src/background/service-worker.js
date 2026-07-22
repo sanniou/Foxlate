@@ -19,10 +19,10 @@ const ensureScriptsInjected = createEnsureScriptsInjected({
     logError: logBackgroundError,
 });
 
-const updateBadgeAndState = (tabId, state) => setBadgeAndState({
+const updateBadgeAndState = (tabId, state, options) => setBadgeAndState({
     browserApi: browser,
     tabStateManager: TabStateManager,
-}, tabId, state);
+}, tabId, state, options);
 
 const cloudBackups = createCloudBackupStore({
     browserApi: browser,

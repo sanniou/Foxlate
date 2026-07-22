@@ -627,6 +627,10 @@
     "message": "Translation is not available on this page.",
     "description": "Message shown in the popup when on a page that cannot be translated (e.g., about: pages)."
   },
+  "popupEmptyCandidates": {
+    "message": "No translatable text found. Try different content selectors in Options.",
+    "description": "Shown when page translation finishes with zero extractable candidates."
+  },
   "commandToggleTranslation": {
     "message": "Toggle displaying translation/original text",
     "description": "Description for the command that toggles page translation."

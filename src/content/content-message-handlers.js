@@ -47,7 +47,7 @@ export function createContentMessageHandlers(runtime) {
         },
 
         [MESSAGE_TYPES.REQUEST_TRANSLATION_STATUS]() {
-            return { state: runtime.getTranslationStatus() };
+            return runtime.getTranslationStatus();
         },
 
         [MESSAGE_TYPES.DISPLAY_SELECTION_TRANSLATION](request) {

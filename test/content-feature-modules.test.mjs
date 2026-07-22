@@ -23,6 +23,7 @@ async function bundleContentFeatureModules() {
             resolveTargetLanguageOverride,
             shouldAppendKey,
         } from ${JSON.stringify(path.join(projectRoot, 'src/content/input/input-text-utils.js'))};
+        export { InputTranslationClient } from ${JSON.stringify(path.join(projectRoot, 'src/content/input/input-translation-client.js'))};
         export { classifySummaryError, generateUserFriendlySummaryError } from ${JSON.stringify(path.join(projectRoot, 'src/content/summary/summary-error-messages.js'))};
         export { SubtitleManager } from ${JSON.stringify(path.join(projectRoot, 'src/content/subtitle/subtitle-manager.js'))};
         export { SubtitleRenderer } from ${JSON.stringify(path.join(projectRoot, 'src/content/subtitle/subtitle-renderer.js'))};
@@ -101,6 +102,34 @@ test('input text utilities own sentence extraction, range replacement, and langu
     assert.equal(input.value, 'Hello. 你好 //EN-fox');
     assert.equal(resolveTargetLanguageOverride('EN', { languageMapping: { EN: 'en' } }), 'en');
     assert.equal(shouldAppendKey('a'), true);
+});
+
+test('input translation client sends TRANSLATE_INPUT_TEXT and replaces target value', async () => {
+    setupDom();
+    const sent = [];
+    const browserApi = {
+        runtime: {
+            async sendMessage(message) {
+                sent.push(message);
+                return { translatedText: '你好世界' };
+            },
+        },
+    };
+    const { InputTranslationClient } = await bundleContentFeatureModules();
+    const client = new InputTranslationClient({ browserApi, documentRef: document });
+    const target = document.getElementById('input');
+    const indicator = { show() {}, hide() {} };
+
+    await client.translateAndReplace({
+        target,
+        text: 'Hello world',
+        indicator,
+    });
+
+    assert.equal(sent[0].type, 'translateInputText');
+    assert.equal(sent[0].payload.text, 'Hello world');
+    assert.equal(sent[0].payload.source, 'inputHandler');
+    assert.equal(target.value, '你好世界');
 });
 
 test('summary error module classifies common retryable failures', async () => {

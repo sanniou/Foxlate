@@ -1,21 +1,20 @@
-export async function waitForEffectiveSettings(windowRef = window, timeoutMs = 5000, intervalMs = 100) {
+/**
+ * Wait until content runtime exposes getEffectiveSettings.
+ * Returns false on timeout (fail-soft: caller should skip auto-enable, not throw).
+ */
+export async function waitForEffectiveSettings(windowRef = window, timeoutMs = 3000, intervalMs = 50) {
     if (typeof windowRef.getEffectiveSettings === 'function') {
         return true;
     }
 
-    await new Promise(resolve => {
-        const interval = setInterval(() => {
-            if (typeof windowRef.getEffectiveSettings === 'function') {
-                clearInterval(interval);
-                resolve();
-            }
-        }, intervalMs);
+    const deadline = Date.now() + timeoutMs;
 
-        setTimeout(() => {
-            clearInterval(interval);
-            resolve();
-        }, timeoutMs);
-    });
+    while (Date.now() < deadline) {
+        if (typeof windowRef.getEffectiveSettings === 'function') {
+            return true;
+        }
+        await new Promise(resolve => setTimeout(resolve, intervalMs));
+    }
 
     return typeof windowRef.getEffectiveSettings === 'function';
 }

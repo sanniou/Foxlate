@@ -1,7 +1,7 @@
 export async function setBadgeAndState({
     browserApi,
     tabStateManager,
-}, tabId, state) {
+}, tabId, state, { emptyCandidates = false } = {}) {
     await tabStateManager.setTabStatus(tabId, state);
 
     if (state === 'original' || !state) {
@@ -14,11 +14,17 @@ export async function setBadgeAndState({
     switch (state) {
         case 'loading':
             badgeText = '...';
-            badgeColor = '#6750A4';
+            badgeColor = '#0891b2';
             break;
         case 'translated':
-            badgeText = '✓';
-            badgeColor = '#006D3D';
+            if (emptyCandidates) {
+                // Job finished but extract matched nothing — not a hard error.
+                badgeText = '0';
+                badgeColor = '#f59e0b';
+            } else {
+                badgeText = '✓';
+                badgeColor = '#10b981';
+            }
             break;
         default:
             break;

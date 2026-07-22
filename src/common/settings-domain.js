@@ -30,8 +30,22 @@ export function validateSettings(storedSettings) {
 
     if (validatedSettings.domainRules) {
         for (const domain in validatedSettings.domainRules) {
-            if (!validatedSettings.domainRules[domain].addedAt) {
-                validatedSettings.domainRules[domain].addedAt = generateDomainTimestamp(domain);
+            const rule = validatedSettings.domainRules[domain];
+            if (!rule.addedAt) {
+                rule.addedAt = generateDomainTimestamp(domain);
+            }
+            // Normalize legacy cssSelector → canonical translationSelector (keep cssSelector for old UIs).
+            if (rule.cssSelector && !rule.translationSelector) {
+                rule.translationSelector = { ...rule.cssSelector };
+            }
+            if (rule.cssSelectorOverride !== undefined && rule.translationSelectorOverride === undefined) {
+                rule.translationSelectorOverride = rule.cssSelectorOverride;
+            }
+            if (rule.translationSelector && !rule.cssSelector) {
+                rule.cssSelector = { ...rule.translationSelector };
+            }
+            if (rule.translationSelectorOverride !== undefined && rule.cssSelectorOverride === undefined) {
+                rule.cssSelectorOverride = rule.translationSelectorOverride;
             }
         }
     }

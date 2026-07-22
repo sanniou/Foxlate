@@ -441,13 +441,13 @@ export function createBackgroundMessageHandlers({
         },
 
         async [MESSAGE_TYPES.TRANSLATION_STATUS_UPDATE](request, sender) {
-            const { status, tabId } = request.payload;
+            const { status, tabId, emptyCandidates = false } = request.payload || {};
             if (!tabId) {
                 logError('TRANSLATION_STATUS_UPDATE', new Error('Missing tabId in status update payload.'));
                 return { success: true };
             }
 
-            await setBadgeAndState(tabId, status);
+            await setBadgeAndState(tabId, status, { emptyCandidates: Boolean(emptyCandidates) });
             if (sender.tab?.url) {
                 try {
                     const hostname = new URL(sender.tab.url).hostname;

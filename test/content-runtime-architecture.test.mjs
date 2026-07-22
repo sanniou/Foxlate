@@ -238,17 +238,17 @@ test('content runtime initializes once and routes page translation messages thro
     assert.deepEqual(globalThis.__summaryCalls, [settings]);
     assert.equal(globalThis.__inputHandlerCalls, 1);
 
-    assert.deepEqual(await runtime.handleMessage({ type: 'REQUEST_TRANSLATION_STATUS' }), { state: 'original' });
+    assert.deepEqual(await runtime.handleMessage({ type: 'REQUEST_TRANSLATION_STATUS' }), { state: 'original', emptyCandidates: false });
     assert.deepEqual(await runtime.handleMessage({ type: 'TOGGLE_TRANSLATION_REQUEST_AT_CONTENT', payload: { tabId: 7 } }), { success: true });
     assert.deepEqual(jobEvents, [['start', 7, settings]]);
-    assert.deepEqual(await runtime.handleMessage({ type: 'REQUEST_TRANSLATION_STATUS' }), { state: 'loading' });
+    assert.deepEqual(await runtime.handleMessage({ type: 'REQUEST_TRANSLATION_STATUS' }), { state: 'loading', emptyCandidates: false });
 
     assert.deepEqual(await runtime.handleMessage({ type: 'UPDATE_DISPLAY_MODE', payload: { displayMode: 'replace' } }), { success: true });
     assert.deepEqual(displayCalls, [['mode', 'replace']]);
 
     assert.deepEqual(await runtime.handleMessage({ type: 'TOGGLE_TRANSLATION_REQUEST_AT_CONTENT', payload: { tabId: 7 } }), { success: true });
     assert.deepEqual(jobEvents, [['start', 7, settings], ['revert', 7]]);
-    assert.deepEqual(await runtime.handleMessage({ type: 'REQUEST_TRANSLATION_STATUS' }), { state: 'original' });
+    assert.deepEqual(await runtime.handleMessage({ type: 'REQUEST_TRANSLATION_STATUS' }), { state: 'original', emptyCandidates: false });
 });
 
 test('content-script entry stays a bootstrap module after runtime split', async () => {

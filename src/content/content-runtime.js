@@ -193,15 +193,22 @@ export class ContentRuntime {
     }
 
     getTranslationStatus() {
-        if (!this.currentPageJob) return 'original';
+        if (!this.currentPageJob) {
+            return { state: 'original', emptyCandidates: false };
+        }
 
+        let state = 'original';
         if (['starting', 'translating'].includes(this.currentPageJob.state)) {
-            return 'loading';
+            state = 'loading';
+        } else if (this.currentPageJob.state === 'translated') {
+            state = 'translated';
         }
-        if (this.currentPageJob.state === 'translated') {
-            return 'translated';
-        }
-        return 'original';
+
+        const emptyCandidates = Boolean(
+            this.currentPageJob.getProgressSnapshot?.().emptyCandidates,
+        );
+
+        return { state, emptyCandidates };
     }
 
     displaySelectionTranslation(payload = {}) {

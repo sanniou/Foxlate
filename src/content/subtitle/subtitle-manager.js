@@ -80,9 +80,10 @@ export class SubtitleManager {
     }
 
     async #checkAndAutoEnable() {
+        // Fail-soft: strategy stays registered; user can still toggle from popup later.
         const isReady = await waitForEffectiveSettings(this.window);
         if (!isReady) {
-            this.logError('SubtitleManager.checkAndAutoEnable', new Error('getEffectiveSettings did not become available.'));
+            console.warn('[SubtitleManager] Settings not ready yet; skip auto-enable (toggle still available).');
             return;
         }
 

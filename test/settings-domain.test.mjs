@@ -70,6 +70,8 @@ test('validateSettings deep-merges selector defaults and adds stable domain time
         domainRules: {
             'example.com': {
                 translatorEngine: 'deeplx',
+                cssSelector: { content: '.legacy', exclude: '.ad' },
+                cssSelectorOverride: true,
             },
         },
     };
@@ -80,6 +82,11 @@ test('validateSettings deep-merges selector defaults and adds stable domain time
     assert.equal(typeof validated.translationSelector.default.exclude, 'string');
     assert.equal(validated.domainRules['example.com'].addedAt, generateDomainTimestamp('example.com'));
     assert.equal(stored.domainRules['example.com'].addedAt, undefined);
+    assert.deepEqual(validated.domainRules['example.com'].translationSelector, {
+        content: '.legacy',
+        exclude: '.ad',
+    });
+    assert.equal(validated.domainRules['example.com'].translationSelectorOverride, true);
 });
 
 test('resolveEffectiveSettings applies the longest eligible domain rule and resolves default values', async () => {

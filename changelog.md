@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.7.1] - 2026-07-22
+
+### 🐛 Fixes / UX
+*   **Empty candidates:** Popup shows i18n notice when a page job finishes with zero extractable nodes; toolbar badge uses amber `0`.
+*   **Status contract:** `REQUEST_TRANSLATION_STATUS` returns `{ state, emptyCandidates }`.
+*   **Selector dual-write:** Domain rules normalize `cssSelector` ↔ `translationSelector` on validate; Options modal and site wizard write both shapes.
+*   **Subtitles:** Fail-soft if settings not ready (skip auto-enable with warn; toggle still works).
+
+### ♻️ Quality
+*   Feature inventory scorecard (overall **8.1**); badge-state + input client tests; suite **95**.
+
 ## [1.7.0] - 2026-07-22
 
 ### ✨ UI

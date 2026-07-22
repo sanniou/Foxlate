@@ -62,6 +62,14 @@ export class PopupActions {
 
             this.renderer.setPageControlsEnabled(true, Boolean(this.state.currentHostname));
             this.renderer.renderTranslationButtonState(response.state);
+
+            // Soft notice when a job finished but matched zero extractable nodes.
+            if (response.state === 'translated' && response.emptyCandidates) {
+                this.renderer.renderError(
+                    this.browser.i18n.getMessage('popupEmptyCandidates')
+                    || 'No translatable text found on this page. Adjust content selectors in Options if needed.',
+                );
+            }
         } catch (error) {
             if (error.message.includes('Receiving end does not exist')) {
                 this.renderer.renderError(

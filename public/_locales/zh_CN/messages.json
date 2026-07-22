@@ -467,6 +467,10 @@
   "popupTranslating": {
     "message": "正在翻译..."
   },
+  "popupEmptyCandidates": {
+    "message": "未找到可翻译文本。可在选项中调整内容选择器。",
+    "description": "整页翻译结束但未提取到候选节点时的提示。"
+  },
   "popupAlwaysTranslate": {
     "message": "总是翻译此网站"
   },
