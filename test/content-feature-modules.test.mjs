@@ -19,6 +19,7 @@ async function bundleContentFeatureModules() {
         export {
             getLastSentence,
             getTextContent,
+            isSupportedInputElement,
             replaceTextContent,
             resolveTargetLanguageOverride,
             shouldAppendKey,
@@ -91,6 +92,7 @@ test('input text utilities own sentence extraction, range replacement, and langu
     const {
         getLastSentence,
         getTextContent,
+        isSupportedInputElement,
         replaceTextContent,
         resolveTargetLanguageOverride,
         shouldAppendKey,
@@ -102,6 +104,11 @@ test('input text utilities own sentence extraction, range replacement, and langu
     assert.equal(input.value, 'Hello. 你好 //EN-fox');
     assert.equal(resolveTargetLanguageOverride('EN', { languageMapping: { EN: 'en' } }), 'en');
     assert.equal(shouldAppendKey('a'), true);
+    assert.equal(isSupportedInputElement(input), true);
+    assert.equal(isSupportedInputElement(document.createElement('input')), true);
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    assert.equal(isSupportedInputElement(checkbox), false);
 });
 
 test('input translation client sends TRANSLATE_INPUT_TEXT and replaces target value', async () => {

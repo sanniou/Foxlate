@@ -11,7 +11,7 @@ import {
 } from './input/input-text-utils.js';
 import { InputTranslationClient } from './input/input-translation-client.js';
 
-class InputHandler {
+export class InputHandler {
     constructor() {
         this.settings = null;
         this.keyPressCount = 0;
@@ -95,7 +95,8 @@ class InputHandler {
     }
 
     handleConsecutiveKeyPress(event) {
-        const { consecutiveKey, consecutiveKeyPresses } = this.settings;
+        const { consecutiveKey } = this.settings;
+        const consecutiveKeyPresses = Math.max(2, Math.min(5, Number.parseInt(this.settings.consecutiveKeyPresses, 10) || 3));
 
         if (this.settings.debugMode) {
             console.log('[Foxlate] Consecutive key check:', 'event.key:', event.key, 'expected:', consecutiveKey, 'count:', this.keyPressCount);

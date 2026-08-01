@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.7.4] - 2026-08-01
+
+### 🐛 Input translation
+*   **Trigger hardening:** Restrict input translation to text-like controls and ignore checkboxes, date fields, number fields, and other non-text inputs.
+*   **Consecutive-key threshold:** Clamp invalid trigger counts to the supported range of 2–5, preventing an invalid setting from triggering on the first key.
+*   **Regression coverage:** Add event-level tests for separated keys, three consecutive spaces, and invalid thresholds.
+
+### ♻️ Quality
+*   Record the investigation of the reported `A B C` false-positive trigger. Standard browser events did not reproduce it; further diagnosis requires browser event telemetry if the issue remains reproducible.
+*   Test suite: **104**.
+
 ## [1.7.3] - 2026-07-22
 
 ### 🐛 Scope / rules
