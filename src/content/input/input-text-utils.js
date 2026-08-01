@@ -13,7 +13,8 @@ export function debounce(func, wait) {
 }
 
 export function isSupportedInputElement(target) {
-    return target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA';
+    if (target?.tagName === 'TEXTAREA') return true;
+    return target?.tagName === 'INPUT' && ['text', 'search', 'email', 'url', 'tel', 'password'].includes(target.type || 'text');
 }
 
 export function escapeRegex(string) {
