@@ -1,1 +1,8 @@
-bugs: []
+bugs:
+  - bug_id: BUG-2026-08-01T155719Z
+    date: 2026-08-01
+    severity: high
+    priority: high
+    scope: content/input-translation
+    summary: Consecutive-key input trigger can fire for non-consecutive text input
+    file: specs/bugs/BUG-2026-08-01T155719Z-input-consecutive-trigger.md
