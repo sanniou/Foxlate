@@ -1,0 +1,241 @@
+/* =========================================
+   Foxlate Design Tokens — primitives
+   =========================================
+
+   设计系统唯一的取值来源。全部取值必须使用 `--fox-` 命名空间。
+
+   为什么必须命名空间化：本文件会被注入到**任意网站页面**（内容脚本的
+   覆盖层需要这些取值）。写在页面 `:root` 上的通用名（`--color-primary`、
+   `--radius-md`、`--text-sm`…）极易与宿主站自身变量撞名并污染其样式；
+   `--fox-` 前缀把撞名概率降到实际为零。
+
+   本文件的两个硬约束：
+   1. 只允许 `--fox-*` 自定义属性，不允许任何会作用于宿主页面的规则
+      （选择器一律 `:root`，且不得声明 `color-scheme`、`font`、`all` 等
+      会改变页面渲染的属性）。派生别名（`--color-*`、`--radius-*`…）
+      属于扩展页面专用，留在 `common.css`。
+   2. 深色取值以内容覆盖层为准。历史上内容侧三套 token 在深色下高度一致
+      （error `#fb7185`、border `…0.2`），而 `common.css` 的深色块漏掉了
+      error 覆盖 → 扩展页面在深色下用浅色模式的 `#e11d48`，是该统一的
+      异常一方。
+   ========================================= */
+
+:root {
+    --fox-color-primary: #0891b2;
+    --fox-color-primary-hover: #0e7490;
+    --fox-color-primary-active: #155e75;
+    --fox-color-on-primary: #ffffff;
+    --fox-color-primary-soft: #cffafe;
+    --fox-color-on-primary-soft: #164e63;
+
+    --fox-color-accent: #7c3aed;
+    --fox-color-accent-hover: #6d28d9;
+    --fox-color-accent-soft: #ede9fe;
+    --fox-color-on-accent-soft: #4c1d95;
+
+    --fox-color-warm: #f97316;
+    --fox-color-warm-soft: #ffedd5;
+    --fox-color-success: #10b981;
+    --fox-color-success-bg: #ecfdf5;
+    --fox-color-warning: #f59e0b;
+    --fox-color-warning-bg: #fffbeb;
+    --fox-color-error: #e11d48;
+    --fox-color-error-bg: #fff1f2;
+    --fox-color-on-error-bg: #9f1239;
+
+    /* 反转色块：内容侧的浮起提示芯片刻意在任何配色方案下都保持深底白字，
+       因此不提供深色覆盖。 */
+    --fox-color-inverted-surface: rgba(23, 32, 51, 0.92);
+    --fox-color-inverted-text: #ffffff;
+
+    --fox-color-bg: #f5f7fb;
+    --fox-color-bg-strong: #eaf7fb;
+    --fox-color-panel: #ffffff;
+    --fox-color-panel-solid: #ffffff;
+    --fox-color-panel-raised: #ffffff;
+    --fox-color-panel-glass: rgba(255, 255, 255, 0.94);
+    --fox-color-surface-dim: #f4f8fb;
+    --fox-color-hover: rgba(8, 145, 178, 0.08);
+    --fox-color-pressed: rgba(8, 145, 178, 0.14);
+
+    --fox-color-text: #172033;
+    --fox-color-text-secondary: #536173;
+    --fox-color-text-muted: #8794a6;
+    --fox-color-border: rgba(120, 140, 164, 0.26);
+    --fox-color-border-strong: rgba(83, 97, 115, 0.34);
+    --fox-color-focus: #06b6d4;
+
+    --fox-font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+    /* 字号是 rem 基准，跟随用户的动态字体设置缩放（§15 Dynamic Type）——
+       布局间距因此也必须用 rem/em，不能钉 px。 */
+    --fox-text-xs: 0.75rem;
+    --fox-text-sm: 0.875rem;
+    --fox-text-base: 1rem;
+    --fox-text-lg: 1.125rem;
+    --fox-text-xl: 1.35rem;
+    --fox-font-medium: 500;
+    --fox-font-semibold: 650;
+    --fox-font-bold: 760;
+
+    /* 字距必须随字号变化，不存在一个适用于所有字号的取值（§15）：
+       大字号要负字距（字越大，默认间距显得越松），小字号与全大写标签要正字距。 */
+    --fox-tracking-tight: -0.02em;
+    --fox-tracking-snug: -0.01em;
+    --fox-tracking-normal: 0;
+    --fox-tracking-caps: 0.06em;
+
+    /* 行高与字号反向：大标题收紧，正文放宽（§15）。 */
+    --fox-leading-tight: 1.15;
+    --fox-leading-snug: 1.35;
+    --fox-leading-normal: 1.5;
+
+    --fox-radius-sm: 8px;
+    --fox-radius-md: 10px;
+    --fox-radius-lg: 12px;
+    --fox-radius-xl: 16px;
+    --fox-radius-full: 9999px;
+
+    --fox-space-1: 4px;
+    --fox-space-2: 8px;
+    --fox-space-3: 12px;
+    --fox-space-4: 16px;
+    --fox-space-6: 24px;
+    --fox-space-8: 32px;
+
+    --fox-shadow-xs: 0 1px 2px rgba(20, 35, 52, 0.05);
+    --fox-shadow-sm: 0 4px 12px -6px rgba(20, 35, 52, 0.18);
+    --fox-shadow-md: 0 10px 24px -14px rgba(20, 35, 52, 0.22);
+    --fox-shadow-lg: 0 18px 40px -20px rgba(20, 35, 52, 0.28);
+    --fox-shadow-surface: 0 1px 2px rgba(20, 35, 52, 0.04);
+    --fox-shadow-input: inset 0 1px 0 rgba(255, 255, 255, 0.72), 0 1px 2px rgba(20, 35, 52, 0.03);
+    --fox-shadow-modal: 0 20px 48px -24px rgba(12, 20, 32, 0.36);
+
+    /* 覆盖层落在任意页面上，需要比扩展页面更重的投影，单独成档。 */
+    --fox-shadow-popover: 0 8px 24px -10px rgba(20, 35, 52, 0.28);
+    --fox-shadow-overlay: 0 26px 64px -36px rgba(20, 35, 52, 0.66);
+    --fox-shadow-overlay-lg: 0 34px 84px -38px rgba(20, 35, 52, 0.72);
+
+    --fox-gradient-brand: linear-gradient(135deg, #0891b2 0%, #0e7490 100%);
+    --fox-gradient-warm: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+
+    /* ---- 动效 ----
+
+       参数模型取自 Apple《Designing Fluid Interfaces》：用 damping（过冲）与
+       response（到达目标的时间感）两个参数描述弹簧。response 不是 duration ——
+       弹簧没有固定时长，落位时间由参数涌现。
+
+       本系统的默认是 damping 1.0（临界阻尼、不过冲）：优雅且不抢注意力。
+       只有「手势本身带有动量」的交互才允许过冲（damping ≈ 0.8），而本扩展的
+       拖拽（悬浮窗、总结面板）都没有吸附目标，因此不提供弹性档位 —— 为不存在的
+       场景预留 token 就是提前抽象。
+
+       改名规则：`--transition-*` 与 `--fox-transition-*` 已并入本组，不再保留别名。 */
+    --fox-motion-response-press: 90ms;
+    --fox-motion-response-fast: 140ms;
+    --fox-motion-response: 200ms;
+    --fox-motion-response-slow: 280ms;
+    --fox-motion-response-slower: 360ms;
+
+    --fox-motion-ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --fox-motion-ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+    /* 出场曲线是入场曲线的镜像控制点，保证「怎么进来的就怎么出去」（§7）。 */
+    --fox-motion-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+    /* 临界阻尼弹簧（damping 1.0 / response 0.35s）的 CSS 近似，18 点采样。
+       弹簧数学上永不到达 1，末点钉死。只在入场与按压这两类「即使整条声明失效
+       也仍然可用」的地方使用：不支持 linear() 的浏览器会退化为瞬变。 */
+    --fox-motion-ease-spring: linear(0 0%, 0.0484 5.56%, 0.1552 11.11%, 0.2816 16.67%, 0.4069 22.22%, 0.5207 27.78%, 0.6189 33.33%, 0.7009 38.89%, 0.7676 44.44%, 0.821 50%, 0.8631 55.56%, 0.8959 61.11%, 0.9213 66.67%, 0.9408 72.22%, 0.9556 77.78%, 0.9668 83.33%, 0.9753 88.89%, 0.9816 94.44%, 1 100%);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --fox-color-primary: #22d3ee;
+        --fox-color-primary-hover: #67e8f9;
+        --fox-color-primary-active: #a5f3fc;
+        --fox-color-on-primary: #083344;
+        --fox-color-primary-soft: rgba(34, 211, 238, 0.16);
+        --fox-color-on-primary-soft: #cffafe;
+        --fox-color-accent: #c084fc;
+        --fox-color-accent-hover: #d8b4fe;
+        --fox-color-accent-soft: rgba(192, 132, 252, 0.18);
+        --fox-color-on-accent-soft: #f3e8ff;
+        --fox-color-warm-soft: rgba(249, 115, 22, 0.16);
+        --fox-color-bg: #0f1420;
+        --fox-color-bg-strong: #102a35;
+        --fox-color-panel: #161d2b;
+        --fox-color-panel-solid: #161d2b;
+        --fox-color-panel-raised: #1b2536;
+        --fox-color-panel-glass: rgba(22, 29, 43, 0.94);
+        --fox-color-surface-dim: #111827;
+        --fox-color-hover: rgba(34, 211, 238, 0.12);
+        --fox-color-pressed: rgba(34, 211, 238, 0.18);
+        --fox-color-text: #f5f8fb;
+        --fox-color-text-secondary: #c6d0dc;
+        --fox-color-text-muted: #8f9daf;
+        --fox-color-border: rgba(160, 177, 198, 0.2);
+        --fox-color-border-strong: rgba(189, 201, 218, 0.32);
+        --fox-color-error: #fb7185;
+        --fox-color-error-bg: rgba(225, 29, 72, 0.16);
+        --fox-color-on-error-bg: #fecdd3;
+        --fox-color-success-bg: rgba(16, 185, 129, 0.16);
+        --fox-color-warning-bg: rgba(245, 158, 11, 0.16);
+        --fox-shadow-surface: 0 1px 2px rgba(0, 0, 0, 0.28);
+        --fox-shadow-modal: 0 20px 48px -20px rgba(0, 0, 0, 0.55);
+        --fox-shadow-popover: 0 10px 28px -12px rgba(0, 0, 0, 0.5);
+        --fox-shadow-overlay: 0 28px 72px -30px rgba(0, 0, 0, 0.72);
+        --fox-shadow-overlay-lg: 0 34px 84px -30px rgba(0, 0, 0, 0.76);
+        --fox-gradient-brand: linear-gradient(135deg, #22d3ee 0%, #0891b2 100%);
+        --fox-shadow-input: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.28);
+    }
+}
+
+/* 用户要求降低透明度时，毛玻璃换成实色：玻璃面板叠在宿主页面上时
+   可读性依赖背景，而「降低透明度」正是用户说这个依赖不可接受（§14）。 */
+@media (prefers-reduced-transparency: reduce) {
+    :root {
+        --fox-color-panel-glass: var(--fox-color-panel-solid);
+        --fox-color-inverted-surface: #172033;
+        --fox-shadow-popover: 0 4px 14px -6px rgba(20, 35, 52, 0.3);
+        --fox-shadow-overlay: 0 12px 32px -18px rgba(20, 35, 52, 0.5);
+        --fox-shadow-overlay-lg: 0 16px 40px -20px rgba(20, 35, 52, 0.55);
+    }
+}
+
+/* 用户要求更高对比度：加实边框、把次级文字提到正文强度。
+   全部在 token 层完成，组件无需知道这件事（§14 prefers-contrast）。 */
+@media (prefers-contrast: more) {
+    :root {
+        --fox-color-border: rgba(83, 97, 115, 0.6);
+        --fox-color-border-strong: #536173;
+        --fox-color-text-secondary: #3b4759;
+        --fox-color-text-muted: #536173;
+        --fox-color-focus: #0e7490;
+        --fox-shadow-surface: none;
+        --fox-shadow-input: none;
+    }
+}
+
+@media (prefers-color-scheme: dark) and (prefers-contrast: more) {
+    :root {
+        --fox-color-border: rgba(189, 201, 218, 0.62);
+        --fox-color-border-strong: #dbe3ec;
+        --fox-color-text-secondary: #e4ebf3;
+        --fox-color-text-muted: #c6d0dc;
+        --fox-color-focus: #67e8f9;
+    }
+}
+
+/* 降低动效 ≠ 关掉反馈（§14）。这里只切换取值：位移/缩放类动效被压到瞬移，
+   而颜色与透明度这类「帮助理解状态变化」的反馈仍保留一个可感知的时长。
+   全局兜底放在 common.css（它只作用于扩展页面，不会污染宿主页面）。 */
+@media (prefers-reduced-motion: reduce) {
+    :root {
+        --fox-motion-response-press: 1ms;
+        --fox-motion-response-fast: 1ms;
+        --fox-motion-response: 1ms;
+        --fox-motion-response-slow: 1ms;
+        --fox-motion-response-slower: 1ms;
+        --fox-motion-ease-spring: linear(0, 1);
+    }
+}

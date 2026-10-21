@@ -7,10 +7,6 @@
     "message": "Translate web pages, selected text, and video subtitles with multiple engines (DeepLx, Google, AI). Features advanced rules, display modes, and content filtering.",
     "description": "A rich description for the extension store listing."
   },
-  "settingsHeading": {
-    "message": "Foxlate Settings",
-    "description": "Heading for the settings page."
-  },
   "generalSettings": {
     "message": "General Settings",
     "description": "Section heading for general settings."
@@ -27,13 +23,13 @@
     "message": "Google Translate",
     "description": "Option for Google Translate engine."
   },
-  "aiTranslator": {
-    "message": "AI Translator (GPT)",
-    "description": "Option for AI Translator engine."
-  },
   "aiEngineProfiles": {
     "message": "AI Engine Profiles",
     "description": "Title for the AI Engine Profiles section."
+  },
+  "manageAiEngineProfiles": {
+    "message": "Manage AI Engines",
+    "description": "Button that opens the AI engine management modal."
   },
   "aiEngineName": {
     "message": "Engine Name:",
@@ -59,10 +55,6 @@
     "message": "Model Name:",
     "description": "Label for the AI model name input."
   },
-  "testConnection": {
-    "message": "Test Connection",
-    "description": "Button text for testing API connection."
-  },
   "deeplxApiUrl": {
     "message": "DeepLx API URL:",
     "description": "Label for the DeepLx API URL input."
@@ -71,9 +63,9 @@
     "message": "Test",
     "description": "Button text for testing."
   },
-  "googleApiKey": {
-    "message": "Google API Key:",
-    "description": "Label for the Google API key input."
+  "testTranslationTitle": {
+    "message": "Test Translation",
+    "description": "Card title for the manual test-translation panel."
   },
   "targetLanguage": {
     "message": "Target Language:",
@@ -83,25 +75,13 @@
     "message": "Content Selectors",
     "description": "Label for the content CSS selector textarea."
   },
-  "contentSelectorDescription": {
-    "message": "Specify CSS selectors for elements to be translated. The extension will automatically determine if the translation should be displayed as inline or block based on the element's style.",
-    "description": "Helper text for the content CSS selector."
-  },
   "excludeSelectorsLabel": {
     "message": "Exclude Selectors",
     "description": "Label for the exclude CSS selector textarea."
   },
-  "excludeSelectorsDescription": {
-    "message": "Elements matching these selectors (and their children) will not be translated. Use a comma to separate multiple selectors.",
-    "description": "Helper text for the exclude CSS selector."
-  },
   "ruleManagement": {
     "message": "Rule Management",
     "description": "Rule Management section title."
-  },
-  "displayFormat": {
-    "message": "Display Format",
-    "description": "Section heading for display format settings."
   },
   "displayMode": {
     "message": "Display Mode:",
@@ -119,10 +99,6 @@
     "message": "Hover to Display",
     "description": "Option to show translation on hover."
   },
-  "domainRules": {
-    "message": "Domain Rules",
-    "description": "Section heading for domain rules."
-  },
   "domain": {
     "message": "Domain:",
     "description": "Label for the domain input."
@@ -130,10 +106,6 @@
   "autoTranslate": {
     "message": "Auto Translate:",
     "description": "Label for the auto-translate rule."
-  },
-  "rule": {
-    "message": "Rule:",
-    "description": "Label for the rule selection dropdown."
   },
   "manualTranslate": {
     "message": "Manual Translate",
@@ -162,10 +134,6 @@
   "editDomainRule": {
     "message": "Edit Domain Rule",
     "description": "Title for the domain rule modal when editing."
-  },
-  "domainRuleModalTitle": {
-    "message": "Domain Rule Settings",
-    "description": "Generic title for the domain rule modal."
   },
   "cancel": {
     "message": "Cancel",
@@ -207,17 +175,9 @@
     "message": "Invalid or incomplete AI Engine data.",
     "description": "The data provided is not a valid AI engine configuration."
   },
-  "importAiEngineError": {
-    "message": "Failed to import AI Engine from text.",
-    "description": "Status message on failure to import AI engine configuration from text."
-  },
   "importAiEngineModalTitle": {
     "message": "Import AI Engine from Text",
     "description": "Title for the modal to import an AI engine configuration from a text string."
-  },
-  "pasteAiEngineConfigPlaceholder": {
-    "message": "Paste the JSON configuration string here...",
-    "description": "Placeholder text for the textarea where users paste the AI engine config."
   },
   "pasteAiEngineConfigLabel": {
     "message": "Configuration JSON",
@@ -239,17 +199,9 @@
     "message": "Use Default",
     "description": "Option in dropdowns to inherit from global settings."
   },
-  "selectorPlaceholderGlobal": {
-    "message": "e.g., .class, #id, [attribute=value]",
-    "description": "Placeholder for the global CSS selector textareas."
-  },
   "overrideDefaultSelectors": {
     "message": "Override default selectors",
     "description": "Label for the CSS override switch."
-  },
-  "domainCannotBeEmpty": {
-    "message": "Domain cannot be empty.",
-    "description": "Error message for empty domain input."
   },
   "saveRuleSuccess": {
     "message": "Rule saved successfully.",
@@ -271,26 +223,6 @@
     "message": "Are you sure you want to delete this AI engine?",
     "description": "Confirmation message before deleting an AI engine profile."
   },
-  "currentRules": {
-    "message": "Current Domain Rules:",
-    "description": "Heading for the list of current domain rules."
-  },
-  "domainSpecificRules": {
-    "message": "Domain-Specific Rules",
-    "description": "Heading for domain specific rules"
-  },
-  "selectorOverrideDescription": {
-    "message": "When enabled, only the domain-specific selectors will be used, completely replacing the global ones. If an input is left empty, no selectors of that type will be applied.",
-    "description": "Helper text for the selector override switch in domain rules."
-  },
-  "rulesDescription": {
-    "message": "Rules apply to the exact hostname. Default is \"Manual Translate\".",
-    "description": "Description for domain rules."
-  },
-  "configurationManagement": {
-    "message": "Configuration Management",
-    "description": "Section heading for configuration management."
-  },
   "cacheManagement": {
     "message": "Cache Management",
     "description": "Section heading for cache management."
@@ -298,10 +230,6 @@
   "cacheSizeLabel": {
     "message": "Cache Size (number of items)",
     "description": "Label for the cache size input."
-  },
-  "cacheSizeDescription": {
-    "message": "Sets the maximum number of translations to store locally. A larger cache improves performance but uses more disk space. Set to 0 to disable caching.",
-    "description": "Helper text for the cache size input."
   },
   "currentCacheUsage": {
     "message": "Current Usage:",
@@ -323,14 +251,6 @@
     "message": "Save Settings",
     "description": "Button text to save settings."
   },
-  "saving": {
-    "message": "Saving...",
-    "description": "Text displayed when settings are being saved"
-  },
-  "saved": {
-    "message": "Saved",
-    "description": "Text displayed after settings are successfully saved"
-  },
   "exportSettings": {
     "message": "Export Settings",
     "description": "Button text to export settings."
@@ -338,18 +258,6 @@
   "importSettings": {
     "message": "Import Settings",
     "description": "Button text to import settings."
-  },
-  "saveSettingsSuccess": {
-    "message": "Settings saved successfully!"
-  },
-  "saveSettingsError": {
-    "message": "Failed to save settings."
-  },
-  "addRuleSuccess": {
-    "message": "Domain rule added."
-  },
-  "addRuleErrorNoDomain": {
-    "message": "Please enter a domain."
   },
   "removeRule": {
     "message": "Remove"
@@ -394,12 +302,6 @@
   "testError": {
     "message": "Error"
   },
-  "aiApiKeyPlaceholder": {
-    "message": "Enter your OpenAI-compatible API Key"
-  },
-  "aiApiUrlPlaceholder": {
-    "message": "e.g., https://api.openai.com/v1/chat/completions"
-  },
   "aiCustomPrompt": {
     "message": "Custom Prompt:",
     "description": "Label for the custom prompt textarea for AI engines."
@@ -412,10 +314,6 @@
     "message": "Short Text Engine",
     "description": "Label for the fallback engine to be used for short texts."
   },
-  "aiCustomPromptPlaceholder": {
-    "message": "You are a translation assistant. Translate the user's text from {sourceLang} to {targetLang}. Output only the translated text. Variables {sourceLang} and {targetLang} will be replaced with language codes (e.g., EN, ZH).",
-    "description": "Placeholder for the custom prompt textarea."
-  },
   "aiApiUrlMissingError": {
     "message": "AI API Endpoint URL is not configured in settings. Please set it up.",
     "description": "Error message when the AI API URL is missing."
@@ -424,38 +322,11 @@
     "message": "AI Model Name is not configured in settings. Please set it up.",
     "description": "Error message when the AI Model Name is missing."
   },
-  "aiModelNamePlaceholder": {
-    "message": "e.g., gpt-3.5-turbo"
-  },
-  "deeplxApiUrlPlaceholder": {
-    "message": "e.g., https://api.deeplx.com/translate"
-  },
-  "googleApiKeyPlaceholder": {
-    "message": "Enter your Google Cloud Translation API Key"
-  },
-  "domainPlaceholder": {
-    "message": "e.g., example.com"
-  },
-  "popupTitle": {
-    "message": "Foxlate"
-  },
   "popupSourceLanguage": {
     "message": "Source Language:"
   },
-  "popupTargetLanguage": {
-    "message": "Target Language:"
-  },
-  "popupTranslationService": {
-    "message": "Translation Service:"
-  },
   "popupTranslatePage": {
     "message": "Translate This Page"
-  },
-  "popupAlwaysTranslate": {
-    "message": "Always translate this site"
-  },
-  "popupSettings": {
-    "message": "⚙️ Settings"
   },
   "contextMenuTitle": {
     "message": "Translate '%s' with Foxlate",
@@ -464,13 +335,6 @@
   "popupRuleDefault": {
     "message": "Using default settings",
     "description": "Text in popup indicating that default rules are active."
-  },
-  "popupAbout": {
-    "message": "About"
-  },
-  "popupDisplayMode": {
-    "message": "Display Mode:",
-    "description": "Label for the display mode dropdown in the popup."
   },
   "popupDisplayModeReplace": {
     "message": "Replace",
@@ -523,10 +387,6 @@
     "message": "Translate",
     "description": "Text for the manual translate button in the content script."
   },
-  "logEntryPrecheckRuleError": {
-    "message": "[Pre-check] Error in rule \"$1\": $2",
-    "description": "Log entry for error during pre-check rule application. Placeholders: [ruleName, errorMessage]"
-  },
   "logEntryCacheMiss": {
     "message": "[Cache] Translation not found in cache. Proceeding with API call.",
     "description": "Log entry for cache miss."
@@ -543,10 +403,6 @@
     "message": "Show Log",
     "description": "Button text to show the translation log."
   },
-  "testLogTitle": {
-    "message": "Translation Log",
-    "description": "Title for the translation log area."
-  },
   "logEntryStart": {
     "message": "[Start] Translating \"$1\" from $2 to $3",
     "description": "Log entry for start of translation. Placeholders: [text, sourceLang, targetLang]"
@@ -555,17 +411,9 @@
     "message": "[Pre-check] Starting pre-check rules evaluation.",
     "description": "Log entry for the start of pre-check rules."
   },
-  "logEntryPrecheckFinalCheck": {
-    "message": "[Pre-check] Text after all erasures: \"$1\"",
-    "description": "Log entry showing the final text after erasures. Placeholder: [remainingText]"
-  },
   "logEntryPrecheckNoTranslation": {
     "message": "[Pre-check] Text determined not to require translation. Returning original text.",
     "description": "Log entry when pre-check determines no translation is needed."
-  },
-  "logEntryPrecheckError": {
-    "message": "[Pre-check] Error: $1",
-    "description": "Log entry for a pre-check configuration error. Placeholder: [errorMessage]"
   },
   "logEntryEngineUsed": {
     "message": "[Engine] Using translation engine: $1 ($2)",
@@ -599,17 +447,9 @@
     "message": "AI Custom Prompt is not configured in settings. Please set it up.",
     "description": "Error message when the AI custom prompt is missing."
   },
-  "enterTestText": {
-    "message": "Please enter test text.",
-    "description": "Message when test text input is empty."
-  },
   "isRequired": {
     "message": "is required.",
     "description": "Suffix for required field error messages."
-  },
-  "fillAllRequiredFields": {
-    "message": "Please fill in all required fields.",
-    "description": "General message for missing required fields."
   },
   "errorMissingTargetLanguage": {
     "message": "Target language is not configured. Please update settings.",
@@ -618,10 +458,6 @@
   "errorMissingEngine": {
     "message": "Translation engine is not configured. Please update settings.",
     "description": "Error when translation engine is missing for a translation task."
-  },
-  "errorMissingSelector": {
-    "message": "CSS selector for translation is not configured. Please update settings.",
-    "description": "Error when the CSS selector for page translation is missing."
   },
   "popupTranslationNotAvailable": {
     "message": "Translation is not available on this page.",
@@ -651,29 +487,9 @@
     "message": "Toggle Content Summary",
     "description": "Command to toggle the content summary feature."
   },
-  "runTestButton": {
-    "message": "Run Test",
-    "description": "The button text for running the global pre-check test."
-  },
-  "addPrecheckRule": {
-    "message": "Add Pre-check Rule",
-    "description": "Button text to add a new pre-check rule."
-  },
-  "subtitleSettingsTitle": {
-    "message": "Subtitle Settings",
-    "description": "Title for the Subtitle Settings section in the domain rule modal."
-  },
-  "summarySettingsTitle": {
-    "message": "Content Summary Settings",
-    "description": "Title for the Content Summary Settings section in the domain rule modal."
-  },
   "mainBodySelectorLabel": {
     "message": "Main Body Selector",
     "description": "Label for the main body CSS selector textarea."
-  },
-  "mainBodySelectorDescription": {
-    "message": "Specify a selector for the main content area of the page (e.g., an article body). This will be used for the content summary feature.",
-    "description": "Helper text for the main body CSS selector."
   },
   "enableContentSummary": {
     "message": "Enable Content Summary",
@@ -682,18 +498,6 @@
   "summaryAiModelLabel": {
     "message": "Summary AI Model",
     "description": "Label for the AI model selection for content summary."
-  },
-  "errorMainBodySelectorRequired": {
-    "message": "Main Body Selector is required when summary is enabled.",
-    "description": "Validation error message."
-  },
-  "toggleSummary": {
-    "message": "Toggle Summary",
-    "description": "ARIA label for the summary floating action button."
-  },
-  "errorSummaryModelRequired": {
-    "message": "Summary AI Model is required when summary is enabled.",
-    "description": "Validation error message."
   },
   "enableSubtitleTranslation": {
     "message": "Enable Subtitle Translation",
@@ -723,65 +527,17 @@
     "message": "Bilingual",
     "description": "Subtitle display mode: Show both original and translated text."
   },
-  "popupEnableSubtitles": {
-    "message": "Enable Subtitle Translation",
-    "description": "Toggle label to enable/disable subtitle translation in the popup."
+  "subtitleToolbarTitleEnabled": {
+    "message": "Foxlate (Subtitles Enabled)",
+    "description": "Toolbar icon tooltip while subtitle translation is switched on."
   },
-  "privacyPolicy": {
-    "message": "Privacy Policy",
-    "description": "Link text for the Privacy Policy."
-  },
-  "popupSubtitlesHint": {
-    "message": "Works only on supported video pages",
-    "description": "Hint text for the subtitle translation toggle."
-  },
-  "syncStatusSynced": {
-    "message": "Synced",
-    "description": "Status indicating the AI engine is synced to cloud"
-  },
-  "syncStatusLocal": {
-    "message": "Local Only",
-    "description": "Status indicating the AI engine is only stored locally"
-  },
-  "syncStatusSyncing": {
-    "message": "Syncing...",
-    "description": "Status indicating the AI engine is currently syncing"
-  },
-  "syncStatusUnknown": {
-    "message": "Unknown",
-    "description": "Status indicating unknown sync state"
-  },
-  "retrySync": {
-    "message": "Retry Sync",
-    "description": "Button to retry syncing a local AI engine"
-  },
-  "retryAllSync": {
-    "message": "Retry All Sync",
-    "description": "Button to retry syncing all local AI engines"
-  },
-  "retrySyncSuccess": {
-    "message": "Engine synced successfully",
-    "description": "Message shown when engine sync retry succeeds"
-  },
-  "retrySyncFailed": {
-    "message": "Retry sync failed",
-    "description": "Message shown when engine sync retry fails"
-  },
-  "noLocalEngines": {
-    "message": "No local engines to sync",
-    "description": "Message shown when there are no local engines to sync"
-  },
-  "batchSyncResult": {
-    "message": "Sync completed: $1$ succeeded, $2$ failed",
-    "description": "Message showing batch sync results with success and failure counts"
+  "subtitleToolbarTitleDisabled": {
+    "message": "Foxlate (Subtitles Disabled)",
+    "description": "Toolbar icon tooltip while subtitle translation is switched off."
   },
   "defaultEngineNotFound": {
     "message": "Default translation engine not found. Please select a different default engine.",
     "description": "Warning message when default translation engine is not found"
-  },
-  "noEnginesInImport": {
-    "message": "No engines found in import data",
-    "description": "Error message when no engines found in import data"
   },
   "summarySuggestButton": {
     "message": "Suggest",
@@ -803,22 +559,6 @@
     "message": "Confirm",
     "description": "Title for the confirm modal."
   },
-  "confirmDeleteAiEngineTitle": {
-    "message": "Delete AI Engine",
-    "description": "Title for the confirm delete AI engine modal."
-  },
-  "clearCacheConfirmTitle": {
-    "message": "Clear Cache",
-    "description": "Title for the clear cache confirm modal."
-  },
-  "resetSettingsConfirmTitle": {
-    "message": "Reset Settings",
-    "description": "Title for the reset settings confirm modal."
-  },
-  "confirmDeleteRuleTitle": {
-    "message": "Delete Rule",
-    "description": "Title for the delete rule confirm modal."
-  },
   "cloudBackups": {
     "message": "Cloud Backups",
     "description": "Heading for the list of cloud backups."
@@ -827,17 +567,9 @@
     "message": "Refresh Cloud Data",
     "description": "Button text to refresh the list of cloud backups."
   },
-  "cloudDataDescription": {
-    "message": "List of settings backups stored in the cloud. Download to restore a previous version or delete old backups.",
-    "description": "Helper text for the cloud data list."
-  },
   "enableCloudSync": {
     "message": "Enable Cloud Sync",
     "description": "Label for the switch to enable cloud synchronization."
-  },
-  "enableCloudSyncDescription": {
-    "message": "When enabled, you can manually upload your settings to the cloud or download them to other devices.",
-    "description": "Helper text for the cloud sync enable switch."
   },
   "cloudSettingsStatus": {
     "message": "Cloud settings status: Not checked.",
@@ -866,10 +598,6 @@
   "confirmDeleteBackup": {
     "message": "Are you sure you want to delete this cloud backup? This action cannot be undone.",
     "description": "Confirmation message before deleting a backup."
-  },
-  "syncManagement": {
-    "message": "Synchronization Management",
-    "description": "Section heading for synchronization management."
   },
   "uploadSettings": {
     "message": "Upload Settings to Cloud",
@@ -931,10 +659,6 @@
     "message": "Engine",
     "description": "Navigation link for Engine settings."
   },
-  "navAppearance": {
-    "message": "Appearance",
-    "description": "Navigation link for Appearance settings."
-  },
   "navRules": {
     "message": "Rules",
     "description": "Navigation link for Rule Management."
@@ -946,14 +670,6 @@
   "navData": {
     "message": "Data",
     "description": "Navigation link for data management."
-  },
-  "navSync": {
-    "message": "Sync",
-    "description": "Navigation link for Sync Management."
-  },
-  "navConfig": {
-    "message": "Configuration",
-    "description": "Navigation link for Configuration Management."
   },
   "engineSettings": {
     "message": "Engine Settings",
@@ -987,29 +703,9 @@
     "message": "Data",
     "description": "Section heading for data management."
   },
-  "appearanceSettings": {
-    "message": "Appearance Settings",
-    "description": "Section heading for appearance settings."
-  },
-  "promptPlaceholders": {
-    "message": "Supported placeholders:",
-    "description": "Label for placeholder help text."
-  },
   "viewPromptExamples": {
     "message": "View Examples",
     "description": "Button text to view prompt examples."
-  },
-  "promptPlaceholderHelpTitle": {
-    "message": "Supported Placeholders",
-    "description": "Title for placeholder help."
-  },
-  "promptExampleTitle": {
-    "message": "Example Templates",
-    "description": "Title for example templates."
-  },
-  "professionalTranslation": {
-    "message": "Professional Translation:",
-    "description": "Label for professional translation example."
   },
   "promptValidationError": {
     "message": "Prompt must contain at least one placeholder: {targetLang}, {sourceLang}, or {context}",
@@ -1018,18 +714,6 @@
   "invalidPlaceholderError": {
     "message": "Invalid placeholders found: $1. Valid placeholders are: {targetLang}, {sourceLang}, {context}",
     "description": "Invalid placeholder error message."
-  },
-  "placeholderTargetLang": {
-    "message": "Target language",
-    "description": "Description for target language placeholder."
-  },
-  "placeholderSourceLang": {
-    "message": "Source language",
-    "description": "Description for source language placeholder."
-  },
-  "placeholderContext": {
-    "message": "Translation context",
-    "description": "Description for context placeholder."
   },
   "tooltipClose": {
     "message": "Close",
@@ -1050,10 +734,6 @@
   "tooltipCopySource": {
     "message": "Copy Source",
     "description": "Title for the button to copy the source text."
-  },
-  "tooltipCollapseTarget": {
-    "message": "Collapse Target",
-    "description": "Title for the button to collapse the target text section."
   },
   "tooltipReadTarget": {
     "message": "Read Target",
@@ -1099,10 +779,6 @@
     "message": "Enable Input Translation",
     "description": "Label for the switch to enable input translation."
   },
-  "inputTranslationEnableDescription": {
-    "message": "Translate text directly in input fields.",
-    "description": "Helper text for the input translation enable switch."
-  },
   "inputTriggerWordLabel": {
     "message": "Magic Word",
     "description": "Label for the input trigger word."
@@ -1122,19 +798,9 @@
     "message": "Presses",
     "description": "Label for the number of presses input."
   },
-  "inputKeyTriggerDescription": {
-    "message": "Press a key multiple times to trigger translation. Use values from `event.code`."
-  },
   "inputBlacklistLabel": {
     "message": "Blacklisted Domains",
     "description": "Label for the input blacklist textarea."
-  },
-  "inputBlacklistDescription": {
-    "message": "Disable input translation on these websites. One domain per line, e.g., \"example.com\"."
-  },
-  "engineFollowGlobal": {
-    "message": "Follow Global Setting",
-    "description": "Option to follow the global engine setting."
   },
   "navInputTranslation": {
     "message": "Input Translation",
@@ -1307,5 +973,109 @@
   "popupSelectionEntryHint": {
     "message": "Selection: quick panel · right-click · Alt+S",
     "description": "Popup micro-hint for selection entry points."
+  },
+  "popupTranslating": {
+    "message": "Translating…",
+    "description": "Popup CTA label while page translation is running."
+  },
+  "popupShowOriginal": {
+    "message": "Show original",
+    "description": "Popup CTA label when the page is translated; switches back to the source text."
+  },
+  "logEntryPrecheckMatch": {
+    "message": "[Pre-check] Rule matched ($2): $1",
+    "description": "Translation log line: a pre-check rule matched. $1 = reason, $2 = rule kind.",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "precheckRuleSameLanguage": {
+    "message": "source language equals target language",
+    "description": "Reason shown when translation is skipped because source and target languages match."
+  },
+  "errorNoTranslator": {
+    "message": "No translation engine available. Enable one in settings.",
+    "description": "Error surfaced when no translator engine could be resolved."
+  },
+  "logEntryCacheHit": {
+    "message": "[Cache] Translation served from cache.",
+    "description": "Translation log line for a cache hit."
+  },
+  "summaryTabPageTitle": {
+    "message": "Page",
+    "description": "Title of the page-summary tab."
+  },
+  "close": {
+    "message": "Close",
+    "description": "Accessible name of icon-only close buttons in dialogs."
+  },
+  "popupOpenSettings": {
+    "message": "Settings",
+    "description": "Accessible name of the gear button that opens the options page."
+  },
+  "popupLanguagesLabel": {
+    "message": "Languages",
+    "description": "Accessible name of the language-pair group in the popup."
+  },
+  "popupSourceLanguageLabel": {
+    "message": "Source language",
+    "description": "Accessible name of the source-language select."
+  },
+  "popupTargetLanguageLabel": {
+    "message": "Target language",
+    "description": "Accessible name of the target-language select."
+  },
+  "popupSwapLanguages": {
+    "message": "Swap languages",
+    "description": "Accessible name and tooltip of the language swap button."
+  },
+  "popupTranslationSettingsLabel": {
+    "message": "Translation settings",
+    "description": "Accessible name of the popup control surface."
+  },
+  "settingsNavLabel": {
+    "message": "Settings",
+    "description": "Accessible name of the options navigation landmark."
+  },
+  "summaryTabSelectionTitle": {
+    "message": "Selection",
+    "description": "Title prefix of a selection-summary tab."
+  },
+  "summaryTabClose": {
+    "message": "Close tab",
+    "description": "Accessible label of the close button on a summary tab."
+  },
+  "summaryModalTitle": {
+    "message": "AI Summary",
+    "description": "Heading of the in-page summary dialog."
+  },
+  "summaryInputPlaceholder": {
+    "message": "Ask a follow-up…",
+    "description": "Placeholder of the summary follow-up input."
+  },
+  "contextMenuErrorPrefix": {
+    "message": "Error",
+    "description": "Prefix shown before a translation error message in the page."
+  },
+  "invalidCssSelector": {
+    "message": "Invalid CSS selector",
+    "description": "Validation error for a content/exclude selector field."
+  },
+  "loadSettingsError": {
+    "message": "Failed to load settings",
+    "description": "Status message when reading settings fails."
+  },
+  "resetSettingsError": {
+    "message": "Failed to reset settings",
+    "description": "Status message when resetting settings fails."
+  },
+  "testNotTranslated": {
+    "message": "Not translated:",
+    "description": "Prefix shown when the test-translation result came back untranslated."
   }
 }

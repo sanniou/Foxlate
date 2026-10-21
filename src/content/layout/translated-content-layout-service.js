@@ -1,8 +1,5 @@
-import { textMeasurementService } from './text-measurement-service.js';
-
-function clamp(value, min, max) {
-    return Math.max(min, Math.min(value, max));
-}
+import { textMeasurementService } from '../../common/text-measurement.js';
+import { clamp } from '../../common/math.js';
 
 function stripTranslatorTags(text) {
     return String(text ?? '').replace(/<\/?t\d+>/g, '');

@@ -138,6 +138,7 @@ class SummaryModule {
             this.state.switchTab(e.detail.tabId);
         });
         this.summaryDialog.element.addEventListener('tab-close', e => this.handleTabClose(e.detail.tabId));
+        this.summaryDialog.element.addEventListener('request-close', () => this.closeDialog());
         this.summaryDialog.element.addEventListener('tab-toggle-original', e => this.handleTabToggleOriginal(e.detail.tabId));
     }
 
@@ -179,8 +180,7 @@ class SummaryModule {
 
         if (selectedText.length > CONSTANTS.MIN_SELECTION_LENGTH) {
             if (this.summaryDialog.isOpen) {
-                this.summaryDialog.hide();
-                this.summaryButton.element.classList.remove('rotated');
+                this.closeDialog();
             }
             const range = selection.getRangeAt(0);
             const rect = range.getBoundingClientRect();
@@ -199,7 +199,7 @@ class SummaryModule {
     async togglePageSummaryDialog() {
         this.summaryButton.element.classList.toggle('rotated');
         if (this.summaryDialog.isOpen) {
-            this.summaryDialog.hide();
+            this.closeDialog();
         } else {
             const pageTab = this.state.findTabByType('page');
             if (!pageTab) {
@@ -411,11 +411,21 @@ class SummaryModule {
         this.fetchSummaryForTab(activeTab, activeTab.selectionText);
     }
 
+    /**
+     * 关闭摘要面板并复位入口按钮状态。
+     * 关闭路径（Esc、选区变化、最后一个标签页被关、按钮切换）共用一处，
+     * 避免“面板关了但按钮还停在 rotated 态”这类状态分叉。
+     */
+    closeDialog() {
+        if (!this.summaryDialog.isOpen) return;
+        this.summaryDialog.hide();
+        this.summaryButton.element.classList.remove('rotated');
+    }
+
     handleTabClose(tabId) {
         const isLastTab = this.state.closeTab(tabId);
         if (isLastTab) {
-            this.summaryDialog.hide();
-            this.summaryButton.element.classList.remove('rotated');
+            this.closeDialog();
         }
         this.summaryDialog.resetSuggestions(); // Reset suggestion bar
     }
@@ -436,14 +446,6 @@ export function initializeSummary(settings) {
         // 将实例暴露到全局，以便快捷键可以访问
         window.summaryModuleInstance = summaryModuleInstance;
     } else {
-        window.summaryModuleInstance = null;
-    }
-}
-
-export function destroySummary() {
-    if (summaryModuleInstance) {
-        summaryModuleInstance.destroy();
-        summaryModuleInstance = null;
         window.summaryModuleInstance = null;
     }
 }

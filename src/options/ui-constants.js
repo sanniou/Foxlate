@@ -128,9 +128,25 @@ export const ELEMENT_IDS = {
 
     MANUAL_TEST_TRANSLATE_BTN: 'manual-test-translate-btn',
 
+    // 手动测试翻译面板
+    TEST_SOURCE_TEXT: 'test-source-text',
+    TEST_RESULT_AREA: 'test-result-area',
+
     // Log Area
     TOGGLE_LOG_BTN: 'toggleLogBtn',
     LOG_CONTENT: 'log-content',
+
+    // 页面壳与导航
+    SETTINGS_NAV: 'settings-nav',
+    GENERAL_PANEL: 'general',
+
+    // 默认引擎失效警告
+    DEFAULT_ENGINE_WARNING: 'defaultEngineWarning',
+
+    // AI 引擎表单：自定义提示词辅助
+    AI_CUSTOM_PROMPT_ERROR: 'aiCustomPromptError',
+    PROMPT_HELP_BTN: 'promptHelpBtn',
+    PROMPT_PLACEHOLDER_HELP: 'promptPlaceholderHelp',
 
     // Sync Management
     SYNC_ENABLED: 'syncEnabled',

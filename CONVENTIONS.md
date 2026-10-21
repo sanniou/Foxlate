@@ -66,10 +66,11 @@ Discovered fixes: same branch, **separate commits**. Never narrate a failure and
 | Release index | `specs/release-plan.yaml` |
 | Progress | `specs/execution-status.yaml` |
 | Intent | `specs/product/SCOPE_LATEST.yaml` |
-| Epic detail | `specs/epics/eNN-*.yaml` |
+| Epic detail | `specs/epics/<capsule>/epic.yaml`（完成后移入 `epics/archive/`） |
 | Bugs | `specs/bugs/` |
+| Review / UAT 记录 | `specs/verifications/` |
 
-`workflow_mode` in `state.yaml` is `solo-git`.
+`workflow_mode` in `state.yaml` is `solo-git`. 形状契约由 `test/planning-state.test.mjs` 强制。
 
 ## Defensive Code Categories (this project)
 
@@ -83,13 +84,27 @@ Discovered fixes: same branch, **separate commits**. Never narrate a failure and
 
 ## Project-specific conventions
 
-- Tokens: `--fox-*` in `src/common/common.css` only.
+- **设计令牌**：唯一取值来源是 `src/common/tokens.css`；`src/common/common.css` 只写语义别名（`--color-*` → `--fox-color-*`）。组件不得写颜色/尺寸/时长/字体栈字面量。由 `test/design-system.test.mjs` 强制。
+- **无障碍三态**：reduced-motion / reduced-transparency / prefers-contrast 的取值也在 `tokens.css`，组件不得自行加 `!important` 覆盖。
 - UI class names: semantic (`.btn`, `.card`, …), not `.m3-*`.
 - Do not hand-edit `dist/`.
-- `plans/archive/*` is obsolete design history.
+- pre-1.6.0 indigo MD3 设计草案已删除，不再存在 —— 不得重建或参考。
 - Keep content-script injection surface minimal; prefer existing inject lists in `background-constants.js`.
 - Prefer pure modules + thin browser-API adapters for testability (`node --test` + jsdom where needed).
 
 ## File-Size Guidance
 
-Prefer modules under ~300 lines. Existing large files (`translator-manager.js`, `options-actions.js`, `background-message-handlers.js`) are known hotspots — boy-scout when touched, no big-bang rewrite unless planned.
+Prefer modules under ~300 lines. `src/lib/*` 是 vendored 第三方代码，不适用此规则。
+
+当前超过 300 行的第一方文件（19 个，`wc -l` 实测）：
+
+| 文件 | 行数 | 状态 |
+|------|-----:|------|
+| `src/content/summary/summary.css` | 722 | 待观察 |
+| `src/common/common.css` | 720 | 语义别名层，待观察 |
+| `src/content/summary/summary.view.js` | 623 | 待观察 |
+| `src/content/page-translation-job.js` | 616 | 待观察 |
+| `src/options/options.css` | 607 | 待观察 |
+| `src/options/options-actions.js` | 607 | 已从 2000+ 拆分；剩余为动作表 |
+
+Boy-scout when touched — no big-bang rewrite unless planned.

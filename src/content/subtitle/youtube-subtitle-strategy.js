@@ -65,6 +65,13 @@ class YouTubeSubtitleStrategy {
 
     this.renderer.updateOptions({ displayMode: newMode });
 
+    if (newMode === 'off') {
+      // 「关掉」必须立刻生效：此刻可能连视频观察器都没在跑，
+      // 等下一次 timeupdate 会把上一条字幕留在屏幕上。
+      this.renderer.hide();
+      return;
+    }
+
     if (this.videoElement) {
       this.updateSubtitleDisplay(this.videoElement.currentTime);
     }
@@ -211,6 +218,8 @@ class YouTubeSubtitleStrategy {
     } catch (error) {
       logContentError('YouTubeSubtitleStrategy.processAndTranslateSubtitles', error);
       this.stopVideoObserver();
+      // 翻译失败时上一条字幕已经不作数了，不能让它僵在屏幕上
+      this.renderer?.hide();
     }
   }
   

@@ -1,4 +1,4 @@
-import { escapeHtml } from '../../common/utils.js';
+import { escapeHtml } from '../../common/escape.js';
 import { createTooltipIconButton } from './tooltip-icons.js';
 
 function createTextSection(browserApi, type, text, isCollapsed) {

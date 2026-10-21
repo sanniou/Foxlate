@@ -1,7 +1,7 @@
 import browser from '../../lib/browser-polyfill.js';
 import { BaseComponent } from './BaseComponent.js';
 import { FormValidator } from '../validator.js';
-import { escapeHtml } from '../../common/utils.js';
+import { escapeHtml } from '../../common/escape.js';
 import * as Constants from '../../common/constants.js';
 import { ELEMENT_IDS } from '../ui-constants.js';
 import {
@@ -280,7 +280,7 @@ export class DomainRuleModal extends BaseComponent {
                 document.querySelector(selectorValue);
             } catch (e) {
                 field.classList.add('is-invalid');
-                if (errorEl) errorEl.textContent = browser.i18n.getMessage('invalidCssSelector');
+                if (errorEl) errorEl.textContent = browser.i18n.getMessage('invalidCssSelector') || 'Invalid CSS selector';
                 return false;
             }
         }

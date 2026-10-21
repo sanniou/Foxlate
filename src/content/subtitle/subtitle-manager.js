@@ -108,7 +108,7 @@ export class SubtitleManager {
     }
 }
 
-export function initializeSubtitleManager() {
+function initializeSubtitleManager() {
     window.subtitleManager = new SubtitleManager();
     return window.subtitleManager;
 }

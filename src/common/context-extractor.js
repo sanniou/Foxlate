@@ -104,28 +104,3 @@ export function formatContextString(context) {
     
     return parts.join('\n');
 }
-
-/**
- * 创建包含上下文的翻译提示词
- * @param {string} basePrompt - 基础提示词
- * @param {Object} context - 上下文对象
- * @returns {string} 包含上下文的提示词
- */
-export function createPromptWithContext(basePrompt, context) {
-    if (!context || (!context.title && !context.hostname && !context.url)) {
-        return basePrompt;
-    }
-    
-    const contextString = formatContextString(context);
-    
-    // 如果基础提示词已经包含{context}占位符，则不额外添加
-    if (basePrompt.includes('{context}')) {
-        return basePrompt;
-    }
-    
-    // 在基础提示词前添加上下文信息
-    return `上下文信息：
-${contextString}
-
-${basePrompt}`;
-}

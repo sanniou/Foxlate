@@ -1,14 +1,11 @@
 import browser from '../lib/browser-polyfill.js';
 import { MESSAGE_TYPES } from '../common/message-types.js';
 import { logContentError } from './content-logger.js';
+import { generateId as defaultGenerateId } from '../common/ids.js';
 
 const DEFAULT_MAX_ITEMS = 12;
 const DEFAULT_MAX_CHARS = 10000;
 const DEFAULT_DELAY_MS = 150;
-
-function defaultGenerateId() {
-    return self.crypto.randomUUID();
-}
 
 function shouldUseBatchTranslation(translatorEngine) {
     return typeof translatorEngine === 'string' && translatorEngine.startsWith('ai:');

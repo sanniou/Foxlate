@@ -51,7 +51,7 @@ function createContentSelectorQuery(selector) {
  * @param {string} cssFilePath 可访问的 CSS 文件 URL。
  * @param {object} logger 日志对象，默认使用 console。
  */
-export function injectCSSIntoRoot(root, host, cssFilePath, logger = console) {
+function injectCSSIntoRoot(root, host, cssFilePath, logger = console) {
     if (!root || !host || host.dataset.foxlateCssInjected === 'true' || !cssFilePath) {
         return;
     }
@@ -101,12 +101,6 @@ export function findAllSearchRoots(rootNode, { cssFilePath, logger = console } =
     return roots;
 }
 
-/**
- * 使用“自顶向下”的 CSS 选择器模型查找页面上所有可翻译的元素。
- * @param {object} effectiveSettings - 设置对象（用于预检查）。
- * @param {Node[]} rootNodes - 要在其中搜索的根节点。
- * @returns {HTMLElement[]} 一个包含最适合翻译的容器元素的数组。
- */
 function isExcludedBySelector(element, excludeSelector) {
     if (!excludeSelector || !element?.closest) return false;
     try {
@@ -116,17 +110,13 @@ function isExcludedBySelector(element, excludeSelector) {
     }
 }
 
-export function findTranslatableElements(effectiveSettings, rootNodes = [document.body], options = {}) {
-    const contentSelector = effectiveSettings?.translationSelector?.content?.trim();
-    const excludeSelector = effectiveSettings?.translationSelector?.exclude?.trim() || '';
-    const skipFallback = options.skipFallback === true;
+/**
+ * 递归收集所有候选元素（含各个搜索根本身）。
+ * 返回 `null` 表示选择器本身非法（已上报），调用方应放弃本次提取。
+ */
+function collectCandidates(rootNodes, selectorQuery, excludeSelector) {
+    const candidates = new Set();
 
-    if (!contentSelector) {
-        return [];
-    }
-
-    const selectorQuery = createContentSelectorQuery(contentSelector);
-    const allCandidates = new Set();
     for (const root of rootNodes) {
         if (root.nodeType !== Node.ELEMENT_NODE && root.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) {
             continue;
@@ -134,42 +124,136 @@ export function findTranslatableElements(effectiveSettings, rootNodes = [documen
 
         if (root.nodeType === Node.ELEMENT_NODE && selectorQuery.matches(root)
             && !isExcludedBySelector(root, excludeSelector)) {
-            allCandidates.add(root);
+            candidates.add(root);
         }
-        for (const el of selectorQuery.queryAll(root)) {
-            if (!isExcludedBySelector(el, excludeSelector)) {
-                allCandidates.add(el);
+        for (const element of selectorQuery.queryAll(root)) {
+            if (!isExcludedBySelector(element, excludeSelector)) {
+                candidates.add(element);
             }
         }
         if (selectorQuery.isInvalid()) {
-            return [];
+            return null;
         }
+    }
+
+    return candidates;
+}
+
+/**
+ * 把连续的一段子节点包进 `foxlate-wrapper`。
+ * 无实质内容（纯空白 / 全是 SKIPPED_TAGS）时不建节点；被排除选择器命中时也不收。
+ */
+function wrapNodes(parent, nodes, excludeSelector) {
+    const hasSignificantContent = nodes.some(node => {
+        if (node.nodeType === Node.TEXT_NODE) {
+            return node.textContent.trim() !== '';
+        }
+        if (node.nodeType === Node.ELEMENT_NODE) {
+            return !SKIPPED_TAGS.has(node.tagName.toUpperCase()) && node.textContent.trim() !== '';
+        }
+        return false;
+    });
+    if (!hasSignificantContent) {
+        return null;
+    }
+
+    const wrapper = parent.ownerDocument.createElement('foxlate-wrapper');
+    wrapper.dataset.foxlateGenerated = 'true';
+    parent.insertBefore(wrapper, nodes[0]);
+    nodes.forEach(node => wrapper.appendChild(node));
+
+    return isExcludedBySelector(wrapper, excludeSelector) ? null : wrapper;
+}
+
+/**
+ * 混合父节点里夹在候选子块之间的零散内容，必须各自包起来才能单独翻译。
+ * 连续的一段包一个 wrapper；边界（候选块本身、已翻译过的节点、含候选后代的节点）
+ * 会切断当前段。
+ */
+function wrapOrphanRuns(parent, { allCandidates, selectorQuery, excludeSelector }) {
+    const wrappers = [];
+    let run = [];
+
+    const flush = () => {
+        if (run.length === 0) return;
+        const wrapper = wrapNodes(parent, run, excludeSelector);
+        if (wrapper) {
+            wrappers.push(wrapper);
+        }
+        run = [];
+    };
+
+    for (const child of Array.from(parent.childNodes)) {
+        // 上一轮自己生成的 wrapper 既不是边界也不是待包内容
+        if (child.nodeType === Node.ELEMENT_NODE && child.dataset.foxlateGenerated === 'true') {
+            flush();
+            continue;
+        }
+
+        const isBoundary = child.nodeType === Node.ELEMENT_NODE && (
+            allCandidates.has(child) ||
+            child.dataset.translationId ||
+            selectorQuery.hasDescendant(child)
+        );
+        if (selectorQuery.isInvalid()) {
+            return wrappers;
+        }
+
+        if (isBoundary) {
+            flush();
+        } else {
+            run.push(child);
+        }
+    }
+    flush();
+
+    return wrappers;
+}
+
+/**
+ * 使用“自顶向下”的 CSS 选择器模型查找页面上所有可翻译的元素。
+ * @param {object} effectiveSettings - 设置对象（用于预检查）。
+ * @param {Node[]} rootNodes - 要在其中搜索的根节点。
+ * @returns {HTMLElement[]} 一个包含最适合翻译的容器元素的数组。
+ */
+export function findTranslatableElements(effectiveSettings, rootNodes = [document.body], options = {}) {
+    const contentSelector = effectiveSettings?.translationSelector?.content?.trim();
+    const excludeSelector = effectiveSettings?.translationSelector?.exclude?.trim() || '';
+
+    if (!contentSelector) {
+        return [];
+    }
+
+    const selectorQuery = createContentSelectorQuery(contentSelector);
+    const allCandidates = collectCandidates(rootNodes, selectorQuery, excludeSelector);
+    if (!allCandidates) {
+        return [];
     }
 
     if (allCandidates.size === 0) {
         // Empty preferred selector (e.g. pages without main/article): one-shot broader fallback.
         const fallback = (effectiveSettings?.translationSelector?.fallbackContent
             || FALLBACK_TRANSLATION_CONTENT).trim();
-        if (!skipFallback && fallback && fallback !== contentSelector) {
-            return findTranslatableElements({
-                ...effectiveSettings,
-                translationSelector: {
-                    ...effectiveSettings.translationSelector,
-                    content: fallback,
-                },
-            }, rootNodes, { skipFallback: true });
+        if (options.skipFallback === true || !fallback || fallback === contentSelector) {
+            return [];
         }
-        return [];
+        return findTranslatableElements({
+            ...effectiveSettings,
+            translationSelector: {
+                ...effectiveSettings.translationSelector,
+                content: fallback,
+            },
+        }, rootNodes, { skipFallback: true });
     }
 
     const finalCandidates = new Set();
     const potentialMixedParents = new Set();
 
-    for (const el of allCandidates) {
-        if (!selectorQuery.hasDescendant(el)) {
-            finalCandidates.add(el);
+    for (const element of allCandidates) {
+        if (selectorQuery.hasDescendant(element)) {
+            potentialMixedParents.add(element);
         } else {
-            potentialMixedParents.add(el);
+            finalCandidates.add(element);
         }
         if (selectorQuery.isInvalid()) {
             return [];
@@ -177,58 +261,14 @@ export function findTranslatableElements(effectiveSettings, rootNodes = [documen
     }
 
     for (const parent of potentialMixedParents) {
-        let consecutiveOrphans = [];
-
-        const wrapOrphans = () => {
-            if (consecutiveOrphans.length === 0) return;
-
-            const hasSignificantContent = consecutiveOrphans.some(node => {
-                if (node.nodeType === Node.TEXT_NODE) {
-                    return node.textContent.trim() !== '';
-                }
-                if (node.nodeType === Node.ELEMENT_NODE) {
-                    return !SKIPPED_TAGS.has(node.tagName.toUpperCase()) && node.textContent.trim() !== '';
-                }
-                return false;
-            });
-
-            if (hasSignificantContent) {
-                const wrapperElement = parent.ownerDocument.createElement('foxlate-wrapper');
-                wrapperElement.dataset.foxlateGenerated = 'true';
-                parent.insertBefore(wrapperElement, consecutiveOrphans[0]);
-                consecutiveOrphans.forEach(node => wrapperElement.appendChild(node));
-                if (!isExcludedBySelector(wrapperElement, excludeSelector)) {
-                    finalCandidates.add(wrapperElement);
-                }
-            }
-            consecutiveOrphans = [];
-        };
-
-        for (const child of Array.from(parent.childNodes)) {
-            if (child.nodeType === Node.ELEMENT_NODE && child.dataset.foxlateGenerated === 'true') {
-                wrapOrphans();
-                continue;
-            }
-
-            const isBoundary = child.nodeType === Node.ELEMENT_NODE && (
-                allCandidates.has(child) ||
-                child.dataset.translationId ||
-                selectorQuery.hasDescendant(child)
-            );
-            if (selectorQuery.isInvalid()) {
-                return [];
-            }
-
-            if (isBoundary) {
-                wrapOrphans();
-            } else {
-                consecutiveOrphans.push(child);
-            }
+        for (const wrapper of wrapOrphanRuns(parent, { allCandidates, selectorQuery, excludeSelector })) {
+            finalCandidates.add(wrapper);
         }
-
-        wrapOrphans();
+        if (selectorQuery.isInvalid()) {
+            return [];
+        }
     }
 
-    return Array.from(finalCandidates).filter(el =>
-        !el.dataset.translationId && !isExcludedBySelector(el, excludeSelector));
+    return Array.from(finalCandidates).filter(element =>
+        !element.dataset.translationId && !isExcludedBySelector(element, excludeSelector));
 }

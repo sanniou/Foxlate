@@ -1,5 +1,6 @@
 import browser from '../../lib/browser-polyfill.js';
 import { BaseTranslator } from './base-translator.js';
+import { createRequestSignal } from './request-timeout.js';
 import { formatContextString } from '../../common/context-extractor.js';
 
 export class AITranslator extends BaseTranslator {
@@ -84,6 +85,8 @@ export class AITranslator extends BaseTranslator {
         userMessages = [{ role: 'user', content: text }];
     }
 
+    const request = createRequestSignal(signal, aiConfig?.timeoutMs);
+
     try {
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -97,7 +100,7 @@ export class AITranslator extends BaseTranslator {
           messages: [{ role: 'system', content: systemPrompt }, ...userMessages],
           temperature: 0.1, // Lower temperature for more deterministic translations
         }),
-        signal, // 将 AbortSignal 传递给 fetch
+        signal: request.signal, // 用户中止与超时合成的信号
       });
 
       if (!response.ok) {
@@ -125,6 +128,8 @@ export class AITranslator extends BaseTranslator {
       log.push(browser.i18n.getMessage('logEntryTranslationError', error.message));
       console.error(`AI Translation Error: ${error.message}`); // 仍然保留控制台错误
       throw new Error(`AI translation failed: ${error.message}`);
+    } finally {
+      request.dispose();
     }
   }
 
@@ -152,6 +157,8 @@ Rules:
 - Do not add explanations, markdown, numbering, or keys.
 - Preserve any XML-like placeholder tags such as <t0> and </t0>.`;
 
+    const request = createRequestSignal(signal, aiConfig?.timeoutMs);
+
     try {
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -167,7 +174,7 @@ Rules:
           ],
           temperature: 0.1,
         }),
-        signal,
+        signal: request.signal,
       });
 
       if (!response.ok) {
@@ -192,6 +199,8 @@ Rules:
       log.push(browser.i18n.getMessage('logEntryTranslationError', error.message));
       console.error(`AI Batch Translation Error: ${error.message}`);
       throw new Error(`AI batch translation failed: ${error.message}`);
+    } finally {
+      request.dispose();
     }
   }
 }

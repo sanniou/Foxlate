@@ -1,16 +1,7 @@
 import { floatingLayoutService } from './floating-layout-service.js';
-import { textMeasurementService } from './text-measurement-service.js';
-
-function clamp(value, min, max) {
-    return Math.max(min, Math.min(value, max));
-}
-
-function getViewport() {
-    return {
-        width: window.innerWidth || document.documentElement.clientWidth || 1024,
-        height: window.innerHeight || document.documentElement.clientHeight || 768,
-    };
-}
+import { textMeasurementService } from '../../common/text-measurement.js';
+import { clamp } from '../../common/math.js';
+import { getViewport } from './viewport.js';
 
 function textFromValue(value) {
     if (value == null) return '';

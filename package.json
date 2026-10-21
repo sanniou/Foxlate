@@ -8,9 +8,12 @@
   },
   "scripts": {
     "test": "node --test",
+    "i18n:sync": "node scripts/sync-inline-i18n.mjs",
+    "i18n:check": "node scripts/sync-inline-i18n.mjs --check",
     "build": "npm run build:chrome",
     "build:chrome": "node build.js --target=chrome",
     "build:firefox": "node build.js --target=firefox",
+    "package:firefox": "bash scripts/package-firefox.sh",
     "check": "node build.js --check-updates",
     "watch": "npm run watch:chrome",
     "watch:chrome": "node build.js --watch --target=chrome",
@@ -32,10 +35,10 @@
     "esbuild": "^0.25.5",
     "fs-extra": "^11.3.0",
     "glob": "^11.0.3",
+    "js-yaml": "^4.1.0",
     "jsdom": "^26.1.0"
   },
   "dependencies": {
-    "@chenglou/pretext": "^0.0.7",
-    "lit": "^3.3.1"
+    "@chenglou/pretext": "^0.0.7"
   }
 }

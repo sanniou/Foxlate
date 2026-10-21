@@ -1,5 +1,6 @@
 import browser from '../../lib/browser-polyfill.js';
 import { BaseTranslator } from './base-translator.js';
+import { createRequestSignal } from './request-timeout.js';
 
 export class GoogleTranslator extends BaseTranslator {
   constructor() {
@@ -30,6 +31,8 @@ export class GoogleTranslator extends BaseTranslator {
     log.push(browser.i18n.getMessage('logEntryApiRequest', this.name));
     log.push(`[API URL] ${requestUrl.toString()}`); // 记录实际调用的 URL
 
+    const request = createRequestSignal(signal, options?.timeoutMs);
+
     try {
       const response = await fetch(requestUrl.toString(), {
         method: 'POST',
@@ -39,7 +42,8 @@ export class GoogleTranslator extends BaseTranslator {
         },
         // 将要翻译的文本放在请求体中
         body: `q=${encodeURIComponent(textToSend)}`,
-        signal });
+        signal: request.signal,
+      });
 
       if (!response.ok) {
         log.push(browser.i18n.getMessage('logEntryApiResponseError', [response.status, response.statusText]));
@@ -68,6 +72,8 @@ export class GoogleTranslator extends BaseTranslator {
       log.push(browser.i18n.getMessage('logEntryTranslationError', error.message));
       console.error(`Google Translation Error: ${error.message}`); // 仍然保留控制台错误
       throw new Error(`Google translation failed: ${error.message}`);
+    } finally {
+      request.dispose();
     }
   }
 }

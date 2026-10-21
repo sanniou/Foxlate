@@ -1,6 +1,4 @@
-function clamp(value, min, max) {
-    return Math.max(min, Math.min(value, max));
-}
+import { clamp } from '../../common/math.js';
 
 function getViewportLimits(margin = 8) {
     return {

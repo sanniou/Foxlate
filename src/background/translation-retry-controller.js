@@ -50,16 +50,29 @@ export class TranslationRetryController {
         throw new Error('Retry loop exited unexpectedly.');
     }
 
+    /**
+     * 可重试错误的判定。
+     *
+     * 各浏览器对「网络层失败」的措辞不同，这里必须都盖住，否则同一个瞬时故障
+     * 会在不同内核上表现不一致（Chrome 报 “Failed to fetch”，Firefox 报
+     * “NetworkError when attempting to fetch resource.”，Safari 报 “Load failed”）。
+     */
     #isRetryableError(error) {
         const message = String(error?.message || '').toLowerCase();
         return message.includes('429') ||
             message.includes('rate limit') ||
             message.includes('too many requests') ||
             message.includes('timeout') ||
+            message.includes('timed out') ||
             message.includes('network') ||
+            message.includes('failed to fetch') ||
+            message.includes('fetch failed') ||
+            message.includes('load failed') ||
+            message.includes('net::err') ||
             message.includes('temporarily') ||
             message.includes('503') ||
-            message.includes('502');
+            message.includes('502') ||
+            message.includes('504');
     }
 
     #getEngineBackoffDelay(engine) {

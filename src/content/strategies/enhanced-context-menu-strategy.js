@@ -1,6 +1,6 @@
 import browser from '../../lib/browser-polyfill.js';
 import * as Constants from '../../common/constants.js';
-import { getSpeechCode } from '../../common/utils.js';
+import { getSpeechCode } from '../../common/language-config.js';
 import { DisplayManager } from '../display-manager.js';
 import EnhancedTooltipManager from '../enhanced-tooltip-manager.js';
 
@@ -106,7 +106,7 @@ class EnhancedContextMenuStrategy {
 
             case Constants.DISPLAY_MANAGER_STATES.ERROR:
                 const errorMessage = data?.errorMessage || 'Error';
-                const errorPrefix = browser.i18n.getMessage('contextMenuErrorPrefix') || '翻译错误';
+                const errorPrefix = browser.i18n.getMessage('contextMenuErrorPrefix') || 'Error';
                 const fullErrorMessage = `${errorPrefix}: ${errorMessage}`;
                 
                 EnhancedTooltipManager.show(fullErrorMessage, '', {

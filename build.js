@@ -219,11 +219,33 @@ async function main() {
         name: 'staticAssetsManager',
         setup(build) {
             // --- 定义需要复制的资源 ---
-            // 使用 path.join 确保跨平台兼容性
+            // 关键：src/lib 下的文件默认会被 esbuild 内联进各个 bundle，重复复制一份只会白白
+            // 撑大安装包。只有「代码在运行时用 runtime.getURL() + 动态 import() 按需拉取」的
+            // 资源才需要额外落一份到 dist/。
+            // 对应代码见 src/common/lang-detect.js 的 FRANC_ASSET_PATH。
+            const runtimeLazyAssets = ['lib/franc.bundle.mjs'];
+
+            // 设计源文件/工程文件绝不能进入发布包：它们对运行时无用，
+            // 却会直接增大商店包体（曾有一个 411 KB 的 .psd 被原样发布）。
+            const SOURCE_ARTIFACT_EXTENSIONS = [
+                'psd', 'ai', 'xcf', 'sketch', 'fig', 'afdesign', 'afphoto',
+                'zip', 'tar', 'gz', '7z', 'md',
+            ];
+            const ALWAYS_EXCLUDED_FILES = ['manifest.base.json'];
+            const isExcludedAsset = (filePath) => (
+                ALWAYS_EXCLUDED_FILES.some(name => filePath.endsWith(name))
+                || new RegExp(`\\.(${SOURCE_ARTIFACT_EXTENSIONS.join('|')})$`, 'i').test(filePath)
+            );
+
+            // assetsToCopy 是静态资源复制的唯一真相源：
+            // `!` 前缀表示排除，其余为相对 baseDir 的 glob。
             const assetsToCopy = {
-                // key 是源目录, value 是 glob 模式数组
-                [publicDir]: ['**/*', '!manifest.base.json'],
-                [srcDir]: ['**/*.{html,css}', 'lib/**/*.js'],
+                [publicDir]: [
+                    '**/*',
+                    ...ALWAYS_EXCLUDED_FILES.map(name => `!${name}`),
+                    `!**/*.{${SOURCE_ARTIFACT_EXTENSIONS.join(',')}}`,
+                ],
+                [srcDir]: ['**/*.{html,css}', ...runtimeLazyAssets],
             };
 
             // --- 封装复制函数 ---
@@ -272,15 +294,17 @@ async function main() {
 
             async function initialCopy() {
                 console.log('📦 Performing initial copy of static assets...');
-                // 使用 glob.sync 来查找所有匹配的文件
-                const publicFiles = glob.sync(path.join(publicDir, '**', '*').replace(/\\/g, '/'), {
-                    nodir: true,
-                    ignore: path.join(publicDir, 'manifest.base.json').replace(/\\/g, '/')
+                // 从 assetsToCopy 派生（唯一真相源）：`!` 前缀的条目作为 ignore。
+                const allFiles = Object.entries(assetsToCopy).flatMap(([baseDir, patterns]) => {
+                    const includes = patterns.filter(p => !p.startsWith('!'));
+                    const ignore = patterns
+                        .filter(p => p.startsWith('!'))
+                        .map(p => path.join(baseDir, p.slice(1)).replace(/\\/g, '/'));
+                    return includes.flatMap(pattern => glob.sync(
+                        path.join(baseDir, pattern).replace(/\\/g, '/'),
+                        { nodir: true, ignore }
+                    ));
                 });
-                const srcFilesHtmlCss = glob.sync(path.join(srcDir, '**', '*.{html,css}').replace(/\\/g, '/'), { nodir: true });
-                const srcFilesLibJs = glob.sync(path.join(srcDir, 'lib', '**', '*.js').replace(/\\/g, '/'), { nodir: true });
-
-                const allFiles = [...publicFiles, ...srcFilesHtmlCss, ...srcFilesLibJs];
 
                 // 并行复制所有文件
                 await Promise.all(allFiles.map(file => copyAsset(file)));
@@ -311,8 +335,8 @@ async function main() {
 
                         // 检查文件是否是我们关心的类型
                         const isHtmlOrCss = /\.(html|css)$/.test(fullPath);
-                        const isLibJs = fullPath.includes(path.join(srcDir, 'lib')) && fullPath.endsWith('.js');
-                        const isPublicAsset = fullPath.startsWith(publicDir) && !fullPath.endsWith('manifest.base.json');
+                        const isLibJs = runtimeLazyAssets.some(asset => path.join(srcDir, asset) === fullPath);
+                        const isPublicAsset = fullPath.startsWith(publicDir) && !isExcludedAsset(fullPath);
 
                         if (isHtmlOrCss || isLibJs || isPublicAsset) {
                             // 使用防抖来避免编辑器保存时触发多次事件
@@ -433,13 +457,24 @@ async function main() {
             staticAssetsManager,
         ],
         define: {
-            '__DEBUG__': String(isWatchMode), // 注入一个全局常量用于调试日志
+            // 调试日志的编译期开关。
+            //
+            // 两边都要定义：esbuild 的 define 只替换**裸标识符**与它认识的成员表达式，
+            // 而源码里写的是 `globalThis.__DEBUG__`。只定义裸名 `__DEBUG__` 时，
+            // 成员表达式会原样进入产物，运行时恒为 falsy，调试日志全部变成死代码。
+            '__DEBUG__': String(isWatchMode),
+            'globalThis.__DEBUG__': String(isWatchMode),
         },
     };
 
-    // 生产构建时移除 console 和 debugger
     if (!isWatchMode) {
-        buildOptions.drop = ['console', 'debugger'];
+        // 生产构建只干掉 debugger 与噪音日志。
+        //
+        // 不能用 `drop: ['console']`：它会把 `console.error` / `console.warn` 一起删掉，
+        // 而全仓库的错误上报只有这一条通道（日志在扩展调试器里看），删了就线上只能看到静默失败。
+        // `pure` 只删除「返回值未被使用」的调用，正好对应语句级的调试日志。
+        buildOptions.drop = ['debugger'];
+        buildOptions.pure = ['console.log', 'console.debug', 'console.info'];
     }
 
     async function run() {

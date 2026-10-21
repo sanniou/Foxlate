@@ -126,6 +126,224 @@ export class DOMWalker {
         // 3. 如果以上条件都不满足，则安全地将其视为内联元素。
         return 'inline';
     }
+
+    /**
+     * 一次性样式解析器：同一次遍历中每个元素只取一次 computedStyle。
+     * 可见性判断会用到它，成本必须摊薄。
+     */
+    static #createStyleResolver() {
+        const styleCache = new WeakMap();
+        return (element) => {
+            if (styleCache.has(element)) {
+                return styleCache.get(element);
+            }
+            const style = window.getComputedStyle(element);
+            styleCache.set(element, style);
+            return style;
+        };
+    }
+
+    /** 该元素的 white-space 样式是否要求保留换行符。 */
+    static #preservesWhitespace(style) {
+        const whiteSpace = style.whiteSpace;
+        return whiteSpace === 'pre' || whiteSpace === 'pre-wrap' || whiteSpace === 'pre-line';
+    }
+
+    /**
+     * 追加一个文本片段。两个数组必须同步追加（segments 带标签、plainTextSegments 是纯文本）。
+     *
+     * 此处曾有一层「上一段以非空白结尾且本段以非空白开头 → push(text.trimStart())」的
+     * 分支，但进入该分支的前提就是首字符非空白，trimStart 必然无操作，两个分支完全等价。
+     * 已按等价形式改写；若确实想要「不足空格」那是行为变更，需单独决策。
+     */
+    static #appendSegment(state, text) {
+        state.segments.push(text);
+        state.plainTextSegments.push(text);
+    }
+
+    /** 块级元素之间补一个换行分隔符；已经以空白结尾时不补。 */
+    static #ensureSeparator(state) {
+        const lastSegment = state.segments[state.segments.length - 1] || '';
+        if (state.segments.length === 0 || lastSegment.length === 0) {
+            return;
+        }
+        // 尾随空白在此上下文只可能是文本节点规范化产生的 ' ' 或 <br> 产生的 '\n'，
+        // 直接比较字符比正则快，且逻辑等价。
+        const lastChar = lastSegment[lastSegment.length - 1];
+        if (lastChar === ' ' || lastChar === '\n') {
+            return;
+        }
+        state.segments.push('\n');
+        state.plainTextSegments.push('\n');
+    }
+
+    /**
+     * 遍历前的快速排查。顺序从最便宜到最贵，尽早放弃：
+     * contenteditable → 已追加的译文容器 → aria-hidden → 排除选择器 → Foxlate 自身 UI
+     * → 无文本 → 可见性（最贵，放在最后）。
+     */
+    static #isObviouslyUntranslatable(rootElement, config) {
+        // isContentEditable 是继承属性，因此也覆盖「父元素可编辑」的情况
+        if (rootElement.isContentEditable) {
+            return true;
+        }
+
+        // 防止对 'append' 策略已经写入的译文再次翻译
+        if (rootElement.dataset.foxlateAppendedText === 'true') {
+            return true;
+        }
+
+        if (rootElement.closest('[aria-hidden="true"]')) {
+            return true;
+        }
+
+        if (config.exclude) {
+            try {
+                if (rootElement.closest(config.exclude)) {
+                    return true;
+                }
+            } catch (e) {
+                // 无效选择器只忽略这一条规则，不能让整个脚本崩掉
+                console.error(`[Foxlate] Invalid exclude selector in configuration: "${config.exclude}". Translation will proceed.`, e);
+            }
+        }
+
+        // Foxlate 自身的 UI（例如摘要面板）不应被翻译
+        if (rootElement.closest('[class^="foxlate-"], [class*=" foxlate-"]')) {
+            return true;
+        }
+
+        return !rootElement.textContent.trim();
+    }
+
+    /** 子节点级的跳过判定：排除选择器、显式不翻译区域、Foxlate UI、lang、aria-hidden、可编辑区、脚本样式。 */
+    static #shouldSkipChild(child, state) {
+        if (state.exclude) {
+            try {
+                if (child.matches(state.exclude)) {
+                    return true; // 跳过此元素及其全部子元素
+                }
+            } catch {
+                // 无效选择器已在顶层上报过，此处静默跳过以免刷屏
+            }
+        }
+
+        // 不能因为 html/body 上的 lang 跳过整页正文；这里只作用于子节点，根元素不在此列
+        if (child.closest('.notranslate, [translate="no"], [class^="foxlate-"], [class*=" foxlate-"]')) {
+            return true;
+        }
+        if (child.getAttribute('lang')?.trim()) {
+            return true;
+        }
+        if (child.getAttribute('aria-hidden') === 'true') {
+            return true;
+        }
+        if (child.isContentEditable) {
+            return true;
+        }
+
+        return SKIPPED_TAGS.has(child.tagName.toUpperCase());
+    }
+
+    /**
+     * 元素是否在布局上起分隔作用：语义块级标签直接算；
+     * 既不是已知块级也不是已知内联的标签（例如 SPAN）看 CSS display。
+     */
+    static #actsAsBlock(child, tagName, getCachedStyle) {
+        if (BLOCK_LEVEL_TAGS.has(tagName)) {
+            return true;
+        }
+        if (PRESERVABLE_INLINE_TAGS.has(tagName)) {
+            return false;
+        }
+        return getCachedStyle(child).display !== 'inline';
+    }
+
+    /** 文本节点：不在预格式化上下文时折叠空白，然后追加。 */
+    static #collectTextNode(node, inPreformattedContext, state) {
+        const text = inPreformattedContext ? node.nodeValue : node.nodeValue.replace(/\s+/g, ' ');
+        DOMWalker.#appendSegment(state, text);
+    }
+
+    /**
+     * 保留格式的元素：用 <tN> 包裹其内容，并记录重建所需的节点信息。
+     * 起始标签是乐观写入的——子节点最终没有实质内容时回滚。
+     */
+    static #collectPreservableElement(child, state) {
+        const segmentsLengthBefore = state.segments.length;
+        const tagId = `t${state.tagIndex++}`;
+        const preservesWhitespace = DOMWalker.#preservesWhitespace(state.getCachedStyle(child));
+
+        state.segments.push(`<${tagId}>`);
+        const openingTagIndex = state.segments.length;
+
+        DOMWalker.#walk(child, preservesWhitespace, state);
+
+        const contentAdded = state.segments.slice(openingTagIndex).some(segment => segment.trim() !== '');
+        if (!contentAdded) {
+            state.segments.length = segmentsLengthBefore;
+            return;
+        }
+
+        state.nodeMap[tagId] = {
+            node: child.cloneNode(false),
+            preservesWhitespace,
+        };
+        state.segments.push(`</${tagId}>`);
+    }
+
+    /** 元素节点：先过跳过判定，再按块级/内联方式收集内容。 */
+    static #collectElementNode(child, inPreformattedContext, state) {
+        if (DOMWalker.#shouldSkipChild(child, state)) {
+            return;
+        }
+
+        const tagName = child.tagName.toUpperCase();
+
+        // <br> 显式转成换行符以保留格式
+        if (tagName === 'BR') {
+            state.segments.push('\n');
+            state.plainTextSegments.push('\n');
+            return;
+        }
+
+        // 可见性检查在 <br> 之后，否则换行符会被错误地跳过
+        if (!DOMWalker.#isElementVisible(child, state.getCachedStyle)) {
+            return;
+        }
+
+        const actsAsBlock = DOMWalker.#actsAsBlock(child, tagName, state.getCachedStyle);
+
+        if (actsAsBlock) {
+            DOMWalker.#ensureSeparator(state);
+        }
+
+        if (PRESERVABLE_TAGS.has(tagName)) {
+            DOMWalker.#collectPreservableElement(child, state);
+        } else {
+            // 结构性但非保留的标签（如 DIV）继承父级的格式化上下文
+            DOMWalker.#walk(child, inPreformattedContext, state);
+        }
+
+        if (actsAsBlock) {
+            DOMWalker.#ensureSeparator(state);
+        }
+    }
+
+    /**
+     * 深度遍历节点，把内容拆成「带 <tN> 标签的文本」与「纯文本」两组同步的片段，
+     * 同时把重建译文所需的节点信息记进 nodeMap。
+     */
+    static #walk(node, inPreformattedContext, state) {
+        for (const child of node.childNodes) {
+            if (child.nodeType === Node.TEXT_NODE) {
+                DOMWalker.#collectTextNode(child, inPreformattedContext, state);
+            } else if (child.nodeType === Node.ELEMENT_NODE) {
+                DOMWalker.#collectElementNode(child, inPreformattedContext, state);
+            }
+        }
+    }
+
     /**
      * (新) 通过深度遍历DOM，将元素内容解构为带标签的文本和节点映射表。
      * 这是实现格式保留翻译的核心。
@@ -137,238 +355,44 @@ export class DOMWalker {
      * @returns {{sourceText: string, translationUnit: object}|null}
      */
     static create(rootElement, config = {}) {
-        // --- 性能优化：快速预检查 ---
-        // 在进行昂贵的DOM遍历之前，先执行一些快速检查，以提前排除不合格的元素。
-        // 检查顺序经过优化，从最快（成本最低）的检查到最慢的检查，以实现“快速失败”。
-
-        // 1. 检查 contenteditable 属性。这是最快的检查之一，可以立即排除所有可编辑区域。
-        // isContentEditable 是一个继承属性，所以这个检查也覆盖了父元素可编辑的情况。
-        if (rootElement.isContentEditable) {
+        if (DOMWalker.#isObviouslyUntranslatable(rootElement, config)) {
             return null;
         }
 
-        // 2. 检查此元素是否为由 'append' 策略添加的翻译容器。
-        // 这同样是一个快速的 dataset 访问，可以防止对已翻译内容进行重复翻译。
-        if (rootElement.dataset.foxlateAppendedText === 'true') {
-            return null;
-        }
+        const getCachedStyle = DOMWalker.#createStyleResolver();
 
-        // 3. 检查 aria-hidden 属性。如果元素或其任何祖先对辅助技术是隐藏的，
-        // 那么它在语义上就是不可见的，因此不应该被翻译。这是一个中等成本的 DOM 遍历检查。
-        if (rootElement.closest('[aria-hidden="true"]')) {
-            return null;
-        }
-
-        // 4. 检查此元素或其父元素是否匹配用户定义的排除选择器。
-        if (config.exclude) {
-            try {
-                if (rootElement.closest(config.exclude)) {
-                    return null;
-                }
-            } catch (e) {
-                // 如果选择器无效，记录错误并忽略该规则，而不是使整个脚本崩溃
-                console.error(`[Foxlate] Invalid exclude selector in configuration: "${config.exclude}". Translation will proceed.`, e);
-            }
-        }
-
-        // (新) 检查元素是否属于 Foxlate 内部组件，如果是则跳过。
-        // 这可以防止扩展自身的UI（如摘要对话框）被错误地翻译。
-        if (rootElement.closest('[class^="foxlate-"], [class*=" foxlate-"]')) {
-            return null;
-        }
-
-        // 5. 检查内容：如果元素（及其后代）根本不包含任何有意义的文本，则无需处理。
-        //    textContent 的成本可变，但它是一个非常有效的过滤器，可以避免对空容器进行最昂贵的可见性检查。
-        if (!rootElement.textContent.trim()) {
-            return null;
-        }
-        const styleCache = new WeakMap();
-
-        const getCachedStyle = (element) => {
-            if (styleCache.has(element)) {
-                return styleCache.get(element);
-            }
-            const style = window.getComputedStyle(element);
-            styleCache.set(element, style);
-            return style;
-        };
-
-        // 6. 检查可见性：这是成本最高的检查，因为它需要计算元素的布局和样式。
-        //    因此，它被放在最后，只有在所有其他检查都通过后才执行。
+        // 可见性检查成本最高（会触发布局计算），放在所有廉价排查之后
         if (!DOMWalker.#isElementVisible(rootElement, getCachedStyle)) {
             return null;
         }
 
-        const segments = []; // 这将是带 <t_id> 标签的文本
-        const plainTextSegments = []; // (新) 这将是纯文本内容
-        const nodeMap = {};
-        let tagIndex = 0;
-
-        const ensureSeparator = () => {
-            const lastSegment = segments[segments.length - 1] || '';
-            if (segments.length === 0 || lastSegment.length === 0) {
-                return;
-            }
-            // (优化) 检查最后一个字符是否为空白。
-            // 在此上下文，尾随空白只可能是由文本节点规范化产生的 ' ' 或由 <br> 产生的 '\n'。
-            // 直接比较字符比使用正则表达式 `/S$/` 更快，同时保持了逻辑的完整性。
-            const lastChar = lastSegment[lastSegment.length - 1];
-            if (lastChar !== ' ' && lastChar !== '\n') {
-                segments.push('\n');
-                plainTextSegments.push('\n'); // 保持同步
-            }
+        const state = {
+            segments: [],           // 带 <tN> 标签的文本
+            plainTextSegments: [],  // 与 segments 同步追加的纯文本
+            nodeMap: {},
+            tagIndex: 0,
+            exclude: config.exclude,
+            getCachedStyle,
         };
 
-        function walk(node, inPreformattedContext) {
-            for (const child of node.childNodes) {
-                if (child.nodeType === Node.TEXT_NODE) { // 文本节点
-                    let text = child.nodeValue;
-                    // 如果不在预格式化上下文中，则模拟浏览器的行为，将多个连续的空白字符（包括换行符）折叠成一个空格。
-                    // 这可以从根本上防止因源代码格式化而导致的意外换行问题。
-                    if (!inPreformattedContext) {
-                        text = text.replace(/\s+/g, ' ');
-                    }
+        // 根元素自身的格式化上下文会向下传递
+        DOMWalker.#walk(rootElement, DOMWalker.#preservesWhitespace(getCachedStyle(rootElement)), state);
 
-                    //使用 segments 的最后一个元素来判断空白
-                    const lastSegment = segments[segments.length - 1] || '';
-                    if (/\S$/.test(lastSegment) && /^\S/.test(text)) {
-                        segments.push(text.trimStart());
-                        plainTextSegments.push(text.trimStart());
-                    } else {
-                        segments.push(text);
-                        plainTextSegments.push(text);
-                    }
-                } else if (child.nodeType === Node.ELEMENT_NODE) {
-                    // (新) 在遍历期间检查元素是否匹配排除规则。
-                    // 这修复了只排除顶层容器而不排除其内部匹配元素的缺陷。
-                    if (config.exclude) {
-                        try {
-                            if (child.matches(config.exclude)) {
-                                continue; // 如果匹配，则跳过此元素及其所有子元素。
-                            }
-                        } catch (e) {
-                            // 错误已在顶层处理，此处静默失败以避免控制台垃圾信息。
-                        }
-                    }
-                    // 跳过显式声明为不翻译的区域和 Foxlate 自身 UI，但不要因为 html/body 上的 lang 属性跳过整页正文。
-                    if (child.closest('.notranslate, [translate="no"], [class^="foxlate-"], [class*=" foxlate-"]')) continue;
-                    if (child.getAttribute('lang')?.trim()) continue;
+        const sourceText = state.segments.join('').trim();
+        const plainText = state.plainTextSegments.join('').trim();
 
-                    // (新) 检查 aria-hidden 属性。如果一个子元素被标记为对辅助技术隐藏，
-                    // 那么它在语义上也是不可见的，应该被跳过。
-                    // 这修复了顶层元素可见但其部分子元素被隐藏的场景。
-                    if (child.getAttribute('aria-hidden') === 'true') continue;
-
-                    // (新) 检查 contenteditable 属性，跳过可编辑的区域以避免干扰用户。
-                    // 这处理了在一个可翻译块内部嵌套一个可编辑区域的情况。
-                    if (child.isContentEditable) continue;
-
-                    const tagName = child.tagName.toUpperCase();
-                    // 关键：跳过不需要翻译的脚本和样式块
-                    if (SKIPPED_TAGS.has(tagName)) continue;
-
-                    // (新) 将 <br> 标签显式地转换成一个换行符，以保留其格式。
-                    if (tagName === 'BR') {
-                        segments.push('\n');
-                        plainTextSegments.push('\n');
-                        continue;
-                    }
-
-                    // (新) 检查子元素的可见性。如果元素的渲染尺寸为0，则它对用户不可见，无需翻译。
-                    // 这可以捕获 `display: none` 或其他导致元素不占用空间的样式。
-                    // 这个检查在 <br> 标签处理之后，以确保换行符不会被错误地跳过。
-                    if (!DOMWalker.#isElementVisible(child, getCachedStyle)) {
-                        continue;
-                    }
-
-                    // 决定元素是否应作为块级分隔符。
-                    // 这取决于它是语义上的块级标签（如 P, DIV）还是通过 CSS 被设置为块级显示（如 <span style="display:block">）。
-                    const isSemanticallyBlock = BLOCK_LEVEL_TAGS.has(tagName);
-                    const isKnownInline = PRESERVABLE_INLINE_TAGS.has(tagName);
-                    let isVisuallyBlock = false;
-                    // 如果一个标签既不是已知的块级标签，也不是已知的内联标签（例如 SPAN），
-                    // 我们需要检查它的 CSS display 属性来判断它是否在布局上起到了分隔作用。
-                    if (!isSemanticallyBlock && !isKnownInline) {
-                        const style = getCachedStyle(child);
-                        // 任何非 'inline' 的显示类型通常都会在布局中产生一个断点，应被视为一个块。
-                        if (style.display !== 'inline') {
-                            isVisuallyBlock = true;
-                        }
-                    }
-                    const actsAsBlock = isSemanticallyBlock || isVisuallyBlock;
-                    const isPreservable = PRESERVABLE_TAGS.has(tagName);
-
-                    // 步骤 1: 为块级元素添加前导分隔符（换行）
-                    if (actsAsBlock) ensureSeparator();
-
-                    // 步骤 2: 处理元素内容
-                    if (isPreservable) {
-                        const segmentsLengthBefore = segments.length;
-                        const tagId = `t${tagIndex++}`;
-
-                        // (新) 检查元素的 white-space 样式，以决定是否保留换行符。
-                        // 这个信息将传递给 dom-reconstructor。
-                        const style = getCachedStyle(child);
-                        const whiteSpace = style.whiteSpace;
-                        const preservesWhitespace = whiteSpace === 'pre' || whiteSpace === 'pre-wrap' || whiteSpace === 'pre-line';
-
-                        // 乐观地添加起始标签，如果子节点为空则后续移除。
-                        segments.push(`<${tagId}>`);
-                        // 注意：plainTextSegments 不会添加标签
-                        const openingTagIndex = segments.length; // 记录索引
-
-                        // 将此元素自身的格式化上下文传递给递归调用。
-                        walk(child, preservesWhitespace);
-
-                        // 检查是否添加了有效内容
-                        const newSegments = segments.slice(openingTagIndex);
-                        const contentAdded = newSegments.some(s => s.trim() !== '');
-
-                        if (contentAdded) {
-                            // 如果确实添加了内容，则完成标签的创建。
-                            nodeMap[tagId] = {
-                                node: child.cloneNode(false),
-                                preservesWhitespace: preservesWhitespace
-                            };
-                            segments.push(`</${tagId}>`); // 添加闭合标签
-                        } else {
-                            // 如果没有添加任何内容，则回滚，移除之前添加的起始标签。
-                            segments.length = segmentsLengthBefore;
-                        }
-                    } else {
-                        // 对于结构性但非保留的标签（如 DIV），它们继承父级的格式化上下文。
-                        walk(child, inPreformattedContext);
-                    }
-
-                    // 步骤 3: 为块级元素添加尾随分隔符
-                    if (actsAsBlock) ensureSeparator();
-                }
-            }
+        // 用纯文本判断是否有有效内容（带标签的文本在只含 <tN></tN> 时仍非空）
+        if (!plainText) {
+            return null;
         }
 
-        // 在开始遍历之前，确定根元素自身的格式化上下文。
-        const rootStyle = getCachedStyle(rootElement);
-        const rootPreservesWhitespace = ['pre', 'pre-wrap', 'pre-line'].includes(rootStyle.whiteSpace);
-        walk(rootElement, rootPreservesWhitespace);
-
-        // (新) 从两个数组中分别生成最终文本
-        const sourceText = segments.join('').trim();
-        const plainText = plainTextSegments.join('').trim();
-
-        // (新) 使用纯文本来判断是否有有效内容
-        if (!plainText) return null;
-
-        // (新) 调用混合决策系统来确定追加类型
-        const appendType = DOMWalker.#determineAppendType(rootElement, config, getCachedStyle);
-
-        // 返回带标签的源文本和用于重建的节点映射表
         return {
             sourceText,
-            plainText, // 新增
+            plainText,
             translationUnit: {
-                nodeMap,
-                appendType // 存储确定的追加类型
-            }
+                nodeMap: state.nodeMap,
+                appendType: DOMWalker.#determineAppendType(rootElement, config, getCachedStyle),
+            },
         };
     }
 }

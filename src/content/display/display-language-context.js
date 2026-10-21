@@ -1,3 +1,5 @@
+import { getSpeechCode } from '../../common/language-config.js';
+
 export async function resolveDisplayLanguageContext(displayMode, {
     getEffectiveSettings = () => window.getEffectiveSettings?.(),
 } = {}) {
@@ -6,7 +8,6 @@ export async function resolveDisplayLanguageContext(displayMode, {
     }
 
     const settings = await getEffectiveSettings();
-    const { getSpeechCode } = await import('../../common/utils.js');
     return {
         langConfig: {
             sourceLang: !settings.sourceLanguage || settings.sourceLanguage === 'auto'

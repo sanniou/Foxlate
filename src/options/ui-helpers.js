@@ -1,6 +1,6 @@
 import browser from '../lib/browser-polyfill.js';
 import * as Constants from '../common/constants.js';
-import { SUBTITLE_STRATEGIES } from '../content/subtitle/strategy-manifest.js';
+import { SUBTITLE_STRATEGIES } from '../common/subtitle-strategy-manifest.js';
 
 /**
  * Populates a select element with translator engine options.

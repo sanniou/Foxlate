@@ -3,7 +3,7 @@ import {
     DEFAULT_STRATEGY_MAP,
     SUBTITLE_MANAGER_SCRIPT,
     SUBTITLE_STRATEGIES,
-} from '../content/subtitle/strategy-manifest.js';
+} from '../common/subtitle-strategy-manifest.js';
 
 const STRATEGY_FILE_MAP = new Map(
     SUBTITLE_STRATEGIES.map(strategy => [strategy.name, strategy.file])

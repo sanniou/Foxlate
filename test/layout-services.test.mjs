@@ -20,7 +20,7 @@ async function loadLayoutServices() {
     const outputPath = path.join(tempDir, 'bundle.mjs');
 
     await writeFile(entryPath, `
-        export { TextMeasurementService } from ${JSON.stringify(path.join(projectRoot, 'src/content/layout/text-measurement-service.js'))};
+        export { TextMeasurementService } from ${JSON.stringify(path.join(projectRoot, 'src/common/text-measurement.js'))};
         export { FloatingLayoutService } from ${JSON.stringify(path.join(projectRoot, 'src/content/layout/floating-layout-service.js'))};
         export { ResizeController } from ${JSON.stringify(path.join(projectRoot, 'src/content/layout/resize-controller.js'))};
         export { SummaryLayoutController } from ${JSON.stringify(path.join(projectRoot, 'src/content/layout/summary-layout-controller.js'))};

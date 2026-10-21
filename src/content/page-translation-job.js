@@ -9,15 +9,15 @@ import {
     isElementInViewport,
     isFoxlateExtensionElement,
 } from './page-translation/page-translation-elements.js';
+import { ABORT_POLICY, createErrorLogger } from '../common/error-logger.js';
 import { PageTranslationProgress } from './page-translation/page-translation-progress.js';
 import { revertPageTranslationDom } from './page-translation/page-translation-reverter.js';
 
-function defaultLogError(context, error) {
-    if (error && error.name === 'AbortError') {
-        return;
-    }
-    console.error(`[Foxlate Content Script Error] in ${context}:`, error.message, error.stack);
-}
+// 内容脚本里的 AbortError 完全静默：用户主动中止（换页、关开关）不该产生任何日志。
+const defaultLogError = createErrorLogger({
+    prefix: 'Foxlate Content Script Error',
+    abortPolicy: ABORT_POLICY.SILENT,
+});
 
 /**
  * 启动页面翻译作业。

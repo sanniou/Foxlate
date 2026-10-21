@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { build } from 'esbuild';
 import { JSDOM } from 'jsdom';
+import { createI18nMock } from './helpers/i18n-mock.mjs';
 
 const projectRoot = path.resolve(import.meta.dirname, '..');
 
@@ -74,11 +75,7 @@ function installBrowserMock() {
             },
             sendMessage: async () => ({}),
         },
-        i18n: {
-            getMessage(key) {
-                return key;
-            },
-        },
+        i18n: createI18nMock(),
     };
 }
 
@@ -122,11 +119,7 @@ function createRuntimeBrowserMock({ settings }) {
                 return {};
             },
         },
-        i18n: {
-            getMessage(key) {
-                return key;
-            },
-        },
+        i18n: createI18nMock(),
     };
 }
 

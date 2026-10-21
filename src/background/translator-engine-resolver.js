@@ -16,21 +16,29 @@ export class TranslatorEngineResolver {
         return this.translators[translatorKey];
     }
 
-    async resolveEngine(engine) {
+    async resolveEngine(engine, preparedSettings) {
         if (engine) {
             return engine;
         }
-        const settings = await this.settingsManager.getValidatedSettings();
+        const settings = preparedSettings || await this.settingsManager.getValidatedSettings();
         return settings.translatorEngine;
     }
 
-    async resolveTranslatorForText(processedText, initialEngine, log) {
-        const resolvedInitialEngine = await this.resolveEngine(initialEngine);
+    /**
+     * @param {string} processedText - 已应用源侧词汇表的文本（引擎实际收到的文本）。
+     * @param {string} [initialEngine] - 调用方指定的引擎；省略时使用设置里的默认引擎。
+     * @param {string[]} log - 供 UI 展示的解析日志。
+     * @param {object} [preparedSettings] - 调用方已读到的设置。传入可避免本方法内部再读一次
+     *   （getValidatedSettings 每次都会 structuredClone 整个设置对象，在逐条翻译的热路径上很贵）。
+     */
+    async resolveTranslatorForText(processedText, initialEngine, log, preparedSettings) {
+        const readSettings = async () => preparedSettings ?? await this.settingsManager.getValidatedSettings();
+        const resolvedInitialEngine = await this.resolveEngine(initialEngine, preparedSettings);
         const translator = this.getTranslator(resolvedInitialEngine);
 
         if (!translator || translator.name !== 'AI') {
             if (translator?.name === 'DeepLx') {
-                const settings = await this.settingsManager.getValidatedSettings();
+                const settings = await readSettings();
                 return {
                     translator,
                     engine: resolvedInitialEngine,
@@ -40,7 +48,7 @@ export class TranslatorEngineResolver {
             return { translator, engine: resolvedInitialEngine, config: null };
         }
 
-        const settings = await this.settingsManager.getValidatedSettings();
+        const settings = await readSettings();
         const engineId = resolvedInitialEngine.split(':')[1];
         const aiConfig = settings.aiEngines.find(engine => engine.id === engineId);
 
@@ -91,7 +99,7 @@ export class TranslatorEngineResolver {
             return null;
         }
 
-        const resolvedFallbackEngine = await this.resolveEngine(fallbackEngineName);
+        const resolvedFallbackEngine = await this.resolveEngine(fallbackEngineName, settings);
         const fallbackTranslator = this.getTranslator(resolvedFallbackEngine);
         if (!fallbackTranslator) {
             log.push(`[警告] 找不到备用翻译器 '${fallbackEngineName}'。将使用原始AI引擎。`);

@@ -1,8 +1,5 @@
-import { textMeasurementService } from '../content/layout/text-measurement-service.js';
-
-function clamp(value, min, max) {
-    return Math.max(min, Math.min(value, max));
-}
+import { textMeasurementService } from './text-measurement.js';
+import { clamp } from './math.js';
 
 function getElementText(element) {
     if (!element) return '';

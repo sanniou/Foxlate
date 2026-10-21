@@ -1,5 +1,5 @@
 import browser from '../lib/browser-polyfill.js';
-import { getSelectionPayload, translateSelectionPayload } from './selection-translate.js';
+import { getSelectionPayload } from './selection-translate.js';
 
 /** Pure viewport clamp used by the floating quick-action panel. */
 export function clampPanelPosition({
@@ -27,6 +27,10 @@ export class QuickActionPanel {
     #hideTimer = null;
     #boundSelectionChange = this.#handleSelectionChange.bind(this);
     #boundMouseUp = this.#handleSelectionChange.bind(this);
+    #boundKeydown = (event) => {
+        // Esc 键收回浮动按钮：它跟着选区出现在鼠标旁边，键盘用户也需要一条退出路径
+        if (event.key === 'Escape' && !event.isComposing) this.hide();
+    };
 
     constructor({
         browserApi = browser,
@@ -42,8 +46,10 @@ export class QuickActionPanel {
 
     initialize(settings = this.#settings) {
         this.updateSettings(settings);
-        this.#window.document.addEventListener('selectionchange', this.#boundSelectionChange);
-        this.#window.document.addEventListener('mouseup', this.#boundMouseUp);
+        const doc = this.#window.document;
+        doc.addEventListener('selectionchange', this.#boundSelectionChange);
+        doc.addEventListener('mouseup', this.#boundMouseUp);
+        doc.addEventListener('keydown', this.#boundKeydown, true);
     }
 
     updateSettings(settings = {}) {
@@ -54,8 +60,10 @@ export class QuickActionPanel {
     }
 
     destroy() {
-        this.#window.document.removeEventListener('selectionchange', this.#boundSelectionChange);
-        this.#window.document.removeEventListener('mouseup', this.#boundMouseUp);
+        const doc = this.#window.document;
+        doc.removeEventListener('selectionchange', this.#boundSelectionChange);
+        doc.removeEventListener('mouseup', this.#boundMouseUp);
+        doc.removeEventListener('keydown', this.#boundKeydown, true);
         this.hide();
     }
 
@@ -125,12 +133,4 @@ export class QuickActionPanel {
         `;
         this.#window.document.body.appendChild(this.#panel);
     }
-}
-
-/** @deprecated use translateSelectionPayload — kept name for content-runtime call sites */
-export async function translateQuickSelection(options) {
-    return translateSelectionPayload({
-        ...options,
-        source: options.source || 'quick-action',
-    });
 }

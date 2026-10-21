@@ -1,5 +1,6 @@
 import browser from '../lib/browser-polyfill.js';
 import { MESSAGE_TYPES } from '../common/message-types.js';
+import { shouldReloadTranslationJob } from './settings-reload-policy.js';
 import { SettingsManager } from '../common/settings-manager.js';
 import { TranslatorManager } from '../background/translator-manager.js';
 import TabStateManager from './tab-state-manager.js';
@@ -8,7 +9,7 @@ import { CORE_SCRIPT_FILES, CSS_FILES } from './background-constants.js';
 import { logBackgroundError } from './background-logger.js';
 import { setBadgeAndState } from './badge-state.js';
 import { createBackgroundMessageHandlers } from './background-message-handlers.js';
-import { createCloudBackupStore } from './cloud-backup-store.js';
+import { CloudBackupStore } from './cloud-backup-store.js';
 import { createNavigationHandler } from './navigation-handler.js';
 import { createSelectionTranslationHandler } from './selection-translation.js';
 import { createSubtitleInjector } from './subtitle-injection.js';
@@ -24,7 +25,7 @@ const updateBadgeAndState = (tabId, state, options) => setBadgeAndState({
     tabStateManager: TabStateManager,
 }, tabId, state, options);
 
-const cloudBackups = createCloudBackupStore({
+const cloudBackups = new CloudBackupStore({
     browserApi: browser,
     logError: logBackgroundError,
 });
@@ -196,16 +197,4 @@ function isProtectedTab(tab) {
         tab.url.startsWith('about:') ||
         tab.url.startsWith('moz-extension:') ||
         tab.url.startsWith('chrome:');
-}
-
-function shouldReloadTranslationJob({ oldValue, newValue, criticalKeys }) {
-    if (!oldValue || !newValue) return true;
-
-    return criticalKeys.some(key => {
-        const hasChanged = JSON.stringify(oldValue[key]) !== JSON.stringify(newValue[key]);
-        if (hasChanged && globalThis.__DEBUG__) {
-            console.log(`[Foxlate] Critical setting '${key}' changed. Page re-translation required.`);
-        }
-        return hasChanged;
-    });
 }

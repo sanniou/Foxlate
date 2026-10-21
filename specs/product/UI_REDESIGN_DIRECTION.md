@@ -1,69 +1,52 @@
-# Foxlate UI Redesign Direction — 1.7.x
+# Foxlate UI 设计方向 — 1.7.x
 
-**Date:** 2026-07-22  
-**Branch track:** e06-ui-redesign  
-**Baseline:** 1.6.3 (cyan/glass `--fox-*` already shipped)
+**已实施**：P1–P4 全部随 1.6.3–1.7.0 发布（calm chrome → options 外壳 → summary/enhanced → dark-mode + a11y）。
+本文件记录的是**方向与理由**，不是待办清单。当前实现基线见
+`specs/verifications/full-refactor-review-1.7.4.md` 第 1 节与第 4 节。
 
-## North star
+## 北极星
 
-> **Daily translation tool, not a glassmorphism demo.**  
-> Calm surfaces, one accent (cyan), zero competing gradients, host pages stay primary.
+> **日常翻译工具，不是玻璃拟态演示。**
+> 安静的表面、单一强调色（cyan）、零竞争性渐变、宿主页面始终是主体。
 
-## What we keep
+## 保留
 
-| Keep | Why |
-|------|-----|
-| `--fox-*` token names + semantic `--color-*` aliases | Live system since 1.6.0; parity tests |
-| Content isolation (`--fl-*` / `--fs-*`, no inject `common.css` into host) | Host safety |
-| Semantic classes: `.btn` `.card` `.form-control` `.switch` `.segmented` | Conventions |
-| Soft append/hover + themed spinner (1.6.3) | Just fixed |
-| Popup IA: lang → translate → engine/mode → toggles → footer | Works |
+| 保留 | 理由 |
+|------|------|
+| `--fox-*` 令牌名 + 语义 `--color-*` 别名 | 1.6.0 起即为在线系统；一致性门禁依赖它 |
+| 内容侧隔离（`--fl-*` / `--fs-*`，不向宿主页注入 `common.css`） | 宿主安全 |
+| 语义类名：`.btn` `.card` `.form-control` `.switch` `.segmented` | 约定 |
+| soft append/hover + 主题化加载指示（1.6.3） | 刚修好 |
+| Popup 信息架构：语言 → 翻译 → 引擎/模式 → 开关 → 页脚 | 可用 |
 
-## What we change
+## 改变
 
-| Surface | From | To |
-|---------|------|-----|
-| **Popup** | Multi-layer gradient bg, heavy blur cards, lift-on-hover everywhere | Flat/soft solid panels, denser spacing, one primary CTA |
-| **Options** | Gradient wash + blur sidebar/cards | Quiet app shell; sidebar solid; cards with 1px border |
-| **Floating chrome** (tooltip, quick-action, summary) | Strong glass + brand gradient chips | Shared panel recipe: solid-ish surface, light border, small shadow |
-| **Primary actions** | Full brand rainbow gradient | Solid primary (cyan); gradient only for rare brand moments |
-| **Motion** | translateY hover on many rows | Focus/border only; reduced motion first-class |
-| **Density** | Tall toggles (62px), airy gaps | Compact rows; popup target width ~360–380 |
+| 表面 | 从 | 到 |
+|------|-----|-----|
+| **Popup** | 多层渐变背景、重模糊卡片、处处悬浮上抬 | 平/柔实色面板、更密间距、单一主 CTA |
+| **Options** | 渐变洗底 + 模糊侧栏/卡片 | 安静的 app shell；侧栏实色；卡片 1px 边框 |
+| **浮层**（tooltip / 快捷操作 / summary） | 强玻璃 + 品牌渐变芯片 | 共享面板配方：近实色表面、细边框、小阴影 |
+| **主操作** | 全品牌彩虹渐变 | 实色主色（cyan）；渐变仅用于罕见品牌时刻 |
+| **动效** | 大量行级 `translateY` 悬浮 | 仅焦点/边框；reduced-motion 一等公民 |
+| **密度** | 高开关（62px）、过宽间距 | 紧凑行；popup 目标宽 ~360–380 |
 
-## Explicitly out
+## 明确不做
 
-- Reimplement `plans/archive/*` indigo MD3
-- New token system alongside `--fox-*`
-- Lit rewrite of popup/options
-- R3 differentiator UI (standalone panel) — separate epic
-- PDF / store listing chrome
+- 重做 pre-1.6.0 的 indigo MD3 设计方向（草案已删除，不得重建）
+- 在 `--fox-*` 之外新增第二套令牌体系
+- 用 Lit 重写 popup/options
+- R3 差异化能力的 UI（独立面板）—— 属独立史诗
+- PDF / 商店上架视觉
 
-## Phases
-
-| Phase | Ship | Verify |
-|-------|------|--------|
-| **P1 Calm chrome** | Token quieting + popup density + content floating panels | visual smoke + `npm test` + token parity |
-| **P2 Options shell** | Sidebar/main quieter; modals align | options open smoke |
-| **P3 Summary / enhanced** | summary.css + enhanced-style align to same recipe | open summary dialog |
-| **P4 Polish** | dark-mode pass, focus rings, a11y | dual scheme checklist |
-
-## Success (score gate)
-
-| Dim | Target |
-|-----|--------|
-| Visual quiet (noise) | ≥ 8 |
-| Density / scanability | ≥ 8 |
-| Token consistency (popup/options/content) | ≥ 8.5 |
-| Host-page non-invasiveness | ≥ 8.5 (already soft append/hover) |
-| Overall | ≥ 8.0 |
-
-## Panel recipe (shared)
+## 面板配方（共享契约）
 
 ```
-surface:  solid or 94% opaque panel (not heavy glass stack)
+surface:  实色或 94% 不透明面板（不是多层玻璃堆叠）
 border:   1px --color-border
 radius:   --radius-md (10–12)
-shadow:   --shadow-sm only for floating over host
-accent:   primary cyan for selected / CTA; no rainbow fills
-type:     Inter/system; secondary 12–13px muted
+shadow:   仅浮在宿主页面上时用 --shadow-sm
+accent:   选中/CTA 用主色 cyan；不用彩虹填充
+type:     系统字体栈（ui-sans-serif/system-ui/…）；次级 12–13px 弱化
 ```
+
+`prefers-reduced-transparency: reduce` 时该配方自动退化为纯实色（由 `src/common/tokens.css` 完成，组件无需知道）。

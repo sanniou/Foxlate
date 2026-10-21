@@ -1,23 +1,29 @@
 # Project Context — Foxlate
 
-> Mapped 2026-07-22 from live codebase (v1.6.0). Refresh after major refactors.
+> Mapped 2026-07-22 from live codebase (v1.6.0). Stack/table refresh 2026-10; test counts in this file are a snapshot, not a contract.
+> 本文件是**架构参考**（栈选择、模块职责、契约、约定）。架构演进史与已修缺陷见
+> `specs/verifications/full-refactor-review-1.7.4.md` 与 `specs/verifications/refactor-ledger.md`。
 
 ## Stack
 
 | Layer | Choice |
 |-------|--------|
 | Language | JavaScript ESM in `src/`; package root `"type": "commonjs"` |
-| UI | Lit 3 (options modals/components); plain DOM for popup |
+| UI | Plain DOM + `BaseComponent` subclasses (popup and options alike); **no UI framework** |
 | Build | Custom `build.js` + esbuild; targets `chrome` / `firefox` |
 | Extension API | MV3 + vendored `webextension-polyfill` (`src/lib/browser-polyfill.js`) |
-| Text | `node --test` + jsdom (`test/*.test.mjs`) — **79 pass** at map time |
+| Text | `node --test` + jsdom (`test/*.test.mjs`) — 45 个文件 / 372 pass |
 | Markdown | `marked.esm.js` (summary) |
 | Extraction | Mozilla Readability (summary) |
 | Lang detect | `franc.bundle.mjs` |
 | Text measure | `@chenglou/pretext` + canvas fallbacks |
 | Locales | `public/_locales/{en,zh_CN}` |
 
-**Deps (runtime):** `lit`, `@chenglou/pretext`  
+**Deps (runtime):** `@chenglou/pretext`
+
+> A vendored `lit@3.3.1` bundle and the `lit` npm dependency were removed in the 2026-10 refactor: nothing
+> imported either one. `SCOPE_LATEST.yaml` lists "Lit rewrite of popup/options" as out of scope — the vendored
+> bundle was a leftover from that rejected direction, not a shipped stack choice.  
 **Deps (dev):** `esbuild`, `fs-extra`, `glob`, `jsdom`
 
 No TypeScript. No bundler beyond esbuild entry points. No dedicated linter/formatter yet.
@@ -91,23 +97,24 @@ popup / options  ──MSG──►  background (service worker)
 - **No e2e / browser automation** in repo yet
 
 ### UI / design
-- Live tokens: `--fox-*` + semantic `--color-*` aliases in `src/common/common.css`
+- 令牌唯一取值来源：`src/common/tokens.css`（`--fox-*`）；`src/common/common.css` 只写语义别名（`--color-*` → `--fox-color-*`）
+- 动效 / 排版 / 无障碍三态（reduced-motion / reduced-transparency / prefers-contrast）的取值也在 `tokens.css`
 - Dark via `prefers-color-scheme`
 - Semantic classes: `.btn`, `.card`, `.form-control`, `.input-group`, `.switch`
-- Content surfaces (tooltip/summary/subtitle) have **separate CSS** — partial token alignment
+- 内容侧（tooltip/summary/subtitle）与 popup/options 共用同一套 `--fox-*`（已统一；内容侧另有 `--fl-*`/`--fs-*` 宿主隔离前缀）
+- 门禁：`test/design-system.test.mjs`
 
 ## Signals / Active Considerations
 
+只列**当前仍未解决**的信号。已解决的历史信号（版本三元 SoT、MD3 残留、大型文件、内容 CSS 未对齐）不再保留 —— 已完成待办不属参考文档。
+
 | Signal | Severity | Implication |
 |--------|----------|-------------|
-| Version triple source (`package.json` 1.6.0, `manifest.base` 1.3.0, dist built) | P1 | R1: single SoT |
-| `.m3-form-field` leftovers in `options/validator.js` | P3 | R1 cleanup |
-| Large files: `options-actions.js` (~25k), `background-message-handlers.js` (~22k), `translator-manager.js` (~18k), `options.html` (~31k) | P2 | boy-scout only |
-| Chrome listed "coming soon" but build target works | P1 product | R2 store reach |
-| Content CSS not fully on `--fox-*` | P2 | R1 token pass |
+| Chrome 已能构建但商店仍标 "coming soon" | P1 product | R2 触达：素材 + 隐私说明 + 权限解释 |
+| SW lifecycle differences Chrome vs Firefox | P1 for R2 | re-injection / idle SW 测试仍缺 |
+| R3 差异化能力未择一 | P1 product | 原生 Translator API 引擎 vs 独立面板（见 SCOPE `open_decisions`） |
 | No linter / typecheck | P2 | Preflight is test+build only |
-| `plans/archive/*` obsolete vs live UI | info | do not implement from drafts |
-| SW lifecycle differences Chrome vs Firefox | P1 for R2 | re-injection / idle SW tests needed |
+| No e2e / browser automation | P2 | 需人工冒烟；产物级回归靠 jsdom 集成测试 |
 | AI cost path already has short-text fallback | good | keep for new engines |
 
 ## Build notes

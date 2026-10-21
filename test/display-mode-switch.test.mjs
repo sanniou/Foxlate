@@ -7,6 +7,7 @@ import { pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { build } from 'esbuild';
 import { JSDOM } from 'jsdom';
+import { createI18nMock, inlineI18nMockSource } from './helpers/i18n-mock.mjs';
 
 const projectRoot = path.resolve(import.meta.dirname, '..');
 
@@ -17,7 +18,7 @@ async function bundleModules() {
     const mockBrowserPath = path.join(tempDir, 'browser-polyfill-mock.js');
     await writeFile(mockBrowserPath, `
         export default {
-            i18n: { getMessage: (k) => k, getUILanguage: () => 'en' },
+            i18n: ${inlineI18nMockSource()},
             runtime: {
                 sendMessage: async () => ({}),
                 onMessage: { addListener() {} },
@@ -137,7 +138,7 @@ test('SETTINGS_UPDATED re-resolves effective settings instead of applying raw gl
                 sendMessage: async () => ({}),
                 getURL: (p) => p,
             },
-            i18n: { getMessage: (k) => k },
+            i18n: createI18nMock(),
         },
         win: dom.window,
         displayManager: {

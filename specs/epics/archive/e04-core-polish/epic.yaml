@@ -1,3 +1,5 @@
+# 已归档胶囊 —— 这是**计划期快照**：下面的 `status` 记录的是计划当时的取值，不是现行状态。
+# 现行状态只存在于 `specs/execution-status.yaml`（唯一状态存储；由 test/planning-state.test.mjs 强制）。
 id: e04
 slug: core-polish
 title: Core polish — strategies, rules, display modes, panels

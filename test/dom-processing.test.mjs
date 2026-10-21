@@ -5,7 +5,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { build } from 'esbuild';
-import { JSDOM } from 'jsdom';
+import { installDomEnvironment } from './helpers/dom-environment.mjs';
 
 const projectRoot = path.resolve(import.meta.dirname, '..');
 let bundledModules;
@@ -39,44 +39,9 @@ async function loadDomModules() {
     return bundledModules;
 }
 
-function setupDom(html) {
-    const dom = new JSDOM(`<!doctype html><html><body>${html}</body></html>`);
-    const { window } = dom;
-
-    globalThis.window = window;
-    globalThis.document = window.document;
-    globalThis.Node = window.Node;
-    globalThis.NodeFilter = window.NodeFilter;
-    globalThis.HTMLElement = window.HTMLElement;
-
-    Object.defineProperty(window.HTMLElement.prototype, 'offsetParent', {
-        configurable: true,
-        get() {
-            if (this.tagName === 'HTML' || this.tagName === 'BODY') {
-                return null;
-            }
-            return window.document.body;
-        },
-    });
-    Object.defineProperty(window.HTMLElement.prototype, 'offsetWidth', {
-        configurable: true,
-        get() {
-            return this.style.display === 'none' ? 0 : 120;
-        },
-    });
-    Object.defineProperty(window.HTMLElement.prototype, 'offsetHeight', {
-        configurable: true,
-        get() {
-            return this.style.display === 'none' ? 0 : 24;
-        },
-    });
-
-    return dom;
-}
-
 test('DOMWalker extracts plain text and preservable inline tags', async () => {
     const { DOMWalker } = await loadDomModules();
-    const dom = setupDom('<p id="target">Hello <strong>world</strong><br><code>x</code></p>');
+    const dom = installDomEnvironment('<p id="target">Hello <strong>world</strong><br><code>x</code></p>');
     const target = dom.window.document.querySelector('#target');
 
     const result = DOMWalker.create(target);
@@ -90,7 +55,7 @@ test('DOMWalker extracts plain text and preservable inline tags', async () => {
 
 test('DOMWalker honors exclude selectors and extension-generated markers', async () => {
     const { DOMWalker } = await loadDomModules();
-    const dom = setupDom('<div id="target"><span class="skip">Skip</span> Keep</div><div id="generated" data-foxlate-appended-text="true">Translated</div>');
+    const dom = installDomEnvironment('<div id="target"><span class="skip">Skip</span> Keep</div><div id="generated" data-foxlate-appended-text="true">Translated</div>');
     const target = dom.window.document.querySelector('#target');
     const generated = dom.window.document.querySelector('#generated');
 
@@ -103,7 +68,7 @@ test('DOMWalker honors exclude selectors and extension-generated markers', async
 
 test('reconstructDOM rebuilds cloned formatting and converts normal newlines to br', async () => {
     const { DOMWalker, reconstructDOM } = await loadDomModules();
-    const dom = setupDom('<p id="target">Hello <strong>world</strong><br><code>x</code></p>');
+    const dom = installDomEnvironment('<p id="target">Hello <strong>world</strong><br><code>x</code></p>');
     const target = dom.window.document.querySelector('#target');
     const { translationUnit } = DOMWalker.create(target);
 
@@ -119,7 +84,7 @@ test('reconstructDOM rebuilds cloned formatting and converts normal newlines to 
 
 test('reconstructDOM rejects broken translator tags', async () => {
     const { DOMWalker, reconstructDOM } = await loadDomModules();
-    const dom = setupDom('<p id="target">Hello <strong>world</strong></p>');
+    const dom = installDomEnvironment('<p id="target">Hello <strong>world</strong></p>');
     const target = dom.window.document.querySelector('#target');
     const { translationUnit } = DOMWalker.create(target);
 
@@ -131,7 +96,7 @@ test('reconstructDOM rejects broken translator tags', async () => {
 
 test('DOMWalker skips notranslate, child lang-marked, translate=no, and hidden child content', async () => {
     const { DOMWalker } = await loadDomModules();
-    const dom = setupDom(`
+    const dom = installDomEnvironment(`
         <div id="target">
             Visible
             <span class="notranslate">NoTranslate</span>
@@ -150,7 +115,7 @@ test('DOMWalker skips notranslate, child lang-marked, translate=no, and hidden c
 
 test('DOMWalker does not skip normal content under document-level lang attribute', async () => {
     const { DOMWalker } = await loadDomModules();
-    const dom = setupDom('<article id="target"><p>Hello <strong>world</strong></p></article>');
+    const dom = installDomEnvironment('<article id="target"><p>Hello <strong>world</strong></p></article>');
     dom.window.document.documentElement.setAttribute('lang', 'en');
     const target = dom.window.document.querySelector('#target');
 
@@ -162,7 +127,7 @@ test('DOMWalker does not skip normal content under document-level lang attribute
 
 test('reconstructDOM preserves whitespace inside preformatted nodes', async () => {
     const { DOMWalker, reconstructDOM } = await loadDomModules();
-    const dom = setupDom('<pre id="target" style="white-space: pre">line 1\n    line 2</pre>');
+    const dom = installDomEnvironment('<pre id="target" style="white-space: pre">line 1\n    line 2</pre>');
     const target = dom.window.document.querySelector('#target');
     const { sourceText, translationUnit } = DOMWalker.create(target);
 
@@ -185,7 +150,7 @@ test('reconstructDOM preserves whitespace inside preformatted nodes', async () =
 
 test('findAllSearchRoots discovers shadow roots and injects css once per host', async () => {
     const { findAllSearchRoots } = await loadDomModules();
-    const dom = setupDom('<main><div id="host"></div></main>');
+    const dom = installDomEnvironment('<main><div id="host"></div></main>');
     const host = dom.window.document.querySelector('#host');
     const shadow = host.attachShadow({ mode: 'open' });
     shadow.innerHTML = '<p>Inside shadow</p>';
@@ -204,7 +169,7 @@ test('findAllSearchRoots discovers shadow roots and injects css once per host', 
 
 test('findTranslatableElements returns leaves and wraps mixed parent orphan text', async () => {
     const { findTranslatableElements } = await loadDomModules();
-    const dom = setupDom('<article id="article">Intro <strong>lead</strong><p id="body">Body</p><p id="done" data-translation-id="x">Done</p></article>');
+    const dom = installDomEnvironment('<article id="article">Intro <strong>lead</strong><p id="body">Body</p><p id="done" data-translation-id="x">Done</p></article>');
     const article = dom.window.document.querySelector('#article');
     const settings = { translationSelector: { content: 'article, p' } };
 
@@ -221,7 +186,7 @@ test('findTranslatableElements returns leaves and wraps mixed parent orphan text
 
 test('findTranslatableElements drops candidates under exclude selector before leaf pick', async () => {
     const { findTranslatableElements } = await loadDomModules();
-    const dom = setupDom(`
+    const dom = installDomEnvironment(`
         <main>
             <p id="body">Article body</p>
             <nav><p id="nav-p">Skip me</p></nav>
@@ -243,7 +208,7 @@ test('findTranslatableElements drops candidates under exclude selector before le
 test('findTranslatableElements falls back when preferred content selector matches nothing', async () => {
     const { findTranslatableElements } = await loadDomModules();
     // Legacy page: no main/article, only a div paragraph shell.
-    const dom = setupDom('<div id="legacy"><p id="legacy-p">Body copy</p></div>');
+    const dom = installDomEnvironment('<div id="legacy"><p id="legacy-p">Body copy</p></div>');
     const settings = {
         translationSelector: {
             content: 'main, article',
@@ -257,7 +222,7 @@ test('findTranslatableElements falls back when preferred content selector matche
 
 test('findTranslatableElements returns no candidates instead of throwing for invalid content selector', async () => {
     const { findTranslatableElements } = await loadDomModules();
-    const dom = setupDom('<main><p id="target">Body</p></main>');
+    const dom = installDomEnvironment('<main><p id="target">Body</p></main>');
     const settings = { translationSelector: { content: 'main, [broken' } };
     const originalConsoleError = console.error;
     let loggedInvalidSelector = false;

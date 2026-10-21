@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { build } from 'esbuild';
 import { JSDOM } from 'jsdom';
+import { createI18nMock } from './helpers/i18n-mock.mjs';
 
 const projectRoot = path.resolve(import.meta.dirname, '..');
 
@@ -26,6 +27,7 @@ async function bundleOptionsModules() {
         export { addButtonRipple } from ${JSON.stringify(path.join(projectRoot, 'src/options/components/InteractionFeedback.js'))};
         export { createOptionsEventHandlers } from ${JSON.stringify(path.join(projectRoot, 'src/options/options-events.js'))};
         export { enhanceThemedSelects } from ${JSON.stringify(path.join(projectRoot, 'src/options/components/ThemedSelect.js'))};
+        export { ELEMENT_IDS } from ${JSON.stringify(path.join(projectRoot, 'src/options/ui-constants.js'))};
     `);
     await writeFile(mockBrowserPath, 'export default globalThis.__foxlateBrowserMock;');
 
@@ -52,22 +54,16 @@ async function bundleOptionsModules() {
     return modules;
 }
 
+let uiConstantsPromise;
+/** 复用同一份 options bundle，避免每个测试都重跑一次 esbuild。 */
+async function loadUiConstants() {
+    uiConstantsPromise ??= bundleOptionsModules().then(({ ELEMENT_IDS }) => ({ ELEMENT_IDS }));
+    return uiConstantsPromise;
+}
+
 function installBrowserMock() {
     globalThis.__foxlateBrowserMock = {
-        i18n: {
-            getMessage(key) {
-                const messages = {
-                    edit: 'Edit',
-                    removeRule: 'Delete',
-                    noDomainRulesFound: 'No rules',
-                    defaultEngineNotFound: 'Missing engine',
-                };
-                return messages[key] || key;
-            },
-            getUILanguage() {
-                return 'en-US';
-            },
-        },
+        i18n: createI18nMock(),
         runtime: {
             sendMessage: async () => ({}),
         },
@@ -337,7 +333,8 @@ test('options action layer owns selector validation side effects', async () => {
     input.value = 'main, [broken';
     assert.equal(actions.validateCssSelectorInput(input), false);
     assert.equal(input.closest('.input-group').classList.contains('is-invalid'), true);
-    assert.equal(input.closest('.input-group').querySelector('.text-error').textContent, 'invalidCssSelector');
+    // 断言渲染出的是可读文案，而不是 key 名（缺失 key 会渲染成空串）。
+    assert.equal(input.closest('.input-group').querySelector('.text-error').textContent, 'Invalid CSS selector');
 });
 
 test('options entry stays a bootstrap module after architecture split', async () => {
@@ -382,27 +379,170 @@ test('options UI primitives centralize modal surfaces and button ripple feedback
     assert.equal(button.querySelectorAll('.ripple').length, 1);
 });
 
-test('product options compose shared UI system primitives instead of local product-only classes', async () => {
+test('options record lists render shared ui-record primitives from real data', async () => {
+    setupDom(`
+        <ul id="providerHealthList" class="item-list ui-record-list"></ul>
+        <ul id="translationHistoryList" class="item-list ui-record-list"></ul>
+        <div id="testQualityPreview" class="ui-metric-grid mt-2" style="display:none;"></div>
+    `);
+    const { OptionsActions } = await bundleOptionsModules();
+    const actions = new OptionsActions({
+        elements: {
+            providerHealthList: document.querySelector('#providerHealthList'),
+            translationHistoryList: document.querySelector('#translationHistoryList'),
+            testQualityPreview: document.querySelector('#testQualityPreview'),
+        },
+        confirmModal: {},
+        domainRuleModal: {},
+        getState: () => ({}),
+        getCurrentSettingsState: () => ({}),
+        setInitialSettingsSnapshot: () => {},
+        dispatch: () => {},
+        updateSaveButtonState: () => {},
+        showStatusMessage: () => {},
+    });
+
+    // —— 供应商健康列表：排序、状态胶囊文案、计数 ——
+    actions.renderProviderHealth({
+        google: { engine: 'google', status: 'healthy', successCount: 12, failureCount: 0, lastLatencyMs: 180, lastCheckedAt: 2000 },
+        openai: { engine: 'openai', status: 'degraded', successCount: 3, failureCount: 4, lastLatencyMs: 900, lastCheckedAt: 3000, lastError: 'timeout' },
+    });
+
+    const healthItems = document.querySelectorAll('#providerHealthList > li.ui-record-item');
+    assert.equal(healthItems.length, 2, '每条健康记录渲染成一个 ui-record-item');
+    // 按 lastCheckedAt 倒序：openai(3000) 在前
+    assert.match(healthItems[0].textContent, /openai/);
+    assert.match(healthItems[1].textContent, /google/);
+
+    const pill = healthItems[0].querySelector('.ui-status-pill');
+    assert.ok(pill, '状态胶囊必须用 ui-status-pill 这个共享原语');
+    assert.equal(pill.dataset.status, 'degraded');
+    // 缺 key 时会渲染成空串；这里断言的是真实英文文案
+    assert.equal(pill.textContent, 'degraded');
+    assert.equal(healthItems[1].querySelector('.ui-status-pill').textContent, 'healthy');
+    // 统计行用的是本地化标签而不是裸英文
+    assert.match(healthItems[1].textContent, /success 12 · failure 0 · 180ms/);
+
+    // —— 空态：一条记录都没有时不得凭空造 ui-record-item ——
+    actions.renderProviderHealth({});
+    assert.equal(document.querySelectorAll('#providerHealthList > li.ui-record-item').length, 0);
+    const emptyItem = document.querySelector('#providerHealthList > li.no-rules-message');
+    assert.equal(emptyItem.textContent, 'No provider health data yet.');
+
+    // —— 历史列表：不转义就是 XSS ——
+    actions.renderTranslationHistory([
+        { translatedText: '<img src=x onerror="window.pwned=1">', sourceText: 'hello', engine: 'google', targetLang: 'ZH', createdAt: 1000 },
+    ]);
+    const historyItem = document.querySelector('#translationHistoryList > li.ui-record-item');
+    assert.equal(historyItem.querySelectorAll('img').length, 0, '历史内容必须转义，不能注入元素');
+    assert.match(historyItem.textContent, /<img src=x onerror/);
+
+    // —— 上限：只渲最新 12 条，否则诊断面板会被历史淹没 ——
+    actions.renderTranslationHistory(Array.from({ length: 20 }, (_, index) => ({
+        translatedText: `result-${index}`, sourceText: `source-${index}`, engine: 'google', createdAt: index,
+    })));
+    assert.equal(document.querySelectorAll('#translationHistoryList > li.ui-record-item').length, 12);
+
+    // —— 质量预览：3 个共享 metric 卡片，并真正显示出来 ——
+    actions.renderQualityPreview('hello world', '你好世界');
+    const preview = document.querySelector('#testQualityPreview');
+    assert.equal(preview.querySelectorAll(':scope > .ui-metric-item').length, 3);
+    assert.equal(preview.style.display, 'grid');
+    const metrics = [...preview.querySelectorAll('.ui-metric-item')];
+    assert.deepEqual(metrics.map(item => item.querySelector('strong').textContent), ['11', '4', '0.36x']);
+    assert.deepEqual(metrics.map(item => item.querySelector('.ui-record-sub').textContent), ['Source', 'Result', 'Expansion']);
+});
+
+test('options stylesheet carries no legacy product-only classes', async () => {
     const html = await readFile(path.join(projectRoot, 'src/options/options.html'), 'utf8');
     const optionsCss = await readFile(path.join(projectRoot, 'src/options/options.css'), 'utf8');
     const commonCss = await readFile(path.join(projectRoot, 'src/common/common.css'), 'utf8');
-    const actionsSource = await readFile(path.join(projectRoot, 'src/options/options-actions.js'), 'utf8');
 
-    assert.match(html, /i18n-text="productSystemSettings"/);
-    assert.doesNotMatch(html, /Failed Retry Queue|failed retry queue/i);
-    assert.match(html, /class="ui-card-grid"/);
-    assert.match(html, /class="ui-diagnostics-grid mt-4"/);
-    assert.match(html, /class="item-list ui-record-list"/);
-    assert.doesNotMatch(html, /class="[^"]*product-(settings-grid|diagnostics-grid|record|note)/);
-
-    assert.match(actionsSource, /ui-record-item/);
-    assert.match(actionsSource, /ui-status-pill/);
-    assert.match(actionsSource, /ui-metric-item/);
-    assert.doesNotMatch(actionsSource, /product-record-|health-pill|quality-preview-item/);
-
-    assert.match(commonCss, /\.ui-card-grid/);
+    // 迁移已完成：共享原语必须定义在 common.css，并且不得反弹回 options 私有类。
     assert.match(commonCss, /\.ui-record-item/);
     assert.match(commonCss, /\.ui-status-pill/);
     assert.match(commonCss, /\.ui-metric-grid/);
     assert.doesNotMatch(optionsCss, /product-record-|product-settings-grid|product-diagnostics-grid|health-pill|quality-preview/);
+    assert.doesNotMatch(html, /class="[^"]*product-(settings-grid|diagnostics-grid|record|note)/);
+
+    // 容器必须挂着共享列表类，否则上面的 .ui-record-item 样式不会生效。
+    assert.match(html, /id="providerHealthList" class="item-list ui-record-list"/);
+    assert.match(html, /id="translationHistoryList" class="item-list ui-record-list"/);
+});
+
+// --- ELEMENT_IDS 是唯一的 id 真相源 -----------------------------------------
+//
+// options 层靠 `ui-constants.js` 的 ELEMENT_IDS 注册表接线。只要有人图省事写裸
+// 字符串（`getElementById('foo')`），注册表就悄悄退化成一个建议，改 id 时
+// 漏改一处就是「设置页静默失效」。下面三条断言把这个不变量变成门禁。
+
+test('options 源码中不存在绕过 ELEMENT_IDS 的裸 id 字面量', async () => {
+    const optionsDir = path.join(projectRoot, 'src/options');
+    const files = (await readdir(optionsDir, { recursive: true }))
+        .filter((name) => name.endsWith('.js'))
+        .filter((name) => !name.endsWith('ui-constants.js'))
+        .sort();
+
+    const offenders = [];
+    for (const relativeName of files) {
+        const source = await readFile(path.join(optionsDir, relativeName), 'utf8');
+        for (const match of source.matchAll(/getElementById\(\s*'([^']+)'\s*\)|querySelector\(\s*'#([\w-]+)'\s*\)/g)) {
+            const id = match[1] ?? match[2];
+            const line = source.slice(0, match.index).split('\n').length;
+            offenders.push(`${relativeName}:${line} 使用了裸 id '${id}'`);
+        }
+    }
+
+    assert.deepEqual(
+        offenders,
+        [],
+        `以下位置绕过了 ELEMENT_IDS（请把 id 加进 ui-constants.js 并改用它）：\n${offenders.join('\n')}`,
+    );
+});
+
+test('每个 ELEMENT_IDS 常量都能在 options.html 里找到对应元素', async () => {
+    const { ELEMENT_IDS } = await loadUiConstants();
+    const html = await readFile(path.join(projectRoot, 'src/options/options.html'), 'utf8');
+
+    const missing = [];
+    for (const [name, value] of Object.entries(ELEMENT_IDS)) {
+        if (value.startsWith('#')) {
+            // 选择器型常量：只要求选择器能命中，不要求 id 形式
+            if (!value.includes(' ')) {
+                assert.fail(`选择器型常量 ${name} 应带上下文（如 '#modal .close-button'），当前为 ${value}`);
+            }
+            continue;
+        }
+        if (!html.includes(`id="${value}"`)) missing.push(`${name} → id="${value}"`);
+    }
+
+    assert.deepEqual(
+        missing,
+        [],
+        `以下 ELEMENT_IDS 常量在 options.html 中找不到对应元素（改名后忘了同步，运行时会是 null）：\n${missing.join('\n')}`,
+    );
+});
+
+test('options.html 里的每个 id 要么被 ELEMENT_IDS 登记，要么是导航锚点', async () => {
+    const { ELEMENT_IDS } = await loadUiConstants();
+    const html = await readFile(path.join(projectRoot, 'src/options/options.html'), 'utf8');
+
+    const declared = new Set(
+        Object.values(ELEMENT_IDS).filter((value) => !value.startsWith('#')),
+    );
+    // 面板 id 是导航路由的靶子（`href="#panel"`），JS 从不按 id 查它们，
+    // 所以不该被迫塞进「元素注册表」里凑数。
+    const anchors = new Set(
+        [...html.matchAll(/href="#([\w-]+)"/g)].map((match) => match[1]),
+    );
+    const inHtml = new Set([...html.matchAll(/\sid="([^"]+)"/g)].map((match) => match[1]));
+
+    const unaccounted = [...inHtml]
+        .filter((id) => !declared.has(id) && !anchors.has(id))
+        .sort();
+    assert.deepEqual(
+        unaccounted,
+        [],
+        `options.html 中以下 id 既未登记在 ELEMENT_IDS，也不是导航锚点（死 id 或漏登记）：${unaccounted.join(', ')}`,
+    );
 });

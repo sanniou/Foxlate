@@ -1,7 +1,7 @@
 import * as Constants from './constants.js';
-import { generateUniqueEngineId } from './utils.js';
+import { generateUniqueEngineId } from './ids.js';
 import { normalizeGlossary } from './translation-glossary.js';
-import { DEFAULT_STRATEGY_MAP } from '../content/subtitle/strategy-manifest.js';
+import { DEFAULT_STRATEGY_MAP } from './subtitle-strategy-manifest.js';
 
 export function generateDefaultSettings() {
     return structuredClone(Constants.DEFAULT_SETTINGS);
@@ -17,7 +17,7 @@ export function generateDomainTimestamp(domain) {
     return Math.abs(hash) + 1600000000000;
 }
 
-export function mergeSelectors(baseSelectors, additionalSelectors) {
+function mergeSelectors(baseSelectors, additionalSelectors) {
     const base = (baseSelectors || '').split(',').map(selector => selector.trim()).filter(Boolean);
     const additional = (additionalSelectors || '').split(',').map(selector => selector.trim()).filter(Boolean);
     return Array.from(new Set([...base, ...additional])).join(', ');
@@ -74,7 +74,7 @@ export function validateSettings(storedSettings) {
     return validatedSettings;
 }
 
-export function findMatchingDomainRule(domainRules = {}, hostname) {
+function findMatchingDomainRule(domainRules = {}, hostname) {
     if (!hostname) return { domainRule: {}, ruleSource: 'default' };
 
     const matchingDomain = Object.keys(domainRules)
@@ -91,7 +91,7 @@ export function findMatchingDomainRule(domainRules = {}, hostname) {
     return { domainRule: {}, ruleSource: 'default' };
 }
 
-export function calculateEffectiveSubtitleSettings(hostname, domainRule = {}) {
+function calculateEffectiveSubtitleSettings(hostname, domainRule = {}) {
     if (domainRule.subtitleSettings) {
         return {
             enabled: false,
@@ -112,7 +112,7 @@ export function calculateEffectiveSubtitleSettings(hostname, domainRule = {}) {
     return { enabled: false, strategy: 'none', displayMode: 'off' };
 }
 
-export function calculateEffectiveSelectorSettings(globalSelector, ruleSelector, override) {
+function calculateEffectiveSelectorSettings(globalSelector, ruleSelector, override) {
     const defaultSelector = globalSelector || { content: '', exclude: '' };
     let finalContentSelector = defaultSelector.content || '';
     let finalExcludeSelector = defaultSelector.exclude || '';
@@ -133,7 +133,7 @@ export function calculateEffectiveSelectorSettings(globalSelector, ruleSelector,
 }
 
 /** Scalar overrides a domain rule may apply onto hostname-effective settings. */
-export const DOMAIN_RULE_OVERRIDE_KEYS = Object.freeze([
+const DOMAIN_RULE_OVERRIDE_KEYS = Object.freeze([
     'autoTranslate',
     'translatorEngine',
     'targetLanguage',
@@ -226,7 +226,7 @@ export function removeAiEngineFromSettings(settings, engineId) {
 }
 
 /** Keys popup/options may write onto a domain rule (plus subtitleDisplayMode alias). */
-export const DOMAIN_RULE_WRITABLE_KEYS = Object.freeze([
+const DOMAIN_RULE_WRITABLE_KEYS = Object.freeze([
     ...DOMAIN_RULE_OVERRIDE_KEYS,
     'cssSelector',
     'cssSelectorOverride',

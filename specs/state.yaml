@@ -1,15 +1,36 @@
-workflow_mode: solo-git
-session:
-  active_flow: none
-  epic: null
-  story: null
-  started_at: null
+# specs/state.yaml — 当前会话状态
+#
+# 契约：bigpowers `skills/session-state/SKILL.md` → 「File Format: specs/state.yaml」
+# 本文件只回答一个问题：**现在这个会话处于什么阶段**。
+#
+# 以下事实各有唯一 SoT，禁止在本文件手抄副本（手抄是历史上版本/路线漂移的根因）：
+#   - 版本号          → package.json（构建已从此处注入 dist manifest）
+#   - 史诗/故事状态   → specs/execution-status.yaml（+ 各 epic.yaml）
+#   - 发布索引 / 路线 → specs/release-plan.yaml
+#   - 产品范围        → specs/product/SCOPE_LATEST.yaml
+# 门禁：test/planning-state.test.mjs
+#
+# anti-pattern（同文档明列）："Duplicate Plan" —— 不要把 release-plan 或 epic 分片抄进来。
+
+active_flow: none            # planning | build_epic | fix_bug | none
+active_epic_id: null
+active_story_id: null        # required when epic mode: folder
+active_bug_id: null          # BUG-YYYY-MM-DDTHHMMSS when fix_bug
+release:
+  target_version: null       # NOT tracked manually — 版本由 package.json 决定
+  last_tag: null
+  last_publish: null
+epic_cycle:
+  current_step: null
+  next_skill: null
+  completed_steps: []
+bug_cycle:
+  current_step: null
+  completed_steps: []
 git:
   branch: main
-  head: 20921b3
+  hash: null                 # 不手抄 commit hash；需要时现读 `git rev-parse --short HEAD`
 handoff:
+  last_step_completed: "1.7.4 全盘重构：报告阶段 1–4 + 穷尽式审计批 1–8 全部落地（台账 specs/verifications/refactor-ledger.md）"
+  open_decisions: []
   next_skill: survey-context
-  note: "1.6.2 on main. Next recommended: e02 Chromium reach (1.7.0), or e05 residual polish if user prefers."
-product:
-  version: "1.6.2"
-  release_track: R2-reach

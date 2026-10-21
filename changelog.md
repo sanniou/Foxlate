@@ -9,7 +9,6 @@
 
 ### ♻️ Quality
 *   Record the investigation of the reported `A B C` false-positive trigger. Standard browser events did not reproduce it; further diagnosis requires browser event telemetry if the issue remains reproducible.
-*   Test suite: **104**.
 
 ## [1.7.3] - 2026-07-22
 

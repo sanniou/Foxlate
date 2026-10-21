@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { build } from 'esbuild';
 import { JSDOM } from 'jsdom';
+import { createI18nMock, englishMessage } from './helpers/i18n-mock.mjs';
 
 const projectRoot = path.resolve(import.meta.dirname, '..');
 
@@ -49,40 +50,7 @@ async function bundlePopupModules() {
 
 function installBrowserMock() {
     globalThis.__foxlateBrowserMock = {
-        i18n: {
-            getMessage(key) {
-                const messages = {
-                    popupTranslatePage: 'Translate Page',
-                    popupShowOriginal: 'Show Original',
-                    popupRuleDefault: 'Using default settings',
-                    googleTranslate: 'Google',
-                    deeplxTranslate: 'DeepLx',
-                    displayModeTranslated: 'Translated',
-                    displayModeBilingual: 'Bilingual',
-                    displayModeOriginal: 'Original',
-                    popupDisplayModeReplace: 'Replace',
-                    popupDisplayModeAppend: 'Append',
-                    popupDisplayModeHover: 'Hover',
-                    popupDisplayModeSiteHint: 'Saved for this site',
-                    subtitleDisplayModeOff: 'Off',
-                    subtitleDisplayModeTranslated: 'Translated',
-                    subtitleDisplayModeBilingual: 'Bilingual',
-                    auto: 'Auto',
-                    english: 'English',
-                    simplifiedChinese: 'Chinese',
-                    japanese: 'Japanese',
-                    korean: 'Korean',
-                    french: 'French',
-                    german: 'German',
-                    spanish: 'Spanish',
-                    russian: 'Russian',
-                };
-                return messages[key] || key;
-            },
-            getUILanguage() {
-                return 'en-US';
-            },
-        },
+        i18n: createI18nMock(),
         runtime: {
             getManifest: () => ({ version: '1.6.0' }),
             onMessage: { addListener: () => {} },
@@ -107,8 +75,8 @@ function installBrowserMock() {
     };
 }
 
-function setupDom() {
-    const dom = new JSDOM(`<!doctype html><html><body>
+function setupDom(html) {
+    const dom = new JSDOM(html || `<!doctype html><html><body>
         <select id="sourceLanguageSelect"></select>
         <select id="targetLanguageSelect"></select>
         <select id="engineSelect"></select>
@@ -155,15 +123,68 @@ test('popup modules own element lookup and translated select rendering', async (
     const elements = queryPopupElements(document);
     const renderer = new PopupRenderer(elements);
 
-    renderer.populateSelect(elements.engineSelect, { google: 'googleTranslate', deeplx: 'deeplxTranslate' }, 'deeplx');
+    // 用真实的引擎映射表取 key，避免测试里手写的假 key 与产品侧脱节。
+    renderer.populateSelect(
+        elements.engineSelect,
+        { google: 'googleTranslate', deeplx: 'deeplx' },
+        'deeplx',
+    );
     renderer.renderTranslationButtonState('translated');
     renderer.renderRuleIndicator('default');
 
     assert.equal(elements.engineSelect.value, 'deeplx');
-    assert.equal(elements.engineSelect.selectedOptions[0].textContent, 'DeepLx');
+    assert.equal(elements.engineSelect.selectedOptions[0].textContent, englishMessage('deeplx'));
     assert.equal(elements.translatePageBtn.dataset.state, 'translated');
-    assert.equal(elements.translatePageBtn.querySelector('.btn-text').textContent, 'Show Original');
-    assert.equal(elements.currentRuleIndicator.textContent, 'Using default settings');
+    assert.equal(elements.translatePageBtn.querySelector('.btn-text').textContent, englishMessage('popupShowOriginal'));
+    assert.equal(elements.currentRuleIndicator.textContent, englishMessage('popupRuleDefault'));
+});
+
+test('every i18n-text element in the real popup markup receives localized text', async () => {
+    // 用真实 popup.html，而不是测试自己手抄的瘦身版 DOM：
+    // 这样“标记里写了 i18n-text，但应用阶段没真正写进去”的缺陷才逃不掉。
+    const popupHtml = await readFile(path.join(projectRoot, 'src/popup/popup.html'), 'utf8');
+    const dom = setupDom(popupHtml);
+    const { PopupRenderer, queryPopupElements } = await bundlePopupModules();
+
+    const zhMessages = JSON.parse(await readFile(path.join(projectRoot, 'public/_locales/zh_CN/messages.json'), 'utf8'));
+    const renderer = new PopupRenderer(queryPopupElements(dom.window.document), {
+        browserApi: {
+            i18n: {
+                getMessage: (key) => zhMessages[key]?.message ?? '',
+                getUILanguage: () => 'zh-CN',
+            },
+        },
+    });
+
+    renderer.applyTranslations(dom.window.document);
+
+    // 逐个元素回查：消息必须真的落到可见文本上。
+    // 典型漏网：分段按钮没有 .btn-text 子元素，旧实现会整段跳过。
+    const notApplied = [];
+    for (const element of dom.window.document.querySelectorAll('[i18n-text]')) {
+        const key = element.getAttribute('i18n-text');
+        const expected = zhMessages[key]?.message;
+        assert.ok(expected, `${key} 必须在 zh_CN 词典中存在`);
+
+        const textTarget = element.querySelector('.btn-text') ?? element;
+        if (textTarget.textContent.trim() !== expected) {
+            notApplied.push(`${key}: 实际 ${JSON.stringify(textTarget.textContent.trim())}，应为 ${JSON.stringify(expected)}`);
+        }
+    }
+
+    assert.deepEqual(notApplied, [], `以下 i18n-text 元素没有拿到本地化文案：\n${notApplied.join('\n')}`);
+    assert.equal(dom.window.document.documentElement.lang, 'zh-CN');
+
+    // 主按钮的图标/加载态子元素不能被文案写入清掉。
+    const primaryButton = dom.window.document.querySelector('#translatePageBtn');
+    assert.equal(primaryButton.querySelector('.btn-text').textContent, zhMessages.popupTranslatePage.message);
+    assert.ok(primaryButton.querySelector('.btn-spinner'), '写文案不得删除按钮里的 spinner');
+
+    // 分段按钮就是回归现场，单独钉一下。
+    assert.equal(
+        dom.window.document.querySelector('#displayModeGroup [data-mode="replace"]').textContent.trim(),
+        zhMessages.popupDisplayModeReplace.message,
+    );
 });
 
 test('popup action layer uses host-scoped settings and message registry protocols', async () => {

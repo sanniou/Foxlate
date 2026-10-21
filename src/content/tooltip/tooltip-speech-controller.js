@@ -1,4 +1,4 @@
-import { detectSpeechLang } from '../../common/utils.js';
+import { detectSpeechLang, loadLanguageDetector } from '../../common/lang-detect.js';
 import { createTooltipIcon } from './tooltip-icons.js';
 
 export class TooltipSpeechController {
@@ -8,6 +8,8 @@ export class TooltipSpeechController {
     #currentLanguage = 'auto';
     #sourceLang = 'auto';
     #targetLang = null;
+    // 每次朗读/停止都自增，使等待异步资源（franc）期间发生的旧调用失效。
+    #speakToken = 0;
 
     constructor({ speechSynthesis = window.speechSynthesis } = {}) {
         this.#speechSynthesis = speechSynthesis;
@@ -25,10 +27,11 @@ export class TooltipSpeechController {
         }
 
         this.#currentLanguage = language;
-        this.#speak(text, language, tooltipEl, browserApi);
+        void this.#speak(text, language, tooltipEl, browserApi);
     }
 
     stop(tooltipEl, browserApi) {
+        this.#speakToken++;
         if (this.#speechSynthesis?.speaking) {
             this.#speechSynthesis.cancel();
         }
@@ -55,14 +58,23 @@ export class TooltipSpeechController {
         updateButton('.target-speech-btn', 'target');
     }
 
-    #speak(text, language, tooltipEl, browserApi) {
+    async #speak(text, language, tooltipEl, browserApi) {
         this.stop(tooltipEl, browserApi);
         if (!text || !text.trim() || !this.#speechSynthesis) return;
 
+        const token = this.#speakToken;
+        let resolvedLang = this.#sourceLang;
+        if (language === 'target') {
+            resolvedLang = this.#targetLang;
+        } else if (this.#sourceLang === 'auto') {
+            // franc 是按需加载资源；先等它就绪再判定语种，避免用启发式规则误报。
+            await loadLanguageDetector();
+            if (token !== this.#speakToken) return; // 等待期间用户已重新操作
+            resolvedLang = detectSpeechLang(text);
+        }
+
         this.#currentUtterance = new SpeechSynthesisUtterance(text);
-        this.#currentUtterance.lang = language === 'target'
-            ? this.#targetLang
-            : (this.#sourceLang === 'auto' ? detectSpeechLang(text) : this.#sourceLang);
+        this.#currentUtterance.lang = resolvedLang;
 
         this.#currentUtterance.onstart = () => {
             this.#isPlaying = true;

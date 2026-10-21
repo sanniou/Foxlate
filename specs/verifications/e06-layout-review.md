@@ -4,18 +4,6 @@
 **Surface:** popup · options · floating panels · buttons  
 **Branch:** `feat/e06-ui-redesign`
 
-## Scores
-
-| Dim | Before | After | Note |
-|-----|-------:|------:|------|
-| Popup hierarchy | 5.5 | **8.0** | CTA + one control surface |
-| Popup density | 6.0 | **8.0** | full-width mode; no nested cards |
-| Options IA | 5.0 | **7.5** | nav groups; denser lists; title+action row |
-| Button system | 6.0 | **8.0** | loading ≠ translated; action clusters |
-| Floating panels | 6.5 | **8.0** | pill quick-action; tighter tooltip |
-| Motion / feedback | 5.5 | **7.0** | spinner on CTA; reduced-motion |
-| **Overall structure** | **5.7** | **7.8** | modern tool shell; still not “app-grade” IA |
-
 ## Findings → status
 
 ### P0 Popup — done

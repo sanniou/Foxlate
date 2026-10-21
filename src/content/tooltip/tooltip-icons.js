@@ -20,10 +20,26 @@ export function createTooltipIcon(iconName, size = 16) {
     return svg;
 }
 
-export function createTooltipIconButton(className, iconName, title) {
+export function createTooltipIconButton(className, iconName, label) {
     const button = document.createElement('button');
+    button.type = 'button';
     button.className = `foxlate-icon-btn ${className}`;
-    button.title = title || '';
+    setTooltipIconButtonLabel(button, label);
     button.appendChild(createTooltipIcon(iconName));
     return button;
+}
+
+/**
+ * 图标按钮只有图形、没有可见文字，无障碍名称必须同时写到 `title`（鼠标悬停提示）
+ * 与 `aria-label`（读屏）上。按钮文案会随状态变化（固定/取消固定、展开/折叠、
+ * 已复制），所以两处必须一起改，否则读屏用户会听到上一个状态的名称。
+ */
+export function setTooltipIconButtonLabel(button, label) {
+    const text = label || '';
+    button.title = text;
+    if (text) {
+        button.setAttribute('aria-label', text);
+    } else {
+        button.removeAttribute('aria-label');
+    }
 }

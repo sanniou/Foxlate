@@ -1,4 +1,8 @@
-# Feature inventory (live)
+# Feature inventory — 1.7.1 快照（非 live）
+
+> 这是 1.7.1 时点的一次打分快照，**不是现行状态**。
+> 现行状态见 `specs/verifications/full-refactor-review-1.7.4.md` 第 1 节（实测基线）与第 5 节（功能合理性）。
+> 原文件头写作 “(live)”，但它自 1.7.1 后未再更新 —— 声称“live”却无人维护的文档会误导读者，比不写更差。
 
 **Baseline:** 1.7.1 landed. **e08:** selection single path + input event + precheck-all-skip notice.
 
@@ -20,9 +24,3 @@
 | Precheck | 8.2 | all-skipped UX |
 | Messaging | 8.0 | TRANSLATE_SELECTION_REQUEST |
 | **Overall** | **8.2** | |
-
-## Cleaned noise
-
-- Removed duplicate `plans/*.md` (archive copies remain)
-- Dropped dead `precheckRules` critical-key
-- Options write path no longer dual-writes cssSelector by hand

@@ -1,3 +1,5 @@
+import { joinSubtitleFragments } from '../../common/text-join.js';
+
 export function parseYouTubeTimedSentences(subtitleContent) {
   if (!subtitleContent || subtitleContent.trim() === '') {
     throw new Error('Content is empty.');
@@ -40,7 +42,7 @@ export function parseYouTubeTimedSentences(subtitleContent) {
       sentenceStartTime = block.startTime;
     }
 
-    sentenceBuffer += `${block.text} `;
+    sentenceBuffer = joinSubtitleFragments([sentenceBuffer, block.text]);
 
     while (sentenceBoundaryRegex.test(sentenceBuffer)) {
       const match = sentenceBuffer.match(sentenceBoundaryRegex);

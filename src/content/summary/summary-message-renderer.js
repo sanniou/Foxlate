@@ -1,4 +1,6 @@
 import { marked } from '../../lib/marked.esm.js';
+import { escapeHtml } from '../../common/escape.js';
+import { sanitizeHtml } from '../../common/html-sanitizer.js';
 import { summaryLayoutController } from '../layout/summary-layout-controller.js';
 
 export class SummaryMessageRenderer {
@@ -52,9 +54,11 @@ export class SummaryMessageRenderer {
         if (!messageEl) return;
 
         messageEl.classList.add('is-editing');
+        // content 是消息原文（含用户输入与 AI 输出），必须转义后再放入 textarea，
+        // 否则 `</textarea><img src=x onerror=...>` 可以逃逸出来。
         messageEl.innerHTML = `
             <div class="message-edit-area">
-                <textarea rows="3">${content}</textarea>
+                <textarea rows="3">${escapeHtml(content)}</textarea>
                 <div class="message-actions">
                     <button data-action="cancel-edit" aria-label="Cancel">${this.getIcon('cancel')}</button>
                     <button data-action="save-edit" aria-label="Save">${this.getIcon('save')}</button>
@@ -159,7 +163,10 @@ export class SummaryMessageRenderer {
         contentDiv.className = 'message-content';
 
         try {
-            contentDiv.innerHTML = marked.parse(content);
+            // marked 只做 Markdown → HTML 的转换，**不做任何安全过滤**，原始 HTML 会原样透传。
+            // 内容来自第三方 LLM，而 LLM 的输入是被总结的任意网页，页面可用提示注入
+            // 诱导模型输出 <img src=x onerror=...>。这里必须过白名单净化。
+            contentDiv.innerHTML = sanitizeHtml(marked.parse(content));
         } catch (error) {
             console.error('[Foxlate Summary] Markdown parsing error:', error);
             contentDiv.textContent = content;

@@ -56,8 +56,10 @@
   "web_accessible_resources": [
     {
       "resources": [
+        "common/tokens.css",
         "content/style.css",
-        "content/enhanced-style.css"
+        "content/enhanced-style.css",
+        "lib/franc.bundle.mjs"
       ],
       "matches": [
         "<all_urls>"

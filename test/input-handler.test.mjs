@@ -63,7 +63,7 @@ function createHandler(InputHandler, settings, translations = []) {
     return handler;
 }
 
-function press(dom, input, { key, code }, value) {
+function press(dom, input, { key, code, ...eventInit }, value) {
     input.value = value;
     input.setSelectionRange(value.length, value.length);
     input.dispatchEvent(new dom.window.KeyboardEvent('keydown', {
@@ -71,6 +71,14 @@ function press(dom, input, { key, code }, value) {
         cancelable: true,
         key,
         code,
+        ...eventInit,
+    }));
+}
+
+function composition(dom, input, type) {
+    input.dispatchEvent(new dom.window.CompositionEvent(type, {
+        bubbles: true,
+        data: '',
     }));
 }
 
@@ -104,6 +112,163 @@ test('input translation triggers once for three consecutive spaces', async () =>
 
     assert.equal(translations.length, 1);
     handler.destroy();
+});
+
+test('IME composition keydowns do not count as consecutive trigger presses', async () => {
+    const dom = setupDom();
+    const InputHandler = await loadInputHandler();
+    const translations = [];
+    const handler = createHandler(InputHandler, {}, translations);
+    const input = document.getElementById('input');
+
+    // 中文输入法选词时，浏览器上报的 keydown 仍是 key=" "/code="Space"，
+    // 但 isComposing=true；这些按键不能进入连按计数。
+    press(dom, input, { key: ' ', code: 'Space', isComposing: true }, '你');
+    press(dom, input, { key: ' ', code: 'Space', isComposing: true }, '你好');
+    press(dom, input, { key: ' ', code: 'Space', isComposing: true }, '你好吗');
+
+    assert.equal(translations.length, 0);
+    handler.destroy();
+});
+
+test('legacy IME keyCode 229 is ignored even without isComposing', async () => {
+    const dom = setupDom();
+    const InputHandler = await loadInputHandler();
+    const translations = [];
+    const handler = createHandler(InputHandler, {}, translations);
+    const input = document.getElementById('input');
+
+    press(dom, input, { key: ' ', code: 'Space', keyCode: 229 }, '你');
+    press(dom, input, { key: ' ', code: 'Space', keyCode: 229 }, '你好');
+    press(dom, input, { key: ' ', code: 'Space', keyCode: 229 }, '你好吗');
+
+    assert.equal(translations.length, 0);
+    handler.destroy();
+});
+
+test('composition lifecycle blocks counting until compositionend', async () => {
+    const dom = setupDom();
+    const InputHandler = await loadInputHandler();
+    const translations = [];
+    const handler = createHandler(InputHandler, {}, translations);
+    const input = document.getElementById('input');
+
+    composition(dom, input, 'compositionstart');
+    press(dom, input, { key: ' ', code: 'Space' }, '你');
+    press(dom, input, { key: ' ', code: 'Space' }, '你好');
+    press(dom, input, { key: ' ', code: 'Space' }, '你好吗');
+    assert.equal(translations.length, 0);
+
+    composition(dom, input, 'compositionend');
+    press(dom, input, { key: ' ', code: 'Space' }, '你好吗 ');
+    press(dom, input, { key: ' ', code: 'Space' }, '你好吗  ');
+    press(dom, input, { key: ' ', code: 'Space' }, '你好吗   ');
+    assert.equal(translations.length, 1);
+
+    handler.destroy();
+});
+
+test('compositionend on a different target clears the composition state', async () => {
+    const dom = setupDom();
+    const InputHandler = await loadInputHandler();
+    const translations = [];
+    const handler = createHandler(InputHandler, {}, translations);
+    const input = document.getElementById('input');
+
+    composition(dom, input, 'compositionstart');
+    document.body.dispatchEvent(new dom.window.CompositionEvent('compositionend', {
+        bubbles: true,
+        data: '',
+    }));
+
+    press(dom, input, { key: ' ', code: 'Space' }, '你好');
+    press(dom, input, { key: ' ', code: 'Space' }, '你好 ');
+    press(dom, input, { key: ' ', code: 'Space' }, '你好  ');
+    assert.equal(translations.length, 1);
+
+    handler.destroy();
+});
+
+test('focus moving away from the composing input clears the composition state', async () => {
+    const dom = setupDom();
+    const InputHandler = await loadInputHandler();
+    const translations = [];
+    const handler = createHandler(InputHandler, {}, translations);
+    const input = document.getElementById('input');
+    const other = document.createElement('input');
+    document.body.appendChild(other);
+
+    composition(dom, input, 'compositionstart');
+    input.dispatchEvent(new dom.window.FocusEvent('focusout', { bubbles: true }));
+
+    press(dom, other, { key: ' ', code: 'Space' }, 'A');
+    press(dom, other, { key: ' ', code: 'Space' }, 'A ');
+    press(dom, other, { key: ' ', code: 'Space' }, 'A  ');
+    assert.equal(translations.length, 1);
+
+    handler.destroy();
+});
+
+test('magic word is not triggered while composing', async () => {
+    const dom = setupDom();
+    const InputHandler = await loadInputHandler();
+    const translations = [];
+    const handler = createHandler(InputHandler, { triggerWord: 'fox' }, translations);
+    const input = document.getElementById('input');
+
+    composition(dom, input, 'compositionstart');
+    press(dom, input, { key: 'x', code: 'KeyX' }, '你好 //fox');
+    await new Promise(resolve => setTimeout(resolve, 400));
+
+    assert.equal(translations.length, 0);
+    handler.destroy();
+});
+
+test('IME candidate selection with plain Space keydowns does not count', async () => {
+    const dom = setupDom();
+    const InputHandler = await loadInputHandler();
+    const translations = [];
+    const handler = createHandler(InputHandler, {}, translations);
+    const input = document.getElementById('input');
+
+    // 真实 fcitx5 + Chrome 的 X11 路径：选词空格的 keydown 是普通
+    // key=" "/code="Space"/keyCode=32/isComposing=false，但上屏的是汉字。
+    press(dom, input, { key: ' ', code: 'Space' }, '');
+    press(dom, input, { key: ' ', code: 'Space' }, '你');
+    press(dom, input, { key: ' ', code: 'Space' }, '你好');
+
+    assert.equal(translations.length, 0);
+    handler.destroy();
+});
+
+test('auto-repeat keydown does not count as consecutive presses', async () => {
+    const dom = setupDom();
+    const InputHandler = await loadInputHandler();
+    const translations = [];
+    const handler = createHandler(InputHandler, {}, translations);
+    const input = document.getElementById('input');
+
+    // 按住空格产生的 repeat keydown 不是用户连续按了三次。
+    press(dom, input, { key: ' ', code: 'Space', repeat: true }, 'A');
+    press(dom, input, { key: ' ', code: 'Space', repeat: true }, 'A ');
+    press(dom, input, { key: ' ', code: 'Space', repeat: true }, 'A  ');
+
+    assert.equal(translations.length, 0);
+    handler.destroy();
+});
+
+test('destroy cancels a pending magic-word debounce', async () => {
+    const dom = setupDom();
+    const InputHandler = await loadInputHandler();
+    const translations = [];
+    const handler = createHandler(InputHandler, { triggerWord: 'fox' }, translations);
+    const input = document.getElementById('input');
+
+    press(dom, input, { key: 'x', code: 'KeyX' }, 'hello //fox');
+    handler.destroy();
+    await new Promise(resolve => setTimeout(resolve, 400));
+
+    assert.equal(translations.length, 0);
 });
 
 test('invalid consecutive-key thresholds do not trigger on the first key', async () => {

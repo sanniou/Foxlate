@@ -1,24 +1,29 @@
 import { InputIndicator } from './input-indicator.js';
+import { debounce } from '../common/timing.js';
 import {
-    debounce,
     escapeRegex,
     getKeyRepresentation,
     getLastSentence,
+    getSelectionStart,
     getTextContent,
     isSupportedInputElement,
     resolveTargetLanguageOverride,
     shouldAppendKey,
 } from './input/input-text-utils.js';
 import { InputTranslationClient } from './input/input-translation-client.js';
+import { KeySequence } from './input/key-sequence.js';
+
+/** 连按次数的可配置区间。 */
+const MIN_PRESSES = 2;
+const MAX_PRESSES = 5;
+const DEFAULT_PRESSES = 3;
 
 export class InputHandler {
     constructor() {
         this.settings = null;
-        this.keyPressCount = 0;
-        this.lastKeypressTime = 0;
-        this.lastKeyPressed = null;
-        this.lastEventTarget = null;
-        this.lastSelectionIndex = null;
+        this.keySequence = new KeySequence();
+        this.isComposing = false;
+        this.compositionTarget = null;
         this.isInitialized = false;
         this.indicator = new InputIndicator();
         this.translationClient = new InputTranslationClient();
@@ -65,6 +70,32 @@ export class InputHandler {
         this.boundHandleKeydown = this.handleKeydown.bind(this);
         document.addEventListener('keydown', this.boundHandleKeydown, true);
 
+        // 输入法组字期间浏览器仍会上报 keydown（选词的空格就是 key=" "/code="Space"），
+        // 必须按 composition 生命周期整体屏蔽，否则中文输入会被当成连按触发。
+        this.boundHandleCompositionStart = (event) => {
+            if (!isSupportedInputElement(event.target)) return;
+            this.isComposing = true;
+            this.compositionTarget = event.target;
+            this.keySequence.reset();
+        };
+        // compositionend 的目标不一定是原输入框（元素可能已被移除或焦点已转移），
+        // 因此这里必须无条件收尾，避免 isComposing 永久卡在 true。
+        this.boundHandleCompositionEnd = () => {
+            this.resetCompositionState();
+        };
+        this.boundHandleFocusOut = (event) => {
+            if (event.target === this.compositionTarget) {
+                this.resetCompositionState();
+            }
+        };
+        this.boundHandleWindowBlur = () => {
+            this.resetCompositionState();
+        };
+        document.addEventListener('compositionstart', this.boundHandleCompositionStart, true);
+        document.addEventListener('compositionend', this.boundHandleCompositionEnd, true);
+        document.addEventListener('focusout', this.boundHandleFocusOut, true);
+        window.addEventListener('blur', this.boundHandleWindowBlur, true);
+
         this.boundDestroy = this.destroy.bind(this);
     }
 
@@ -77,6 +108,15 @@ export class InputHandler {
         // 0. 仅支持纯文本输入框 (Input/Textarea)，忽略富文本编辑器 (contentEditable)
         // 这是为了防止在富文本编辑器中直接替换文本导致格式丢失
         if (!isSupportedInputElement(event.target)) {
+            return;
+        }
+
+        // 输入法组字期间的 keydown 不是普通按键：中文选词的空格也会带
+        // key=" "/code="Space"。此时既不能累计连按，也不能继续走魔法词。
+        // keyCode 229 是部分浏览器/输入法在 isComposing 缺失时的兼容信号。
+        // event.repeat 是按住不放产生的自动重复，也不能当成“连按三次”。
+        if (event.isComposing || event.keyCode === 229 || event.repeat || this.isComposing) {
+            this.keySequence.reset();
             return;
         }
 
@@ -96,102 +136,57 @@ export class InputHandler {
 
     handleConsecutiveKeyPress(event) {
         const { consecutiveKey } = this.settings;
-        const consecutiveKeyPresses = Math.max(2, Math.min(5, Number.parseInt(this.settings.consecutiveKeyPresses, 10) || 3));
+        const requiredPresses = Math.max(
+            MIN_PRESSES,
+            Math.min(MAX_PRESSES, Number.parseInt(this.settings.consecutiveKeyPresses, 10) || DEFAULT_PRESSES),
+        );
 
-        if (this.settings.debugMode) {
-            console.log('[Foxlate] Consecutive key check:', 'event.key:', event.key, 'expected:', consecutiveKey, 'count:', this.keyPressCount);
-        }
-
-        // 检查是否为指定的触发键
-        const isTriggerKey = event.code === consecutiveKey || event.key === consecutiveKey;
-        if (!isTriggerKey) {
-            this.keyPressCount = 0;
-            this.lastKeyPressed = null;
-            this.lastEventTarget = null;
-            this.lastSelectionIndex = null;
+        // 不是触发键、或不在受支持的输入框里：这一串就断了
+        if ((event.code !== consecutiveKey && event.key !== consecutiveKey) || !isSupportedInputElement(event.target)) {
+            this.keySequence.reset();
             return;
         }
 
         const target = event.target;
-        // 双重检查，虽然 handleKeydown 已经检查过了
-        if (!isSupportedInputElement(target)) {
-            this.keyPressCount = 0;
-            this.lastKeyPressed = null;
-            this.lastEventTarget = null;
-            this.lastSelectionIndex = null;
+        const count = this.keySequence.register({
+            consecutiveKey,
+            target,
+            selectionStart: getSelectionStart(target),
+            value: getTextContent(target),
+            triggerChar: getKeyRepresentation(consecutiveKey),
+        });
+
+        if (this.settings.debugMode) {
+            console.log('[Foxlate] Consecutive key count:', count, 'required:', requiredPresses);
+        }
+
+        if (count < requiredPresses) {
             return;
         }
 
-        const currentTime = Date.now();
-        let currentSelectionStart = null;
-        try {
-            currentSelectionStart = target.selectionStart;
-        } catch (e) {
-            // Some input types do not support selectionStart
+        this.keySequence.reset();
+
+        // preventDefault 阻止了当前按键上屏，所以 target.value 的长度就是要替换的终点。
+        // 若这个键本身会产生字符（空格/回车/单个字符），它还没进 value，需要补上才译。
+        let fullText = getTextContent(target);
+        if (shouldAppendKey(event.key)) {
+            fullText += getKeyRepresentation(event.key);
         }
+        const { text: lastSentence, index: startIndex } = getLastSentence(fullText);
 
-        // 检查是否为连续按下的同一个键
-        const isSameKey = this.lastKeyPressed === consecutiveKey;
-        const isWithinTime = currentTime - this.lastKeypressTime <= 500;
-        const isSameTarget = this.lastEventTarget === target;
+        event.preventDefault();
+        this.triggerTranslation(target, lastSentence, null, { start: startIndex, end: target.value.length });
+    }
 
-        // 检查光标位置是否连续 (假设每次按键光标前进1位)
-        let isConsecutivePosition = true;
-        // 只有当能够获取到光标位置时才检查
-        if (currentSelectionStart !== null && this.lastSelectionIndex !== null) {
-            isConsecutivePosition = currentSelectionStart === this.lastSelectionIndex + 1;
-        }
-
-        if (isSameKey && isWithinTime && isSameTarget && isConsecutivePosition) {
-            // 在500ms内按下同一个键，且在同一个输入框，且光标连续，增加计数
-            this.keyPressCount++;
-        } else {
-            // 重置计数，开始新的连续按键序列
-            this.keyPressCount = 1;
-        }
-
-        this.lastKeypressTime = currentTime;
-        this.lastKeyPressed = consecutiveKey;
-        this.lastEventTarget = target;
-        this.lastSelectionIndex = currentSelectionStart;
-
-        if (this.settings.debugMode) {
-            console.log('[Foxlate] Key press count:', this.keyPressCount, 'required:', consecutiveKeyPresses);
-        }
-
-        if (this.keyPressCount >= consecutiveKeyPresses) {
-            this.keyPressCount = 0;
-            this.lastKeyPressed = null;
-            this.lastEventTarget = null;
-            this.lastSelectionIndex = null;
-
-            // 获取文本内容，改进对富文本编辑器的支持
-            let fullText = getTextContent(target);
-
-            // 改进：更精确地处理特殊键（如空格、回车等）
-            if (shouldAppendKey(event.key)) {
-                fullText += getKeyRepresentation(event.key);
-            }
-
-            // 获取最后一句
-            const { text: lastSentence, index: startIndex } = getLastSentence(fullText);
-
-            if (this.settings.debugMode) {
-                console.log('[Foxlate] Triggering translation via consecutive key, lastSentence:', lastSentence);
-            }
-            event.preventDefault();
-
-            // 触发翻译，指定替换范围
-            // 注意：因为 preventDefault 阻止了当前按键上屏，所以 target.value 的长度就是我们要替换的终点
-            // 如果 lastSentence 包含了当前按键（例如空格），它会被翻译。
-            // 替换范围是从 lastSentence 的起始位置到当前输入框内容的末尾。
-            this.triggerTranslation(target, lastSentence, null, { start: startIndex, end: target.value.length });
-        }
+    resetCompositionState() {
+        this.isComposing = false;
+        this.compositionTarget = null;
+        this.keySequence.reset();
     }
 
     handleMagicWord(target) {
         const triggerWord = this.settings.triggerWord;
-        if (!triggerWord) return;
+        if (!triggerWord || this.isComposing) return;
 
         if (!isSupportedInputElement(target)) return;
 
@@ -265,18 +260,36 @@ export class InputHandler {
             document.removeEventListener('keydown', this.boundHandleKeydown, true);
             this.boundHandleKeydown = null;
         }
+        if (this.boundHandleCompositionStart) {
+            document.removeEventListener('compositionstart', this.boundHandleCompositionStart, true);
+            this.boundHandleCompositionStart = null;
+        }
+        if (this.boundHandleCompositionEnd) {
+            document.removeEventListener('compositionend', this.boundHandleCompositionEnd, true);
+            this.boundHandleCompositionEnd = null;
+        }
+        if (this.boundHandleFocusOut) {
+            document.removeEventListener('focusout', this.boundHandleFocusOut, true);
+            this.boundHandleFocusOut = null;
+        }
+        if (this.boundHandleWindowBlur) {
+            window.removeEventListener('blur', this.boundHandleWindowBlur, true);
+            this.boundHandleWindowBlur = null;
+        }
+        this.resetCompositionState();
+        this.debounceMagicWord.cancel?.();
         this.activeTargets = new WeakSet();
         this.isInitialized = false;
     }
 }
 
 export function initializeInputHandler() {
-    if (window.getEffectiveSettings) {
-        const handler = new InputHandler();
-        handler.init();
-        return handler;
-    } else {
+    if (!window.getEffectiveSettings) {
         console.error('[Foxlate] Could not initialize InputHandler because getEffectiveSettings is not available.');
+        return null;
     }
-    return null;
+
+    const handler = new InputHandler();
+    handler.init();
+    return handler;
 }

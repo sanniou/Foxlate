@@ -1,17 +1,23 @@
 import browser from '../lib/browser-polyfill.js';
 import { MESSAGE_TYPES } from '../common/message-types.js';
 import { SettingsManager } from '../common/settings-manager.js';
+import { getHostnameFromUrl } from '../common/url-utils.js';
 
+/**
+ * 取当前标签页的主机名。
+ *
+ * 策略上只认 http(s)：popup 用它展示当前站点规则，对 `chrome://`、`about:` 这类
+ * 内部页说“主机名”没有意义（`new URL('chrome://extensions').hostname` 会得到
+ * `extensions`，那是错的）。解析本身走共享实现。
+ *
+ * @param {string} url 标签页 URL
+ * @returns {string | null} 主机名；非 http(s) 或无法解析时返回 null
+ */
 export function getHostname(url) {
-    try {
-        if (!url || !url.startsWith('http')) {
-            return null;
-        }
-        return new URL(url).hostname;
-    } catch (error) {
-        console.error(`[Popup] Could not parse hostname from URL: "${url}"`, error);
+    if (!url || !url.startsWith('http')) {
         return null;
     }
+    return getHostnameFromUrl(url);
 }
 
 export class PopupActions {

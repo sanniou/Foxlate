@@ -7,10 +7,6 @@
     "message": "一款强大的网页翻译工具，支持划词、全文和视频字幕翻译。集成 DeepLx、谷歌翻译和 AI 引擎，提供高级显示模式、域名规则和内容过滤。",
     "description": "用于应用商店列表的丰富描述。"
   },
-  "settingsHeading": {
-    "message": "Foxlate 设置",
-    "description": "设置页面的标题。"
-  },
   "generalSettings": {
     "message": "常规设置",
     "description": "常规设置部分标题。"
@@ -27,13 +23,13 @@
     "message": "谷歌翻译",
     "description": "谷歌翻译引擎的选项。"
   },
-  "aiTranslator": {
-    "message": "AI 翻译器 (GPT)",
-    "description": "AI 翻译器引擎的选项。"
-  },
   "aiEngineProfiles": {
     "message": "AI 引擎配置",
     "description": "AI 引擎配置部分的标题。"
+  },
+  "manageAiEngineProfiles": {
+    "message": "管理 AI 引擎",
+    "description": "打开 AI 引擎管理弹窗的按钮。"
   },
   "aiEngineName": {
     "message": "引擎名称：",
@@ -59,10 +55,6 @@
     "message": "模型名称：",
     "description": "AI 模型名称输入框的标签。"
   },
-  "testConnection": {
-    "message": "测试连接",
-    "description": "测试 API 连接的按钮文本。"
-  },
   "deeplxApiUrl": {
     "message": "DeepLx API URL：",
     "description": "DeepLx API URL 输入框的标签。"
@@ -71,9 +63,9 @@
     "message": "测试",
     "description": "测试按钮的文本。"
   },
-  "googleApiKey": {
-    "message": "谷歌 API 密钥：",
-    "description": "谷歌 API 密钥输入框的标签。"
+  "testTranslationTitle": {
+    "message": "翻译测试",
+    "description": "手动翻译测试面板的卡片标题。"
   },
   "targetLanguage": {
     "message": "目标语言：",
@@ -83,25 +75,13 @@
     "message": "内容选择器",
     "description": "内容 CSS 选择器文本区域的标签。"
   },
-  "contentSelectorDescription": {
-    "message": "指定需要翻译的元素的 CSS 选择器。扩展将根据元素的样式自动决定翻译应以内联还是块级形式显示。",
-    "description": "内容 CSS 选择器的辅助文本。"
-  },
   "excludeSelectorsLabel": {
     "message": "排除选择器",
     "description": "排除 CSS 选择器文本区域的标签。"
   },
-  "excludeSelectorsDescription": {
-    "message": "匹配这些选择器的元素（及其子元素）将不会被翻译。使用逗号分隔多个选择器。",
-    "description": "排除 CSS 选择器文本区域的辅助文本。"
-  },
   "ruleManagement": {
     "message": "规则管理",
     "description": "Rule Management section title."
-  },
-  "displayFormat": {
-    "message": "显示格式",
-    "description": "显示格式设置部分标题。"
   },
   "displayMode": {
     "message": "显示模式：",
@@ -119,10 +99,6 @@
     "message": "悬停模式",
     "description": "悬停时显示翻译的选项。"
   },
-  "domainRules": {
-    "message": "域名规则",
-    "description": "域名规则部分标题。"
-  },
   "domain": {
     "message": "域名：",
     "description": "域名输入框的标签。"
@@ -130,10 +106,6 @@
   "autoTranslate": {
     "message": "自动翻译：",
     "description": "自动翻译规则的标签。"
-  },
-  "rule": {
-    "message": "规则：",
-    "description": "规则选择下拉菜单的标签。"
   },
   "manualTranslate": {
     "message": "手动翻译",
@@ -162,10 +134,6 @@
   "editDomainRule": {
     "message": "编辑域名规则",
     "description": "编辑域名规则时模态框的标题。"
-  },
-  "domainRuleModalTitle": {
-    "message": "域名规则设置",
-    "description": "域名规则模态框的通用标题。"
   },
   "cancel": {
     "message": "取消",
@@ -207,17 +175,9 @@
     "message": "AI 引擎数据无效或不完整。",
     "description": "提供的数据不是有效的 AI 引擎配置。"
   },
-  "importAiEngineError": {
-    "message": "从文本导入 AI 引擎失败。",
-    "description": "从文本导入 AI 引擎配置失败的状态消息。"
-  },
   "importAiEngineModalTitle": {
     "message": "从文本导入 AI 引擎",
     "description": "从文本字符串导入 AI 引擎配置的模态框标题。"
-  },
-  "pasteAiEngineConfigPlaceholder": {
-    "message": "在此处粘贴 JSON 配置字符串...",
-    "description": "用户粘贴 AI 引擎配置的文本区域的占位符文本。"
   },
   "pasteAiEngineConfigLabel": {
     "message": "配置 JSON",
@@ -239,21 +199,9 @@
     "message": "使用默认设置",
     "description": "下拉菜单中继承全局设置的选项。"
   },
-  "selectorPlaceholderGlobal": {
-    "message": "例如：.class, #id, [attribute=value]",
-    "description": "全局 CSS 选择器文本区域的占位符。"
-  },
   "overrideDefaultSelectors": {
     "message": "覆盖默认选择器",
     "description": "CSS覆盖开关的标签。"
-  },
-  "selectorOverrideDescription": {
-    "message": "启用后，将仅使用上方定义的域名特定选择器，完全替换全局规则。如果某个输入框留空，则该类型的选择器将不会被应用。",
-    "description": "域名规则中选择器覆盖开关的辅助文本。"
-  },
-  "domainCannotBeEmpty": {
-    "message": "域名不能为空。",
-    "description": "域名输入为空时的错误消息。"
   },
   "saveRuleSuccess": {
     "message": "规则已成功保存。",
@@ -275,18 +223,6 @@
     "message": "您确定要删除此 AI 引擎吗？",
     "description": "删除 AI 引擎配置前的确认消息。"
   },
-  "currentRules": {
-    "message": "当前域名规则：",
-    "description": "当前域名规则列表的标题。"
-  },
-  "domainSpecificRules": {
-    "message": "域名特定规则",
-    "description": "域名特定规则的标题"
-  },
-  "rulesDescription": {
-    "message": "规则适用于精确的主机名。默认为“手动翻译”。",
-    "description": "域名规则的描述。"
-  },
   "cacheManagement": {
     "message": "缓存管理",
     "description": "缓存管理部分标题。"
@@ -294,10 +230,6 @@
   "cacheSizeLabel": {
     "message": "缓存大小（条目数）",
     "description": "缓存大小输入框的标签。"
-  },
-  "cacheSizeDescription": {
-    "message": "设置本地存储的翻译最大数量。更大的缓存可以提高性能，但会占用更多磁盘空间。设置为 0 可禁用缓存。",
-    "description": "缓存大小输入框的辅助文本。"
   },
   "currentCacheUsage": {
     "message": "当前用量：",
@@ -319,14 +251,6 @@
     "message": "保存设置",
     "description": "保存设置的按钮文本。"
   },
-  "saving": {
-    "message": "保存中...",
-    "description": "Text displayed when settings are being saved"
-  },
-  "saved": {
-    "message": "已保存",
-    "description": "Text displayed after settings are successfully saved"
-  },
   "exportSettings": {
     "message": "导出设置",
     "description": "导出设置的按钮文本。"
@@ -334,18 +258,6 @@
   "importSettings": {
     "message": "导入设置",
     "description": "导入设置的按钮文本。"
-  },
-  "saveSettingsSuccess": {
-    "message": "设置已成功保存！"
-  },
-  "saveSettingsError": {
-    "message": "保存设置失败。"
-  },
-  "addRuleSuccess": {
-    "message": "域名规则已添加。"
-  },
-  "addRuleErrorNoDomain": {
-    "message": "请输入一个域名。"
   },
   "removeRule": {
     "message": "移除"
@@ -390,12 +302,6 @@
   "testError": {
     "message": "错误"
   },
-  "aiApiKeyPlaceholder": {
-    "message": "请输入您的 OpenAI 兼容 API 密钥"
-  },
-  "aiApiUrlPlaceholder": {
-    "message": "例如：https://api.openai.com/v1/chat/completions"
-  },
   "aiCustomPrompt": {
     "message": "自定义提示词:",
     "description": "AI 引擎的自定义提示词文本区域的标签。"
@@ -408,10 +314,6 @@
     "message": "短文本翻译引擎",
     "description": "用于翻译短文本的备用翻译引擎标签。"
   },
-  "aiCustomPromptPlaceholder": {
-    "message": "你是一个翻译助手。请将用户的文本从 {sourceLang} 翻译成 {targetLang}。只输出翻译后的文本。变量 {sourceLang} 和 {targetLang} 会被替换为语言代码（如 EN, ZH）。",
-    "description": "自定义提示词文本区域的占位符。"
-  },
   "aiApiUrlMissingError": {
     "message": "AI API 终端 URL 未在设置中配置，请前往设置。",
     "description": "当 AI API 终端 URL 缺失时的错误信息。"
@@ -420,29 +322,8 @@
     "message": "AI 模型名称未在设置中配置，请前往设置。",
     "description": "当 AI 模型名称缺失时的错误信息。"
   },
-  "aiModelNamePlaceholder": {
-    "message": "例如：gpt-3.5-turbo"
-  },
-  "deeplxApiUrlPlaceholder": {
-    "message": "例如：https://api.deeplx.com/translate"
-  },
-  "googleApiKeyPlaceholder": {
-    "message": "请输入您的谷歌云翻译 API 密钥"
-  },
-  "domainPlaceholder": {
-    "message": "例如：example.com"
-  },
-  "popupTitle": {
-    "message": "Foxlate"
-  },
   "popupSourceLanguage": {
     "message": "原始语言："
-  },
-  "popupTargetLanguage": {
-    "message": "目标语言："
-  },
-  "popupTranslationService": {
-    "message": "翻译服务："
   },
   "popupTranslatePage": {
     "message": "翻译此页",
@@ -458,14 +339,11 @@
   },
   "popupShowOriginal": {
     "message": "显示原文",
-    "description": "将页面恢复到原始状态的按钮文本。"
-  },
-  "popupStopTranslation": {
-    "message": "停止翻译",
-    "description": "停止当前页面翻译的按钮文本。"
+    "description": "页面已翻译时，切回原文的弹窗按钮文本。"
   },
   "popupTranslating": {
-    "message": "正在翻译..."
+    "message": "正在翻译…",
+    "description": "页面翻译进行中的弹窗按钮文本。"
   },
   "popupEmptyCandidates": {
     "message": "未找到可翻译文本。可在选项中调整内容选择器。",
@@ -474,19 +352,6 @@
   "popupAllPrecheckSkipped": {
     "message": "找到了文本，但内置过滤全部跳过（已是目标语言、URL、代码等）。",
     "description": "页面有节点但预检全部跳过时的提示。"
-  },
-  "popupAlwaysTranslate": {
-    "message": "总是翻译此网站"
-  },
-  "popupSettings": {
-    "message": "⚙️ 设置"
-  },
-  "popupAbout": {
-    "message": "关于"
-  },
-  "popupDisplayMode": {
-    "message": "显示模式:",
-    "description": "Popup 中显示模式下拉菜单的标签。"
   },
   "popupDisplayModeReplace": {
     "message": "替换模式",
@@ -539,10 +404,6 @@
     "message": "翻译",
     "description": "Text for the manual translate button in the content script."
   },
-  "logEntryPrecheckRuleError": {
-    "message": "[预检查] 规则 \"$1\" 错误：$2",
-    "description": "Log entry for error during pre-check rule application. Placeholders: [ruleName, errorMessage]"
-  },
   "logEntryCacheMiss": {
     "message": "[缓存] 翻译结果未在缓存中找到。将进行 API 调用。",
     "description": "Log entry for cache miss."
@@ -559,10 +420,6 @@
     "message": "显示日志",
     "description": "Button text to show the translation log."
   },
-  "testLogTitle": {
-    "message": "翻译日志",
-    "description": "Title for the translation log area."
-  },
   "logEntryStart": {
     "message": "[开始] 翻译 \"$1\" 从 $2 到 $3",
     "description": "Log entry for start of translation. Placeholders: [text, sourceLang, targetLang]"
@@ -571,17 +428,9 @@
     "message": "[预检查] 开始评估预检查规则。",
     "description": "Log entry for the start of pre-check rules."
   },
-  "logEntryPrecheckFinalCheck": {
-    "message": "[预检查] 所有擦除操作后剩余文本: \"$1\"",
-    "description": "Log entry showing the final text after erasures. Placeholder: [remainingText]"
-  },
   "logEntryPrecheckNoTranslation": {
     "message": "[预检查] 文本被判定无需翻译。返回原文。",
     "description": "Log entry when pre-check determines no translation is needed."
-  },
-  "logEntryPrecheckError": {
-    "message": "[预检查] 错误: $1",
-    "description": "Log entry for a pre-check configuration error. Placeholder: [errorMessage]"
   },
   "logEntryEngineUsed": {
     "message": "[引擎] 使用翻译引擎: $1 ($2)",
@@ -619,14 +468,6 @@
     "message": "是必填项。",
     "description": "Suffix for required field error messages."
   },
-  "fillAllRequiredFields": {
-    "message": "请填写所有必填项。",
-    "description": "General message for missing required fields."
-  },
-  "enterTestText": {
-    "message": "请输入测试文本。",
-    "description": "Message when test text input is empty."
-  },
   "errorMissingTargetLanguage": {
     "message": "目标语言未配置。请更新设置。",
     "description": "当翻译任务缺少目标语言时的错误。"
@@ -634,10 +475,6 @@
   "errorMissingEngine": {
     "message": "翻译引擎未配置。请更新设置。",
     "description": "当翻译任务缺少翻译引擎时的错误。"
-  },
-  "errorMissingSelector": {
-    "message": "用于页面翻译的 CSS 选择器未配置。请更新设置。",
-    "description": "当页面翻译缺少 CSS 选择器时的错误。"
   },
   "popupTranslationNotAvailable": {
     "message": "此页面不支持翻译。",
@@ -659,25 +496,9 @@
     "message": "切换内容总结",
     "description": "用于切换内容总结的命令描述。"
   },
-  "runTestButton": {
-    "message": "运行测试",
-    "description": "The button text for running the global pre-check test."
-  },
-  "subtitleSettingsTitle": {
-    "message": "字幕设置",
-    "description": "域名规则弹窗中字幕设置部分的标题。"
-  },
-  "summarySettingsTitle": {
-    "message": "内容总结设置",
-    "description": "域名规则弹窗中内容总结设置部分的标题。"
-  },
   "mainBodySelectorLabel": {
     "message": "主体内容选择器",
     "description": "主体内容 CSS 选择器文本区域的标签。"
-  },
-  "mainBodySelectorDescription": {
-    "message": "为页面的主要内容区域（例如文章正文）指定一个选择器。此选择器将用于内容总结功能。",
-    "description": "主体内容 CSS 选择器的辅助文本。"
   },
   "enableContentSummary": {
     "message": "启用内容总结",
@@ -686,18 +507,6 @@
   "summaryAiModelLabel": {
     "message": "总结 AI 模型",
     "description": "内容总结的 AI 模型选择标签。"
-  },
-  "errorMainBodySelectorRequired": {
-    "message": "启用内容总结时，必须指定主体内容选择器。",
-    "description": "验证错误信息。"
-  },
-  "toggleSummary": {
-    "message": "切换内容总结",
-    "description": "内容总结浮动操作按钮的 ARIA 标签。"
-  },
-  "errorSummaryModelRequired": {
-    "message": "启用内容总结时，必须选择一个总结 AI 模型。",
-    "description": "验证错误信息。"
   },
   "enableSubtitleTranslation": {
     "message": "启用字幕翻译",
@@ -727,65 +536,17 @@
     "message": "双语",
     "description": "字幕显示模式：同时显示原文和译文。"
   },
-  "popupEnableSubtitles": {
-    "message": "启用字幕翻译",
-    "description": "在弹窗中启用/禁用字幕翻译的开关标签"
+  "subtitleToolbarTitleEnabled": {
+    "message": "Foxlate（字幕已开启）",
+    "description": "字幕翻译开启时，工具栏图标的悬停提示。"
   },
-  "privacyPolicy": {
-    "message": "隐私政策",
-    "description": "隐私政策链接的文本。"
-  },
-  "popupSubtitlesHint": {
-    "message": "仅在支持的视频页面生效",
-    "description": "字幕翻译开关的提示文字。"
-  },
-  "syncStatusSynced": {
-    "message": "已同步",
-    "description": "AI引擎已同步到云端的状态"
-  },
-  "syncStatusLocal": {
-    "message": "仅本地",
-    "description": "AI引擎仅保存在本地的状态"
-  },
-  "syncStatusSyncing": {
-    "message": "同步中...",
-    "description": "AI引擎正在同步的状态"
-  },
-  "syncStatusUnknown": {
-    "message": "未知状态",
-    "description": "AI引擎同步状态未知"
-  },
-  "retrySync": {
-    "message": "重试同步",
-    "description": "重试同步本地AI引擎的按钮"
-  },
-  "retryAllSync": {
-    "message": "重试全部同步",
-    "description": "重试同步所有本地AI引擎的按钮"
-  },
-  "retrySyncSuccess": {
-    "message": "引擎同步成功",
-    "description": "引擎重试同步成功时的提示"
-  },
-  "retrySyncFailed": {
-    "message": "重试同步失败",
-    "description": "引擎重试同步失败时的提示"
-  },
-  "noLocalEngines": {
-    "message": "没有本地引擎需要同步",
-    "description": "没有本地引擎需要同步时的提示"
-  },
-  "batchSyncResult": {
-    "message": "同步完成：$1$ 成功，$2$ 失败",
-    "description": "批量同步结果，显示成功和失败的数量"
+  "subtitleToolbarTitleDisabled": {
+    "message": "Foxlate（字幕已关闭）",
+    "description": "字幕翻译关闭时，工具栏图标的悬停提示。"
   },
   "defaultEngineNotFound": {
     "message": "默认翻译引擎不存在，请选择其他默认引擎",
     "description": "默认翻译引擎不存在时的警告信息"
-  },
-  "noEnginesInImport": {
-    "message": "导入数据中未找到引擎",
-    "description": "导入数据中没有找到引擎时的错误信息"
   },
   "summarySuggestButton": {
     "message": "建议",
@@ -807,22 +568,6 @@
     "message": "确认",
     "description": "Title for the confirm modal."
   },
-  "confirmDeleteAiEngineTitle": {
-    "message": "删除 AI 引擎",
-    "description": "Title for the confirm delete AI engine modal."
-  },
-  "clearCacheConfirmTitle": {
-    "message": "清除缓存",
-    "description": "Title for the clear cache confirm modal."
-  },
-  "resetSettingsConfirmTitle": {
-    "message": "重置设置",
-    "description": "Title for the reset settings confirm modal."
-  },
-  "confirmDeleteRuleTitle": {
-    "message": "删除规则",
-    "description": "Title for the delete rule confirm modal."
-  },
   "cloudBackups": {
     "message": "云端备份",
     "description": "Heading for the list of cloud backups."
@@ -831,17 +576,9 @@
     "message": "刷新云端数据",
     "description": "Button text to refresh the list of cloud backups."
   },
-  "cloudDataDescription": {
-    "message": "云端存储的设置备份列表。下载以恢复以前的版本或删除旧备份。",
-    "description": "Helper text for the cloud data list."
-  },
   "enableCloudSync": {
     "message": "启用云同步",
     "description": "用于启用云同步的开关标签。"
-  },
-  "enableCloudSyncDescription": {
-    "message": "启用后，您可以手动将设置上传到云端或下载到其他设备。",
-    "description": "云同步启用开关的辅助文本。"
   },
   "cloudSettingsStatus": {
     "message": "云端设置状态：未检查。",
@@ -931,10 +668,6 @@
     "message": "引擎",
     "description": "引擎设置的导航链接。"
   },
-  "navAppearance": {
-    "message": "外观",
-    "description": "外观设置的导航链接。"
-  },
   "navRules": {
     "message": "规则",
     "description": "规则管理的导航链接。"
@@ -975,33 +708,13 @@
     "message": "始终翻译当前站点",
     "description": "弹窗中自动翻译开关的辅助文本。"
   },
-  "appearanceSettings": {
-    "message": "外观设置",
-    "description": "外观设置的部分标题。"
-  },
   "dataManagement": {
     "message": "数据管理",
     "description": "数据管理部分标题。"
   },
-  "promptPlaceholders": {
-    "message": "支持的占位符：",
-    "description": "占位符帮助文本的标签。"
-  },
   "viewPromptExamples": {
     "message": "查看示例",
     "description": "查看prompt示例的按钮文本。"
-  },
-  "promptPlaceholderHelpTitle": {
-    "message": "支持的占位符",
-    "description": "占位符帮助标题。"
-  },
-  "promptExampleTitle": {
-    "message": "示例模板",
-    "description": "示例模板标题。"
-  },
-  "professionalTranslation": {
-    "message": "专业翻译：",
-    "description": "专业翻译示例标签。"
   },
   "promptValidationError": {
     "message": "Prompt必须包含至少一个占位符：{targetLang}、{sourceLang}或{context}",
@@ -1010,18 +723,6 @@
   "invalidPlaceholderError": {
     "message": "发现无效占位符：$1。有效占位符为：{targetLang}、{sourceLang}、{context}",
     "description": "无效占位符错误信息。"
-  },
-  "placeholderTargetLang": {
-    "message": "目标语言",
-    "description": "目标语言占位符说明。"
-  },
-  "placeholderSourceLang": {
-    "message": "源语言",
-    "description": "源语言占位符说明。"
-  },
-  "placeholderContext": {
-    "message": "翻译上下文",
-    "description": "上下文占位符说明。"
   },
   "tooltipClose": {
     "message": "关闭",
@@ -1042,10 +743,6 @@
   "tooltipCopySource": {
     "message": "复制原文",
     "description": "复制原文的按钮标题。"
-  },
-  "tooltipCollapseTarget": {
-    "message": "收起译文",
-    "description": "收起译文区域的按钮标题。"
   },
   "tooltipReadTarget": {
     "message": "朗读译文",
@@ -1091,10 +788,6 @@
     "message": "启用输入框翻译",
     "description": "启用输入框翻译的开关标签。"
   },
-  "inputTranslationEnableDescription": {
-    "message": "直接在输入字段中翻译文本。",
-    "description": "启用输入框翻译开关的辅助文本。"
-  },
   "inputTriggerWordLabel": {
     "message": "魔法词",
     "description": "输入触发词的标签。"
@@ -1114,21 +807,9 @@
     "message": "按键次数",
     "description": "按键次数输入的标签。"
   },
-  "inputKeyTriggerDescription": {
-    "message": "多次按下一个键以触发翻译。请使用 `event.code` 的值。",
-    "description": "按键触发的辅助文本。"
-  },
   "inputBlacklistLabel": {
     "message": "黑名单域名",
     "description": "输入黑名单文本区域的标签。"
-  },
-  "inputBlacklistDescription": {
-    "message": "在这些网站上禁用输入框翻译。每行一个域名，例如，“example.com”。",
-    "description": "输入黑名单的辅助文本。"
-  },
-  "engineFollowGlobal": {
-    "message": "跟随全局设置",
-    "description": "跟随全局引擎设置的选项。"
   },
   "navInputTranslation": {
     "message": "输入框翻译",
@@ -1301,5 +982,101 @@
   "popupSelectionEntryHint": {
     "message": "选区：快选面板 · 右键 · Alt+S",
     "description": "Popup 选区入口微提示。"
+  },
+  "logEntryPrecheckMatch": {
+    "message": "[预检查] 规则命中（$2）：$1",
+    "description": "翻译日志：某条预检查规则命中。$1 = 原因，$2 = 规则类型。",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "precheckRuleSameLanguage": {
+    "message": "源语言与目标语言相同",
+    "description": "源语言与目标语言一致时跳过翻译的原因说明。"
+  },
+  "errorNoTranslator": {
+    "message": "没有可用的翻译引擎，请在设置中启用。",
+    "description": "无法解析翻译引擎时展示的错误。"
+  },
+  "logEntryCacheHit": {
+    "message": "[缓存] 已命中缓存并直接返回译文。",
+    "description": "翻译日志：命中缓存。"
+  },
+  "summaryTabPageTitle": {
+    "message": "整页",
+    "description": "整页摘要标签页的标题。"
+  },
+  "close": {
+    "message": "关闭",
+    "description": "对话框中仅图标关闭按钮的无障碍名称。"
+  },
+  "popupOpenSettings": {
+    "message": "设置",
+    "description": "打开选项页的齿轮按钮的无障碍名称。"
+  },
+  "popupLanguagesLabel": {
+    "message": "语言",
+    "description": "弹出面板语言对的组的无障碍名称。"
+  },
+  "popupSourceLanguageLabel": {
+    "message": "源语言",
+    "description": "源语言选择框的无障碍名称。"
+  },
+  "popupTargetLanguageLabel": {
+    "message": "目标语言",
+    "description": "目标语言选择框的无障碍名称。"
+  },
+  "popupSwapLanguages": {
+    "message": "交换语言",
+    "description": "语言交换按钮的无障碍名称与提示。"
+  },
+  "popupTranslationSettingsLabel": {
+    "message": "翻译设置",
+    "description": "弹出面板控件区的无障碍名称。"
+  },
+  "settingsNavLabel": {
+    "message": "设置",
+    "description": "选项页导航地标的无障碍名称。"
+  },
+  "summaryTabSelectionTitle": {
+    "message": "选区",
+    "description": "选区摘要标签页的标题前缀。"
+  },
+  "summaryTabClose": {
+    "message": "关闭标签页",
+    "description": "摘要标签页关闭按钮的无障碍标签。"
+  },
+  "summaryModalTitle": {
+    "message": "AI 摘要",
+    "description": "页面内摘要弹窗的标题。"
+  },
+  "summaryInputPlaceholder": {
+    "message": "继续追问…",
+    "description": "摘要追问输入框的占位文本。"
+  },
+  "contextMenuErrorPrefix": {
+    "message": "翻译错误",
+    "description": "页面内翻译错误信息的前缀。"
+  },
+  "invalidCssSelector": {
+    "message": "CSS 选择器无效",
+    "description": "内容/排除选择器字段的校验错误。"
+  },
+  "loadSettingsError": {
+    "message": "加载设置失败",
+    "description": "读取设置失败时的状态提示。"
+  },
+  "resetSettingsError": {
+    "message": "重置设置失败",
+    "description": "重置设置失败时的状态提示。"
+  },
+  "testNotTranslated": {
+    "message": "未翻译：",
+    "description": "测试翻译结果未发生翻译时的前缀。"
   }
 }

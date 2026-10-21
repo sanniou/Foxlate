@@ -202,7 +202,7 @@ test('ensureScriptsInjected returns false and logs when injection fails', async 
         browserApi: browserMock,
         tabStateManager,
         logError(context, error) {
-            errors.push({ context, message: error.message });
+            errors.push({ context, error });
         },
     });
 
@@ -216,5 +216,9 @@ test('ensureScriptsInjected returns false and logs when injection fails', async 
     assert.deepEqual(tabStateManager.marks, []);
     assert.equal(errors.length, 1);
     assert.match(errors[0].context, /ensureScriptsInjected for tab 13, frame 4/);
-    assert.match(errors[0].message, /js blocked/);
+    // 必须上报**原始错误对象**：包装成 new Error(...) 会丢掉类型与栈，
+    // 而判断「受限页面 vs 导航竞态」正是靠这两样。
+    assert.match(errors[0].error.message, /js blocked/);
+    assert.doesNotMatch(errors[0].error.message, /Failed to inject scripts/);
+    assert.equal(errors[0].error.name, 'Error');
 });

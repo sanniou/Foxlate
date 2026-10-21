@@ -1,5 +1,5 @@
 import browser from '../lib/browser-polyfill.js';
-import { detectProjectLang } from './utils.js';
+import { detectProjectLang } from './lang-detect.js';
 
 // (优化) 将通用的、不需翻译的文本模式硬编码为正则表达式，以取代已废弃的用户自定义预检规则。
 // 这种方式性能更高，且逻辑更集中。
@@ -32,7 +32,8 @@ export function shouldTranslate(text, settings, enableLog = false) {
     for (const regex of PRECHECK_BLACKLIST_REGEX) {
         if (regex.test(text)) {
             const reason = `Text matches pre-check blacklist rule: ${regex.source}`;
-            log?.push(browser.i18n.getMessage('logEntryPrecheckMatch', [reason, 'blacklist']));
+            log?.push(browser.i18n.getMessage('logEntryPrecheckMatch', [reason, 'blacklist'])
+                || `[Pre-check] Rule matched: ${reason}`);
             return { result: false, reason, log };
         }
     }

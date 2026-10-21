@@ -1,3 +1,5 @@
+import { clamp } from '../../common/math.js';
+
 const enhancedSelectState = {
     initialized: false,
     observer: null,
@@ -8,10 +10,6 @@ const enhancedSelectState = {
 
 function getSelectLabel(select) {
     return select.selectedOptions?.[0]?.textContent || select.options?.[0]?.textContent || '';
-}
-
-function clamp(value, min, max) {
-    return Math.max(min, Math.min(value, max));
 }
 
 function ensureThemedSelectPortal() {

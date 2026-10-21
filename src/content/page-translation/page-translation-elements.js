@@ -1,4 +1,4 @@
-export const FOXLATE_EXTENSION_SELECTOR = [
+const FOXLATE_EXTENSION_SELECTOR = [
     '[data-translation-id]',
     '.foxlate-panel',
     '.foxlate-enhanced-panel',

@@ -54,7 +54,8 @@ export class YouTubeSubtitleRenderer {
                 -0.05em 0.05em 0.1em rgba(0,0,0,0.9);
         }
     `;
-    document.head.appendChild(style);
+    // 字幕脚本可能在任何时机被注入，`document.head` 不一定存在
+    (document.head || document.documentElement).appendChild(style);
   }
 
   updateOptions(newOptions) {
@@ -74,11 +75,9 @@ export class YouTubeSubtitleRenderer {
 
     const lines = linesData.filter(line => line.translated && line.translated.trim());
     const linesJoined = lines.map(line => `${line.translated}\n${line.original}`).join('|');
-    const isNativeSubsVisible = captionWindow.style.display !== 'none' && captionWindow.offsetHeight > 0;
-    if (!isNativeSubsVisible) {
+    const isNativeSubsVisible = captionWindow.style.display !== 'none' && captionWindow.offsetHeight > 0;    if (!isNativeSubsVisible) {
       if (this.lastRenderedState.lines !== null) {
         this.hide();
-        this.lastRenderedState = { lines: null, top: null, left: null };
       }
       return;
     }
@@ -95,11 +94,17 @@ export class YouTubeSubtitleRenderer {
     const top = (nativeCaptionRect.bottom - playerRect.top) + 6;
     const left = nativeCaptionRect.left - playerRect.left;
     const width = nativeCaptionRect.width;
-    if (this.lastRenderedState.lines === linesJoined && this.lastRenderedState.top === top) {
+    // geometry 三项都要参与比较：只比 lines/top 时，横向拉伸播放器会留下旧的 left/width
+    if (
+      this.lastRenderedState.lines === linesJoined &&
+      this.lastRenderedState.top === top &&
+      this.lastRenderedState.left === left &&
+      this.lastRenderedState.width === width
+    ) {
       return;
     }
 
-    this.lastRenderedState = { lines: linesJoined, top, left };
+    this.lastRenderedState = { lines: linesJoined, top, left, width };
     this.overlay.style.top = `${top}px`;
     this.overlay.style.left = `${left}px`;
     this.overlay.style.width = `${width}px`;
@@ -136,6 +141,9 @@ export class YouTubeSubtitleRenderer {
   }
 
   hide() {
+    // 必须一并清掉缓存：否则「先关显示模式 → 再打开」时，新渲染会因为
+    // lines/top 与上次相同而提前 return，字幕永远回不来。
+    this.lastRenderedState = { lines: null, top: null, left: null, width: null };
     if (this.overlay) {
       this.overlay.style.opacity = '0';
       this.overlay.style.visibility = 'hidden';
@@ -146,6 +154,8 @@ export class YouTubeSubtitleRenderer {
     document.getElementById(this.overlayId)?.remove();
     document.getElementById(this.styleId)?.remove();
     this.overlay = null;
+    // 同 hide()：叠层已经没了，缓存必须失效，否则重建时会被短路成“什么都不做”
+    this.lastRenderedState = { lines: null, top: null, left: null, width: null };
   }
 
   #ensureOverlay(playerContainer) {

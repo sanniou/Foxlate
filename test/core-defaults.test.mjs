@@ -6,6 +6,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { build } from 'esbuild';
+import { inlineI18nMockSource } from './helpers/i18n-mock.mjs';
 
 const projectRoot = path.resolve(import.meta.dirname, '..');
 
@@ -14,7 +15,7 @@ async function loadModule(entrySource) {
     const entryPath = path.join(tempDir, 'entry.js');
     const outputPath = path.join(tempDir, 'bundle.mjs');
     const mockBrowserPath = path.join(tempDir, 'browser-polyfill-mock.js');
-    await writeFile(mockBrowserPath, 'export default { i18n: { getMessage: (k) => k } };');
+    await writeFile(mockBrowserPath, `export default { i18n: ${inlineI18nMockSource()} };`);
     await writeFile(entryPath, entrySource);
     await build({
         entryPoints: [entryPath],

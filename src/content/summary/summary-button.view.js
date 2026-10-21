@@ -50,7 +50,10 @@ export class SummaryButton {
     }
 
     create() {
-        this.element = document.createElement('div');
+        // 真实 <button> 而不是 <div>：这是页面上的唯一入口，键盘用户必须能 Tab 到它
+        // 并用 Enter/Space 激活。原实现是 div + aria-label，对屏幕阅读器与键盘都是不可达的。
+        this.element = document.createElement('button');
+        this.element.type = 'button';
         this.element.className = 'foxlate-summary-button';
 
         const tooltipText = browser.i18n.getMessage('summaryButtonTooltip') || 'Summarize';

@@ -1,17 +1,8 @@
-import { textMeasurementService } from './text-measurement-service.js';
+import { textMeasurementService } from '../../common/text-measurement.js';
+import { clamp } from '../../common/math.js';
+import { getViewport } from './viewport.js';
 
 const DEFAULT_MARGIN = 10;
-
-function clamp(value, min, max) {
-    return Math.max(min, Math.min(value, max));
-}
-
-function getViewport() {
-    return {
-        width: window.innerWidth || document.documentElement.clientWidth || 1024,
-        height: window.innerHeight || document.documentElement.clientHeight || 768,
-    };
-}
 
 class FloatingLayoutService {
     measureTextBox(text, {

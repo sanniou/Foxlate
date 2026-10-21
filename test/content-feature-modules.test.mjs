@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { build } from 'esbuild';
 import { JSDOM } from 'jsdom';
+import { createI18nMock } from './helpers/i18n-mock.mjs';
 
 const projectRoot = path.resolve(import.meta.dirname, '..');
 
@@ -57,11 +58,7 @@ async function bundleContentFeatureModules() {
 
 function installBrowserMock() {
     globalThis.__foxlateBrowserMock = {
-        i18n: {
-            getMessage(key) {
-                return key === 'contextMenuErrorPrefix' ? 'Error' : key;
-            },
-        },
+        i18n: createI18nMock(),
         runtime: {
             onMessage: {
                 addListener() {},
@@ -106,6 +103,9 @@ test('input text utilities own sentence extraction, range replacement, and langu
     assert.equal(shouldAppendKey('a'), true);
     assert.equal(isSupportedInputElement(input), true);
     assert.equal(isSupportedInputElement(document.createElement('input')), true);
+    const password = document.createElement('input');
+    password.type = 'password';
+    assert.equal(isSupportedInputElement(password), false, '密码框不得进入翻译链路');
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     assert.equal(isSupportedInputElement(checkbox), false);

@@ -5,6 +5,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { build } from 'esbuild';
+import { inlineI18nMockSource } from './helpers/i18n-mock.mjs';
 
 const projectRoot = path.resolve(import.meta.dirname, '..');
 
@@ -19,7 +20,7 @@ async function loadSelectionTranslate() {
     `);
     await writeFile(mockBrowserPath, `
         export default {
-            i18n: { getMessage: (k) => k },
+            i18n: ${inlineI18nMockSource()},
             runtime: { sendMessage: async () => ({}) },
         };
     `);

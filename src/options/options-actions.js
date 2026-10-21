@@ -2,7 +2,8 @@ import browser from '../lib/browser-polyfill.js';
 import { MESSAGE_TYPES } from '../common/message-types.js';
 import { SettingsManager } from '../common/settings-manager.js';
 import { shouldTranslate } from '../common/precheck.js';
-import { escapeHtml } from '../common/utils.js';
+import { escapeHtml } from '../common/escape.js';
+import { loadLanguageDetector } from '../common/lang-detect.js';
 
 export class OptionsActions {
     constructor({
@@ -50,7 +51,7 @@ export class OptionsActions {
                 document.querySelector(selector);
             } catch (error) {
                 field.classList.add('is-invalid');
-                errorElement.textContent = browser.i18n.getMessage('invalidCssSelector');
+                errorElement.textContent = browser.i18n.getMessage('invalidCssSelector') || 'Invalid CSS selector';
                 return false;
             }
         }
@@ -89,7 +90,7 @@ export class OptionsActions {
             await this.updateCacheInfo();
         } catch (error) {
             console.error('Failed to load and validate settings:', error);
-            this.showStatusMessage(browser.i18n.getMessage('loadSettingsError'), true);
+            this.showStatusMessage(browser.i18n.getMessage('loadSettingsError') || 'Failed to load settings', true);
         }
     }
 
@@ -139,7 +140,7 @@ export class OptionsActions {
             this.showStatusMessage(browser.i18n.getMessage('resetSettingsSuccess'));
         } catch (error) {
             console.error('Error resetting settings:', error);
-            this.showStatusMessage(browser.i18n.getMessage('resetSettingsError'), true);
+            this.showStatusMessage(browser.i18n.getMessage('resetSettingsError') || 'Failed to reset settings', true);
         }
     }
 
@@ -260,8 +261,8 @@ export class OptionsActions {
     }
 
     async performTestTranslation() {
-        const sourceText = document.getElementById('test-source-text').value.trim();
-        const resultArea = document.getElementById('test-result-area');
+        const sourceText = this.elements.testSourceText.value.trim();
+        const resultArea = this.elements.testResultArea;
         const qualityPreview = this.elements.testQualityPreview;
 
         if (this.elements.aiTestResult) this.elements.aiTestResult.style.display = 'none';
@@ -274,13 +275,16 @@ export class OptionsActions {
             return;
         }
 
+        // 预检依赖 franc（按需加载的独立资源）。这里是用户主动触发的测试工具，
+        // 结果需要准确，因此显式等待检测器就绪。
+        await loadLanguageDetector();
         const precheck = shouldTranslate(sourceText, { targetLanguage: this.elements.targetLanguage.value }, true);
         this.elements.logContent.textContent = precheck.log.join('\n');
         this.elements.logContent.style.display = 'block';
         this.elements.toggleLogBtn.textContent = browser.i18n.getMessage('hideLogButton') || 'Hide Log';
 
         if (!precheck.result) {
-            resultArea.textContent = `${browser.i18n.getMessage('testNotTranslated')} ${sourceText}`;
+            resultArea.textContent = `${browser.i18n.getMessage('testNotTranslated') || 'Not translated:'} ${sourceText}`;
             resultArea.className = 'alert alert-success mt-2';
             this.renderQualityPreview(sourceText, sourceText);
             return;
@@ -310,7 +314,7 @@ export class OptionsActions {
                     : response.translatedText.text;
                 resultArea.textContent = response.translatedText.translated
                     ? response.translatedText.text
-                    : `${browser.i18n.getMessage('testNotTranslated')} ${response.translatedText.text}`;
+                    : `${browser.i18n.getMessage('testNotTranslated') || 'Not translated:'} ${response.translatedText.text}`;
                 resultArea.className = 'alert alert-success mt-2';
                 this.renderQualityPreview(sourceText, translatedText);
             } else {
@@ -340,8 +344,8 @@ export class OptionsActions {
                     item.innerHTML = `
                         <span class="text-sm">${formattedDate}</span>
                         <div class="item-actions flex-row">
-                            <button class="btn btn-text btn-sm download-cloud-backup-btn" data-backup-id="${backup.id}">${browser.i18n.getMessage('downloadSettings')}</button>
-                            <button class="btn btn-text btn-sm text-error delete-cloud-backup-btn" data-backup-id="${backup.id}">${browser.i18n.getMessage('removeRule')}</button>
+                            <button class="btn btn-text btn-sm download-cloud-backup-btn" data-backup-id="${escapeHtml(backup.id)}">${browser.i18n.getMessage('downloadSettings')}</button>
+                            <button class="btn btn-text btn-sm text-error delete-cloud-backup-btn" data-backup-id="${escapeHtml(backup.id)}">${browser.i18n.getMessage('removeRule')}</button>
                         </div>
                     `;
                     this.elements.cloudDataList.appendChild(item);

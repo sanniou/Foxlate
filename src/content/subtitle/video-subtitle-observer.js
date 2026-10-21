@@ -3,6 +3,8 @@
  * 观察视频播放器的字幕变化，并提取文本进行翻译。
  * 目前是一个通用框架，可以扩展以支持特定网站（如 YouTube）。
  */
+import { joinSubtitleFragments } from '../../common/text-join.js';
+
 class VideoSubtitleObserver {
     /**
      * @param {function(string, HTMLElement): void} onSubtitleChange - 当检测到新字幕时的回调函数。
@@ -17,7 +19,7 @@ class VideoSubtitleObserver {
         this.targetSelector = targetSelector;
         this.segmentSelector = segmentSelector;
         // 如果未提供自定义的文本组合函数，则使用默认实现。
-        this.textJoiner = textJoiner || ((segments) => Array.from(segments).map(el => el.textContent).join(' ').trim());
+        this.textJoiner = textJoiner || ((segments) => joinSubtitleFragments(Array.from(segments).map(el => el.textContent)));
         // 如果未提供 MutationObserver 配置，则使用默认值。
         this.mutationObserverConfig = mutationObserverConfig || {
             childList: true,
@@ -28,34 +30,44 @@ class VideoSubtitleObserver {
         this.observer = null;
         this.observedTarget = null;
         this.lastProcessedText = '';
+        this._pollTimer = null;
     }
 
     /**
      * 启动观察器，开始监听特定网站的字幕变化。
      */
     start() {
+        // 幂等：重复 start 不能再堆一个轮询计时器
+        this.stop();
+
         // 等待字幕容器出现
-        const interval = setInterval(() => {
+        this._pollTimer = setInterval(() => {
             const targetNode = document.querySelector(this.targetSelector);
-            if (targetNode) {
-                clearInterval(interval);
-                this.observedTarget = targetNode;
-                this.startMutationObserver(targetNode);
-                console.log(`Subtitle observer started for target: ${this.targetSelector}`);
-            }
+            if (!targetNode) return;
+            this._stopPolling();
+            this.observedTarget = targetNode;
+            this.startMutationObserver(targetNode);
+            console.log(`Subtitle observer started for target: ${this.targetSelector}`);
         }, 1000); // 每秒检查一次
     }
 
     /**
-     * 创建并启动一个 MutationObserver。
-     * @param {HTMLElement} targetNode - 要观察的 DOM 节点。
+     * 停止观察：断开 MutationObserver，并取消还在等待容器出现的轮询。
+     * 只断 MutationObserver 的话，容器一直不出现时该计时器会永远转下去。
      */
     stop() {
+        this._stopPolling();
         if (this.observer) {
             this.observer.disconnect();
             this.observer = null;
             console.log('Subtitle observer stopped.');
         }
+    }
+
+    _stopPolling() {
+        if (this._pollTimer === null) return;
+        clearInterval(this._pollTimer);
+        this._pollTimer = null;
     }
 
     /**

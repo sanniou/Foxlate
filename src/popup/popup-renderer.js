@@ -1,5 +1,6 @@
 import browser from '../lib/browser-polyfill.js';
 import * as Constants from '../common/constants.js';
+import { applyI18nAttributes } from '../common/i18n-dom.js';
 import { uiTextLayoutService } from '../common/ui-text-layout-service.js';
 
 export class PopupRenderer {
@@ -11,16 +12,13 @@ export class PopupRenderer {
 
     applyTranslations(root = document) {
         root.documentElement.lang = this.browser.i18n.getUILanguage();
-        const i18nElements = root.querySelectorAll('[i18n-text]');
-        i18nElements.forEach(element => {
-            const key = element.getAttribute('i18n-text');
-            const message = this.browser.i18n.getMessage(key);
-            if (!message) return;
-
-            const textElement = element.matches('button') ? element.querySelector('.btn-text') : element;
-            if (textElement) {
-                textElement.textContent = message;
-            }
+        // 主按钮的可见文字被图标/加载态挤在 .btn-text 里，只能改那个 span，
+        // 否则 textContent 会把 spinner 一起清掉。没有 .btn-text 的元素
+        // （例如分段按钮）直接改自己——旧实现写死了 `matches('button')`，
+        // 于是分段按钮找不到 .btn-text 就被静默跳过，永远不会本地化。
+        applyI18nAttributes(root, {
+            browserApi: this.browser,
+            resolveTextTarget: element => element.querySelector('.btn-text') ?? element,
         });
         this.layoutService.applyTree(root);
     }
@@ -117,7 +115,8 @@ export class PopupRenderer {
                 button.classList.add('loading');
                 break;
             case 'translated':
-                buttonText.textContent = this.browser.i18n.getMessage('popupShowOriginal');
+                buttonText.textContent = this.browser.i18n.getMessage('popupShowOriginal')
+                    || 'Show original';
                 button.classList.add('revert');
                 break;
             default:

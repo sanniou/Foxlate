@@ -1,20 +1,8 @@
 import * as Constants from '../../common/constants.js';
 
-export function debounce(func, wait) {
-    let timeout;
-    return function debouncedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
-
 export function isSupportedInputElement(target) {
     if (target?.tagName === 'TEXTAREA') return true;
-    return target?.tagName === 'INPUT' && ['text', 'search', 'email', 'url', 'tel', 'password'].includes(target.type || 'text');
+    return target?.tagName === 'INPUT' && ['text', 'search', 'email', 'url', 'tel'].includes(target.type || 'text');
 }
 
 export function escapeRegex(string) {
@@ -60,6 +48,15 @@ export function replaceTextContent(target, text, range = null) {
 
 export function shouldAppendKey(key) {
     return key.length === 1 || key === 'Space' || key === 'Enter';
+}
+
+/** 光标位置；部分 input 类型（如 number）读它会抛异常，此时返回 null。 */
+export function getSelectionStart(target) {
+    try {
+        return target.selectionStart;
+    } catch {
+        return null;
+    }
 }
 
 export function getKeyRepresentation(key) {

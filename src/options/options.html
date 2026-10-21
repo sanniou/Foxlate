@@ -14,13 +14,13 @@
                 <img src="/icons/icon-48.png" alt="Logo" class="sidebar-logo">
                 <span class="sidebar-title">Foxlate</span>
             </div>
-            <nav id="settings-nav" aria-label="Settings">
+            <nav id="settings-nav" aria-label="Settings" i18n-aria-label="settingsNavLabel">
                 <div class="nav-group">
                     <div class="nav-group-label">Translate</div>
                     <ul>
                         <li><a href="#general" class="nav-link active"><span class="nav-text" i18n-text="navGeneral">General</span></a></li>
                         <li><a href="#page-translation" class="nav-link"><span class="nav-text" i18n-text="navPageTranslation">Page Translation</span></a></li>
-                        <li><a href="#input-translation" class="nav-link"><span class="nav-text" i18n-text="navInputTranslation">Input</span></a></li>
+                        <li><a href="#input-translation" class="nav-link"><span class="nav-text" i18n-text="navInputTranslation">Input Translation</span></a></li>
                         <li><a href="#rules" class="nav-link"><span class="nav-text" i18n-text="navRules">Rules</span></a></li>
                     </ul>
                 </div>
@@ -42,18 +42,18 @@
         </aside>
 
         <!-- Main Content -->
-        <main id="settings-content" class="main-content">
+        <main class="main-content">
             <!-- General -->
             <section id="general" class="content-panel active">
                 <h2 i18n-text="generalSettings" class="section-title">General Settings</h2>
                 <div class="card">
                     <div class="settings-grid-2">
                         <div class="input-group">
-                            <label class="input-label" for="targetLanguage" i18n-text="targetLanguage">Target Language</label>
+                            <label class="input-label" for="targetLanguage" i18n-text="targetLanguage">Target Language:</label>
                             <select id="targetLanguage" class="form-control"></select>
                         </div>
                         <div class="input-group">
-                            <label class="input-label" for="displayModeSelect" i18n-text="displayMode">Display Mode</label>
+                            <label class="input-label" for="displayModeSelect" i18n-text="displayMode">Display Mode:</label>
                             <select id="displayModeSelect" class="form-control"></select>
                         </div>
                     </div>
@@ -81,12 +81,12 @@
                     </div>
                     <div class="divider"></div>
                     <div class="input-group">
-                        <label class="input-label" i18n-text="contentSelectorLabel">Global Content Selector</label>
+                        <label class="input-label" i18n-text="contentSelectorLabel">Content Selectors</label>
                         <textarea id="defaultContentSelector" class="form-control" rows="3"></textarea>
                         <div class="text-error"></div>
                     </div>
                     <div class="input-group">
-                        <label class="input-label" i18n-text="excludeSelectorsLabel">Global Exclude Selector</label>
+                        <label class="input-label" i18n-text="excludeSelectorsLabel">Exclude Selectors</label>
                         <textarea id="defaultExcludeSelector" class="form-control" rows="2"></textarea>
                         <div class="text-error"></div>
                     </div>
@@ -105,28 +105,28 @@
                 <h2 i18n-text="engineSettings" class="section-title">Engine Settings</h2>
                 <div class="card">
                     <div class="input-group">
-                        <label class="input-label" for="translatorEngine" i18n-text="translationEngine">Translation Engine</label>
+                        <label class="input-label" for="translatorEngine" i18n-text="translationEngine">Translation Engine:</label>
                         <select id="translatorEngine" class="form-control"></select>
                     </div>
                     
                     <div id="aiEngineManagementGroup" class="mt-2">
-                        <button id="manageAiEnginesBtn" class="btn btn-secondary btn-full" i18n-text="aiEngineProfiles">Manage AI Profiles</button>
+                        <button id="manageAiEnginesBtn" class="btn btn-secondary btn-full" i18n-text="manageAiEngineProfiles">Manage AI Engines</button>
                     </div>
 
                     <div id="defaultEngineWarning" class="alert alert-error mt-2" style="display: none;"></div>
 
                     <div id="deeplxUrlGroup" class="input-group mt-2">
-                        <label class="input-label" i18n-text="deeplxApiUrl">DeepLx API URL</label>
+                        <label class="input-label" i18n-text="deeplxApiUrl">DeepLx API URL:</label>
                         <input type="text" id="deeplxApiUrl" class="form-control" placeholder="https://api.deeplx.org/translate">
                     </div>
                 </div>
 
                 <div class="card mt-4">
                     <div class="card-header">
-                        <h3 class="card-title" i18n-text="test">Test Translation</h3>
+                        <h3 class="card-title" i18n-text="testTranslationTitle">Test Translation</h3>
                     </div>
                     <div class="input-group">
-                        <textarea id="test-source-text" class="form-control" rows="3" i18n-placeholder="testSourcePlaceholder"></textarea>
+                        <textarea id="test-source-text" class="form-control" rows="3" i18n-placeholder="testSourcePlaceholder" placeholder="Enter text to translate here..."></textarea>
                     </div>
                     <div class="flex-row">
                         <button id="manual-test-translate-btn" class="btn btn-primary" i18n-text="translateButtonText">Translate</button>
@@ -155,8 +155,8 @@
                         </div>
                         <div class="input-group">
                             <label class="input-label" for="glossaryEntries" i18n-text="glossaryTermsLabel">Terms</label>
-                            <textarea id="glossaryEntries" class="form-control" rows="7" i18n-placeholder="glossaryEntriesPlaceholder"></textarea>
-                            <div class="text-sm text-muted mt-2" i18n-text="glossaryTermsHelp">One term per line. Use "source => target".</div>
+                            <textarea id="glossaryEntries" class="form-control" rows="7" i18n-placeholder="glossaryEntriesPlaceholder" placeholder="Foxlate =&gt; Foxlate&#10;OpenAI =&gt; OpenAI"></textarea>
+                            <div class="text-sm text-muted mt-2" i18n-text="glossaryTermsHelp">One term per line. Use "source =&gt; target".</div>
                         </div>
                     </div>
 
@@ -178,11 +178,11 @@
                                 <span class="switch-track"><span class="switch-thumb"></span></span>
                             </label>
                         </div>
-                        <div class="text-sm text-muted mt-2" i18n-text="selectionEntryHelp">Selection translation: quick panel (primary), context menu, and Alt+S.</div>
+                        <div class="text-sm text-muted mt-2" i18n-text="selectionEntryHelp">Selection translation: quick panel (primary), context menu, and Alt+S. Disable the panel in Product settings if it conflicts with the page.</div>
                         <div class="divider"></div>
                         <div class="input-group">
                             <label class="input-label" for="siteWizardDomain" i18n-text="siteWizardTitle">Site Config Wizard</label>
-                            <input type="text" id="siteWizardDomain" class="form-control" i18n-placeholder="siteWizardDomainPlaceholder">
+                            <input type="text" id="siteWizardDomain" class="form-control" i18n-placeholder="siteWizardDomainPlaceholder" placeholder="docs.example.com">
                         </div>
                         <div class="grid-2 mt-2">
                             <select id="siteWizardPreset" class="form-control">
@@ -217,7 +217,7 @@
                 </div>
 
                 <div class="card mt-4 ui-note">
-                    <div class="ui-record-main" i18n-text="failureHandlingTitle">Failure handling</div>
+                    <div class="ui-record-main" i18n-text="failureHandlingTitle">Failure Handling</div>
                     <div class="ui-record-sub" i18n-text="failureHandlingDescription">Page translation failures are handled in page context through automatic retry and provider health signals, not from the settings page.</div>
                 </div>
             </section>
@@ -225,23 +225,23 @@
             <!-- Rules -->
             <section id="rules" class="content-panel">
                 <div class="flex-between">
-                    <h2 i18n-text="ruleManagement" class="section-title">Domain Rules</h2>
-                    <button id="addDomainRuleBtn" class="btn btn-primary btn-sm" i18n-text="addDomainRule">Add Rule</button>
+                    <h2 i18n-text="ruleManagement" class="section-title">Rule Management</h2>
+                    <button id="addDomainRuleBtn" class="btn btn-primary btn-sm" i18n-text="addDomainRule">Add Domain Rule</button>
                 </div>
                 <ul id="domainRulesList" class="item-list"></ul>
             </section>
 
             <!-- Cache -->
             <section id="cache" class="content-panel">
-                <h2 i18n-text="cacheManagement" class="section-title">Cache</h2>
+                <h2 i18n-text="cacheManagement" class="section-title">Cache Management</h2>
                 <div class="card">
                     <div class="input-group">
-                        <label class="input-label" i18n-text="cacheSizeLabel">Max Cache Size</label>
+                        <label class="input-label" i18n-text="cacheSizeLabel">Cache Size (number of items)</label>
                         <input type="number" id="cacheSizeInput" class="form-control" min="0" step="100">
                     </div>
                     <div class="flex-between mt-2">
-                        <span class="text-sm text-muted"><span i18n-text="currentCacheUsage">Usage:</span> <span id="cacheInfoDisplay">...</span></span>
-                        <button id="clearCacheBtn" class="btn btn-danger btn-sm" i18n-text="clearCache">Clear</button>
+                        <span class="text-sm text-muted"><span i18n-text="currentCacheUsage">Current Usage:</span> <span id="cacheInfoDisplay" class="tabular">...</span></span>
+                        <button id="clearCacheBtn" class="btn btn-danger btn-sm" i18n-text="clearCache">Clear Cache</button>
                     </div>
                 </div>
             </section>
@@ -251,7 +251,7 @@
                 <h2 i18n-text="dataManagement" class="section-title">Data</h2>
                 <div class="card">
                     <div class="flex-between mb-4">
-                        <span class="input-label" i18n-text="enableCloudSync">Cloud Sync</span>
+                        <span class="input-label" i18n-text="enableCloudSync">Enable Cloud Sync</span>
                         <label class="switch">
                             <input type="checkbox" id="syncEnabled">
                             <span class="switch-track"><span class="switch-thumb"></span></span>
@@ -262,10 +262,10 @@
                         <div class="input-group mb-4">
                             <span id="cloudSettingsInfo" class="text-sm text-muted"></span>
                         </div>
-                        <button id="uploadSettingsBtn" class="btn btn-secondary btn-full mb-4" i18n-text="uploadSettings">Upload Now</button>
+                        <button id="uploadSettingsBtn" class="btn btn-secondary btn-full mb-4" i18n-text="uploadSettings">Upload Settings to Cloud</button>
                         <div class="flex-between mb-2">
-                            <h4 class="text-sm font-semibold" i18n-text="cloudBackups">Backups</h4>
-                            <button id="refreshCloudDataBtn" class="btn btn-text btn-sm" i18n-text="refreshCloudData">Refresh</button>
+                            <h4 class="text-sm font-semibold" i18n-text="cloudBackups">Cloud Backups</h4>
+                            <button id="refreshCloudDataBtn" class="btn btn-text btn-sm" i18n-text="refreshCloudData">Refresh Cloud Data</button>
                         </div>
                         <ul id="cloudDataList" class="item-list"></ul>
                     </div>
@@ -273,20 +273,20 @@
                     <div class="divider"></div>
                     
                     <div class="grid-2">
-                        <button id="export-btn" class="btn btn-secondary" i18n-text="exportSettings">Export</button>
-                        <button id="import-btn" class="btn btn-secondary" i18n-text="importSettings">Import</button>
+                        <button id="export-btn" class="btn btn-secondary" i18n-text="exportSettings">Export Settings</button>
+                        <button id="import-btn" class="btn btn-secondary" i18n-text="importSettings">Import Settings</button>
                     </div>
                     <input type="file" id="import-input" hidden>
-                    <button id="reset-settings-btn" class="btn btn-text text-error mt-2 btn-full" i18n-text="resetSettings">Reset All Settings</button>
+                    <button id="reset-settings-btn" class="btn btn-text text-error mt-2 btn-full" i18n-text="resetSettings">Reset Settings</button>
                 </div>
             </section>
             
              <!-- Input Translation -->
             <section id="input-translation" class="content-panel">
-                <h2 i18n-text="inputTranslationSettings" class="section-title">Input Translation</h2>
+                <h2 i18n-text="inputTranslationSettings" class="section-title">Input Translation Settings</h2>
                 <div class="card">
                      <div class="flex-between mb-4">
-                        <span class="input-label" i18n-text="inputTranslationEnableLabel">Enable Feature</span>
+                        <span class="input-label" i18n-text="inputTranslationEnableLabel">Enable Input Translation</span>
                         <label class="switch">
                             <input type="checkbox" id="inputTranslationEnabled">
                             <span class="switch-track"><span class="switch-thumb"></span></span>
@@ -294,11 +294,11 @@
                     </div>
                     <div class="grid-2 mb-4">
                          <div class="input-group">
-                            <label class="input-label" i18n-text="targetLanguage">Target</label>
+                            <label class="input-label" i18n-text="targetLanguage">Target Language:</label>
                             <select id="inputTargetLanguage" class="form-control"></select>
                         </div>
                         <div class="input-group">
-                            <label class="input-label" i18n-text="translationEngine">Engine</label>
+                            <label class="input-label" i18n-text="translationEngine">Translation Engine:</label>
                             <select id="inputTranslatorEngine" class="form-control"></select>
                         </div>
                     </div>
@@ -306,13 +306,13 @@
                     <div class="input-group mb-4">
                         <label class="input-label" i18n-text="inputTriggerWordLabel">Magic Word</label>
                         <input type="text" id="inputTriggerWord" class="form-control" placeholder="fox">
-                        <div class="text-sm text-muted mt-2" i18n-text="inputTriggerWordDescription">Type text followed by "//[lang-]" + Magic Word</div>
+                        <div class="text-sm text-muted mt-2" i18n-text="inputTriggerWordDescription">Type text followed by "//[lang-]" + Magic Word to translate. E.g., "hello //ja-fox".</div>
                     </div>
 
                     <div class="divider"></div>
 
                     <div class="flex-between mb-4 mt-4">
-                        <span class="input-label" i18n-text="inputKeyTriggerEnableLabel">Key-press Trigger</span>
+                        <span class="input-label" i18n-text="inputKeyTriggerEnableLabel">Enable Key-press Trigger</span>
                         <label class="switch">
                             <input type="checkbox" id="inputKeyTriggerEnabled">
                             <span class="switch-track"><span class="switch-thumb"></span></span>
@@ -331,7 +331,7 @@
                     </div>
 
                     <div class="input-group">
-                        <label class="input-label" i18n-text="inputBlacklistLabel">Blacklist Domains</label>
+                        <label class="input-label" i18n-text="inputBlacklistLabel">Blacklisted Domains</label>
                         <textarea id="inputBlacklist" class="form-control" rows="3" placeholder="example.com"></textarea>
                     </div>
                 </div>
@@ -341,13 +341,13 @@
 
     <!-- Floating Save Button -->
     <button id="saveSettingsBtn" class="toast btn-primary">
-        <span i18n-text="saveSettings">Save Changes</span>
+        <span i18n-text="saveSettings">Save Settings</span>
     </button>
     <div id="statusMessage" class="toast"></div>
 
     <!-- Modals -->
     <div id="confirmModal" class="modal-backdrop">
-        <div class="modal-content">
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="confirmModalTitle">
             <h3 id="confirmModalTitle" class="card-title">Confirm</h3>
             <p id="confirmModalMessage" class="text-sm text-muted mt-2 mb-4"></p>
             <div class="flex-between">
@@ -359,42 +359,42 @@
 
     <!-- AI Engine Modal -->
     <div id="aiEngineModal" class="modal-backdrop">
-        <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-content" style="max-width: 600px;" role="dialog" aria-modal="true" aria-label="AI Engine Profiles" i18n-aria-label="aiEngineProfiles">
             <div class="flex-between mb-4">
-                <h3 i18n-text="aiEngineProfiles" class="card-title">AI Engines</h3>
-                <button class="btn btn-icon close-button">✕</button>
+                <h3 i18n-text="aiEngineProfiles" class="card-title">AI Engine Profiles</h3>
+                <button type="button" class="btn btn-icon close-button" aria-label="Close" i18n-aria-label="close">✕</button>
             </div>
             
             <div id="aiEngineList" class="item-list mb-4"></div>
             <div class="grid-2">
-                <button id="addAiEngineBtn" class="btn btn-secondary btn-full" i18n-text="addAiEngine">+ Add Engine</button>
-                <button id="openImportAiEngineModalBtn" class="btn btn-text btn-full" i18n-text="importAiEngine">Import</button>
+                <button id="addAiEngineBtn" class="btn btn-secondary btn-full" i18n-text="addAiEngine">Add AI Engine</button>
+                <button id="openImportAiEngineModalBtn" class="btn btn-text btn-full" i18n-text="importAiEngine">Import from Text</button>
             </div>
 
             <!-- Edit Form (Hidden by default) -->
             <div id="aiEngineForm" class="mt-4 pt-4 border-t" style="display:none;">
                 <h4 id="aiFormTitle" class="text-sm font-bold mb-2">Edit Engine</h4>
                 <div class="input-group">
-                    <label class="input-label" i18n-text="aiEngineName">Name</label>
+                    <label class="input-label" i18n-text="aiEngineName">Engine Name:</label>
                     <input type="text" id="aiEngineName" class="form-control">
                 </div>
                 <div class="input-group">
-                    <label class="input-label" i18n-text="aiApiKey">API Key</label>
+                    <label class="input-label" i18n-text="aiApiKey">AI API Key:</label>
                     <input type="password" id="aiApiKey" class="form-control">
                 </div>
                 <div class="input-group">
-                    <label class="input-label" i18n-text="aiApiUrl">API URL</label>
+                    <label class="input-label" i18n-text="aiApiUrl">API Endpoint URL:</label>
                     <input type="text" id="aiApiUrl" class="form-control">
                 </div>
                 <div class="input-group">
-                    <label class="input-label" i18n-text="aiModelName">Model Name</label>
+                    <label class="input-label" i18n-text="aiModelName">Model Name:</label>
                     <input type="text" id="aiModelName" class="form-control">
                 </div>
                 <div class="input-group">
-                    <label class="input-label" i18n-text="aiCustomPrompt">Custom Prompt</label>
+                    <label class="input-label" i18n-text="aiCustomPrompt">Custom Prompt:</label>
                     <textarea id="aiCustomPrompt" class="form-control" rows="3"></textarea>
                     <span id="aiCustomPromptError" class="text-error"></span>
-                    <button id="promptHelpBtn" class="btn btn-text btn-sm" i18n-text="viewPromptExamples">Examples</button>
+                    <button id="promptHelpBtn" class="btn btn-text btn-sm" i18n-text="viewPromptExamples">View Examples</button>
                     <div id="promptPlaceholderHelp" class="mt-2 text-sm" style="display:none;">
                         <p class="text-muted">Available: {targetLang}, {sourceLang}, {context}</p>
                     </div>
@@ -402,18 +402,18 @@
                 
                 <div class="grid-2 mt-2">
                     <div class="input-group">
-                        <label class="input-label" i18n-text="aiShortTextThreshold">Threshold</label>
+                        <label class="input-label" i18n-text="aiShortTextThreshold">Short Text Word Threshold</label>
                         <input type="number" id="aiShortTextThreshold" class="form-control" min="0">
                     </div>
                     <div class="input-group">
-                        <label class="input-label" i18n-text="aiShortTextEngine">Fallback</label>
+                        <label class="input-label" i18n-text="aiShortTextEngine">Short Text Engine</label>
                         <select id="aiShortTextEngine" class="form-control"></select>
                     </div>
                 </div>
 
                 <div id="aiTestSection" class="mt-4" style="display:none;">
                     <div class="input-group">
-                        <label class="input-label" i18n-text="testOriginal">Test Text</label>
+                        <label class="input-label" i18n-text="testOriginal">Original</label>
                         <textarea id="aiTestText" class="form-control" rows="2"></textarea>
                     </div>
                     <div id="aiTestResult" class="alert mt-2" style="display:none;"></div>
@@ -423,7 +423,7 @@
                     <button id="testAiEngineBtn" class="btn btn-secondary" i18n-text="test">Test</button>
                     <div class="flex-row" style="justify-content: flex-end;">
                         <button id="cancelAiEngineBtn" class="btn btn-text" i18n-text="cancel">Cancel</button>
-                        <button id="saveAiEngineBtn" class="btn btn-primary" i18n-text="saveAiEngine">Save</button>
+                        <button id="saveAiEngineBtn" class="btn btn-primary" i18n-text="saveAiEngine">Save AI Engine</button>
                     </div>
                  </div>
             </div>
@@ -432,13 +432,13 @@
 
     <!-- Import AI Engine Modal -->
     <div id="importAiEngineModal" class="modal-backdrop">
-        <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-content" style="max-width: 500px;" role="dialog" aria-modal="true" aria-label="Import AI Engine from Text" i18n-aria-label="importAiEngineModalTitle">
             <div class="flex-between mb-4">
-                <h3 i18n-text="importAiEngineModalTitle" class="card-title">Import Engine</h3>
-                <button class="btn btn-icon close-button">✕</button>
+                <h3 i18n-text="importAiEngineModalTitle" class="card-title">Import AI Engine from Text</h3>
+                <button type="button" class="btn btn-icon close-button" aria-label="Close" i18n-aria-label="close">✕</button>
             </div>
             <div class="input-group">
-                <label class="input-label" i18n-text="pasteAiEngineConfigLabel">Config JSON</label>
+                <label class="input-label" i18n-text="pasteAiEngineConfigLabel">Configuration JSON</label>
                 <textarea id="importAiEngineConfigText" class="form-control" rows="6"></textarea>
                 <div id="importAiEngineErrorText" class="text-error"></div>
             </div>
@@ -451,12 +451,12 @@
 
     <!-- Domain Rule Modal -->
     <div id="domainRuleModal" class="modal-backdrop">
-        <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-content" style="max-width: 600px;" role="dialog" aria-modal="true" aria-labelledby="domainRuleFormTitle">
             <h3 id="domainRuleFormTitle" class="card-title mb-4">Domain Rule</h3>
             <div id="domainRuleForm">
                 <input type="hidden" id="editingDomain">
                 <div class="input-group">
-                    <label class="input-label" i18n-text="domain">Domain</label>
+                    <label class="input-label" i18n-text="domain">Domain:</label>
                     <input type="text" id="ruleDomain" class="form-control" placeholder="example.com">
                 </div>
 
@@ -465,45 +465,45 @@
                         <input type="checkbox" id="ruleApplyToSubdomains">
                         <span class="switch-track"><span class="switch-thumb"></span></span>
                     </label>
-                    <span class="text-sm" i18n-text="applyToSubdomains">Apply to subdomains</span>
+                    <span class="text-sm" i18n-text="applyToSubdomains">Apply to all subdomains</span>
                 </div>
                 
                 <div class="grid-2 mt-2">
                     <div class="input-group">
-                        <label class="input-label" i18n-text="autoTranslate">Auto Translate</label>
+                        <label class="input-label" i18n-text="autoTranslate">Auto Translate:</label>
                         <select id="ruleAutoTranslate" class="form-control"></select>
                     </div>
                     <div class="input-group">
-                        <label class="input-label" i18n-text="translationEngine">Engine</label>
+                        <label class="input-label" i18n-text="translationEngine">Translation Engine:</label>
                         <select id="ruleTranslatorEngine" class="form-control"></select>
                     </div>
                 </div>
 
                 <div class="grid-2 mt-2">
                     <div class="input-group">
-                        <label class="input-label" i18n-text="popupSourceLanguage">Source</label>
+                        <label class="input-label" i18n-text="popupSourceLanguage">Source Language:</label>
                         <select id="ruleSourceLanguage" class="form-control"></select>
                     </div>
                     <div class="input-group">
-                        <label class="input-label" i18n-text="targetLanguage">Target</label>
+                        <label class="input-label" i18n-text="targetLanguage">Target Language:</label>
                         <select id="ruleTargetLanguage" class="form-control"></select>
                     </div>
                 </div>
 
                 <div class="grid-2 mt-2">
                     <div class="input-group">
-                        <label class="input-label" i18n-text="displayMode">Display Mode</label>
+                        <label class="input-label" i18n-text="displayMode">Display Mode:</label>
                         <select id="ruleDisplayMode" class="form-control"></select>
                     </div>
                 </div>
 
                 <div class="card mt-4">
                     <div class="input-group">
-                        <label class="input-label" i18n-text="contentSelectorLabel">Content Selector</label>
+                        <label class="input-label" i18n-text="contentSelectorLabel">Content Selectors</label>
                         <textarea id="ruleContentSelector" class="form-control" rows="2"></textarea>
                     </div>
                     <div class="input-group mt-2">
-                        <label class="input-label" i18n-text="excludeSelectorsLabel">Exclude Selector</label>
+                        <label class="input-label" i18n-text="excludeSelectorsLabel">Exclude Selectors</label>
                         <textarea id="ruleExcludeSelector" class="form-control" rows="2"></textarea>
                     </div>
                     <div class="flex-row mt-2">
@@ -511,14 +511,14 @@
                             <input type="checkbox" id="ruleCssSelectorOverride">
                             <span class="switch-track" style="width: 24px; height: 14px;"><span class="switch-thumb" style="width: 10px; height: 10px;"></span></span>
                         </label>
-                        <span class="text-sm" i18n-text="overrideDefaultSelectors">Override Global</span>
+                        <span class="text-sm" i18n-text="overrideDefaultSelectors">Override default selectors</span>
                     </div>
                 </div>
 
                 <!-- Subtitle Settings -->
                 <div class="divider"></div>
                 <div class="flex-between mb-2">
-                    <span class="input-label" i18n-text="enableSubtitleTranslation">Subtitle Translation</span>
+                    <span class="input-label" i18n-text="enableSubtitleTranslation">Enable Subtitle Translation</span>
                     <label class="switch">
                         <input type="checkbox" id="ruleEnableSubtitle">
                         <span class="switch-track"><span class="switch-thumb"></span></span>
@@ -526,11 +526,11 @@
                 </div>
                 <div id="ruleSubtitleSettingsGroup" class="grid-2" style="display:none;">
                     <div class="input-group">
-                        <label class="input-label" i18n-text="subtitleStrategy">Strategy</label>
+                        <label class="input-label" i18n-text="subtitleStrategy">Subtitle Strategy:</label>
                         <select id="ruleSubtitleStrategy" class="form-control"></select>
                     </div>
                     <div class="input-group">
-                        <label class="input-label" i18n-text="subtitleDisplayMode">Display</label>
+                        <label class="input-label" i18n-text="subtitleDisplayMode">Subtitle Display Mode:</label>
                         <select id="ruleSubtitleDisplayMode" class="form-control"></select>
                     </div>
                 </div>
@@ -538,7 +538,7 @@
                 <!-- Summary Settings -->
                 <div class="divider"></div>
                 <div class="flex-between mb-2">
-                    <span class="input-label" i18n-text="enableContentSummary">Content Summary</span>
+                    <span class="input-label" i18n-text="enableContentSummary">Enable Content Summary</span>
                     <label class="switch">
                         <input type="checkbox" id="ruleEnableSummary">
                         <span class="switch-track"><span class="switch-thumb"></span></span>
@@ -546,7 +546,7 @@
                 </div>
                 <div id="ruleSummarySettingsGroup" style="display:none;">
                     <div class="input-group">
-                        <label class="input-label" i18n-text="summaryAiModelLabel">AI Model</label>
+                        <label class="input-label" i18n-text="summaryAiModelLabel">Summary AI Model</label>
                         <select id="ruleSummaryAiModel" class="form-control"></select>
                     </div>
                     <div class="input-group mt-2">
@@ -557,7 +557,7 @@
                 
                 <div class="flex-between mt-6">
                     <button id="cancelDomainRuleBtn" class="btn btn-text" i18n-text="cancel">Cancel</button>
-                    <button id="saveDomainRuleBtn" class="btn btn-primary" i18n-text="saveRule">Save</button>
+                    <button id="saveDomainRuleBtn" class="btn btn-primary" i18n-text="saveRule">Save Rule</button>
                 </div>
             </div>
         </div>

@@ -2,7 +2,7 @@ import browser from '../../lib/browser-polyfill.js';
 import { MESSAGE_TYPES } from '../../common/message-types.js';
 import { BaseComponent } from './BaseComponent.js';
 import { FormValidator } from '../validator.js';
-import { escapeHtml } from '../../common/utils.js';
+import { escapeHtml } from '../../common/escape.js';
 import { populateEngineSelect } from '../ui-helpers.js';
 
 export class AIEngineModal extends BaseComponent {
@@ -190,7 +190,7 @@ export class AIEngineModal extends BaseComponent {
     }
 
     #validatePromptTemplate(template) {
-        const errorElement = document.getElementById('aiCustomPromptError');
+        const errorElement = this.#elements.aiCustomPromptError;
         const formField = this.#elements.aiCustomPromptInput.closest('.input-group');
         
         if (!template || template.trim() === '') {
@@ -222,7 +222,7 @@ export class AIEngineModal extends BaseComponent {
     }
 
     #showPromptError(message) {
-        const errorElement = document.getElementById('aiCustomPromptError');
+        const errorElement = this.#elements.aiCustomPromptError;
         const formField = this.#elements.aiCustomPromptInput.closest('.input-group');
         
         if(errorElement) errorElement.textContent = message;
@@ -369,8 +369,8 @@ export class AIEngineModal extends BaseComponent {
         this.#elements.aiEngineForm.addEventListener('input', (e) => this.#handleFormInputChange(e));
         this.#elements.aiEngineForm.addEventListener('change', (e) => this.#handleFormInputChange(e));
         
-        const promptHelpBtn = document.getElementById('promptHelpBtn');
-        const promptPlaceholderHelp = document.getElementById('promptPlaceholderHelp');
+        const promptHelpBtn = this.#elements.promptHelpBtn;
+        const promptPlaceholderHelp = this.#elements.promptPlaceholderHelp;
         
         if (promptHelpBtn && promptPlaceholderHelp) {
             promptHelpBtn.addEventListener('click', (e) => {

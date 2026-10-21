@@ -11,10 +11,9 @@ import { ElementTranslationController } from './element-translation-controller.j
 import { createContentMessageHandlers } from './content-message-handlers.js';
 import { QuickActionPanel } from './quick-action-panel.js';
 import { translateSelectionPayload } from './selection-translate.js';
-
-function defaultGenerateId() {
-    return self.crypto.randomUUID();
-}
+import { preloadLanguageDetector } from '../common/lang-detect.js';
+import { registerPretextMeasurementEngine } from './layout/pretext-measurement-engine.js';
+import { generateId as defaultGenerateId } from '../common/ids.js';
 
 export class ContentRuntime {
     constructor({
@@ -29,10 +28,12 @@ export class ContentRuntime {
         getEffectiveSettings = createEffectiveSettingsGetter({ browserApi, win }),
         logError = logContentError,
         generateId = defaultGenerateId,
+        registerMeasurementEngine = registerPretextMeasurementEngine,
         cssFilePath = browserApi.runtime.getURL('content/style.css'),
     } = {}) {
         this.browser = browserApi;
         this.window = win;
+        this.registerMeasurementEngine = registerMeasurementEngine;
         this.displayManager = displayManager;
         this.PageTranslationJobClass = PageTranslationJobClass;
         this.performanceHud = performanceHud;
@@ -186,9 +187,8 @@ export class ContentRuntime {
     }
 
     async updateDisplayMode(displayMode) {
-        if (this.currentPageJob?.settings) {
-            this.currentPageJob.settings.displayMode = displayMode;
-        }
+        // 不要回写 currentPageJob.settings：设置对象现在是全局共享且深冻结的，
+        // 而 page-translation-job 从不读取 settings.displayMode（原赋值是只写状态）。
         await this.displayManager.updateDisplayMode(displayMode);
         return { success: true };
     }
@@ -322,6 +322,9 @@ export class ContentRuntime {
 
         this.window.foxlateContentScriptInitialized = true;
 
+        // 必须在任何测量发生前完成：让 content 侧用上精确排版引擎。
+        this.registerMeasurementEngine();
+
         this.window.getEffectiveSettings = this.getEffectiveSettings;
 
         const settings = await this.getEffectiveSettings();
@@ -351,6 +354,9 @@ export class ContentRuntime {
 }
 
 export async function initializeContentRuntime(options = {}) {
+    // franc（约 240 KB）是按需加载资源：在用户真正触发翻译/朗读前预热，
+    // 使热路径（shouldTranslate / 朗读语种判定）拿到完整准确的检测能力。
+    preloadLanguageDetector();
     const runtime = new ContentRuntime(options);
     await runtime.initialize();
     return runtime;

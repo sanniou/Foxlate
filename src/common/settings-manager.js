@@ -1,4 +1,5 @@
 import browser from '../lib/browser-polyfill.js';
+import { deepFreeze } from './object-utils.js';
 import {
     generateDefaultSettings,
     prepareSettingsForStorage,
@@ -21,16 +22,21 @@ export class SettingsManager {
     // --- Static Initialization Block ---
     // 静态初始化块，在类加载时执行一次，设置初始值。
     static {
-        // Listen for changes in storage and invalidate the cache accordingly.
+        // 「设置已改变」的**唯一**通知通道。
+        //
+        // 为什么不在这里以外的地方发通知：storage.local.set() 会向所有扩展上下文
+        // （包括调用方自己）投递 storage.onChanged。如果写入方再显式调一次
+        // notifySettingsChanged，一次保存就会触发两次事件，订阅者（service worker
+        // 逐标签页广播、options 重渲染）全部跑两遍。
+        //
+        // 统一走这个监听器还顺带盖住了跨上下文同步：options 页面写入后，
+        // service worker 与 popup 都能在这里收到。
         browser.storage.onChanged.addListener(async (changes, area) => {
-            // 使用类名直接访问静态成员，可以完全避免 `this` 上下文可能引发的混淆或错误，
-            // 尤其是在事件监听器的回调函数和静态块中。
-            if (area === 'local' && changes.settings) {
-                // (已修改) 直接传递新旧值
-                await SettingsManager.notifySettingsChanged(changes.settings?.newValue, changes.settings?.oldValue);
+            if (area !== 'local' || !changes.settings) {
+                return;
             }
+            await SettingsManager.notifySettingsChanged(changes.settings?.newValue, changes.settings?.oldValue);
         });
-
     }
 
     /**
@@ -43,9 +49,13 @@ export class SettingsManager {
         // 如果 newValue 未定义 (例如，在清除设置时)，则重新获取。
         // getValidatedSettings 内部有缓存，所以如果缓存有效，这里不会有额外开销。
         const finalNewValue = newValue ? await SettingsManager.getValidatedSettings() : SettingsManager.generateDefaultSettings();
+        // oldValue 来自 storage.onChanged，是**未验证的原始存储值**，而 newValue 会过一遍
+        // validateSettings。两边形状不对称会让订阅者的逐键比较产生假阳性：
+        // service worker 的 shouldReloadTranslationJob 会误判「关键设置变了」而重载整页翻译。
+        const finalOldValue = oldValue ? validateSettings(oldValue) : oldValue;
         SettingsManager.#emit('settingsChanged', {
             newValue: finalNewValue,
-            oldValue: oldValue
+            oldValue: finalOldValue
         });
     }
 
@@ -81,13 +91,25 @@ export class SettingsManager {
 
     /**
      * (新) 触发一个事件。
+     *
+     * 逐个隔离调用：一个订阅者抛错不能中断对其它订阅者的通知。
+     * 否则 service worker 的广播订阅者一旦出错，options 页面就再也收不到更新。
      * @private
      * @param {string} eventName - 事件名称。
      * @param {*} data - 传递给回调函数的数据。
      */
     static #emit(eventName, data) {
-        if (SettingsManager.#listeners.has(eventName)) {
-            SettingsManager.#listeners.get(eventName).forEach(callback => callback(data));
+        const callbacks = SettingsManager.#listeners.get(eventName);
+        if (!callbacks) {
+            return;
+        }
+
+        for (const callback of [...callbacks]) {
+            try {
+                callback(data);
+            } catch (error) {
+                console.error(`[SettingsManager] Listener for '${eventName}' threw:`, error);
+            }
         }
     }
 
@@ -113,17 +135,17 @@ export class SettingsManager {
 
     static async getValidatedSettings() {
         if (SettingsManager.#validatedSettingsCache) {
-            return structuredClone(SettingsManager.#validatedSettingsCache); // 使用 structuredClone 返回安全副本
+            return SettingsManager.#validatedSettingsCache;
         }
 
         // 优先从 local 获取设置
         const localData = await browser.storage.local.get('settings');
         let storedSettings = localData.settings;
 
-        const validatedSettings = validateSettings(storedSettings);
-
-        SettingsManager.#validatedSettingsCache = structuredClone(validatedSettings); // 缓存未编译但已验证的设置
-        return validatedSettings;
+        // validateSettings 返回的已经是全新的深拷贝，此处只需冻结一次。
+        // 冻结之后所有读取方共享同一引用：不再为每次读取深拷贝整个设置对象。
+        SettingsManager.#validatedSettingsCache = deepFreeze(validateSettings(storedSettings));
+        return SettingsManager.#validatedSettingsCache;
     }
 
     /**
@@ -156,15 +178,16 @@ export class SettingsManager {
      */
 
     static async getEffectiveSettings(hostname) {
-        if (SettingsManager.#effectiveSettingsCache.has(hostname)) {
-            return structuredClone(SettingsManager.#effectiveSettingsCache.get(hostname));
+        const cached = SettingsManager.#effectiveSettingsCache.get(hostname);
+        if (cached) {
+            return cached;
         }
 
         const settings = await SettingsManager.getValidatedSettings();
 
-        const effectiveSettings = resolveEffectiveSettings(settings, hostname);
-
-        SettingsManager.#effectiveSettingsCache.set(hostname, structuredClone(effectiveSettings));
+        // 与 getValidatedSettings 同理：冻结一次、返回同一引用，不再逐次深拷贝。
+        const effectiveSettings = deepFreeze(resolveEffectiveSettings(settings, hostname));
+        SettingsManager.#effectiveSettingsCache.set(hostname, effectiveSettings);
         return effectiveSettings;
     }
 
@@ -174,16 +197,14 @@ export class SettingsManager {
      */
     /**
      * 将提供的设置对象保存到本地存储中。
+     *
+     * 只负责写入；「设置已改变」的通知由 storage.onChanged 监听器统一发出，
+     * 保证一次保存只通知一次。
      * @param {object} settings - 要保存的设置对象。
      */
     static async saveLocalSettings(settings) {
-        const oldSettings = await this.getValidatedSettings();
-
         const settingsToSave = prepareSettingsForStorage(settings);
-
         await browser.storage.local.set({ settings: settingsToSave });
-
-        await SettingsManager.notifySettingsChanged(settingsToSave, oldSettings);
     }
 
     /**
@@ -237,9 +258,10 @@ export class SettingsManager {
         await this.saveLocalSettings(setDomainRuleProperty(settings, domain, key, value));
     }
     /**
-     * 清除 effectiveSettingsCache
+     * 清空设置缓存（已验证缓存与按域名的有效设置缓存）。
      */
     static clearCache() {
+        SettingsManager.#invalidateCache();
         SettingsManager.#effectiveSettingsCache.clear();
     }
 

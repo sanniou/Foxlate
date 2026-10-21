@@ -5,10 +5,7 @@ import { DOMWalker } from './dom-walker.js';
 import { DisplayManager } from './display-manager.js';
 import { logContentError } from './content-logger.js';
 import { TranslationBatchQueue } from './translation-batch-queue.js';
-
-function defaultGenerateId() {
-    return self.crypto.randomUUID();
-}
+import { generateId as defaultGenerateId } from '../common/ids.js';
 
 export class ElementTranslationController {
     constructor({

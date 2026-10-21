@@ -1,5 +1,5 @@
 import browser from '../lib/browser-polyfill.js';
-import { escapeHtml } from '../common/utils.js';
+import { escapeHtml } from '../common/escape.js';
 import * as Constants from '../common/constants.js';
 import { formatGlossaryEntries } from '../common/translation-glossary.js';
 import { uiTextLayoutService } from '../common/ui-text-layout-service.js';
@@ -109,8 +109,8 @@ export class OptionsRenderer {
             li.innerHTML = `
                 <span class="text-sm font-medium">${escapeHtml(rule.domain)}</span>
                 <div class="rule-actions flex-row">
-                    <button class="btn btn-text btn-sm edit-rule-btn" data-domain="${rule.domain}">${browser.i18n.getMessage('edit') || 'Edit'}</button>
-                    <button class="btn btn-text btn-sm text-error delete-rule-btn" data-domain="${rule.domain}">${browser.i18n.getMessage('removeRule') || 'Delete'}</button>
+                    <button class="btn btn-text btn-sm edit-rule-btn" data-domain="${escapeHtml(rule.domain)}">${browser.i18n.getMessage('edit') || 'Edit'}</button>
+                    <button class="btn btn-text btn-sm text-error delete-rule-btn" data-domain="${escapeHtml(rule.domain)}">${browser.i18n.getMessage('removeRule') || 'Delete'}</button>
                 </div>
             `;
             elements.domainRulesList.appendChild(li);
@@ -134,15 +134,21 @@ export class OptionsRenderer {
     }
 
     showDefaultEngineWarning() {
-        const warningElement = document.getElementById('defaultEngineWarning');
-        if (warningElement) {
-            warningElement.style.display = 'block';
-            warningElement.innerHTML = `<div class="warning-message">⚠️ ${browser.i18n.getMessage('defaultEngineNotFound')}</div>`;
-        }
+        const warningElement = this.elements.defaultEngineWarning;
+        if (!warningElement) return;
+
+        // 文案只经过 textContent 写入：把“本地化字符串”当成纯文本，
+        // 不必要地走 innerHTML 会把翻译文件变成 HTML 注入面。
+        warningElement.textContent = '';
+        const messageElement = document.createElement('div');
+        messageElement.className = 'warning-message';
+        messageElement.textContent = `⚠️ ${browser.i18n.getMessage('defaultEngineNotFound')}`;
+        warningElement.appendChild(messageElement);
+        warningElement.style.display = 'block';
     }
 
     hideDefaultEngineWarning() {
-        const warningElement = document.getElementById('defaultEngineWarning');
+        const warningElement = this.elements.defaultEngineWarning;
         if (warningElement) {
             warningElement.style.display = 'none';
         }

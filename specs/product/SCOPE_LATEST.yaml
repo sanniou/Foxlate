@@ -1,31 +1,102 @@
-# Product scope — post 1.7.0
+# specs/product/SCOPE_LATEST.yaml — 有界 PRD（bounded scope）
+#
+# 契约：bigpowers `skills/scope-work/SKILL.md`
+#   → 必备字段：core_value / summary / in_scope[] / out_of_scope[] / constraints /
+#     success_criteria / references（每个 in_scope 项必须映射到 epic/story ID 或显式 deferred 说明）
+#   → hard gate：scope 只说 what 与 why，不含 how（实现细节属于 epic 胶囊）
+#
+# 本文件相对框架的自有扩展：`version_shipped` / `version_target` / `open_decisions`
+#   → version_* 是 Foxlate 的发布锚点，必须与 package.json 及 changelog.md 一致（门禁强制）
+# 门禁：test/planning-state.test.mjs
+
+core_value: >
+  让不读原文也能安全读外文网页：默认零配置即可用，需要时再深配引擎、规则与术语表。
+
+summary: |
+  Foxlate 是浏览器扩展：页面翻译、划词翻译、输入框翻译、视频字幕翻译与 AI 摘要。
+  Firefox 优先，Chrome 构建已存在但尚未上架。
+
+  当前执行路线（详见 specs/release-plan.yaml 的 tracks）：
+  R1 stabilize（1.6.1）→ R1.5 core polish（1.6.2/1.6.3）→ R1.7 UI 重设计（1.7.0）
+  → **R2 Chrome 触达（进行中）** → R3 一个差异化能力。
+
+  R1/R1.5/R1.7 已随 1.6.1–1.7.4 发布完成，本文件描述的是**剩余**范围：R2 与 R3。
+  范围之外的假设与拒绝理由见 out_of_scope，未决事项见 open_decisions。
+
+# --- 发布锚点（Foxlate 自有扩展；必须与 package.json / changelog.md 一致）---
 version_shipped:
-  - "1.6.1" # R1 stabilize
-  - "1.6.2" # core polish (strategies/rules/display/panels)
-  - "1.7.0" # mode-switch fix + soft display + themed loading
-version_target: "1.7.0"
+  - "1.6.0"   # 玻璃拟态 UI 重设计（--fox-* 设计系统基线）
+  - "1.6.1"   # R1 stabilize
+  - "1.6.2"   # R1.5 core polish（strategies/rules/display/panels）
+  - "1.6.3"   # 显示模式切换修复 + 主题化加载 + soft append/hover
+  - "1.7.0"   # R1.7 calm tool chrome（popup 密度 / options 外壳 / 浮层面板）
+  - "1.7.1"   # 特性盘点（emptyCandidates、状态契约、选择器双写、字幕 fail-soft）
+  - "1.7.2"   # 划词单一路径统一
+  - "1.7.3"   # 作用域规则复核（候选排除、正文默认、摘要主体）
+  - "1.7.4"   # 输入翻译触发加固
+version_target: "1.8.0"   # R3 的目标；R2 走 1.7.x 补丁线（见 tracks）
+
+# --- 在范围内（每项映射到史诗）---
 in_scope:
-  R1.7_ui_redesign:
-    - Calm tool chrome across popup / options / floating content UI
-    - Keep --fox-* tokens; quieter glass; denser popup; shared panel recipe
-    - Direction: specs/product/UI_REDESIGN_DIRECTION.md
-  R2_reach:
-    - Chrome/Edge packaging verification beyond build target
-    - Service worker idle / re-injection smoke on Chromium
-    - Store listing prep (assets, privacy, permissions review)
-    - README badges / listing copy when ready
-  R3_differentiator:
-    - ONE of: Chrome Translator/Language Detector API engine OR standalone translate panel
-  optional_polish_backlog:
-    - empty-result toast when fallback selector engages
-    - quick-action secondary "copy translation"
-    - pixel-level strategy error chrome unify
+  - id: R2_reach
+    epic: e02
+    items:
+      - Chromium/Edge 打包验证（超出“能构建”的程度）
+      - Chromium 上的 service worker idle / 重新注入冒烟
+      - 商店上架就绪：素材、隐私政策、权限说明
+      - README 徽章与上架文案
+  - id: R3_differentiator
+    epic: e03
+    items:
+      - "**择一**：Chrome Translator/Language Detector 原生 API 引擎，或独立翻译面板"
+  - id: optional_polish
+    epic: e05   # backlog，不占路线
+    items:
+      - 回退选择器命中时的空结果提示
+      - 快捷操作次级按钮「复制译文」
+      - 策略错误呈现的像素级统一
+
 out_of_scope:
-  - plans/archive indigo MD3 reimplementation
-  - new design-token system alongside --fox-*
-  - Lit rewrite of popup/options
-  - PDF translation
-  - multi-engine sprawl without demand
+  - item: 重做 pre-1.6.0 的 indigo MD3 设计方向
+    reason: 与已发布的 --fox-* 设计系统冲突；草案已删除，不得重建
+  - item: 在 --fox-* 之外新增第二套设计令牌体系
+    reason: 会立刻造成两套并行体系，一致性无法维持
+  - item: 用 Lit 重写 popup/options
+    reason: 已评估并拒绝；popup/options 保持纯 DOM + BaseComponent
+  - item: PDF 翻译管线
+    reason: 成本高、需求未验证
+  - item: 无需求驱动地扩张引擎数量
+    reason: 每个引擎都是长期维护与支持成本
+
+constraints:
+  - Firefox 优先；Chrome 是增量触达目标，不是替代
+  - Manifest V3；本地 HTTP/远程调用必须可控可观测
+  - 构建产物有未压缩体积预算门禁（见 test/bundle-budget.test.mjs）
+  - 不引入新的设计令牌体系；不手改 dist/
+  - 测试栈固定：node:test + jsdom；不新增 UI 快照测试
+
+success_criteria:
+  - Chromium 上安装、翻译、字幕、摘要四条主路径均可冒烟通过
+  - 商店素材与隐私说明齐备，满足上架审核
+  - R3 选定能力的用户可感知收益可用一句话说明，且不降低默认零配置体验
+  - 全量 Preflight（npm test + 双平台构建）保持绿色
+
+references:
+  - specs/release-plan.yaml
+  - specs/execution-status.yaml
+  - specs/product/VISION_LATEST.yaml
+  - specs/product/UI_REDESIGN_DIRECTION.md
+  - specs/verifications/full-refactor-review-1.7.4.md
+
 open_decisions:
-  - R3 pick: native-api vs standalone-panel (decide after R2)
-  - Ship 1.7 UI redesign before or after Chromium store packaging (default: UI P1+P2 first)
+  - id: r3_pick
+    question: R3 选原生 Translator API 引擎还是独立面板？
+    status: open
+    note: >
+      倾向原生 API 引擎：翻译器接口已统一为 translate(text, targetLang, sourceLang, options, signal)
+      → 新增端上引擎 = 只写一个 translate()，缓存/超时/重试/下拉项全部复用。
+      约束：Firefox 无此 API，故只能是 Chrome 上的增强并需特性检测回退，不能成为唯一路径。
+  - id: r2_vs_r3_order
+    question: R2 商店上架与 R3 差异化能力的先后？
+    status: open
+    note: 当前默认先 R2（触达先于差异化）。

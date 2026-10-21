@@ -1,65 +1,81 @@
-target_version: "1.7.0"
-baseline_version: "1.7.0"
+# specs/release-plan.yaml — 发布索引（WSJF 排序的史诗索引）
+#
+# 契约：bigpowers `skills/plan-release/SKILL.md`
+#   → 字段：`release.version`、WSJF 排序的史诗列表（`id` / `capsule_dir` / `wsjf` / `bcps`）
+#   → anti-pattern（同文档明列）："Status in release-plan" —— 故事/史诗状态**只**存在于
+#     `specs/execution-status.yaml`；本文件不得再写一份状态副本（这是历史上状态漂移的根因）。
+#
+# 本文件相对框架的两处 Foxlate 自有扩展（不违反上述契约）：
+#   - `tracks`：锁定的产品路线 R1 → R2 → R3（AGENTS.md 的 product route）
+#   - `backlog`：尚未成为史诗的候选工作，不占路线
+# 门禁：test/planning-state.test.mjs（版本一致、无状态副本、轨道状态与史诗状态不矛盾）
+
+release:
+  version: "1.7.4"       # 必须等于 package.json 的 version（门禁强制）
+  status: shipped
+
 tracks:
   - id: R1
     name: stabilize
-    target: "1.6.1"
+    target_version: "1.6.1"
     status: done
   - id: R1.5
     name: core-polish
-    target: "1.7.0"
+    target_version: "1.6.2"
     status: done
   - id: R1.7
     name: ui-redesign
-    target: "1.7.0"
-    status: active
+    target_version: "1.7.0"
+    status: done
   - id: R2
     name: reach-chromium
-    target: "1.7.x"
+    target_version: "1.7.x"
     status: planned
   - id: R3
     name: differentiator
-    target: "1.8.0"
+    target_version: "1.8.0"
     status: backlog
+
 epics:
   - id: e01
-    slug: r1-stabilize
-    status: done
-    capsule: specs/epics/archive/e01-r1-stabilize/
+    title: R1 Stabilize — release integrity, MD3 cleanup, token parity gate
+    capsule_dir: specs/epics/archive/e01-r1-stabilize
+    track: R1
+    wsjf: 8
+    total_bcps: 7
   - id: e04
-    slug: core-polish
-    status: done
-    capsule: specs/epics/archive/e04-core-polish/
+    title: Core polish — strategies, rules, display modes, panels
+    capsule_dir: specs/epics/archive/e04-core-polish
+    track: R1.5
+    wsjf: 9
+    total_bcps: 8
   - id: e06
-    slug: ui-redesign
     title: Calm tool chrome redesign (popup, options, floating content UI)
+    capsule_dir: null
     track: R1.7
     wsjf: 9
-    status: active
-    direction: specs/product/UI_REDESIGN_DIRECTION.md
-    stories:
-      - e06s01 # P1 calm tokens + popup + content floating panels
-      - e06s02 # P2 options shell + modals
-      - e06s03 # P3 summary/enhanced alignment
-      - e06s04 # P4 dark-mode + a11y polish
+    note: >
+      无 epic 胶囊：该方向直接以 specs/product/UI_REDESIGN_DIRECTION.md 驱动，
+      1.7.0 发布时已落地 P1/P2（calm chrome + options 外壳）。故事状态见 execution-status.yaml；
+      P3/P4 未单独登记。保留此条目是为了让 R1.7 轨道可追溯，而不是掩盖缺口。
   - id: e02
-    slug: r2-chromium-reach
     title: R2 Chromium packaging, SW lifecycle, store readiness
+    capsule_dir: null
     track: R2
     wsjf: 8
-    status: planned
     stories: []
-  - id: e05
-    slug: core-polish-backlog
-    title: Optional residual polish (empty-result toast, copy-on-panel, pixel-level error chrome)
-    track: R1.5
-    wsjf: 3
-    status: backlog
-    stories: []
+    note: "阻塞点不是工程：双目标构建与 MV3 生命周期已完成；剩余为商店素材/隐私政策/权限说明。"
   - id: e03
-    slug: r3-differentiator
-    title: R3 Native Translator API OR standalone panel (pick one)
+    title: R3 Differentiator — native Translator API engine OR standalone panel
+    capsule_dir: null
     track: R3
     wsjf: 6
-    status: backlog
+    stories: []
+    note: "二者尚未择一，见 specs/product/SCOPE_LATEST.yaml 的 open_decisions。"
+
+backlog:
+  - id: e05
+    title: Optional residual polish (empty-result toast, copy-on-panel, pixel-level error chrome)
+    capsule_dir: null
+    wsjf: 3
     stories: []

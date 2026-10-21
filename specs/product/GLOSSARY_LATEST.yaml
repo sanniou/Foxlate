@@ -10,6 +10,6 @@ terms:
   - term: Page translation job
     definition: Content-script pipeline that discovers, batches, and applies page translations.
   - term: Product tokens
-    definition: Live CSS variables under --fox-* in src/common/common.css.
+    definition: Live CSS variables under --fox-*; values live in src/common/tokens.css, semantic aliases in src/common/common.css.
   - term: solo-git
     definition: Integrate mode that lands via local squash/push without mandatory PR.

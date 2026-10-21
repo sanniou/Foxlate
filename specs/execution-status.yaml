@@ -1,8 +1,43 @@
-e01: done
-e01s01: done
-e01s02: done
-e01s03: done
-e04: done
-e04s01: done
-e02: planned
-e03: backlog
+# specs/execution-status.yaml — 史诗/故事状态的唯一 SoT
+#
+# 契约：bigpowers `skills/plan-release/SKILL.md`（"Flat key-value store for story status"）
+#       + `skills/visual-dashboard/SKILL.md`（`development_status` map，story/epic → done | pending）
+#
+# 消费者（这就是本文件必须用 `development_status:` 嵌套的原因）：
+#   - bigpowers `dashboard/src/loaders/reader.js` → `data.development_status`
+#   - bigpowers `skills/generate-allure-report`   → `development_status`
+# 扁平写法（无 development_status 包裹）会让两者读到空集合，驾驶舱静默失明。
+#
+# 规则：
+#   1. 键为故事 ID（eNNsYY）或（无故事的）史诗 ID（eNN）。
+#   2. 只登记**有发布产物可证**的状态；查不到的条目宁可不写，不要猜。
+#   3. `specs/release-plan.yaml` 不得再存状态副本（框架明列 anti-pattern）。
+# 门禁：test/planning-state.test.mjs
+
+development_status:
+  # R1 stabilize → 1.6.1（changelog「## [1.6.1]」）
+  e01: done
+  e01s01: done        # 发布完整性门禁：版本 SoT + 双目标构建
+  e01s02: done        # 清除 MD3 类名残留
+  e01s03: done        # content 色板与 --fox-* 一致性门禁
+
+  # R1.5 core polish → 1.6.2（changelog「## [1.6.2]」）
+  e04: done
+  e04s01: done        # 默认可读 + popup 显示模式分段 + 快选夹紧 + 策略状态
+
+  # R1.7 UI 重设计 → 1.7.0（changelog「## [1.7.0] Calm tool chrome」）
+  # 注意：e06 从未建立 epic 胶囊（specs/epics/e06-* 不存在），故只有 shipped 的故事有记录；
+  # 规划中的 e06s03（P3 summary/enhanced 对齐）与 e06s04（P4 dark-mode + a11y 打磨）
+  # 无版本产物可证，**故意不登记**，以免把猜测写成事实。
+  e06: done
+  e06s01: done        # P1 calm tokens + popup 密度 + 内容浮层面板
+  e06s02: done        # P2 options 静音外壳 + 模态框
+
+  # R2 chromium reach → 尚未发布
+  e02: todo           # Chromium 打包验证 / SW 生命周期 / 商店就绪
+
+  # R3 differentiator → 尚未发布，且选择未定（见 SCOPE_LATEST.yaml open_decisions）
+  e03: todo           # Native Translator API 或独立面板
+
+  # R1.5 残余打磨（可选）
+  e05: todo           # empty-result toast / copy-on-panel / pixel-level error chrome

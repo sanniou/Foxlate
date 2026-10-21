@@ -1,7 +1,8 @@
 // src/content/summary/summary.view.js
 
 import browser from '../../lib/browser-polyfill.js';
-import { debounce } from '../../common/utils.js';
+import { debounce } from '../../common/timing.js';
+import { escapeHtml } from '../../common/escape.js';
 import { ResizeController } from '../layout/resize-controller.js';
 import { summaryLayoutController } from '../layout/summary-layout-controller.js';
 import { getSummaryIcon } from './summary-icons.js';
@@ -18,7 +19,8 @@ export class SummaryDialog {
     static EXPANDED_WIDTH = 680;
     static EXPANDED_HEIGHT = 720;
 
-    constructor() {
+    /** 运行期状态：尺寸/布局缓存、增量渲染游标、当前会话内容。 */
+    #initState() {
         this.isOpen = false;
         this._renderedMessageCount = 0;
         this._fullRerenderNeeded = false;
@@ -32,32 +34,30 @@ export class SummaryDialog {
         this.currentMessageTextByIndex = new Map();
         this.currentOriginalText = '';
         this.currentSuggestions = [];
-        this.messageRenderer = new SummaryMessageRenderer({
-            getIcon: name => this.getIcon(name),
-            getWidth: () => this.currentLayout?.width ?? SummaryDialog.DEFAULT_WIDTH,
-        });
+    }
 
-        // 绑定事件处理函数，以便在移除时使用
-        this.boundHandleSendMessage = () => {
-            const query = this.textarea.value.trim();
-            if (query && !this.sendButton.disabled) {
-                this.dispatchEvent('send-message', { query });
-                this.clearInput();
-            }
-        };
-        this.boundHandleRefresh = () => this.dispatchEvent('refresh');
-        this.boundToggleSuggestions = () => this.toggleSuggestions();
+    /**
+     * 事件处理器统一在构造时创建为具名绑定函数：
+     * 移除监听必须传同一个引用，因此不允许在别处现写箭头函数。
+     */
+    #bindEventHandlers() {
+        this.#bindComposerEvents();
+        this.#bindConversationEvents();
+        this.#bindTabEvents();
+        this.#bindDocumentEvents();
+        this.#bindRelocationEvents();
+    }
+
+    /** 输入区：发送、Ctrl+Enter、输入时的尺寸与按钮态联动。 */
+    #bindComposerEvents() {
+        this.boundHandleSendMessage = () => this.triggerSend();
         this.boundHandleTextareaKeydown = (e) => {
-            if (e.key === 'Enter' && e.ctrlKey) {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-                const query = this.textarea.value.trim();
-                if (query && !this.sendButton.disabled) {
-                    this.dispatchEvent('send-message', { query });
-                    this.clearInput();
-                }
-            }
+            if (e.key !== 'Enter' || !e.ctrlKey) return;
+            // 抢在页面自身的 Enter 处理之前把消息发出去
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            this.triggerSend();
         };
         this.boundHandleTextareaInput = () => {
             this.applyTextareaLayout();
@@ -66,6 +66,12 @@ export class SummaryDialog {
                 this.repositionDialog();
             }
         };
+    }
+
+    /** 消息区：刷新、建议开关、消息上的 action 按钮（含编辑保存）。 */
+    #bindConversationEvents() {
+        this.boundHandleRefresh = () => this.dispatchEvent('refresh');
+        this.boundToggleSuggestions = () => this.toggleSuggestions();
         this.boundHandleConversationClick = (e) => {
             const target = e.target.closest('[data-action]');
             if (!target) return;
@@ -77,6 +83,10 @@ export class SummaryDialog {
             }
             this.dispatchEvent('dialog-action', { action, index, payload });
         };
+    }
+
+    /** 标签页：点选/关闭/切换原文，以及 tablist 的键盘导航。 */
+    #bindTabEvents() {
         this.boundHandleTabsAreaClick = (e) => {
             const tabEl = e.target.closest('.foxlate-summary-tab');
             if (!tabEl) return;
@@ -84,20 +94,56 @@ export class SummaryDialog {
             if (e.target.closest('.foxlate-summary-tab-close')) {
                 this.dispatchEvent('tab-close', { tabId });
             } else if (tabEl.classList.contains('active')) {
-               this.dispatchEvent('tab-toggle-original', { tabId });
+                this.dispatchEvent('tab-toggle-original', { tabId });
             } else {
                 this.dispatchEvent('tab-switch', { tabId });
             }
         };
+        // 标签页方向键导航（ARIA tablist 惯例：← → 在标签页间移动，Home/End 直达首尾）
+        this.boundHandleTabsAreaKeydown = (e) => {
+            const keys = ['ArrowRight', 'ArrowLeft', 'Home', 'End'];
+            if (!keys.includes(e.key)) return;
+            const titleButtons = Array.from(this.tabsArea.querySelectorAll('.foxlate-summary-tab-title'));
+            if (titleButtons.length < 2) return;
+            const current = titleButtons.indexOf(document.activeElement);
+            if (current === -1) return;
 
-        // 动态重定位相关
+            e.preventDefault();
+            let nextIndex;
+            if (e.key === 'Home') {
+                nextIndex = 0;
+            } else if (e.key === 'End') {
+                nextIndex = titleButtons.length - 1;
+            } else {
+                const delta = e.key === 'ArrowRight' ? 1 : -1;
+                nextIndex = (current + delta + titleButtons.length) % titleButtons.length;
+            }
+
+            const nextTab = titleButtons[nextIndex].closest('.foxlate-summary-tab');
+            if (!nextTab) return;
+            this.dispatchEvent('tab-switch', { tabId: parseInt(nextTab.dataset.tabId, 10) });
+            // 切换会重建整条 tablist，旧节点脱离文档，焦点会掉回 body，必须主动归位
+            this.focusActiveTabTitle();
+        };
+    }
+
+    /** 文档级 Esc：捕获阶段监听，抢在页面自身的 Esc 处理之前关闭面板。 */
+    #bindDocumentEvents() {
+        this.boundHandleDocumentKeydown = (e) => {
+            if (e.key !== 'Escape' || e.isComposing) return;
+            e.stopPropagation();
+            this.dispatchEvent('request-close', {});
+        };
+    }
+
+    /** 跟随按钮重定位，以及面板内的滚动链防护。 */
+    #bindRelocationEvents() {
         this.boundRepositionDialog = this.repositionDialog.bind(this);
         this.debouncedHandleResizeAndScroll = debounce(this.handleWindowResizeAndScroll.bind(this), SummaryDialog.DEBOUNCE_DELAY);
-        
-        // 阻止滚动事件传播的处理函数
+
         this.boundPreventScrollPropagation = (e) => {
             const target = e.target;
-            
+
             // 检查元素是否真正可滚动
             const isScrollable = (el) => {
                 if (!el) return false;
@@ -120,6 +166,16 @@ export class SummaryDialog {
                 e.preventDefault();
             }
         };
+    }
+
+    constructor() {
+        this.#initState();
+        this.messageRenderer = new SummaryMessageRenderer({
+            getIcon: name => this.getIcon(name),
+            getWidth: () => this.currentLayout?.width ?? SummaryDialog.DEFAULT_WIDTH,
+        });
+
+        this.#bindEventHandlers();
 
         this.create();
     }
@@ -132,6 +188,11 @@ export class SummaryDialog {
         this.element = document.createElement('div');
         this.element.className = 'foxlate-summary-dialog';
         this.element.style.visibility = 'hidden';
+        // 非模态浮动面板：标 role=dialog 让屏幕阅读器在进入时播报边界与名称。
+        // 不设 aria-modal：页面其余部分仍可交互，标成模态会谎报行为。
+        this.element.setAttribute('role', 'dialog');
+        this.element.setAttribute('aria-label', browser.i18n.getMessage('summaryModalTitle') || 'AI Summary');
+        this.element.tabIndex = -1;
         this.element.innerHTML = `
             <div class="foxlate-summary-header">
                 <h3>${browser.i18n.getMessage('summaryModalTitle') || 'Summary'}</h3>
@@ -147,7 +208,7 @@ export class SummaryDialog {
             </div>
             <div class="foxlate-summary-suggestions"></div>
             <div class="foxlate-summary-footer">
-                <textarea placeholder="${browser.i18n.getMessage('summaryInputPlaceholder') || 'Ask a follow-up...'}" rows="1"></textarea>
+                <textarea placeholder="${escapeHtml(browser.i18n.getMessage('summaryInputPlaceholder') || 'Ask a follow-up...')}" rows="1"></textarea>
                 <button class="send-button" aria-label="Send">${this.getIcon('send')}</button>
             </div>
         `;
@@ -186,6 +247,7 @@ export class SummaryDialog {
         this.textarea.addEventListener('input', this.boundHandleTextareaInput);
         this.conversationArea.addEventListener('click', this.boundHandleConversationClick);
         this.tabsArea.addEventListener('click', this.boundHandleTabsAreaClick);
+        this.tabsArea.addEventListener('keydown', this.boundHandleTabsAreaKeydown);
         
         // 初始化发送按钮状态（输入框为空时禁用）
         this.updateSendButtonState();
@@ -193,17 +255,35 @@ export class SummaryDialog {
 
     renderTabs(tabs, activeTabId) {
         this.tabsArea.innerHTML = '';
+        this.tabsArea.setAttribute('role', 'tablist');
         tabs.forEach(tab => {
+            const isActive = tab.id === activeTabId;
             const tabEl = document.createElement('div');
-            tabEl.className = `foxlate-summary-tab ${tab.id === activeTabId ? 'active' : ''}`;
+            tabEl.className = `foxlate-summary-tab ${isActive ? 'active' : ''}`;
             tabEl.dataset.tabId = tab.id;
             tabEl.style.setProperty('--foxlate-summary-tab-width', `${summaryLayoutController.measureTabTitle(tab.title)}px`);
+            const closeLabel = browser.i18n.getMessage('summaryTabClose') || 'Close tab';
+            // 标题从 <span> 换成 <button role="tab">：原来键盘用户无法切换标签页。
+            // roving tabindex：只有当前标签页在 Tab 序列里，其余靠 ← → 到达。
             tabEl.innerHTML = `
-                <span class="foxlate-summary-tab-title">${tab.title}</span>
-                ${tabs.length > 1 ? `<button class="foxlate-summary-tab-close">${this.getIcon('cancel')}</button>` : ''}
+                <button type="button" class="foxlate-summary-tab-title" role="tab"
+                        aria-selected="${isActive}" tabindex="${isActive ? '0' : '-1'}">${escapeHtml(tab.title)}</button>
+                ${tabs.length > 1
+                    ? `<button type="button" class="foxlate-summary-tab-close" aria-label="${escapeHtml(closeLabel)}">${this.getIcon('cancel')}</button>`
+                    : ''}
             `;
             this.tabsArea.appendChild(tabEl);
         });
+    }
+
+    /**
+     * 把焦点放回当前标签页的标题按钮。
+     * 切换标签页会重建 tablist，旧节点被替换后焦点会掉回 body。
+     */
+    focusActiveTabTitle() {
+        this.tabsArea
+            ?.querySelector('.foxlate-summary-tab.active .foxlate-summary-tab-title')
+            ?.focus({ preventScroll: true });
     }
 
     triggerSend() {
@@ -355,6 +435,13 @@ export class SummaryDialog {
         this.element.classList.add('visible');
         this.attachResizeController();
 
+        // 记下打开前的焦点宿主，关闭时归还（键盘用户不至于被丢回页面顶部）
+        this.previouslyFocusedElement = document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : null;
+        document.addEventListener('keydown', this.boundHandleDocumentKeydown, true);
+        this.element.focus({ preventScroll: true });
+
         // 延迟执行重定位，确保DOM已更新
         requestAnimationFrame(() => {
             this.repositionDialog();
@@ -396,16 +483,6 @@ export class SummaryDialog {
         this.element.dataset.foxlatePlacement = layout.placement;
         this.applyMeasuredContentLayout();
     }
-
-    // 移除旧的复杂计算方法
-    calculateAvailableSpaces() {}
-    selectBestDirection() {}
-    calculateOptimalSize() {}
-    estimateContentSize() {}
-    applyDialogSize() {}
-    animateSizeChange() {}
-    easeOutCubic() {}
-    applyDialogPosition() {}
 
     handleWindowResizeAndScroll() {
         // 重新获取 summaryButton 的位置，因为滚动和resize会改变其位置
@@ -463,6 +540,12 @@ export class SummaryDialog {
         this.element.classList.remove('visible');
         setTimeout(() => { if (!this.isOpen) this.element.style.visibility = 'hidden'; }, 200);
 
+        document.removeEventListener('keydown', this.boundHandleDocumentKeydown, true);
+        if (this.previouslyFocusedElement?.isConnected) {
+            this.previouslyFocusedElement.focus({ preventScroll: true });
+        }
+        this.previouslyFocusedElement = null;
+
         // 移除窗口大小和滚动监听器
         window.removeEventListener('resize', this.debouncedHandleResizeAndScroll);
         window.removeEventListener('scroll', this.debouncedHandleResizeAndScroll, true);
@@ -504,6 +587,8 @@ export class SummaryDialog {
         this.textarea?.removeEventListener('input', this.boundHandleTextareaInput);
         this.conversationArea?.removeEventListener('click', this.boundHandleConversationClick);
         this.tabsArea?.removeEventListener('click', this.boundHandleTabsAreaClick);
+        this.tabsArea?.removeEventListener('keydown', this.boundHandleTabsAreaKeydown);
+        document.removeEventListener('keydown', this.boundHandleDocumentKeydown, true);
 
         this.suggestionsView?.destroy();
 

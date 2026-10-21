@@ -1,7 +1,7 @@
 import browser from '../lib/browser-polyfill.js';
 import { floatingLayoutService } from './layout/floating-layout-service.js';
 import { createTooltipContent } from './tooltip/tooltip-content-view.js';
-import { createTooltipIcon } from './tooltip/tooltip-icons.js';
+import { createTooltipIcon, setTooltipIconButtonLabel } from './tooltip/tooltip-icons.js';
 import { TooltipDragController } from './tooltip/tooltip-drag-controller.js';
 import { TooltipResizeController } from './tooltip/tooltip-resize-controller.js';
 import { TooltipSpeechController } from './tooltip/tooltip-speech-controller.js';
@@ -17,6 +17,8 @@ const COPY_FEEDBACK_DURATION = 1500;
 class EnhancedTooltipManager {
     #tooltipEl = null;
     #activeHideHandler = null;
+    #activeKeyHandler = null;
+    #onHide = null;
     #sourceLang = 'auto'; // 将由 franc 检测
     #targetLang = null; // 目标语言，必须通过 show 方法的选项进行配置
     #isPinned = false;
@@ -96,7 +98,11 @@ class EnhancedTooltipManager {
         if (pinBtn) {
             pinBtn.innerHTML = '';
             pinBtn.appendChild(createTooltipIcon(this.#isPinned ? 'unpin' : 'pin'));
-            pinBtn.title = browser.i18n.getMessage(this.#isPinned ? 'tooltipUnpin' : 'tooltipPin') || (this.#isPinned ? 'Unpin' : 'Pin');
+            setTooltipIconButtonLabel(
+                pinBtn,
+                browser.i18n.getMessage(this.#isPinned ? 'tooltipUnpin' : 'tooltipPin')
+                    || (this.#isPinned ? 'Unpin' : 'Pin'),
+            );
         }
         if (this.#isPinned) {
             this.#removeHideListeners();
@@ -135,6 +141,39 @@ class EnhancedTooltipManager {
         }
         this.#speechController.stop(this.#tooltipEl, browser);
         this.#removeHideListeners();
+        this.#detachEscapeHandler();
+    }
+
+    /**
+     * 键盘与关闭按钮的统一退出路径：解除固定 → 隐藏 → 通知调用方。
+     * 固定状态下 `hide()` 会直接返回，所以必须先解固定，否则 Esc / 关闭按钮无任何效果。
+     */
+    dismiss() {
+        if (!this.#tooltipEl) return;
+        this.#isPinned = false;
+        this.#setPinned(false);
+        this.hide();
+        this.#onHide?.();
+    }
+
+    #attachEscapeHandler() {
+        if (this.#activeKeyHandler) return;
+        this.#activeKeyHandler = (event) => {
+            if (event.key !== 'Escape' || event.isComposing) return;
+            // 只在焦点已进入工具提示、或它已被固定（此时翼盖了后续操作）时接管 Esc，
+            // 否则会抢走页面自己的 Esc 语义（关弹窗、退全屏）。
+            const ownsFocus = this.#tooltipEl?.contains(document.activeElement);
+            if (!this.#isPinned && !ownsFocus) return;
+            event.stopPropagation();
+            this.dismiss();
+        };
+        document.addEventListener('keydown', this.#activeKeyHandler, true);
+    }
+
+    #detachEscapeHandler() {
+        if (!this.#activeKeyHandler) return;
+        document.removeEventListener('keydown', this.#activeKeyHandler, true);
+        this.#activeKeyHandler = null;
     }
 
     #removeHideListeners() {
@@ -174,10 +213,12 @@ class EnhancedTooltipManager {
         this.#applyLayout(sourceText, translatedText, { isLoading, isError });
         this.#attachResizeController();
 
-        this.#attachEventListeners(sourceText, translatedText, onHide);
+        this.#attachEventListeners(sourceText, translatedText);
 
         this.#updatePosition({ coords, targetElement });
         this.#tooltipEl.classList.add('visible');
+        this.#onHide = onHide ?? null;
+        this.#attachEscapeHandler();
 
         if (onHide) {
             this.#activeHideHandler = (e) => {
@@ -191,7 +232,7 @@ class EnhancedTooltipManager {
         }
     }
 
-    #attachEventListeners(sourceText, translatedText, onHide) {
+    #attachEventListeners(sourceText, translatedText) {
         if (!this.#tooltipEl) return;
 
         const header = this.#tooltipEl.querySelector('.foxlate-panel-header');
@@ -200,10 +241,9 @@ class EnhancedTooltipManager {
         this.#dragController.setPinned(this.#isPinned);
 
         this.#tooltipEl.querySelector('.foxlate-close-btn')?.addEventListener('click', (e) => {
-            // 确保关闭按钮总是能工作
+            // 确保关闭按钮总是能工作（包括固定状态下）
             e.stopPropagation();
-            this.#isPinned = false;
-            onHide?.();
+            this.dismiss();
         });
 
         pinBtn?.addEventListener('click', (e) => {
@@ -231,7 +271,10 @@ class EnhancedTooltipManager {
             const isCollapsed = section.classList.toggle('collapsed');
             toggleBtn.innerHTML = '';
             toggleBtn.appendChild(createTooltipIcon(isCollapsed ? 'expand' : 'collapse'));
-            toggleBtn.title = browser.i18n.getMessage(isCollapsed ? 'tooltipExpandSource' : 'tooltipCollapseSource');
+            setTooltipIconButtonLabel(
+                toggleBtn,
+                browser.i18n.getMessage(isCollapsed ? 'tooltipExpandSource' : 'tooltipCollapseSource'),
+            );
 
             section.querySelectorAll(`.${type}-speech-btn, .${type}-copy-btn`)
                 .forEach(btn => btn.disabled = isCollapsed);
@@ -267,13 +310,13 @@ class EnhancedTooltipManager {
         button.innerHTML = '';
         button.appendChild(createTooltipIcon('check'));
         button.classList.add('copied');
-        const originalTitle = button.title;
-        button.title = browser.i18n.getMessage('tooltipCopied');
+        const originalLabel = button.title;
+        setTooltipIconButtonLabel(button, browser.i18n.getMessage('tooltipCopied') || 'Copied');
 
         setTimeout(() => {
             button.innerHTML = originalIcon;
             button.classList.remove('copied');
-            button.title = originalTitle;
+            setTooltipIconButtonLabel(button, originalLabel);
         }, COPY_FEEDBACK_DURATION);
     }
 }

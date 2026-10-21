@@ -1,61 +1,35 @@
 /* =========================================
-   Foxlate Product Design System
+   Foxlate Product Design System — 语义别名层
+   =========================================
+
+   取值只有一处来源：`tokens.css` 的 --fox-* 原语。本文件不定义任何取值，
+   只做「语义别名 → 原语」映射，再挂组件类。
+
+   内容脚本不加载本文件：它声明 `color-scheme`，会改变宿主页面的表单控件
+   渲染。内容侧只拿 tokens.css（那份刻意不含任何会污染宿主的声明），因此
+   扩展页面与宿主页面里的取值永远同源。
+
+   不变量（test/design-system.test.mjs）：每条别名都必须被组件规则引用。
+   比例尺（字号/圆角/间距）与成对的语义色在 tokens.css 里是完整的，需要时
+   直接写 var(--fox-*) 即可 —— 别名层只保留真正在用的词汇。
    ========================================= */
+@import url('/common/tokens.css');
 
 :root {
     color-scheme: light dark;
-
-    --fox-color-primary: #0891b2;
-    --fox-color-primary-hover: #0e7490;
-    --fox-color-primary-active: #155e75;
-    --fox-color-on-primary: #ffffff;
-    --fox-color-primary-soft: #cffafe;
-    --fox-color-on-primary-soft: #164e63;
-
-    --fox-color-accent: #7c3aed;
-    --fox-color-accent-hover: #6d28d9;
-    --fox-color-accent-soft: #ede9fe;
-    --fox-color-on-accent-soft: #4c1d95;
-
-    --fox-color-warm: #f97316;
-    --fox-color-warm-soft: #ffedd5;
-    --fox-color-success: #10b981;
-    --fox-color-success-bg: #ecfdf5;
-    --fox-color-warning: #f59e0b;
-    --fox-color-warning-bg: #fffbeb;
-    --fox-color-error: #e11d48;
-    --fox-color-error-bg: #fff1f2;
-
-    --fox-color-bg: #f5f7fb;
-    --fox-color-bg-strong: #eaf7fb;
-    --fox-color-panel: #ffffff;
-    --fox-color-panel-solid: #ffffff;
-    --fox-color-panel-raised: #ffffff;
-    --fox-color-hover: rgba(8, 145, 178, 0.08);
-    --fox-color-pressed: rgba(8, 145, 178, 0.14);
-
-    --fox-color-text: #172033;
-    --fox-color-text-secondary: #536173;
-    --fox-color-text-muted: #8794a6;
-    --fox-color-border: rgba(120, 140, 164, 0.26);
-    --fox-color-border-strong: rgba(83, 97, 115, 0.34);
-    --fox-color-focus: #06b6d4;
 
     --color-primary: var(--fox-color-primary);
     --color-primary-hover: var(--fox-color-primary-hover);
     --color-primary-active: var(--fox-color-primary-active);
     --color-on-primary: var(--fox-color-on-primary);
     --color-primary-container: var(--fox-color-primary-soft);
-    --color-on-primary-container: var(--fox-color-on-primary-soft);
     --color-accent: var(--fox-color-accent);
     --color-accent-container: var(--fox-color-accent-soft);
     --color-on-accent-container: var(--fox-color-on-accent-soft);
-
     --color-surface: var(--fox-color-bg);
     --color-surface-container: var(--fox-color-panel);
     --color-surface-raised: var(--fox-color-panel-raised);
     --color-surface-hover: var(--fox-color-hover);
-
     --color-text-main: var(--fox-color-text);
     --color-text-secondary: var(--fox-color-text-secondary);
     --color-text-muted: var(--fox-color-text-muted);
@@ -66,79 +40,29 @@
     --color-success: var(--fox-color-success);
     --color-success-bg: var(--fox-color-success-bg);
     --color-warning: var(--fox-color-warning);
-    --color-warning-bg: var(--fox-color-warning-bg);
-    --state-hover-opacity: var(--fox-color-hover);
+    --font-sans: var(--fox-font-sans);
+    --text-xs: var(--fox-text-xs);
+    --text-sm: var(--fox-text-sm);
+    --text-base: var(--fox-text-base);
+    --text-lg: var(--fox-text-lg);
+    --font-medium: var(--fox-font-medium);
+    --font-semibold: var(--fox-font-semibold);
+    --font-bold: var(--fox-font-bold);
 
-    --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    --text-xs: 0.75rem;
-    --text-sm: 0.875rem;
-    --text-base: 1rem;
-    --text-lg: 1.125rem;
-    --text-xl: 1.35rem;
-    --font-medium: 500;
-    --font-semibold: 650;
-    --font-bold: 760;
+    --radius-sm: var(--fox-radius-sm);
+    --radius-md: var(--fox-radius-md);
+    --radius-lg: var(--fox-radius-lg);
+    --radius-full: var(--fox-radius-full);
 
-    --radius-sm: 8px;
-    --radius-md: 10px;
-    --radius-lg: 12px;
-    --radius-xl: 16px;
-    --radius-full: 9999px;
+    --space-2: var(--fox-space-2);
+    --space-3: var(--fox-space-3);
+    --space-4: var(--fox-space-4);
 
-    --space-1: 4px;
-    --space-2: 8px;
-    --space-3: 12px;
-    --space-4: 16px;
-    --space-6: 24px;
-    --space-8: 32px;
-
-    --shadow-xs: 0 1px 2px rgba(20, 35, 52, 0.05);
-    --shadow-sm: 0 4px 12px -6px rgba(20, 35, 52, 0.18);
-    --shadow-md: 0 10px 24px -14px rgba(20, 35, 52, 0.22);
-    --shadow-lg: 0 18px 40px -20px rgba(20, 35, 52, 0.28);
-    --shadow-surface: 0 1px 2px rgba(20, 35, 52, 0.04);
-    --shadow-input: inset 0 1px 0 rgba(255, 255, 255, 0.72), 0 1px 2px rgba(20, 35, 52, 0.03);
-    --shadow-modal: 0 20px 48px -24px rgba(12, 20, 32, 0.36);
-
-    /* Brand gradient reserved for rare moments; primary CTA uses solid. */
-    --gradient-brand: linear-gradient(135deg, #0891b2 0%, #0e7490 100%);
-    --gradient-warm: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
-    --transition-base: 150ms ease;
-    --transition-smooth: 200ms ease;
-}
-
-@media (prefers-color-scheme: dark) {
-    :root {
-        --fox-color-primary: #22d3ee;
-        --fox-color-primary-hover: #67e8f9;
-        --fox-color-primary-active: #a5f3fc;
-        --fox-color-on-primary: #083344;
-        --fox-color-primary-soft: rgba(34, 211, 238, 0.16);
-        --fox-color-on-primary-soft: #cffafe;
-        --fox-color-accent: #c084fc;
-        --fox-color-accent-hover: #d8b4fe;
-        --fox-color-accent-soft: rgba(192, 132, 252, 0.18);
-        --fox-color-on-accent-soft: #f3e8ff;
-        --fox-color-warm-soft: rgba(249, 115, 22, 0.16);
-        --fox-color-bg: #0f1420;
-        --fox-color-bg-strong: #102a35;
-        --fox-color-panel: #161d2b;
-        --fox-color-panel-solid: #161d2b;
-        --fox-color-panel-raised: #1b2536;
-        --fox-color-hover: rgba(34, 211, 238, 0.12);
-        --fox-color-pressed: rgba(34, 211, 238, 0.18);
-        --fox-color-text: #f5f8fb;
-        --fox-color-text-secondary: #c6d0dc;
-        --fox-color-text-muted: #8f9daf;
-        --fox-color-border: rgba(160, 177, 198, 0.18);
-        --fox-color-border-strong: rgba(189, 201, 218, 0.3);
-        --fox-color-error-bg: rgba(225, 29, 72, 0.16);
-        --fox-color-success-bg: rgba(16, 185, 129, 0.16);
-        --fox-color-warning-bg: rgba(245, 158, 11, 0.16);
-        --shadow-surface: 0 1px 2px rgba(0, 0, 0, 0.28);
-        --shadow-modal: 0 20px 48px -20px rgba(0, 0, 0, 0.55);
-        --gradient-brand: linear-gradient(135deg, #22d3ee 0%, #0891b2 100%);
-    }
+    --shadow-xs: var(--fox-shadow-xs);
+    --shadow-md: var(--fox-shadow-md);
+    --shadow-lg: var(--fox-shadow-lg);
+    --shadow-surface: var(--fox-shadow-surface);
+    --shadow-modal: var(--fox-shadow-modal);
 }
 
 *, *::before, *::after {
@@ -159,7 +83,7 @@ body {
     font-family: var(--font-sans);
     background-color: var(--color-surface);
     color: var(--color-text-main);
-    line-height: 1.5;
+    line-height: var(--fox-leading-normal);
     -webkit-font-smoothing: antialiased;
     text-rendering: geometricPrecision;
 }
@@ -194,15 +118,19 @@ button {
     gap: 0.45rem;
     font-size: var(--text-sm);
     font-weight: var(--font-semibold);
-    line-height: 1.2;
+    line-height: var(--fox-leading-tight);
     overflow: hidden;
     position: relative;
     text-decoration: none;
+    /* 按压位移的时长在这里间接引用：:active 时改成 90ms（跟手），松手后回到
+       弹簧曲线自然回弹。颜色类属性始终走常规节奏。 */
+    --btn-press-duration: var(--fox-motion-response-slower);
     transition:
-        background-color var(--transition-base),
-        border-color var(--transition-base),
-        box-shadow var(--transition-base),
-        color var(--transition-base);
+        background-color var(--fox-motion-response-fast) var(--fox-motion-ease-standard),
+        border-color var(--fox-motion-response-fast) var(--fox-motion-ease-standard),
+        box-shadow var(--fox-motion-response-fast) var(--fox-motion-ease-standard),
+        color var(--fox-motion-response-fast) var(--fox-motion-ease-standard),
+        transform var(--btn-press-duration) var(--fox-motion-ease-spring);
     user-select: none;
     white-space: nowrap;
 }
@@ -224,14 +152,23 @@ button {
     transform: none !important;
 }
 
+/* 按下就要有反馈，不能等到松手才动（§2）。缩放幅度刻意很小 ——
+   按压反馈是「我收到了」的确认，不是动效表演。 */
+.btn:active:not(:disabled) {
+    --btn-press-duration: var(--fox-motion-response-press);
+    transform: scale(0.97);
+}
+
 .btn-primary {
     background: var(--color-primary);
     color: var(--color-on-primary);
     box-shadow: none;
 }
 
-.btn-primary:hover:not(:disabled) {
-    background: var(--color-primary-hover);
+@media (hover: hover) {
+    .btn-primary:hover:not(:disabled) {
+        background: var(--color-primary-hover);
+    }
 }
 
 .btn-primary:active:not(:disabled) {
@@ -245,9 +182,11 @@ button {
     box-shadow: none;
 }
 
-.btn-secondary:hover:not(:disabled) {
-    background: var(--color-surface-hover);
-    border-color: color-mix(in srgb, var(--color-primary) 28%, var(--color-border));
+@media (hover: hover) {
+    .btn-secondary:hover:not(:disabled) {
+        background: var(--color-surface-hover);
+        border-color: color-mix(in srgb, var(--color-primary) 28%, var(--color-border));
+    }
 }
 
 .btn-tonal {
@@ -256,8 +195,10 @@ button {
     border-color: color-mix(in srgb, var(--color-accent) 16%, transparent);
 }
 
-.btn-tonal:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--color-accent-container) 78%, var(--color-accent) 22%);
+@media (hover: hover) {
+    .btn-tonal:hover:not(:disabled) {
+        background: color-mix(in srgb, var(--color-accent-container) 78%, var(--color-accent) 22%);
+    }
 }
 
 .btn-text {
@@ -265,10 +206,12 @@ button {
     color: var(--color-text-secondary);
 }
 
-.btn-text:hover:not(:disabled),
-.btn-icon:hover:not(:disabled) {
-    background: var(--color-surface-hover);
-    color: var(--color-text-main);
+@media (hover: hover) {
+    .btn-text:hover:not(:disabled),
+    .btn-icon:hover:not(:disabled) {
+        background: var(--color-surface-hover);
+        color: var(--color-text-main);
+    }
 }
 
 .btn-danger {
@@ -277,8 +220,10 @@ button {
     color: var(--color-error);
 }
 
-.btn-danger:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--color-error-bg) 80%, var(--color-error) 20%);
+@media (hover: hover) {
+    .btn-danger:hover:not(:disabled) {
+        background: color-mix(in srgb, var(--color-error-bg) 80%, var(--color-error) 20%);
+    }
 }
 
 .btn-icon {
@@ -371,15 +316,17 @@ button {
     box-shadow: none;
     color: var(--color-text-main);
     font-size: var(--text-sm);
-    line-height: 1.3;
+    line-height: var(--fox-leading-snug);
     transition:
-        background-color var(--transition-base),
-        border-color var(--transition-base),
-        box-shadow var(--transition-base);
+        background-color var(--fox-motion-response-fast) var(--fox-motion-ease-standard),
+        border-color var(--fox-motion-response-fast) var(--fox-motion-ease-standard),
+        box-shadow var(--fox-motion-response-fast) var(--fox-motion-ease-standard);
 }
 
-.form-control:hover {
-    border-color: var(--color-border-strong);
+@media (hover: hover) {
+    .form-control:hover {
+        border-color: var(--color-border-strong);
+    }
 }
 
 .form-control:focus {
@@ -411,10 +358,12 @@ select.form-control option {
     color: var(--color-text-main);
 }
 
-select.form-control option:checked,
-select.form-control option:hover {
-    background: color-mix(in srgb, var(--color-primary) 14%, var(--fox-color-panel-solid));
-    color: var(--color-text-main);
+@media (hover: hover) {
+    select.form-control option:checked,
+    select.form-control option:hover {
+        background: color-mix(in srgb, var(--color-primary) 14%, var(--fox-color-panel-solid));
+        color: var(--color-text-main);
+    }
 }
 
 .card,
@@ -464,9 +413,9 @@ select.form-control option:hover {
     background: color-mix(in srgb, var(--color-text-muted) 22%, transparent);
     position: relative;
     transition:
-        background-color var(--transition-base),
-        border-color var(--transition-base),
-        box-shadow var(--transition-base);
+        background-color var(--fox-motion-response-fast) var(--fox-motion-ease-standard),
+        border-color var(--fox-motion-response-fast) var(--fox-motion-ease-standard),
+        box-shadow var(--fox-motion-response-fast) var(--fox-motion-ease-standard);
 }
 
 .switch-thumb {
@@ -478,7 +427,7 @@ select.form-control option:hover {
     border-radius: 50%;
     background: #ffffff;
     box-shadow: 0 2px 6px rgba(20, 35, 52, 0.24);
-    transition: transform var(--transition-smooth);
+    transition: transform var(--fox-motion-response) var(--fox-motion-ease-standard);
 }
 
 .switch input:checked + .switch-track {
@@ -502,7 +451,7 @@ select.form-control option:hover {
     background: rgba(15, 23, 42, 0.4);
     opacity: 0;
     pointer-events: none;
-    transition: opacity var(--transition-smooth);
+    transition: opacity var(--fox-motion-response) var(--fox-motion-ease-standard);
 }
 
 .modal-backdrop.is-visible {
@@ -519,12 +468,17 @@ select.form-control option:hover {
     border-radius: var(--radius-lg);
     background: var(--color-surface-raised);
     box-shadow: var(--shadow-modal);
-    transform: translateY(6px);
-    transition: transform var(--transition-smooth);
+    /* 出场：比入场快，且用入场曲线的镜像控制点 —— 怎么进来的就怎么出去（§7）。 */
+    transform: translateY(6px) scale(0.97);
+    transition: transform var(--fox-motion-response-fast) var(--fox-motion-ease-exit);
 }
 
 .modal-backdrop.is-visible .modal-content {
+    /* 入场：临界阻尼弹簧。这是用户点击的直接结果，所以要有跟手感与一点落位感
+       （§5 手势速度应带入转场）。duration 用 response 而非固定时长：
+       弹簧没有时长，落位时间由参数涌现。 */
     transform: translateY(0) scale(1);
+    transition: transform var(--fox-motion-response-slower) var(--fox-motion-ease-spring);
 }
 
 .alert {
@@ -581,14 +535,14 @@ select.form-control option:hover {
     color: var(--color-text-main);
     font-size: var(--text-sm);
     font-weight: var(--font-semibold);
-    line-height: 1.45;
+    line-height: var(--fox-leading-normal);
     overflow-wrap: anywhere;
 }
 
 .ui-record-sub {
     color: var(--color-text-muted);
     font-size: 12px;
-    line-height: 1.45;
+    line-height: var(--fox-leading-normal);
     overflow-wrap: anywhere;
 }
 
@@ -646,7 +600,7 @@ select.form-control option:hover {
     background: #111827;
     color: #e5e7eb;
     font-size: var(--text-xs);
-    line-height: 1.5;
+    line-height: var(--fox-leading-normal);
     overflow: auto;
     white-space: pre-wrap;
 }
@@ -666,9 +620,9 @@ select.form-control option:hover {
     pointer-events: none;
     transform: translateX(-50%) translateY(1rem);
     transition:
-        opacity var(--transition-smooth),
-        transform var(--transition-smooth),
-        background-color var(--transition-base);
+        opacity var(--fox-motion-response) var(--fox-motion-ease-standard),
+        transform var(--fox-motion-response) var(--fox-motion-ease-standard),
+        background-color var(--fox-motion-response-fast) var(--fox-motion-ease-standard);
 }
 
 .toast.visible {
@@ -701,6 +655,9 @@ select.form-control option:hover {
 .border-t { border-top: 1px solid var(--color-border); }
 .text-sm { font-size: var(--text-sm); }
 .text-muted { color: var(--color-text-muted); }
+/* 任何会随状态变化的数值都必须加这个类：比例字形下每换一个数字整行宽度就跳一次
+   （§15）。版本号、缓存条数、进度百分比、计时器都属于此类。 */
+.tabular { font-variant-numeric: tabular-nums; }
 .text-error { color: var(--color-error); font-size: var(--text-xs); margin-top: 0.25rem; }
 .font-medium { font-weight: var(--font-medium); }
 .font-semibold { font-weight: var(--font-semibold); }
@@ -729,6 +686,8 @@ select.form-control option:hover {
 }
 
 @media (prefers-reduced-motion: reduce) {
+    /* 兜底：所有位移、缩放、视差、循环动画一律瞬移到位。这条只作用于扩展页面
+       ——内容脚本不加载本文件，所以不会污染宿主页面。 */
     *,
     *::before,
     *::after {
@@ -736,5 +695,26 @@ select.form-control option:hover {
         animation-iteration-count: 1 !important;
         scroll-behavior: auto !important;
         transition-duration: 0.001ms !important;
+    }
+
+    /* 但「降低动效」不等于「关掉反馈」（§14）：颜色与透明度的交叉淡入本身就是
+       状态变化的语言，去掉它反而看不出刚才发生了什么。这里只把它们重新打开；
+       位移类属性（transform）刻意不在列，必须保持瞬时。
+       选择器来自实测：这几个类是全仓库唯一定义了 transition 的元素。 */
+    .btn,
+    .form-control,
+    .switch-track,
+    .modal-backdrop,
+    .modal-content,
+    .toast,
+    .segment,
+    .nav-link,
+    .themed-select-trigger,
+    .themed-select-icon,
+    .themed-select-option,
+    .item-list li {
+        transition-property: background-color, border-color, color, opacity, box-shadow;
+        transition-duration: 120ms !important;
+        transition-timing-function: var(--fox-motion-ease-standard) !important;
     }
 }

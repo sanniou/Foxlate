@@ -1,13 +1,12 @@
 import browser from '../lib/browser-polyfill.js';
 import TabStateManager from './tab-state-manager.js';
+import { ABORT_POLICY, createErrorLogger } from '../common/error-logger.js';
 
-function defaultLogError(context, error) {
-    if (error instanceof Error) {
-        console.error(`[Foxlate Error] in ${context}:`, error.message, error.stack);
-    } else {
-        console.error(`[Foxlate Error] in ${context}:`, error || 'An unknown error occurred.');
-    }
-}
+// 与后台其余部分保持同一策略：注入期间的中止是「任务被打断」，不是故障。
+const defaultLogError = createErrorLogger({
+    prefix: 'Foxlate Error',
+    abortPolicy: ABORT_POLICY.INFO,
+});
 
 /**
  * Creates a frame resource injector with injectable dependencies for tests.
@@ -58,10 +57,11 @@ export function createEnsureScriptsInjected({
 
             return true;
         } catch (error) {
-            logError(
-                `ensureScriptsInjected for tab ${tabId}, frame ${frameId}`,
-                new Error(`Failed to inject scripts. This can happen on special pages (e.g., chrome://). Error: ${error.message}`)
-            );
+            // 原样上报原始错误，不再包一层 new Error：包装会丢掉错误类型（例如
+            // AbortError 的 name）与原始栈，而这两样正是判断「特殊页面 vs 导航竞态」
+            // 的依据。注入失败的常见原因（chrome:// 等受限页面）写在调用方注释里，
+            // 不需要塞进日志文案。
+            logError(`ensureScriptsInjected for tab ${tabId}, frame ${frameId}`, error);
             return false;
         }
     };

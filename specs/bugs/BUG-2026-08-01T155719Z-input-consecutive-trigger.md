@@ -61,15 +61,32 @@
 
 ## Acceptance Criteria
 
-- [ ] 普通字符、空格间隔文本不会满足连续同键触发条件。
-- [ ] 只有真实同一触发键达到阈值才触发一次翻译。
-- [ ] 超时、换目标、非触发键、光标/选区变化会正确重置或重新开始序列。
-- [ ] 异常阈值不会导致首键误触发。
-- [ ] 非文本输入控件不会被错误处理。
-- [ ] 销毁后不存在遗留 debounce 回调。
-- [ ] 所有新增测试通过。
-- [ ] 现有测试、Firefox 构建和 Chrome 构建继续通过。
+- [x] 普通字符、空格间隔文本不会满足连续同键触发条件。
+- [x] 只有真实同一触发键达到阈值才触发一次翻译。
+- [x] 超时、换目标、非触发键、光标/选区变化会正确重置或重新开始序列。
+- [x] 异常阈值不会导致首键误触发。
+- [x] 非文本输入控件不会被错误处理。
+- [x] 销毁后不存在遗留 debounce 回调。
+- [x] 所有新增测试通过。
+- [x] 现有测试、Firefox 构建和 Chrome 构建继续通过。
 
 ## Resolution
 
-<!-- filled in by validate-fix -->
+已定位并修复。根因不是普通字符间隔，而是中文输入法用空格选词时，Chromium + fcitx5（X11）发出的 `keydown` 可能是普通的 `key=" "` / `code="Space"` / `keyCode=32` / `isComposing=false`，且 `compositionstart` / `compositionend` 不一定触发；连续上屏汉字时，每次 `keydown` 的光标仍只前进一位，旧的“同键 + 同框 + 500ms + 光标 +1”状态机会把选词空格累计成连按。
+
+修复内容：
+
+- 新增 `src/content/input/key-sequence.js`，把连按判定收成可单测的状态机；除原有四个条件外，每次触发键按下时校验**上一次按键实际插入的字符**是否为触发字符（空格为 `' '`）。中文输入法上屏汉字时该字符不是空格，序列立即中断。
+- `src/content/input-handler.js` 统一处理 `compositionstart` / `compositionend` / `focusout` / `blur`，并忽略 `isComposing`、`keyCode === 229`、`event.repeat` 的事件。
+- `consecutiveKeyPresses` 在运行时收敛到 `[2, 5]`，避免 `0`、负数或非数字配置导致首键误触发。
+- `isSupportedInputElement` 收紧为 `text/search/email/url/tel` 与 `textarea`，排除 `password`、`checkbox`、`number` 等非纯文本控件。
+- 第三次按键仍然 `preventDefault`，避免第三个空格先上屏；翻译文本会补上这个尚未进入 `value` 的触发字符。
+
+验证证据：
+
+- `npm test`：386 passed，0 failed，exit 0。
+- `node --test test/input-handler.test.mjs test/key-sequence.test.mjs`：21 passed，0 failed。
+- `npm run build:chrome` / `npm run build:firefox`：均通过。
+- 真实 Chrome + fcitx5 验证：`nihao` 三次选词上屏得到 `你好你好你好`，0 次 `preventDefault`，未触发翻译；`A B C` 序列不触发；三次真实空格在第三次 `preventDefault` 并只触发一次翻译；中文上屏后接三次真实空格可正常触发。
+
+未处理项：`activeTargets` 的 1 秒固定释放窗口在翻译超过 1 秒时仍可能允许重复触发（Low）。
