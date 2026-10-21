@@ -31,6 +31,6 @@ git:
   branch: main
   hash: null                 # 不手抄 commit hash；需要时现读 `git rev-parse --short HEAD`
 handoff:
-  last_step_completed: "1.7.4 全盘重构：报告阶段 1–4 + 穷尽式审计批 1–8 全部落地（台账 specs/verifications/refactor-ledger.md）"
+  last_step_completed: "修复输入框句子边界：域名/小数不切断、textarea 换行与末行魔法词可触发（389 tests，双平台构建通过）"
   open_decisions: []
   next_skill: survey-context

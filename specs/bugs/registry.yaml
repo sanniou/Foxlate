@@ -6,3 +6,10 @@ bugs:
     scope: content/input-translation
     summary: Consecutive-key input trigger can fire for non-consecutive text input
     file: specs/bugs/BUG-2026-08-01T155719Z-input-consecutive-trigger.md
+  - bug_id: BUG-2026-10-21T102940Z
+    date: 2026-10-21
+    severity: medium
+    priority: medium
+    scope: content/input-translation
+    summary: Input sentence extraction splits dotted tokens and ignores textarea line boundaries
+    file: specs/bugs/BUG-2026-10-21T102940Z-input-sentence-boundary.md

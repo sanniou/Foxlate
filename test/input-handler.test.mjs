@@ -114,6 +114,29 @@ test('input translation triggers once for three consecutive spaces', async () =>
     handler.destroy();
 });
 
+test('consecutive-space translation keeps dotted text and the last line intact', async () => {
+    const dom = setupDom();
+    const InputHandler = await loadInputHandler();
+    const translations = [];
+    const handler = createHandler(InputHandler, {}, translations);
+    const input = document.getElementById('input');
+
+    press(dom, input, { key: ' ', code: 'Space' }, 'Visit example.com ');
+    press(dom, input, { key: ' ', code: 'Space' }, 'Visit example.com  ');
+    press(dom, input, { key: ' ', code: 'Space' }, 'Visit example.com   ');
+    assert.deepEqual(translations, ['Visit example.com']);
+
+    translations.length = 0;
+    const textarea = document.createElement('textarea');
+    document.body.appendChild(textarea);
+    press(dom, textarea, { key: ' ', code: 'Space' }, 'first line\nsecond line ');
+    press(dom, textarea, { key: ' ', code: 'Space' }, 'first line\nsecond line  ');
+    press(dom, textarea, { key: ' ', code: 'Space' }, 'first line\nsecond line   ');
+    assert.deepEqual(translations, ['second line']);
+
+    handler.destroy();
+});
+
 test('IME composition keydowns do not count as consecutive trigger presses', async () => {
     const dom = setupDom();
     const InputHandler = await loadInputHandler();
@@ -206,6 +229,21 @@ test('focus moving away from the composing input clears the composition state', 
     press(dom, other, { key: ' ', code: 'Space' }, 'A  ');
     assert.equal(translations.length, 1);
 
+    handler.destroy();
+});
+
+test('magic word works on a later textarea line', async () => {
+    const dom = setupDom();
+    const InputHandler = await loadInputHandler();
+    const translations = [];
+    const handler = createHandler(InputHandler, { triggerWord: 'fox' }, translations);
+    const textarea = document.createElement('textarea');
+    document.body.appendChild(textarea);
+
+    press(dom, textarea, { key: 'x', code: 'KeyX' }, 'first line\nsecond line //fox');
+    await new Promise(resolve => setTimeout(resolve, 400));
+
+    assert.deepEqual(translations, ['second line']);
     handler.destroy();
 });
 

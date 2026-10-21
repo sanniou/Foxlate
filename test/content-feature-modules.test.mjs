@@ -111,6 +111,36 @@ test('input text utilities own sentence extraction, range replacement, and langu
     assert.equal(isSupportedInputElement(checkbox), false);
 });
 
+test('getLastSentence treats only real sentence boundaries as separators', async () => {
+    setupDom();
+    const { getLastSentence } = await bundleContentFeatureModules();
+
+    assert.deepEqual(getLastSentence('Visit example.com  '), {
+        text: 'Visit example.com',
+        index: 0,
+    }, '域名中的点号不能切断句子');
+    assert.deepEqual(getLastSentence('Price 3.14  '), {
+        text: 'Price 3.14',
+        index: 0,
+    }, '小数中的点号不能切断句子');
+    assert.deepEqual(getLastSentence('Hello.  '), {
+        text: 'Hello.',
+        index: 0,
+    }, '句末标点后没有正文时，应保留上一句');
+    assert.deepEqual(getLastSentence('Hello. World  '), {
+        text: ' World',
+        index: 6,
+    });
+    assert.deepEqual(getLastSentence('first line\nsecond line  '), {
+        text: 'second line',
+        index: 11,
+    }, '换行是输入框里的句子边界');
+    assert.deepEqual(getLastSentence('Really?  '), {
+        text: 'Really?',
+        index: 0,
+    });
+});
+
 test('input translation client sends TRANSLATE_INPUT_TEXT and replaces target value', async () => {
     setupDom();
     const sent = [];

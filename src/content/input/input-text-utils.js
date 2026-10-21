@@ -9,19 +9,51 @@ export function escapeRegex(string) {
     return string.replace(/[.*+?^${}()|[\\\]]/g, '\\$&');
 }
 
-export function getLastSentence(fullText) {
-    const lastPeriodIndex = Math.max(
-        fullText.lastIndexOf('.'),
-        fullText.lastIndexOf('。')
-    );
+const SENTENCE_END_PUNCTUATION = new Set(['。', '！', '？']);
 
-    if (lastPeriodIndex === -1) {
-        return { text: fullText, index: 0 };
+/**
+ * 判断某个位置是否是真正的句子边界。
+ *
+ * ASCII 的 `.` / `!` / `?` 只有在后面是空白或文本末尾时才算边界，
+ * 否则 `example.com`、`3.14`、`v1.2.3` 都会被错误切断。
+ */
+function isSentenceBoundary(text, index, end) {
+    const char = text[index];
+    if (char === '\n' || SENTENCE_END_PUNCTUATION.has(char)) return true;
+    if (char !== '.' && char !== '!' && char !== '?') return false;
+
+    const next = text[index + 1];
+    return index + 1 === end || /\s/.test(next);
+}
+
+export function getLastSentence(fullText) {
+    const text = fullText || '';
+
+    // 触发键本身可能还没进入 value，末尾会带空格；先去掉再找句子边界，
+    // 这样 `Hello.  ` 不会因为句号后只剩空白而丢掉整句。
+    let end = text.length;
+    while (end > 0 && /\s/.test(text[end - 1])) end--;
+    if (end === 0) return { text: '', index: text.length };
+
+    const boundaries = [];
+    for (let i = 0; i < end; i++) {
+        if (isSentenceBoundary(text, i, end)) boundaries.push(i);
+    }
+
+    // 取最后一个“后面确实还有正文”的边界；如果句号就在末尾，
+    // 说明它是上一句的结束符，不能返回空字符串。
+    let start = 0;
+    for (let i = boundaries.length - 1; i >= 0; i--) {
+        const boundary = boundaries[i];
+        if (text.slice(boundary + 1, end).trim()) {
+            start = boundary + 1;
+            break;
+        }
     }
 
     return {
-        text: fullText.substring(lastPeriodIndex + 1),
-        index: lastPeriodIndex + 1,
+        text: text.substring(start, end),
+        index: start,
     };
 }
 
