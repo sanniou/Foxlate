@@ -73,7 +73,7 @@ cat > "$STAGE/BUILD.md" <<'BUILDMD'
 ```bash
 npm ci
 npm run build:firefox   # 产出 dist/，与上架包内容一致
-npm test                # 375 项测试
+npm test                # 全量测试
 ```
 
 构建产物 `dist/` 的结构与上架包一一对应。

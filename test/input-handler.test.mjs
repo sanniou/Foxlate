@@ -66,13 +66,15 @@ function createHandler(InputHandler, settings, translations = []) {
 function press(dom, input, { key, code, ...eventInit }, value) {
     input.value = value;
     input.setSelectionRange(value.length, value.length);
-    input.dispatchEvent(new dom.window.KeyboardEvent('keydown', {
+    const event = new dom.window.KeyboardEvent('keydown', {
         bubbles: true,
         cancelable: true,
         key,
         code,
         ...eventInit,
-    }));
+    });
+    input.dispatchEvent(event);
+    return event;
 }
 
 function composition(dom, input, type) {
@@ -81,6 +83,45 @@ function composition(dom, input, type) {
         data: '',
     }));
 }
+
+test('destroy hides the input indicator', async () => {
+    const dom = setupDom();
+    const InputHandler = await loadInputHandler();
+    const handler = createHandler(InputHandler, {});
+    const input = document.getElementById('input');
+
+    handler.indicator.show(input);
+    const indicator = document.querySelector('.foxlate-input-indicator');
+    assert.equal(indicator.style.display, 'flex');
+
+    handler.destroy();
+    assert.equal(indicator.style.display, 'none');
+});
+
+test('composition in an unsupported editor also blocks input translation', async () => {
+    const dom = setupDom();
+    const InputHandler = await loadInputHandler();
+    const translations = [];
+    const handler = createHandler(InputHandler, {}, translations);
+    const input = document.getElementById('input');
+    const editor = document.createElement('div');
+    editor.contentEditable = 'true';
+    document.body.appendChild(editor);
+
+    composition(dom, editor, 'compositionstart');
+    press(dom, input, { key: ' ', code: 'Space' }, 'A ');
+    press(dom, input, { key: ' ', code: 'Space' }, 'A  ');
+    press(dom, input, { key: ' ', code: 'Space' }, 'A   ');
+    assert.deepEqual(translations, []);
+
+    composition(dom, editor, 'compositionend');
+    press(dom, input, { key: ' ', code: 'Space' }, 'A    ');
+    press(dom, input, { key: ' ', code: 'Space' }, 'A     ');
+    press(dom, input, { key: ' ', code: 'Space' }, 'A      ');
+    assert.equal(translations.length, 1);
+
+    handler.destroy();
+});
 
 test('input translation only triggers after the configured key is pressed consecutively', async () => {
     const dom = setupDom();
@@ -111,6 +152,50 @@ test('input translation triggers once for three consecutive spaces', async () =>
     press(dom, input, { key: ' ', code: 'Space' }, 'A   ');
 
     assert.equal(translations.length, 1);
+    handler.destroy();
+});
+
+test('trigger key is not swallowed when there is no text to translate', async () => {
+    const dom = setupDom();
+    const InputHandler = await loadInputHandler();
+    const translations = [];
+    const handler = createHandler(InputHandler, {}, translations);
+    const input = document.getElementById('input');
+
+    press(dom, input, { key: ' ', code: 'Space' }, ' ');
+    press(dom, input, { key: ' ', code: 'Space' }, '  ');
+    const event = press(dom, input, { key: ' ', code: 'Space' }, '   ');
+
+    assert.equal(event.defaultPrevented, false);
+    assert.deepEqual(translations, []);
+    handler.destroy();
+});
+
+test('magic-word target is released when translation settles', async () => {
+    const dom = setupDom();
+    const InputHandler = await loadInputHandler();
+    const handler = createHandler(InputHandler, { triggerWord: 'fox' });
+    const input = document.getElementById('input');
+    input.value = 'hello //fox';
+
+    let release;
+    let calls = 0;
+    handler.triggerTranslation = () => {
+        calls++;
+        return new Promise(resolve => {
+            release = resolve;
+        });
+    };
+
+    handler.handleMagicWord(input);
+    handler.handleMagicWord(input);
+    assert.equal(calls, 1, '翻译进行中不允许同一输入框重复触发');
+
+    release();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    handler.handleMagicWord(input);
+    assert.equal(calls, 2, '翻译结束后应立即释放，而不是继续锁定 1 秒');
+
     handler.destroy();
 });
 

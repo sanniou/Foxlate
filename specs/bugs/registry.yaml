@@ -13,3 +13,10 @@ bugs:
     scope: content/input-translation
     summary: Input sentence extraction splits dotted tokens and ignores textarea line boundaries
     file: specs/bugs/BUG-2026-10-21T102940Z-input-sentence-boundary.md
+  - bug_id: BUG-2026-10-21T105700Z
+    date: 2026-10-21
+    severity: medium
+    priority: medium
+    scope: content/input-translation
+    summary: Input translation lifecycle, hostname blacklist, composition scope, and indicator ownership hardening
+    file: specs/bugs/BUG-2026-10-21T105700Z-input-translation-lifecycle.md

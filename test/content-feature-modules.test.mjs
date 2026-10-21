@@ -20,12 +20,14 @@ async function bundleContentFeatureModules() {
         export {
             getLastSentence,
             getTextContent,
+            isHostnameBlacklisted,
             isSupportedInputElement,
             replaceTextContent,
             resolveTargetLanguageOverride,
             shouldAppendKey,
         } from ${JSON.stringify(path.join(projectRoot, 'src/content/input/input-text-utils.js'))};
         export { InputTranslationClient } from ${JSON.stringify(path.join(projectRoot, 'src/content/input/input-translation-client.js'))};
+        export { InputIndicator } from ${JSON.stringify(path.join(projectRoot, 'src/content/input-indicator.js'))};
         export { classifySummaryError, generateUserFriendlySummaryError } from ${JSON.stringify(path.join(projectRoot, 'src/content/summary/summary-error-messages.js'))};
         export { SubtitleManager } from ${JSON.stringify(path.join(projectRoot, 'src/content/subtitle/subtitle-manager.js'))};
         export { SubtitleRenderer } from ${JSON.stringify(path.join(projectRoot, 'src/content/subtitle/subtitle-renderer.js'))};
@@ -174,6 +176,51 @@ test('input translation client sends TRANSLATE_INPUT_TEXT and replaces target va
     assert.equal(events.length, 1);
     assert.equal(events[0].translatedText, '你好世界');
     assert.equal(events[0].originalText, 'Hello world');
+});
+
+test('input indicator reuses its own existing element after reinjection', async () => {
+    const dom = setupDom();
+    const existing = document.createElement('div');
+    existing.className = 'foxlate-input-indicator';
+    existing.dataset.foxlateOwned = 'true';
+    document.body.appendChild(existing);
+
+    const { InputIndicator } = await bundleContentFeatureModules();
+    const indicator = new InputIndicator();
+
+    assert.doesNotThrow(() => indicator.show(document.getElementById('input')));
+    assert.equal(document.querySelectorAll('.foxlate-input-indicator').length, 1);
+    assert.equal(existing.style.display, 'flex');
+    indicator.hide();
+    assert.equal(existing.style.display, 'none');
+    assert.equal(dom.window.document.getElementById('foxlate-input-indicator-styles') !== null, true);
+});
+
+test('input indicator does not hijack a page element that only shares the id', async () => {
+    setupDom();
+    const pageOwned = document.createElement('div');
+    pageOwned.id = 'foxlate-input-indicator';
+    document.body.appendChild(pageOwned);
+
+    const { InputIndicator } = await bundleContentFeatureModules();
+    const indicator = new InputIndicator();
+    indicator.show(document.getElementById('input'));
+
+    assert.equal(pageOwned.style.display, '');
+    assert.notEqual(document.querySelector('.foxlate-input-indicator'), pageOwned);
+    assert.equal(document.querySelectorAll('.foxlate-input-indicator').length, 1);
+});
+
+test('hostname blacklist matches domain boundaries, not substrings', async () => {
+    setupDom();
+    const { isHostnameBlacklisted } = await bundleContentFeatureModules();
+
+    assert.equal(isHostnameBlacklisted('example.com', ['example.com']), true);
+    assert.equal(isHostnameBlacklisted('www.example.com', ['example.com']), true);
+    assert.equal(isHostnameBlacklisted('EXAMPLE.COM', ['.example.com.']), true);
+    assert.equal(isHostnameBlacklisted('notexample.com', ['example.com']), false);
+    assert.equal(isHostnameBlacklisted('example.com.evil', ['example.com']), false);
+    assert.equal(isHostnameBlacklisted('example.com', ['']), false);
 });
 
 test('summary error module classifies common retryable failures', async () => {

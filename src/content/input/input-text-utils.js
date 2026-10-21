@@ -61,6 +61,25 @@ export function getTextContent(target) {
     return isSupportedInputElement(target) ? target.value || '' : '';
 }
 
+/**
+ * 判断当前主机名是否命中黑名单。
+ *
+ * 旧实现用 `hostname.includes(domain)`，`example.com` 会误命中
+ * `notexample.com`，空字符串还会命中所有站点。这里按域名边界匹配，
+ * 同时支持带前导点或 `www.` 子域名的配置。
+ */
+export function isHostnameBlacklisted(hostname, domains) {
+    if (!Array.isArray(domains)) return false;
+
+    const host = String(hostname || '').trim().toLowerCase().replace(/\.+$/, '');
+    if (!host) return false;
+
+    return domains.some(rawDomain => {
+        const domain = String(rawDomain || '').trim().toLowerCase().replace(/^\.+|\.+$/g, '');
+        return Boolean(domain) && (host === domain || host.endsWith(`.${domain}`));
+    });
+}
+
 export function replaceTextContent(target, text, range = null) {
     if (!isSupportedInputElement(target)) return;
 

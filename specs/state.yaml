@@ -31,6 +31,6 @@ git:
   branch: main
   hash: null                 # 不手抄 commit hash；需要时现读 `git rev-parse --short HEAD`
 handoff:
-  last_step_completed: "修复输入框句子边界：域名/小数不切断、textarea 换行与末行魔法词可触发（389 tests，双平台构建通过）"
+  last_step_completed: "发布 1.7.5：中文输入法误触发、句子边界、魔法词锁、空输入吞键、域名黑名单边界、指示器重用与销毁清理均已修复；396 tests、Firefox/Chrome 构建、Firefox 打包均通过（产物在 dist/firefox/）"
   open_decisions: []
   next_skill: survey-context

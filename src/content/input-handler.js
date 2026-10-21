@@ -6,6 +6,7 @@ import {
     getLastSentence,
     getSelectionStart,
     getTextContent,
+    isHostnameBlacklisted,
     isSupportedInputElement,
     resolveTargetLanguageOverride,
     shouldAppendKey,
@@ -53,7 +54,7 @@ export class InputHandler {
                 return;
             }
 
-            const isBlacklisted = this.settings.blacklist && this.settings.blacklist.some(domain => window.location.hostname.includes(domain));
+            const isBlacklisted = isHostnameBlacklisted(window.location.hostname, this.settings.blacklist);
             if (isBlacklisted) {
                 console.log(`[Foxlate] Input handler disabled on blacklisted domain: ${window.location.hostname}`);
                 return;
@@ -73,7 +74,8 @@ export class InputHandler {
         // 输入法组字期间浏览器仍会上报 keydown（选词的空格就是 key=" "/code="Space"），
         // 必须按 composition 生命周期整体屏蔽，否则中文输入会被当成连按触发。
         this.boundHandleCompositionStart = (event) => {
-            if (!isSupportedInputElement(event.target)) return;
+            // 组字可能发生在 contenteditable 等不受支持的节点上；只要页面上
+            // 有输入法组字，就不能让同一时间段内的输入框 keydown 进入连按。
             this.isComposing = true;
             this.compositionTarget = event.target;
             this.keySequence.reset();
@@ -174,6 +176,12 @@ export class InputHandler {
         }
         const { text: lastSentence, index: startIndex } = getLastSentence(fullText);
 
+        // 没有可翻译正文时不要把触发键吃掉：空输入框里连按三次空格
+        // 应当只是输入空格，而不是被 preventDefault 后什么也不发生。
+        if (!lastSentence.trim()) {
+            return;
+        }
+
         event.preventDefault();
         this.triggerTranslation(target, lastSentence, null, { start: startIndex, end: target.value.length });
     }
@@ -235,12 +243,15 @@ export class InputHandler {
             // 不再立即移除魔法词，而是等待翻译完成后整体替换
             // this.setTextContent(target, newText);
 
-            this.triggerTranslation(target, textToTranslate, targetLangOverride, { start: replaceStart, end: replaceEnd });
+            const translation = this.triggerTranslation(target, textToTranslate, targetLangOverride, { start: replaceStart, end: replaceEnd });
 
-            // 处理完成后清除标记
-            setTimeout(() => {
-                this.activeTargets.delete(target);
-            }, 1000);
+            // 翻译结束（成功、失败或返回空结果）后立即释放标记。
+            // 不能再用固定 1 秒定时器：慢请求期间用户无法再次触发，快请求结束后
+            // 又会白白锁住输入框 1 秒。
+            Promise.resolve(translation).then(
+                () => this.activeTargets.delete(target),
+                () => this.activeTargets.delete(target),
+            );
         }
     }
 
@@ -278,6 +289,7 @@ export class InputHandler {
         }
         this.resetCompositionState();
         this.debounceMagicWord.cancel?.();
+        this.indicator.hide();
         this.activeTargets = new WeakSet();
         this.isInitialized = false;
     }

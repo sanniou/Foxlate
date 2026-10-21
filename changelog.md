@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.7.5] - 2026-10-21
+
+### 🐛 Input translation
+*   **Chinese IME false trigger:** Space used to pick Chinese IME candidates is now rejected unless the previous key actually inserted the trigger character. `compositionstart/end`, `keyCode 229`, auto-repeat, and focus loss all reset the sequence.
+*   **Sentence boundaries:** Domains, decimals, and version numbers are no longer split at `.`; newlines now act as boundaries in textareas, and a trailing trigger space no longer drops the previous sentence.
+*   **Magic-word lock:** The per-input guard is released when translation settles instead of after a fixed 1-second timer, so slow requests never lock the field indefinitely and fast requests can be retried immediately.
+*   **Blacklist safety:** Domain matching now respects hostname boundaries, so `example.com` no longer disables `notexample.com`; empty entries and leading/trailing dots are normalized.
+*   **Empty input:** Three trigger presses with no translatable text no longer swallow the third key.
+*   **Composition scope:** IME composition in any page editor now blocks input translation until composition ends, not just composition inside a supported input.
+
+### ♻️ Quality
+*   **Reinjection safety:** `InputIndicator` reuses only its own marked node after content-script reinjection, never a page element that merely shares the id; `destroy()` now hides a visible indicator.
+*   **Regression coverage:** 27 focused input tests; suite **396**.
+
 ## [1.7.4] - 2026-08-01
 
 ### 🐛 Input translation

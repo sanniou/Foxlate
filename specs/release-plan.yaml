@@ -11,7 +11,7 @@
 # 门禁：test/planning-state.test.mjs（版本一致、无状态副本、轨道状态与史诗状态不矛盾）
 
 release:
-  version: "1.7.4"       # 必须等于 package.json 的 version（门禁强制）
+  version: "1.7.5"       # 必须等于 package.json 的 version（门禁强制）
   status: shipped
 
 tracks:
