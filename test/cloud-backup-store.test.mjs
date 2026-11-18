@@ -60,9 +60,80 @@ test('upload 写入带前缀的条目，未超上限时不删任何东西', asyn
     assert.deepEqual(result, { success: true });
     assert.deepEqual(sync.removed, []);
     const keys = Object.keys(sync.data);
-    assert.equal(keys.length, 1);
-    assert.match(keys[0], /^foxlate_backup_\d+$/, 'id 前缀是既有的存储契约，改了会孤立用户已有的备份');
-    assert.equal(sync.data[keys[0]].settings.targetLanguage, 'zh-CN');
+    const heads = keys.filter(key => /^foxlate_backup_\d+$/.test(key));
+    assert.equal(heads.length, 1, 'id 前缀是既有的存储契约，改了会孤立用户已有的备份');
+    assert.deepEqual(await store.download(heads[0]), { success: true, settings: { targetLanguage: 'zh-CN' } });
+});
+
+test('超过 storage.sync 单条上限（8KB）的设置被切成多片，且能完整取回', async () => {
+    const { CloudBackupStore } = await modules();
+    const sync = createSyncMock();
+    const store = makeStore(sync, CloudBackupStore);
+
+    // 引擎列表 + 中文域名规则让 JSON 轻松超过老的 8192 字节硬上限。
+    const settingsToUpload = {
+        aiEngines: Array.from({ length: 40 }, (_, index) => ({
+            id: `engine-${index}`,
+            name: `引擎 ${index}`,
+            apiUrl: 'https://example.com/v1/chat/completions',
+            model: 'gpt-4o-mini',
+            customPrompt: '把 $1 翻译成中文，保留术语。'.repeat(4),
+        })),
+    };
+    const totalBytes = new TextEncoder().encode(JSON.stringify(settingsToUpload)).length;
+    assert.ok(totalBytes > 8192, `用例必须先超过单条上限，实际 ${totalBytes} 字节`);
+
+    assert.deepEqual(await store.upload(settingsToUpload), { success: true });
+
+    const keys = Object.keys(sync.data);
+    assert.ok(keys.length > 1, '必须真的分成多条');
+    for (const key of keys) {
+        const bytes = new TextEncoder().encode(JSON.stringify({ [key]: sync.data[key] })).length;
+        assert.ok(bytes <= 8192, `${key} 条目 ${bytes} 字节，超过 storage.sync 单条上限`);
+    }
+
+    const headId = keys.find(key => /^foxlate_backup_\d+$/.test(key));
+    const downloaded = await store.download(headId);
+    assert.equal(downloaded.success, true);
+    assert.deepEqual(downloaded.settings, settingsToUpload);
+});
+
+test('上传时清空凭据字段：备份会进入浏览器账号，不能跟着 API Key 走', async () => {
+    const { CloudBackupStore } = await modules();
+    const sync = createSyncMock();
+    const store = makeStore(sync, CloudBackupStore);
+
+    await store.upload({
+        targetLanguage: 'zh-CN',
+        deeplxApiKey: 'should-not-leak',
+        aiEngines: [{ id: 'a', apiKey: 'sk-secret', model: 'gpt', nested: { token: 'also-secret' } }],
+    });
+
+    const serialized = JSON.stringify(sync.data);
+    assert.doesNotMatch(serialized, /sk-secret/);
+    assert.doesNotMatch(serialized, /should-not-leak/);
+    assert.doesNotMatch(serialized, /also-secret/);
+
+    const headId = Object.keys(sync.data).find(key => /^foxlate_backup_\d+$/.test(key));
+    const downloaded = await store.download(headId);
+    assert.deepEqual(downloaded.settings, {
+        targetLanguage: 'zh-CN',
+        deeplxApiKey: '',
+        aiEngines: [{ id: 'a', apiKey: '', model: 'gpt', nested: { token: '' } }],
+    });
+});
+
+test('删除备份时连分片一起删，不留孤儿 key', async () => {
+    const { CloudBackupStore } = await modules();
+    const sync = createSyncMock();
+    const store = makeStore(sync, CloudBackupStore);
+
+    await store.upload({ aiEngines: Array.from({ length: 40 }, (_, i) => ({ id: String(i), customPrompt: 'x'.repeat(400) })) });
+    const headId = Object.keys(sync.data).find(key => /^foxlate_backup_\d+$/.test(key));
+    assert.ok(Object.keys(sync.data).length > 1);
+
+    assert.deepEqual(await store.delete(headId), { success: true });
+    assert.deepEqual(sync.data, {}, '头部与分片必须一起消失');
 });
 
 test('upload 超过上限时删掉最旧的那几条，只留 MAX 条', async t => {
@@ -78,13 +149,14 @@ test('upload 超过上限时删掉最旧的那几条，只留 MAX 条', async t 
         await store.upload({ seq: i });
     }
 
-    assert.equal(Object.keys(sync.data).length, MAX_CLOUD_BACKUPS);
-    assert.equal(sync.removed.length, 1);
+    const heads = Object.keys(sync.data).filter(key => /^foxlate_backup_\d+$/.test(key));
+    assert.equal(heads.length, MAX_CLOUD_BACKUPS, '每条备份一个头部条目');
+    assert.equal(sync.removed.filter(key => /^foxlate_backup_\d+$/.test(key)).length, 1);
     assert.equal(sync.removed[0], 'foxlate_backup_1000000', '被删的必须是最旧的那一条');
 
     const listed = await store.list();
     assert.equal(listed.backups.length, MAX_CLOUD_BACKUPS);
-    assert.equal(listed.backups[0].settings.seq, MAX_CLOUD_BACKUPS, 'list 必须最新在前');
+    assert.equal(listed.backups[0].id, 'foxlate_backup_1000010', 'list 必须最新在前');
 });
 
 test('list 忽略 storage.sync 里的非备份条目', async () => {

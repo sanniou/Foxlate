@@ -21,6 +21,17 @@ export function getHostname(url) {
 }
 
 export class PopupActions {
+    // 用户刚在 popup 里选的显示模式。
+    //
+    // 保存显示模式会触发 settingsChanged 广播，popup 收到后重新拉一次“服务端真相”并
+    // 重绘。如果那次回包的规则还没包含刚保存的字段（或是上一个动作的回包），重绘就会
+    // 把用户刚点的分段控件弹回旧值。本地意图在它被回读确认之前优先于迟到的快照。
+    #pendingDisplayMode = null;
+
+    // 刷新序号：loadAndApplySettings 会并发（打开 popup 时一次，每次 settingsChanged 再来一次）。
+    // 只有最新的那次有权写 DOM，否则慢的旧刷新会把新结果盖掉。
+    #refreshSeq = 0;
+
     constructor({ elements, renderer, state, browserApi = browser, settingsManager = SettingsManager }) {
         this.elements = elements;
         this.renderer = renderer;
@@ -30,8 +41,9 @@ export class PopupActions {
     }
 
     async loadAndApplySettings() {
+        const seq = ++this.#refreshSeq;
         const [tab] = await this.browser.tabs.query({ active: true, currentWindow: true });
-        if (!tab) return;
+        if (!tab || seq !== this.#refreshSeq) return;
 
         this.state.activeTabId = tab.id;
         this.state.currentHostname = getHostname(tab.url);
@@ -40,13 +52,24 @@ export class PopupActions {
             type: MESSAGE_TYPES.GET_EFFECTIVE_SETTINGS,
             payload: { hostname: this.state.currentHostname },
         });
+        if (seq !== this.#refreshSeq) return;
 
         this.state.currentRuleSource = finalRule.source;
         this.renderer.renderEffectiveSettings(finalRule);
         this.renderer.renderRuleControls(finalRule, Boolean(this.state.currentHostname));
         await this.#loadSubtitleControls(finalRule);
+        if (seq !== this.#refreshSeq) return;
+        // 回读到的规则已经包含本地选择时，意图达成，交还控制权给存储。
+        if (this.#pendingDisplayMode) {
+            if (finalRule.displayMode === this.#pendingDisplayMode) {
+                this.#pendingDisplayMode = null;
+            } else {
+                this.renderer.renderDisplayMode(this.#pendingDisplayMode);
+            }
+        }
         this.renderer.renderRuleIndicator(this.state.currentRuleSource);
         await this.updateButtonStateFromContentScript();
+        if (seq !== this.#refreshSeq) return;
         this.renderer.applyLayout();
     }
 
@@ -153,6 +176,7 @@ export class PopupActions {
     async handleDisplayModeChange(displayMode) {
         if (!displayMode) return;
 
+        this.#pendingDisplayMode = displayMode;
         this.renderer.renderDisplayMode(displayMode);
         await this.saveChangeToRule('displayMode', displayMode);
 

@@ -29,7 +29,10 @@ export function applyGlossaryToText(text, glossary = {}) {
 
     return normalized.entries.reduce((nextText, entry) => {
         const flags = entry.caseSensitive ? 'g' : 'gi';
-        return nextText.replace(new RegExp(escapeRegExp(entry.source), flags), entry.target);
+        const pattern = new RegExp(escapeRegExp(entry.source), flags);
+        // 函数式替换：target 是用户数据，可能含 `$&`、`$'`、`$1`；作为字符串替换值
+        // 时会被当成替换模式解析，把原文别的部分搬进结果。
+        return nextText.replace(pattern, () => entry.target);
     }, text);
 }
 

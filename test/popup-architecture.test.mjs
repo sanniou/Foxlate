@@ -246,3 +246,93 @@ test('popup action layer uses host-scoped settings and message registry protocol
     assert.equal(tabMessages[0].payload.displayMode, 'hover');
     assert.equal(state.currentRuleSource, 'docs.example.com');
 });
+
+test('a stale settings snapshot cannot undo the display mode the user just picked', async () => {
+    setupDom();
+    const { PopupActions, PopupRenderer, queryPopupElements } = await bundlePopupModules();
+    const elements = queryPopupElements(document);
+    const renderer = new PopupRenderer(elements);
+    const state = { activeTabId: 9, currentHostname: 'docs.example.com', currentRuleSource: 'default' };
+
+    // 背景返回的仍是保存前的规则：这正是「保存 → settingsChanged 广播 → popup 重新拉取」
+    // 这条真实链路上会出现的中间态（广播可能先于写入生效，或携带上一个动作的结果）。
+    const rule = { source: 'docs.example.com', displayMode: 'replace', targetLanguage: 'zh-CN', sourceLanguage: 'auto' };
+    const browserApi = {
+        ...globalThis.__foxlateBrowserMock,
+        runtime: {
+            ...globalThis.__foxlateBrowserMock.runtime,
+            sendMessage: async (message) => (message.type === 'GET_EFFECTIVE_SETTINGS' ? { ...rule } : {}),
+        },
+        tabs: {
+            ...globalThis.__foxlateBrowserMock.tabs,
+            query: async () => [{ id: 9, url: 'https://docs.example.com/page' }],
+            sendMessage: async () => ({ state: 'original' }),
+        },
+    };
+
+    const actions = new PopupActions({
+        elements,
+        renderer,
+        state,
+        browserApi,
+        settingsManager: { saveDomainRuleProperty: async () => {} },
+    });
+
+    await actions.handleDisplayModeChange('hover');
+    const active = () => elements.displayModeGroup.querySelector('.is-active')?.dataset.mode;
+    assert.equal(active(), 'hover');
+
+    await actions.loadAndApplySettings();
+    assert.equal(active(), 'hover', '用户刚选的模式不能被慢一步的旧快照弹回 replace');
+});
+
+test('a slow refresh that resolves last cannot overwrite a newer one', async () => {
+    setupDom();
+    const { PopupActions, PopupRenderer, queryPopupElements } = await bundlePopupModules();
+    const elements = queryPopupElements(document);
+    const renderer = new PopupRenderer(elements);
+    const state = { activeTabId: 9, currentHostname: 'docs.example.com', currentRuleSource: 'default' };
+
+    // 第一次刷新拿到一个卡住的回包，第二次刷新先完成。卡住的那次回来时已经是旧信息，
+    // 它若还能写 DOM，用户就会看到控件自己跳回上一个值。
+    let releaseSlow;
+    const slow = new Promise((resolve) => { releaseSlow = resolve; });
+    let refreshCalls = 0;
+    const browserApi = {
+        ...globalThis.__foxlateBrowserMock,
+        runtime: {
+            ...globalThis.__foxlateBrowserMock.runtime,
+            sendMessage: async (message) => {
+                if (message.type !== 'GET_EFFECTIVE_SETTINGS') return {};
+                refreshCalls += 1;
+                if (refreshCalls === 1) return slow;
+                return { source: 'docs.example.com', displayMode: 'append', sourceLanguage: 'auto', targetLanguage: 'zh-CN' };
+            },
+        },
+        tabs: {
+            ...globalThis.__foxlateBrowserMock.tabs,
+            query: async () => [{ id: 9, url: 'https://docs.example.com/page' }],
+            sendMessage: async () => ({ state: 'original' }),
+        },
+    };
+
+    const actions = new PopupActions({
+        elements,
+        renderer,
+        state,
+        browserApi,
+        settingsManager: { saveDomainRuleProperty: async () => {} },
+    });
+
+    const first = actions.loadAndApplySettings();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await actions.loadAndApplySettings();
+    releaseSlow({ source: 'docs.example.com', displayMode: 'hover', sourceLanguage: 'auto', targetLanguage: 'zh-CN' });
+    await first;
+
+    assert.equal(
+        elements.displayModeGroup.querySelector('.is-active')?.dataset.mode,
+        'append',
+        '晚到的旧刷新不得覆盖新刷新的结果',
+    );
+});

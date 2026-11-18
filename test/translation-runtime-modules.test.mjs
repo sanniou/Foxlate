@@ -274,6 +274,32 @@ test('流水线：同样的输入得到同样的缓存键，词汇表变化则�
     assert.notEqual(first.cacheKey, firstExtended.cacheKey, '只影响输出侧的词条也要让缓存键变化');
 });
 
+test('流水线：AI 提示词/模型变化会让缓存键与在途键一起变化', async () => {
+    const { TranslationPipeline } = await modules();
+    const makeAiPipeline = (config) => {
+        const pipeline = new TranslationPipeline({
+            engineResolver: {
+                async resolveTranslatorForText() {
+                    return { engine: 'ai:default', translator: { name: 'AI' }, config };
+                },
+            },
+        });
+        return pipeline;
+    };
+    const options = { sourceLang: 'en', targetLang: 'zh', settings: { glossary: { enabled: false, entries: [] } } };
+    const config = { model: 'gpt-x', customPrompt: '翻成 {targetLang}: {textToTranslate}' };
+
+    const first = await makeAiPipeline(config).prepare('hello', options);
+    const same = await makeAiPipeline({ ...config }).prepare('hello', options);
+    assert.equal(first.cacheKey, same.cacheKey, '同样的 AI 配置必须复用缓存');
+
+    const otherPrompt = await makeAiPipeline({ ...config, customPrompt: '用更口语的方式翻成 {targetLang}' }).prepare('hello', options);
+    assert.notEqual(first.cacheKey, otherPrompt.cacheKey, '改了提示词就不能继续命中旧译文');
+
+    const otherModel = await makeAiPipeline({ ...config, model: 'gpt-y' }).prepare('hello', options);
+    assert.notEqual(first.cacheKey, otherModel.cacheKey, '换了模型就不能继续命中旧译文');
+});
+
 test('流水线：词汇表在引擎解析之前应用，原文原样保留', async () => {
     const { pipeline, calls } = makePipeline(await modules());
 

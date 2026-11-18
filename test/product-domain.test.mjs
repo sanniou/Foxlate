@@ -92,6 +92,21 @@ test('translation glossary parses, normalizes, formats, and applies configured t
     assert.equal(applyGlossaryToText('foxlate', { enabled: false, entries }), 'foxlate');
 });
 
+test('glossary replacements containing dollar patterns stay literal', async () => {
+    const { applyGlossaryToText } = await bundleProductModules();
+
+    // `$&` / `$'` 在 String.replace 的字符串替换值里是替换模式，不是字面量。
+    const glossary = {
+        enabled: true,
+        entries: [{ source: 'price', target: "$& 元", caseSensitive: false }],
+    };
+
+    assert.equal(
+        applyGlossaryToText('price tag', glossary),
+        '$& 元 tag',
+    );
+});
+
 test('translation product stores bound history, resolve failures, and update provider health', async () => {
     const {
         ProviderHealthStore,

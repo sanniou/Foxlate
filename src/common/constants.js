@@ -39,6 +39,13 @@ export const FALLBACK_TRANSLATION_CONTENT =
 export const DEFAULT_SUMMARY_MAIN_BODY =
     'article, main, [role="main"], .content, .post, .entry-content, .markdown-body, .post-content, #content';
 
+/**
+ * 单次摘要允许的最大正文字符数（约 30k token）。
+ * 超过这个量会直接撞上模型的上下文上限，而供应商返回的错误与用户操作毫无关系；
+ * 因此在发送前拦住，让用户改用「选中文本摘要」。
+ */
+export const MAX_SUMMARY_INPUT_CHARS = 120000;
+
 export const DEFAULT_SETTINGS = {
     translatorEngine: 'google',
     targetLanguage: 'ZH',

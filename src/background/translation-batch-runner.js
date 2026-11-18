@@ -138,7 +138,7 @@ export async function runTranslationBatch(runtime, { texts, targetLang, sourceLa
             config,
             signal,
             tabId,
-        ));
+        ), { tabId });
 
         // 批量任务的结果按 index 摊回每个候选项的在途项。
         // 摊回而不是直接 resolve：同一批里的重复文本共享同一个在途项，

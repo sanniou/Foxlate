@@ -219,7 +219,13 @@ export class PageTranslationJob {
         const intersectionOptions = {
             root: null,
             rootMargin: '0px 0px',
-            threshold: 0.5
+            // threshold 必须是 0（或包含 0）：它决定「回调什么时候触发」，而不是
+            // 「什么算可见」。原文的 0.5 让高于两倍视口的元素永远无法把
+            // intersectionRatio 推到 0.5——若它在观察时还在视口外，入视时比例只从
+            // 0 涨到 viewportHeight/elementHeight，跨不进阈值桶，于是回调不再触发：
+            // 该元素永远不会被翻译，且因为 observedElements 非空，checkCompletion
+            // 也永远不会收敛，界面卡在 translating。
+            threshold: 0,
         };
         this.intersectionObserver = new IntersectionObserver(this.#handleIntersection.bind(this), intersectionOptions);
         this.mutationObserver = new MutationObserver(this.#handleMutation.bind(this));
@@ -586,6 +592,11 @@ export class PageTranslationJob {
 
     #processMutationQueue() {
         this.idleCallbackId = null;
+        // 与 #processInitialScan 保持一致：revert/清理之后，已经排队但没有被
+        // cancelIdleCallback 命中的回调必须自己退场，不能再往 DOM 里写译文。
+        if (this.state === 'idle' || this.state === 'reverting') {
+            return;
+        }
         if (this.mutationQueue.size === 0) return;
 
         const newNodes = Array.from(this.mutationQueue);

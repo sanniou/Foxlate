@@ -112,6 +112,10 @@ export class DomainRuleModal extends BaseComponent {
         return `${defaultLabel} (${defaultValue})`;
     }
 
+    #notSetLabel() {
+        return browser.i18n.getMessage('optionNotSet') || 'Not set';
+    }
+
     /**
      * (新) 获取 AI 引擎的显示名称。
      * @param {string} engineValue - 引擎值 (例如 'google', 'ai:some-id')。
@@ -119,7 +123,7 @@ export class DomainRuleModal extends BaseComponent {
      */
     #getEngineDisplayName(engineValue) {
         if (!engineValue) {
-            return '未设置';
+            return this.#notSetLabel();
         }
         
         if (engineValue.startsWith('ai:')) {
@@ -170,12 +174,12 @@ export class DomainRuleModal extends BaseComponent {
                         displayValue = valueMap[effectiveValue] ? browser.i18n.getMessage(valueMap[effectiveValue]) : effectiveValue;
                     }
                 } else {
-                    displayValue = '未设置';
+                    displayValue = this.#notSetLabel();
                 }
                 
                 // 如果 displayValue 仍然为空或未定义，使用原始值作为后备
                 if (!displayValue || displayValue.trim() === '') {
-                    displayValue = effectiveValue || '未设置';
+                    displayValue = effectiveValue || this.#notSetLabel();
                 }
                 
                 const finalText = this.#getDefaultOptionText(displayValue, defaultLabel);

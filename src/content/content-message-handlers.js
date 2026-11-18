@@ -65,9 +65,5 @@ export function createContentMessageHandlers(runtime) {
         [MESSAGE_TYPES.REQUEST_SUBTITLE_TRANSLATION_STATUS]() {
             return runtime.getSubtitleTranslationStatus();
         },
-
-        [MESSAGE_TYPES.TOGGLE_SUMMARY_REQUEST]() {
-            return runtime.toggleSummary();
-        },
     };
 }

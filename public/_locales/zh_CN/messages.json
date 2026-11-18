@@ -1078,5 +1078,53 @@
   "testNotTranslated": {
     "message": "未翻译：",
     "description": "测试翻译结果未发生翻译时的前缀。"
+  },
+  "summaryErrorNetwork": {
+    "message": "**网络连接错误**\n\n无法连接到服务器。请检查您的网络连接，然后重试。",
+    "description": "摘要请求未到达服务器时的错误。"
+  },
+  "summaryErrorTimeout": {
+    "message": "**请求超时**\n\n服务器响应时间过长。请稍后重试。",
+    "description": "摘要请求超时时的错误。"
+  },
+  "summaryErrorAuth": {
+    "message": "**认证失败**\n\n请检查您的 API 密钥配置，然后重试。",
+    "description": "摘要请求认证失败时的错误。"
+  },
+  "summaryErrorRateLimit": {
+    "message": "**请求频率限制**\n\n请求过于频繁，请稍等片刻后重试。",
+    "description": "摘要请求被限流时的错误。"
+  },
+  "summaryErrorContentEmpty": {
+    "message": "**内容为空**\n\n无法提取到有效内容进行总结。请尝试选择其他文本或刷新页面。",
+    "description": "页面没有可总结内容时的错误。"
+  },
+  "summaryErrorServer": {
+    "message": "**服务器错误**\n\n服务器暂时无法处理请求。请稍后重试。",
+    "description": "摘要请求遇到服务端错误时的提示。"
+  },
+  "summaryErrorUnknown": {
+    "message": "**发生错误**\n\n处理请求时遇到了问题。请重试，如果问题持续存在，请联系支持。",
+    "description": "摘要请求的兜底错误提示。"
+  },
+  "summaryErrorDetails": {
+    "message": "详细信息：",
+    "description": "摘要错误中原始错误信息的引导词。"
+  },
+  "summaryErrorNoMessage": {
+    "message": "未知错误",
+    "description": "错误对象没有消息时的占位文案。"
+  },
+  "optionNotSet": {
+    "message": "未设置",
+    "description": "域名规则覆盖项为空时显示的文案。"
+  },
+  "textOriginal": {
+    "message": "原文",
+    "description": "右键菜单中未翻译文本的标签。"
+  },
+  "summaryErrorTooLong": {
+    "message": "页面内容过长，无法一次摘要：$1 字符（上限 $2）。请选中需要摘要的那段内容再试。",
+    "description": "Summary rejected because extracted content exceeds the input limit. Placeholders: [actualLength, limit]"
   }
 }

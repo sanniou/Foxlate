@@ -88,6 +88,16 @@ export class TranslatorManager {
         TranslatorManager.#runtime.scheduler.interruptAll();
     }
 
+    /**
+     * 只中断某个标签页的任务。
+     * 页面上的「还原」只能停自己的那批——中断全部会把其它标签页在途（可能已付费）
+     * 的翻译一起 abort，而那里没有任何用户动作。
+     * @param {number} tabId
+     */
+    static interruptTab(tabId) {
+        TranslatorManager.#runtime.scheduler.interruptTab(tabId);
+    }
+
     static async updateConcurrencyLimit() {
         const settings = await TranslatorManager.#runtime.settingsManager.getValidatedSettings();
         TranslatorManager.#runtime.scheduler.setMaxConcurrent(settings.parallelRequests);

@@ -19,7 +19,10 @@ export class AITranslator extends BaseTranslator {
 
     let systemPrompt = customPromptTemplate;
     for (const [placeholder, value] of Object.entries(placeholderMap)) {
-      systemPrompt = systemPrompt.replace(new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g'), value);
+      const pattern = new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g');
+      // 函数式替换：value 是用户/页面数据，可能包含 `$&`、`$'`、`$1`。字符串形式的
+      // 替换值会被当作替换模式解析，把用户文本折叠成别的字符。
+      systemPrompt = systemPrompt.replace(pattern, () => value);
     }
     return systemPrompt;
   }
@@ -50,7 +53,7 @@ export class AITranslator extends BaseTranslator {
       jsonText = fencedMatch[1].trim();
     }
 
-    const parsed = JSON.parse(jsonText);
+    const parsed = JSON.parse(this.#extractJsonArray(jsonText) ?? jsonText);
     if (!Array.isArray(parsed)) {
       throw new Error('AI batch response must be a JSON array.');
     }
@@ -63,6 +66,46 @@ export class AITranslator extends BaseTranslator {
       }
       return item;
     });
+  }
+
+  /**
+   * 从“外面裹了一层话”的回复里抠出 JSON 数组。
+   *
+   * 模型经常回 `Here you go:\n[...]\nHope this helps`。整段 JSON.parse 会直接抛错，
+   * 上游再把整批（最多十几条）判为失败。这里按括号配对找第一个完整数组，
+   * 字符串里的括号不算（译文可能含 `>`、`[` 等字符）。
+   */
+  #extractJsonArray(text) {
+    const start = text.indexOf('[');
+    if (start < 0) return null;
+
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let index = start; index < text.length; index += 1) {
+      const char = text[index];
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (char === '\\') {
+          escaped = true;
+        } else if (char === '"') {
+          inString = false;
+        }
+        continue;
+      }
+      if (char === '"') {
+        inString = true;
+      } else if (char === '[') {
+        depth += 1;
+      } else if (char === ']') {
+        depth -= 1;
+        if (depth === 0) {
+          return text.slice(start, index + 1);
+        }
+      }
+    }
+    return null;
   }
 
   async translate(text, targetLang, sourceLang = 'auto', aiConfig = {}, signal) {

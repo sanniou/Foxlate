@@ -1,4 +1,8 @@
 import { DEFAULT_SUMMARY_MAIN_BODY } from '../../common/constants.js';
+// 静态导入：content 入口是 iife 单包，esbuild 无法为 `await import()` 做代码分割，
+// 动态导入只会把同一个模块内联成同步求值 + 一层 Promise 壳。改成静态导入，
+// 让「首屏加载了多少」在产物里是真实可见的（81 KB 一直在首屏，从未被延迟）。
+import Readability from '../../lib/readability.esm.js';
 
 export class SummaryContentExtractor {
     constructor({ settings, documentRef = document } = {}) {
@@ -18,7 +22,7 @@ export class SummaryContentExtractor {
         if (scopedRoot) {
             const doc = this.document.implementation.createHTMLDocument('');
             doc.body.innerHTML = scopedRoot.innerHTML;
-            content = await this.#getReadabilityContent(doc);
+            content = this.#getReadabilityContent(doc);
             if (!content) {
                 content = this.#textOf(scopedRoot);
             }
@@ -26,7 +30,7 @@ export class SummaryContentExtractor {
 
         if (!content) {
             const docClone = this.document.cloneNode(true);
-            content = await this.#getReadabilityContent(docClone);
+            content = this.#getReadabilityContent(docClone);
         }
 
         if (!content) {
@@ -71,9 +75,8 @@ export class SummaryContentExtractor {
         return best;
     }
 
-    async #getReadabilityContent(doc) {
+    #getReadabilityContent(doc) {
         try {
-            const { default: Readability } = await import('../../lib/readability.esm.js');
             this.#preProcessDOM(doc);
             const reader = new Readability(doc);
             const article = reader.parse();

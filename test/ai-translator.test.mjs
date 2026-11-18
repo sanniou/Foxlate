@@ -143,3 +143,41 @@ test('AITranslator.translateBatch rejects non-string array items', async () => {
         console.error = originalConsoleError;
     }
 });
+
+test('user text containing dollar replacements is inserted literally into the prompt', async () => {
+    setupBrowserMock();
+    const calls = installFetchMock('["ok"]');
+    const { AITranslator } = await loadAITranslator();
+    const translator = new AITranslator();
+
+    const text = 'price $& and $\' and $1 and $`';
+    const config = { ...createConfig(), customPrompt: 'Translate to {targetLang}: {textToTranslate}' };
+    await translator.translate(text, 'ZH', 'auto', config);
+
+    const systemPrompt = calls[0].body.messages[0].content;
+    // `$&` 是“整个匹配”，`$'` 是“匹配之后的剩余文本”。字符串形式的替换值会被
+    // 解析成这些模式，把用户原文换成别的东西（`$'` 还会无限复制尾巴）。
+    assert.ok(systemPrompt.includes(text), `prompt must contain the literal text, got: ${systemPrompt}`);
+});
+
+test('AITranslator.translateBatch parses a JSON array wrapped in prose', async () => {
+    setupBrowserMock();
+    installFetchMock('Here you go:\n["甲","乙"]\nHope this helps');
+    const { AITranslator } = await loadAITranslator();
+    const translator = new AITranslator();
+
+    const result = await translator.translateBatch(['a', 'b'], 'ZH', 'auto', createConfig());
+
+    assert.deepEqual(result.texts, ['甲', '乙']);
+});
+
+test('AITranslator.translateBatch keeps brackets inside strings intact', async () => {
+    setupBrowserMock();
+    installFetchMock('Sure: ["含 [方括号] 的译文", "带 ] 的右括号"] done');
+    const { AITranslator } = await loadAITranslator();
+    const translator = new AITranslator();
+
+    const result = await translator.translateBatch(['a', 'b'], 'ZH', 'auto', createConfig());
+
+    assert.deepEqual(result.texts, ['含 [方括号] 的译文', '带 ] 的右括号']);
+});

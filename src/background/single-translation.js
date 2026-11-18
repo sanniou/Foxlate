@@ -58,7 +58,7 @@ export async function runSingleTranslation(runtime, { text, targetLang, sourceLa
 
     // 3. 创建新的翻译任务，并把任务结果桥接到在途项上。
     //    结算权交给任务本身，在途项只负责“让并发调用者看到同一个 promise”。
-    scheduler.run(signal => executor.executeTranslation(prepared, targetLang, sourceLang, signal, tabId))
+    scheduler.run(signal => executor.executeTranslation(prepared, targetLang, sourceLang, signal, tabId), { tabId })
         .then(
             result => claim.settle(result),
             error => claim.fail(error),

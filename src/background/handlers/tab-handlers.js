@@ -1,5 +1,6 @@
 import { MESSAGE_TYPES } from '../../common/message-types.js';
 import * as Constants from '../../common/constants.js';
+import { sendMessageToContent } from '../tab-messaging.js';
 
 /**
  * 标签页 / 界面状态类消息处理器。
@@ -11,6 +12,7 @@ export function createTabHandlers({
     translatorManager,
     tabStateManager,
     ensureScriptsInjected,
+    ensureSummaryInjected,
     setBadgeAndState,
     logError,
     cssFiles,
@@ -24,11 +26,34 @@ export function createTabHandlers({
                 await setBadgeAndState(tabId, 'original');
                 throw new Error(`Failed to inject scripts into tab ${tabId}.`);
             }
-            await browserApi.tabs.sendMessage(tabId, {
-                type: MESSAGE_TYPES.TOGGLE_TRANSLATION_REQUEST_AT_CONTENT,
-                payload: { tabId },
+            await sendMessageToContent({
+                browserApi,
+                tabId,
+                message: {
+                    type: MESSAGE_TYPES.TOGGLE_TRANSLATION_REQUEST_AT_CONTENT,
+                    payload: { tabId },
+                },
             });
             return { success: true };
+        },
+
+        /**
+         * 摘要模块按需注入。
+         *
+         * 内容运行时在页面翻译开始/设置更新时发这条消息，但**是否真的注入**由后台
+         * 按该站点的 `summarySettings.enabled` 判定——判据留在后台，内容侧不需要
+         * 再解释一遍布局规则。tabId 取 sender 而不是 payload：请求方永远是自己所属
+         * 的那个标签页，让内容侧自报 tabId 只是给伪造留缝。
+         */
+        async [MESSAGE_TYPES.ENSURE_SUMMARY_MODULE](request, sender) {
+            const tabId = sender?.tab?.id;
+            if (!tabId) {
+                return { success: false, error: 'missing-sender-tab' };
+            }
+            const injected = await ensureSummaryInjected(tabId, {
+                hostname: request.payload?.hostname,
+            });
+            return { success: true, injected };
         },
 
         async [MESSAGE_TYPES.TOGGLE_DISPLAY_MODE](request) {
@@ -47,9 +72,13 @@ export function createTabHandlers({
             );
 
             try {
-                await browserApi.tabs.sendMessage(tabId, {
-                    type: MESSAGE_TYPES.UPDATE_DISPLAY_MODE,
-                    payload: { displayMode: newMode },
+                await sendMessageToContent({
+                    browserApi,
+                    tabId,
+                    message: {
+                        type: MESSAGE_TYPES.UPDATE_DISPLAY_MODE,
+                        payload: { displayMode: newMode },
+                    },
                 });
             } catch (error) {
                 if (!error.message.includes('Receiving end does not exist')) {
@@ -75,8 +104,14 @@ export function createTabHandlers({
             return { success: true };
         },
 
-        async [MESSAGE_TYPES.STOP_TRANSLATION]() {
-            await translatorManager.interruptAll();
+        async [MESSAGE_TYPES.STOP_TRANSLATION](request) {
+            const tabId = request?.payload?.tabId;
+            if (tabId === undefined || tabId === null) {
+                // 没有作用域信息时宁可不中断任何一个，也不越权停掉全部。
+                logError('STOP_TRANSLATION', new Error('Missing tabId in STOP_TRANSLATION payload.'));
+                return { success: false, error: 'missing-tab-id' };
+            }
+            translatorManager.interruptTab(tabId);
             return { success: true };
         },
 

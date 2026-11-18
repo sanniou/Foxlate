@@ -185,7 +185,7 @@ async function main() {
     // --- 配置常量 ---
     const isWatchMode = process.argv.includes('--watch');
     const outDir = path.join(__dirname, 'dist');
-    const srcDir = path.join(__dirname, 'src');
+    const { SOURCE_DIR: srcDir, entryFilePaths } = require('./build-entries.cjs');
     const publicDir = path.join(__dirname, 'public');
 
     // --- (新) 将 package.json 作为版本号的唯一真实来源 ---
@@ -426,18 +426,8 @@ async function main() {
         },
     };
 
-    // 标准化路径，确保跨平台兼容性
-    const normalizePath = (p) => p.replace(/\\/g, '/');
-
-    const entryPoints = [
-        'background/service-worker.js',
-        'content/content-script.js',
-        'content/subtitle/subtitle-manager.js',
-        'content/subtitle/youtube-subtitle-strategy.js',
-        'content/subtitle/bilibili-subtitle-strategy.js',
-        'options/options.js',
-        'popup/popup.js',
-    ].map(entry => normalizePath(path.join(srcDir, entry)));
+    // 入口清单只有一份（build-entries.cjs），体积预算测试读的是同一个清单。
+    const entryPoints = entryFilePaths();
 
     // --- esbuild 构建选项 ---
     const buildOptions = {

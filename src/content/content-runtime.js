@@ -1,7 +1,7 @@
 import browser from '../lib/browser-polyfill.js';
+import { MESSAGE_TYPES } from '../common/message-types.js';
 import { DisplayManager } from './display-manager.js';
 import { PageTranslationJob } from './page-translation-job.js';
-import { initializeSummary } from './summary/summary.js';
 import { initializeInputHandler } from './input-handler.js';
 import { TranslationPerformanceHud } from './performance/translation-performance-hud.js';
 import { createEffectiveSettingsGetter } from './content-settings-client.js';
@@ -22,7 +22,6 @@ export class ContentRuntime {
         displayManager = DisplayManager,
         PageTranslationJobClass = PageTranslationJob,
         performanceHud = new TranslationPerformanceHud(),
-        initializeSummaryFn = initializeSummary,
         initializeInputHandlerFn = initializeInputHandler,
         QuickActionPanelClass = QuickActionPanel,
         getEffectiveSettings = createEffectiveSettingsGetter({ browserApi, win }),
@@ -37,7 +36,8 @@ export class ContentRuntime {
         this.displayManager = displayManager;
         this.PageTranslationJobClass = PageTranslationJobClass;
         this.performanceHud = performanceHud;
-        this.initializeSummary = initializeSummaryFn;
+        // 入口串行化锁：见 startTranslationJob
+        this.startPromise = null;
         this.initializeInputHandler = initializeInputHandlerFn;
         this.QuickActionPanelClass = QuickActionPanelClass;
         this.getEffectiveSettings = getEffectiveSettings;
@@ -97,6 +97,25 @@ export class ContentRuntime {
     }
 
     async startTranslationJob(tabId, { ignoreIfActive = false } = {}) {
+        // 入口可能同时来自 popup、快捷键、右键菜单和标签页状态恢复。并发进入时两个调用
+        // 都会看到 currentPageJob 为空，各自 await getEffectiveSettings，然后各建一个 job：
+        // 后一个覆盖 currentPageJob，前一个变成仍在观察 DOM 的孤儿（同一段文本被翻两次）。
+        // 把创建流程串起来，第二个调用在执行时才能看到第一个的结果。
+        const previous = this.startPromise ?? Promise.resolve();
+        const current = previous
+            .catch(() => {})
+            .then(() => this.#runStartTranslationJob(tabId, { ignoreIfActive }));
+        this.startPromise = current;
+        try {
+            return await current;
+        } finally {
+            if (this.startPromise === current) {
+                this.startPromise = null;
+            }
+        }
+    }
+
+    async #runStartTranslationJob(tabId, { ignoreIfActive }) {
         if (this.currentPageJob) {
             if (ignoreIfActive) {
                 console.warn('[Foxlate] Translation request received, but a job is already active. Ignoring.');
@@ -138,7 +157,7 @@ export class ContentRuntime {
         const settings = await this.getEffectiveSettings();
         this.currentPageJob = this.createPageTranslationJob(tabId, settings);
         await this.currentPageJob.start();
-        this.initializeSummary(settings);
+        this.requestSummaryModule();
         return { success: true };
     }
 
@@ -166,7 +185,7 @@ export class ContentRuntime {
             this.window.subtitleManager.updateSettings(effective);
         }
 
-        this.initializeSummary(effective);
+        this.requestSummaryModule();
         this.quickActionPanel?.updateSettings(effective);
         return { success: true };
     }
@@ -262,40 +281,20 @@ export class ContentRuntime {
         return { isSupported: false, isEnabled: false };
     }
 
-    async toggleSummary() {
-        const settings = await this.getEffectiveSettings();
-        let summarySettings = settings;
-
-        if (!settings.summarySettings?.enabled) {
-            summarySettings = {
-                ...settings,
-                summarySettings: {
-                    enabled: true,
-                    aiModel: settings.aiEngines?.length > 0 ? settings.aiEngines[0].id : null,
-                    mainBodySelector: settings.summarySettings?.mainBodySelector,
-                },
-            };
-        }
-
-        if (!this.window.summaryModuleInstance) {
-            this.initializeSummary(summarySettings);
-        }
-
-        if (!this.window.summaryModuleInstance) {
-            return { success: false, error: 'Failed to initialize summary module' };
-        }
-
-        try {
-            if (this.window.getSelection().toString().trim()) {
-                this.window.summaryModuleInstance.selectionContext = null;
-            }
-            await this.window.summaryModuleInstance.togglePageSummaryDialog();
-            return { success: true };
-        } catch (error) {
-            this.logError('TOGGLE_SUMMARY_REQUEST', error);
-            return { success: false, error: error.message };
-        }
+    /**
+     * 请求后台注入摘要模块。
+     *
+     * 摘要（readability 正文抽取 + marked 渲染 + 面板 UI）不再打进内容包，所以这里只能
+     * 「请后台代拿」。后台已经知道这个站点的 `summarySettings.enabled`，开关为关时不会
+     * 真的注入。注入失败只影响摘要入口，不该打断页面翻译，因此只记日志。
+     */
+    requestSummaryModule() {
+        this.browser.runtime.sendMessage({
+            type: MESSAGE_TYPES.ENSURE_SUMMARY_MODULE,
+            payload: { hostname: this.window.location?.hostname },
+        }).catch(error => this.logError('requestSummaryModule', error));
     }
+
 
     async handleMessage(request, sender) {
         if (globalThis.__DEBUG__) {
@@ -327,11 +326,13 @@ export class ContentRuntime {
 
         this.window.getEffectiveSettings = this.getEffectiveSettings;
 
-        const settings = await this.getEffectiveSettings();
-        if (settings.summarySettings?.enabled) {
-            this.initializeSummary(settings);
-        }
+        // 必须先于任何 await 注册：背景在注入返回后立即发第一条消息，而脚本求值到
+        // 这里之间隔着一次 settings 往返。把这个监听器留到最后会让首次点击翻译
+        // 掉进「Receiving end does not exist」的真空期。
+        this.browser.runtime.onMessage.addListener(this.handleMessage);
 
+        const settings = await this.getEffectiveSettings();
+        this.requestSummaryModule();
         this.initializeInputHandler();
         this.quickActionPanel = new this.QuickActionPanelClass({
             browserApi: this.browser,
@@ -348,7 +349,6 @@ export class ContentRuntime {
         });
         this.quickActionPanel.initialize(settings);
 
-        this.browser.runtime.onMessage.addListener(this.handleMessage);
         this.window.__foxlate_css_injected = true;
     }
 }

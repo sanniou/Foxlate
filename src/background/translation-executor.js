@@ -2,6 +2,17 @@ import { applyGlossaryToText } from '../common/translation-glossary.js';
 import { postProcess } from './translation-pipeline.js';
 
 /**
+ * 哪些批量失败值得「拆小重试」。
+ *
+ * 只限响应形状类问题（模型漏条、包话、返回非数组）。鉴权、配额、网络层面的
+ * 失败拆小只会把一次报错变成十几次报错，不能算。
+ */
+function isSplittableBatchError(error) {
+    const message = String(error?.message || '');
+    return /length mismatch|must be a string|must be a JSON array|Invalid response structure|Unexpected token|JSON/i.test(message);
+}
+
+/**
  * 翻译执行器：把「已经准备好的翻译」真正送进引擎，并把结果写回缓存。
  *
  * 两条执行路径：
@@ -153,6 +164,18 @@ export class TranslationExecutor {
             return results;
         } catch (error) {
             if (error.name === 'AbortError') throw error;
+
+            // 整批失败时先试着把问题隔离开：模型漏一条、多包一层话、把数组包成对象，
+            // 都会让同一次付费请求里的十几条一起变红。拆成两半各自重试，最终每个标签
+            // 只为自己的失败负责，而不是连坐整批。
+            if (items.length > 1 && isSplittableBatchError(error)) {
+                const middle = Math.ceil(items.length / 2);
+                const halves = await Promise.all([
+                    this.executeAiBatchGroup(items.slice(0, middle), targetLang, sourceLang, engine, config, signal, tabId),
+                    this.executeAiBatchGroup(items.slice(middle), targetLang, sourceLang, engine, config, signal, tabId),
+                ]);
+                return halves.flat();
+            }
 
             const errorMessage = `AI batch translation failed: ${error.message}`;
             console.warn('[TranslatorExecutor] AI batch failed:', error);

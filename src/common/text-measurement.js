@@ -312,7 +312,10 @@ export class TextMeasurementService {
             };
         }
 
-        const measurementKey = JSON.stringify([normalizedText, textStyle, width, min, engine.name]);
+        // 缓存键用模板字符串拼接：JSON.stringify 会把整段文本再转义复制一遍，
+        // 而这张表在页面翻译时每个节点都要查一次。这里每个字段都是控制字符的自描述拼接，
+        // 不会互相扭串。
+        const measurementKey = `${engine.name}\u0000${textStyle.font}\u0000${textStyle.fontSize}\u0000${textStyle.lineHeight}\u0000${textStyle.letterSpacing}\u0000${textStyle.whiteSpace}\u0000${textStyle.wordBreak}\u0000${width}\u0000${min}\u0000${normalizedText}`;
         const cached = this.#measurementCache.get(measurementKey);
         if (cached) return cached;
 

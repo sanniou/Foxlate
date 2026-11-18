@@ -9,6 +9,7 @@
  */
 export class TranslationTaskScheduler {
     #queue = [];
+    /** @type {Map<number, {controller: AbortController, tabId: number|undefined}>} */
     #active = new Map();
     #nextId = 0;
     #maxConcurrent;
@@ -46,12 +47,18 @@ export class TranslationTaskScheduler {
 
     /**
      * 入队一个任务。
+     *
+     * `tabId` 是中断作用域的键：页面上的「还原」只能中断该页面自己的任务。
+     * 不记录它的话，`interruptAll()` 是唯一可用的粒度，任何标签页点一下还原都会
+     * 把其它标签页付费中的在途翻译一起 abort 掉（它们随后在页面上被渲染成错误标记）。
+     *
      * @param {(signal: AbortSignal) => Promise<any>} job
+     * @param {{tabId?: number}} [scope]
      * @returns {Promise<any>}
      */
-    run(job) {
+    run(job, { tabId } = {}) {
         return new Promise((resolve, reject) => {
-            this.#queue.push({ job, resolve, reject, controller: new AbortController() });
+            this.#queue.push({ job, resolve, reject, controller: new AbortController(), tabId });
             this.#drain();
         });
     }
@@ -63,22 +70,48 @@ export class TranslationTaskScheduler {
      * 还在排队的任务直接 reject——它们从未开始，没有别的机会拿到错误。
      */
     interruptAll() {
-        for (const controller of this.#active.values()) {
-            controller.abort();
+        this.#interrupt(() => true);
+    }
+
+    /**
+     * 只中断给定标签页的任务。
+     *
+     * 标签页关闭、用户点「还原」都只应影响自己那一页；未带 tabId 的任务不受影响
+     * （不知道归属就不能替它下结论）。
+     * @param {number} tabId
+     */
+    interruptTab(tabId) {
+        if (tabId === undefined || tabId === null) {
+            return;
+        }
+        this.#interrupt(task => task.tabId === tabId);
+    }
+
+    #interrupt(matches) {
+        for (const [taskId, task] of this.#active) {
+            if (!matches(task)) {
+                continue;
+            }
+            task.controller.abort();
         }
 
+        const remaining = [];
         for (const task of this.#queue) {
+            if (!matches(task)) {
+                remaining.push(task);
+                continue;
+            }
             task.controller.abort(); // 标记为中止
             task.reject(new DOMException('Translation was interrupted by the user.', 'AbortError'));
         }
-        this.#queue.length = 0;
+        this.#queue = remaining;
     }
 
     #drain() {
         while (this.#queue.length > 0 && this.#active.size < this.#maxConcurrent) {
             const task = this.#queue.shift();
             const taskId = this.#nextId++;
-            this.#active.set(taskId, task.controller);
+            this.#active.set(taskId, { controller: task.controller, tabId: task.tabId });
 
             (async () => {
                 try {

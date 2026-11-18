@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -7,17 +8,28 @@ import { build } from 'esbuild';
 
 const projectRoot = path.resolve(import.meta.dirname, '..');
 const srcDir = path.join(projectRoot, 'src');
+const require = createRequire(import.meta.url);
+// 入口清单与 build.js 同源：两边各写一份的代价是 subtitle 三个入口长期没有预算约束。
+const { ENTRY_FILES } = require('../build-entries.cjs');
 
 /**
  * 各个入口允许的最大体积（未压缩，KB）。
  * 预算留了约 25% 余量：日常加代码不会触发，误把重量级依赖拖进来才会失败。
- * 这些数字来自 1.7.4 重构后的实测值（见 specs/verifications/full-refactor-review-1.7.4.md）。
+ * 这些数字来自 1.7.5 实测值（见 specs/verifications/full-refactor-review-1.7.4.md
+ * 与 specs/verifications/refactor-ledger.md）。
  */
 const SIZE_BUDGET_KB = {
     'popup/popup.js': 120,
     'options/options.js': 250,
     'background/service-worker.js': 210,
-    'content/content-script.js': 620,
+    // 1.7.6：摘要包（readability + marked + 面板 UI）拆成独立入口后，内容包从
+    // 597 KB 降到 367 KB。预算跟着收下来，否则拆包的成绩会被下一次加依赖吃掉。
+    'content/content-script.js': 440,
+    // 仅在用户真用摘要时注入，不随每次翻译下载。
+    'content/summary/summary-entry.js': 340,
+    'content/subtitle/subtitle-manager.js': 50,
+    'content/subtitle/youtube-subtitle-strategy.js': 67,
+    'content/subtitle/bilibili-subtitle-strategy.js': 8,
 };
 
 /**
@@ -30,6 +42,21 @@ const SCOPED_DEPENDENCIES = [
         allowedOnlyIn: ['content/content-script.js'],
         why: 'pretext 排版引擎（约 117 KB 源码）只有页面内翻译/摘要需要，popup 与 options 用 Canvas 引擎即可。',
     },
+    {
+        module: 'src/lib/readability.esm.js',
+        allowedOnlyIn: ['content/summary/summary-entry.js'],
+        why: '正文抽取只在摘要里用；跟着内容包走等于让每个被翻译的页面下载它。',
+    },
+    {
+        module: 'src/lib/marked.esm.js',
+        allowedOnlyIn: ['content/summary/summary-entry.js'],
+        why: 'markdown 渲染只服务摘要面板。',
+    },
+    {
+        module: 'src/content/summary/',
+        allowedOnlyIn: ['content/summary/summary-entry.js'],
+        why: '摘要模块整块按需注入：内容运行时只发 ENSURE_SUMMARY_MODULE，不 import 它。',
+    },
 ];
 
 let buildReport;
@@ -39,7 +66,7 @@ async function buildEntryPoints() {
 
     const outDir = await mkdtemp(path.join(os.tmpdir(), 'foxlate-bundle-'));
     const result = await build({
-        entryPoints: Object.keys(SIZE_BUDGET_KB).map((entry) => path.join(srcDir, entry)),
+        entryPoints: ENTRY_FILES.map((entry) => path.join(srcDir, entry)),
         bundle: true,
         outdir: outDir,
         outbase: srcDir,
@@ -68,9 +95,15 @@ function normalizeOutputKeys(outputs, outDir) {
 
 test('每个入口都被构建出来', async () => {
     const outputs = await buildEntryPoints();
-    for (const entry of Object.keys(SIZE_BUDGET_KB)) {
+    for (const entry of ENTRY_FILES) {
         assert.ok(outputs.has(entry), `缺少构建产物 ${entry}；实际产物: ${[...outputs.keys()].join(', ')}`);
     }
+});
+
+test('每个构建入口都有体积预算', () => {
+    // 新增入口却不给预算 = 这个入口的体积永远不会被门禁看见。
+    const unbudgeted = ENTRY_FILES.filter((entry) => SIZE_BUDGET_KB[entry] === undefined);
+    assert.deepEqual(unbudgeted, [], `以下入口没有体积预算:\n  ${unbudgeted.join('\n  ')}`);
 });
 
 test('入口体积不超过预算', async () => {
@@ -94,7 +127,7 @@ test('重量级依赖不扩散到不需要它的入口', async () => {
     const outputs = await buildEntryPoints();
     const violations = [];
 
-    for (const entry of Object.keys(SIZE_BUDGET_KB)) {
+    for (const entry of ENTRY_FILES) {
         const info = outputs.get(entry);
         for (const dependency of SCOPED_DEPENDENCIES) {
             if (dependency.allowedOnlyIn.includes(entry)) continue;

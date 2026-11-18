@@ -1,6 +1,6 @@
 import browser from '../../lib/browser-polyfill.js';
 import * as Constants from '../../common/constants.js';
-import { DisplayManager } from '../display-manager.js';
+import { getElementData } from '../display/element-state-map.js';
 import { escapeHtml } from '../../common/escape.js';
 import { reconstructDOM } from '../dom-reconstructor.js';
 import { translatedContentLayoutService } from '../layout/translated-content-layout-service.js';
@@ -45,7 +45,7 @@ class AppendStrategy {
 
         // 从 DisplayManager 获取包括 appendType 在内的所有数据。
         // appendType 由 DOMWalker 在初始阶段根据用户配置和启发式算法决定，确保了配置的权威性。
-        const data = DisplayManager.getElementData(element);
+        const data = getElementData(element);
         const appendType = data?.translationUnit?.appendType || 'inline'; // 安全回退到 'inline'
 
         switch (state) {
@@ -86,7 +86,7 @@ class AppendStrategy {
                 break;
 
             case Constants.DISPLAY_MANAGER_STATES.ERROR:
-                const errorData = DisplayManager.getElementData(element);
+                const errorData = getElementData(element);
                 const errorPrefix = browser.i18n.getMessage('contextMenuErrorPrefix') || 'Error';
                 const errorMessage = errorData?.errorMessage || 'Translation Error';
 

@@ -208,6 +208,26 @@ export class SettingsManager {
     }
 
     /**
+     * 读—改—写，其中「读」绕过缓存、直读 storage。
+     *
+     * 单字段写入（新增/删除 AI 引擎、改某个域规则属性）如果先读缓存再整对象回写，
+     * 别的上下文（另一个 options 页、popup、内容脚本）在两者之间的写入就会被它的
+     * 旧快照抹平——用户会看到「刚设置的开关自己关回去了」。缓存只在 storage.onChanged
+     * 到达时失效，而 onChanged 是异步且可能晚于下一次读。
+     *
+     * @param {(settings: object) => object} mutator 接收验证后的设置，返回完整新设置
+     * @private
+     */
+    static async #mutateStoredSettings(mutator) {
+        const { settings: storedSettings } = await browser.storage.local.get('settings');
+        const current = validateSettings(storedSettings);
+        const next = mutator(current);
+        await SettingsManager.saveLocalSettings(next);
+        SettingsManager.#invalidateCache();
+        SettingsManager.#effectiveSettingsCache.clear();
+    }
+
+    /**
      * 将当前本地设置上传到云端存储 (sync)。
      * @param {object} settings - 要上传的设置对象。
      */
@@ -229,8 +249,7 @@ export class SettingsManager {
          * @param {string|null} existingId - 如果是编辑，则为现有引擎的 ID。
          */
     static async saveAiEngine(engineData, existingId = null) {
-        const settings = await this.getValidatedSettings();
-        await this.saveLocalSettings(upsertAiEngine(settings, engineData, existingId));
+        await SettingsManager.#mutateStoredSettings(settings => upsertAiEngine(settings, engineData, existingId));
     }
 
     /**
@@ -238,8 +257,7 @@ export class SettingsManager {
      * @param {string} engineId - 要移除的引擎 ID。
      */
     static async removeAiEngine(engineId) {
-        const settings = await this.getValidatedSettings();
-        await this.saveLocalSettings(removeAiEngineFromSettings(settings, engineId));
+        await SettingsManager.#mutateStoredSettings(settings => removeAiEngineFromSettings(settings, engineId));
     }
     /**
      * (新) 保存单个域名规则的属性。
@@ -254,8 +272,7 @@ export class SettingsManager {
             return;
         }
 
-        const settings = await this.getValidatedSettings();
-        await this.saveLocalSettings(setDomainRuleProperty(settings, domain, key, value));
+        await SettingsManager.#mutateStoredSettings(settings => setDomainRuleProperty(settings, domain, key, value));
     }
     /**
      * 清空设置缓存（已验证缓存与按域名的有效设置缓存）。

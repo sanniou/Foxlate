@@ -10,8 +10,8 @@ import browser from '../lib/browser-polyfill.js';
  * - text       使用源侧词汇表改写后的文本（即引擎实际收到的文本）
  * - 词汇表指纹 缓存值已经过词汇表替换，词汇表一变就必须失效
  */
-export function createTranslationCacheKey(engine, sourceLang, targetLang, text, glossaryFingerprint = 'none') {
-    return `${engine}\u0000${sourceLang}\u0000${targetLang}\u0000${glossaryFingerprint}\u0000${text}`;
+export function createTranslationCacheKey(engine, sourceLang, targetLang, text, glossaryFingerprint = 'none', promptFingerprint = 'none') {
+    return `${engine}\u0000${sourceLang}\u0000${targetLang}\u0000${glossaryFingerprint}\u0000${promptFingerprint}\u0000${text}`;
 }
 
 export class TranslationCacheStore {
@@ -19,6 +19,8 @@ export class TranslationCacheStore {
     #browser;
     #storageKey;
     #saveDelayMs;
+    #maxSaveDelayMs;
+    #pendingSince = null;
     #saveTimer = null;
     #maxSize;
 
@@ -26,11 +28,13 @@ export class TranslationCacheStore {
         browserApi = browser,
         storageKey = 'translationCache',
         saveDelayMs = 2000,
+        maxSaveDelayMs = 15000,
         maxSize = 5000,
     } = {}) {
         this.#browser = browserApi;
         this.#storageKey = storageKey;
         this.#saveDelayMs = saveDelayMs;
+        this.#maxSaveDelayMs = maxSaveDelayMs;
         this.#maxSize = maxSize;
     }
 
@@ -96,16 +100,31 @@ export class TranslationCacheStore {
     }
 
     scheduleSave() {
+        // 纯 debounce 在长任务里等于永不落盘：翻译过程中每批都会调本方法，
+        // 每次 clearTimeout 都把计时器推后，一次持续几十秒的整页翻译结束时
+        // 缓存可能一条都没进 storage——service worker 被回收时全部付费结果丢失。
+        // 因此戴上「首次待写的时刻」：最早写入不晚于 maxSaveDelayMs。
+        if (this.#pendingSince === null) {
+            this.#pendingSince = Date.now();
+        }
         if (this.#saveTimer) {
             clearTimeout(this.#saveTimer);
         }
+        const elapsed = Date.now() - this.#pendingSince;
+        const delay = Math.max(0, Math.min(this.#saveDelayMs, this.#maxSaveDelayMs - elapsed));
         this.#saveTimer = setTimeout(() => {
-            this.save();
             this.#saveTimer = null;
-        }, this.#saveDelayMs);
+            this.#pendingSince = null;
+            this.save();
+        }, delay);
     }
 
     async clear() {
+        if (this.#saveTimer) {
+            clearTimeout(this.#saveTimer);
+            this.#saveTimer = null;
+        }
+        this.#pendingSince = null;
         this.#cache.clear();
         await this.save();
     }

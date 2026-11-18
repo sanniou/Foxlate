@@ -15,7 +15,6 @@ async function bundleContentRuntimeModules() {
     const entryPath = path.join(tempDir, 'entry.js');
     const outputPath = path.join(tempDir, 'bundle.mjs');
     const mockBrowserPath = path.join(tempDir, 'browser-polyfill-mock.js');
-    const mockSummaryPath = path.join(tempDir, 'summary-mock.js');
     const mockInputHandlerPath = path.join(tempDir, 'input-handler-mock.js');
     const mockHudPath = path.join(tempDir, 'hud-mock.js');
 
@@ -25,7 +24,6 @@ async function bundleContentRuntimeModules() {
         export { ElementTranslationController } from ${JSON.stringify(path.join(projectRoot, 'src/content/element-translation-controller.js'))};
     `);
     await writeFile(mockBrowserPath, 'export default globalThis.__foxlateBrowserMock;');
-    await writeFile(mockSummaryPath, 'export function initializeSummary(settings) { globalThis.__summaryCalls.push(settings); }');
     await writeFile(mockInputHandlerPath, 'export function initializeInputHandler() { globalThis.__inputHandlerCalls += 1; }');
     await writeFile(mockHudPath, `
         export class TranslationPerformanceHud {
@@ -49,7 +47,6 @@ async function bundleContentRuntimeModules() {
             name: 'content-runtime-test-mocks',
             setup(buildContext) {
                 buildContext.onResolve({ filter: /browser-polyfill\.js$/ }, () => ({ path: mockBrowserPath }));
-                buildContext.onResolve({ filter: /summary\/summary\.js$/ }, () => ({ path: mockSummaryPath }));
                 buildContext.onResolve({ filter: /input-handler\.js$/ }, () => ({ path: mockInputHandlerPath }));
                 buildContext.onResolve({ filter: /translation-performance-hud\.js$/ }, () => ({ path: mockHudPath }));
             },
@@ -228,7 +225,14 @@ test('content runtime initializes once and routes page translation messages thro
     assert.equal(dom.window.foxlateContentScriptInitialized, true);
     assert.equal(typeof dom.window.getEffectiveSettings, 'function');
     assert.equal(typeof browserMock.messageListener, 'function');
-    assert.deepEqual(globalThis.__summaryCalls, [settings]);
+    // 摘要模块不再由运行时静态装进内容包：运行时只请求后台按需注入。
+    // 这条断言是拆包的护栏——把它改回「运行时自己 initialize」就等于把
+    // readability + marked 又拖回每个页面的内容包。
+    assert.deepEqual(
+        browserMock.messages.filter(message => message.type === 'ENSURE_SUMMARY_MODULE'),
+        [{ type: 'ENSURE_SUMMARY_MODULE', payload: { hostname: 'example.com' } }],
+    );
+    assert.deepEqual(globalThis.__summaryCalls, []);
     assert.equal(globalThis.__inputHandlerCalls, 1);
 
     assert.deepEqual(await runtime.handleMessage({ type: 'REQUEST_TRANSLATION_STATUS' }), {
@@ -254,6 +258,91 @@ test('content runtime initializes once and routes page translation messages thro
         emptyCandidates: false,
         allPrecheckSkipped: false,
     });
+});
+
+test('message listener is registered before the first await finishes', async () => {
+    const dom = setupDom();
+    const settings = createSettings();
+    const browserMock = createRuntimeBrowserMock({ settings });
+    const { ContentRuntime } = await bundleContentRuntimeModules();
+
+    let releaseSettings;
+    const runtime = new ContentRuntime({
+        browserApi: browserMock,
+        win: dom.window,
+        PageTranslationJobClass: class {
+            async start() {}
+            async revert() {}
+        },
+        displayManager: {
+            updateDisplayMode() {},
+            handleEphemeralTranslation() {},
+        },
+        // 背景在注入返回后立刻发消息；此时 settings 往返很可能还没回来。
+        getEffectiveSettings: () => new Promise(resolve => {
+            releaseSettings = () => resolve(settings);
+        }),
+        cssFilePath: 'content/style.css',
+    });
+
+    const initPromise = runtime.initialize();
+
+    assert.equal(typeof browserMock.messageListener, 'function', 'listener must exist before settings resolve');
+    assert.deepEqual(await browserMock.messageListener({ type: 'PING' }), { status: 'PONG' });
+
+    releaseSettings();
+    await initPromise;
+});
+
+test('concurrent startTranslationJob calls create exactly one job', async () => {
+    const dom = setupDom();
+    const settings = createSettings();
+    const browserMock = createRuntimeBrowserMock({ settings });
+    const { ContentRuntime } = await bundleContentRuntimeModules();
+    const created = [];
+    let createdWhileAwaitingSettings = 0;
+    class CountingJob {
+        constructor(tabId) {
+            this.tabId = tabId;
+            this.state = 'idle';
+            created.push(tabId);
+        }
+        async start() {
+            this.state = 'translating';
+        }
+        async revert() {
+            this.state = 'idle';
+        }
+    }
+
+    const runtime = new ContentRuntime({
+        browserApi: browserMock,
+        win: dom.window,
+        PageTranslationJobClass: CountingJob,
+        displayManager: {
+            updateDisplayMode() {},
+            handleEphemeralTranslation() {},
+        },
+        // 模拟真实的异步设置读取：两个并发入口都会在 await 之后才创建 job。
+        getEffectiveSettings: async () => {
+            await new Promise(resolve => setTimeout(resolve, 5));
+            if (runtime.currentPageJob) createdWhileAwaitingSettings += 1;
+            return settings;
+        },
+        cssFilePath: 'content/style.css',
+    });
+
+    await runtime.initialize();
+
+    // popup 点击与快捷键命令几乎同时到达内容脚本（TRANSLATE_PAGE_REQUEST 带 ignoreIfActive）。
+    await Promise.all([
+        runtime.startTranslationJob(5, { ignoreIfActive: true }),
+        runtime.startTranslationJob(5, { ignoreIfActive: true }),
+    ]);
+
+    assert.equal(created.length, 1, 'only one page job is created');
+    assert.equal(runtime.currentPageJob.tabId, 5);
+    assert.equal(createdWhileAwaitingSettings, 0, 'second entry sees the first job instead of racing past it');
 });
 
 test('content-script entry stays a bootstrap module after runtime split', async () => {

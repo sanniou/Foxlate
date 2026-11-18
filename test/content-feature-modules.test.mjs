@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { build } from 'esbuild';
 import { JSDOM } from 'jsdom';
-import { createI18nMock } from './helpers/i18n-mock.mjs';
+import { createI18nMock, englishMessage } from './helpers/i18n-mock.mjs';
 
 const projectRoot = path.resolve(import.meta.dirname, '..');
 
@@ -228,7 +228,10 @@ test('summary error module classifies common retryable failures', async () => {
     const { classifySummaryError, generateUserFriendlySummaryError } = await bundleContentFeatureModules();
 
     assert.equal(classifySummaryError(new Error('HTTP 429 rate limit')), 'rate_limit');
-    assert.match(generateUserFriendlySummaryError(new Error('failed to extract content')), /内容为空/);
+    // 断言抄自真实本地化表，而不是把文案写死在测试里：文案的措辞与语言由
+    // public/_locales/* 决定，测试只钉「分类 → 对应文案」这条映射。
+    assert.ok(generateUserFriendlySummaryError(new Error('failed to extract content'))
+        .includes(englishMessage('summaryErrorContentEmpty')));
 });
 
 test('subtitle manager reports status through the message registry boundary', async () => {

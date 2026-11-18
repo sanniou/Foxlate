@@ -6,6 +6,7 @@ import { SummaryState } from './summary.state.js';
 import { SummaryButton, SummaryDialog } from './summary.view.js';
 import { SummaryContentExtractor } from './summary-content-extractor.js';
 import { generateUserFriendlySummaryError } from './summary-error-messages.js';
+import { MAX_SUMMARY_INPUT_CHARS } from '../../common/constants.js';
 
 // 常量定义
 const CONSTANTS = {
@@ -257,6 +258,16 @@ class SummaryModule {
             }
 
             if (!content.trim()) throw new Error('Failed to extract any meaningful content.');
+
+            // 超长文章（论坛长串、法规汇编）会直接撞上供应商的上下文上限，返回的是一句
+            // 与用户操作无关的 400。在发请求前先拦住，并把「改用选中文本摘要」这条出路
+            // 写进错误里。
+            if (content.length > MAX_SUMMARY_INPUT_CHARS) {
+                throw new Error(browser.i18n.getMessage('summaryErrorTooLong', [
+                    String(content.length),
+                    String(MAX_SUMMARY_INPUT_CHARS),
+                ]) || `Content too long: ${content.length} characters (limit ${MAX_SUMMARY_INPUT_CHARS}).`);
+            }
 
             const response = await browser.runtime.sendMessage({
                 type: MESSAGE_TYPES.SUMMARIZE_CONTENT,

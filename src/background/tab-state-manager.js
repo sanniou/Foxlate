@@ -142,6 +142,33 @@ export class TabStateManager {
     }
 
     /**
+     * 使与「当前文档」绑定的状态失效：注入记录与翻译状态。
+     *
+     * 只在顶层文档真正被替换时调用（`webNavigation.onCompleted`）。注入记录是按
+     * (tabId, frameId) 记录的，而 frameId 在同一标签页内跨文档不变——新文档里那份
+     * 记录已经指向一个不存在的执行环境。不清除它的后果是 `isFrameInjected` 命中陈旧
+     * 记录，`ensureScriptsInjected` 直接短路返回 true，后续 `tabs.sendMessage` 打到
+     * 不存在的接收方，该标签页从此彻底失效。
+     *
+     * `sessionTabTranslations`（会话级自动翻译）刻意不清：它按 hostname 判定，属于用户
+     * 意图而不是文档状态。SPA 内的 `onHistoryStateUpdated` 也不得调用本方法。
+     * @param {number} tabId
+     */
+    async resetTabDocumentState(tabId) {
+        return this.#enqueueWrite(() => {
+            return this.#readModifyWrite(['tabTranslationStates', 'injectedFrames'], states => {
+                if (states.tabTranslationStates) {
+                    delete states.tabTranslationStates[tabId];
+                }
+                if (states.injectedFrames) {
+                    delete states.injectedFrames[tabId];
+                }
+                return states;
+            });
+        });
+    }
+
+    /**
      * (新) 标记一个框架为已注入脚本。
      * @param {number} tabId
      * @param {number} frameId
@@ -164,6 +191,28 @@ export class TabStateManager {
                 return states;
             });
         });
+    }
+
+    /**
+     * 读回一个框架已注入的文件清单。
+     *
+     * 注入器等调用方需要“缺哪几个文件”，如果为每个文件各调一次 `isFrameInjected`
+     * 就会产生 N+1 次串行 `storage.session` 读取（每次都要跨进程）。这里一次性读完，
+     * 让调用方自己做集合运算。
+     *
+     * @param {number} tabId
+     * @param {number} frameId
+     * @returns {Promise<string[]>} 已注入文件；无记录（含旧版数组格式）返回空数组
+     */
+    async getInjectedFiles(tabId, frameId) {
+        const { injectedFrames } = await this.#browser.storage.session.get('injectedFrames');
+        const tabFrames = injectedFrames?.[tabId];
+        // 旧版格式（tabFrames 是 frameId 数组）认不出具体文件；按“尚未注入”处理，
+        // 随后的 markFrameAsInjected 会把它顺手升级成对象格式。
+        if (!tabFrames || Array.isArray(tabFrames)) {
+            return [];
+        }
+        return [...(tabFrames[String(frameId)] || [])];
     }
 
     /**

@@ -173,6 +173,55 @@ test('每个模块的深层子目录 import 不超过 3 层上溯（防止目录
     );
 });
 
+test('src/ 的相对 import 图无环（模块环让初始化顺序变成运行时 undefined）', async () => {
+    const all = await files();
+    const graph = new Map();
+
+    for (const file of all) {
+        const relative = path.relative(srcDir, file).split(path.sep).join('/');
+        const source = await readFile(file, 'utf8');
+        const targets = [];
+        for (const specifier of extractSpecifiers(source)) {
+            if (!specifier.startsWith('.')) continue;
+            const resolved = path.relative(srcDir, path.resolve(path.dirname(file), specifier))
+                .split(path.sep).join('/');
+            if (resolved.startsWith('..')) continue;
+            targets.push(resolved);
+        }
+        graph.set(relative, targets);
+    }
+
+    // 迭代式 DFS 找回边；只报最短的一个环的闭环路径，便于定位。
+    const CYCLES_LIMIT = 10;
+    const cycles = [];
+    const state = new Map(); // 'visiting' | 'done'
+    const stack = [];
+
+    const visit = node => {
+        if (cycles.length >= CYCLES_LIMIT) return;
+        state.set(node, 'visiting');
+        stack.push(node);
+        for (const next of graph.get(node) ?? []) {
+            if (!graph.has(next)) continue; // 解析到 src/ 之外的模块不参与
+            const nextState = state.get(next);
+            if (nextState === 'visiting') {
+                const start = stack.indexOf(next);
+                cycles.push([...stack.slice(start), next].join(' -> '));
+            } else if (nextState !== 'done') {
+                visit(next);
+            }
+        }
+        stack.pop();
+        state.set(node, 'done');
+    };
+
+    for (const node of graph.keys()) {
+        if (!state.has(node)) visit(node);
+    }
+
+    assert.deepEqual(cycles, [], 'src/ 出现了模块环；把被共享的纯数据/常量下沉到叶子模块');
+});
+
 test('显示策略只能由注册表装配，其他地方不得直接 import', async () => {
     const all = await files();
     const registry = 'content/display/display-strategy-registry.js';

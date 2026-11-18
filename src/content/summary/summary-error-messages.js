@@ -1,5 +1,25 @@
+import browser from '../../lib/browser-polyfill.js';
+
+/**
+ * 摘要/追问失败时的用户可见文案。
+ *
+ * 这些文案曾经以中文字面量写死在本文件里——英文界面用户看到的是中文报错。
+ * 现在统一走 `browser.i18n`，文案实体在 `public/_locales/<locale>/messages.json`。
+ * `errorKey` 的写法是刻意的：`test/i18n-integrity.test.mjs` 会扫描
+ * `errorKey: '...'` 处的字面量，保证 key 在 en 与 zh_CN 两侧都存在。
+ */
+const ERROR_MESSAGES = {
+    network: { errorKey: 'summaryErrorNetwork' },
+    timeout: { errorKey: 'summaryErrorTimeout' },
+    auth: { errorKey: 'summaryErrorAuth' },
+    rate_limit: { errorKey: 'summaryErrorRateLimit' },
+    content_empty: { errorKey: 'summaryErrorContentEmpty' },
+    server_error: { errorKey: 'summaryErrorServer' },
+    unknown: { errorKey: 'summaryErrorUnknown' },
+};
+
 export function classifySummaryError(error) {
-    const message = error.message.toLowerCase();
+    const message = String(error?.message || '').toLowerCase();
 
     if (message.includes('network') || message.includes('fetch') || message.includes('connection')) {
         return 'network';
@@ -23,24 +43,15 @@ export function classifySummaryError(error) {
     return 'unknown';
 }
 
+function getMessage(key) {
+    // key 缺失时直接暴露 key 本身，而不是渲染成空白提示——空白会让「翻译文件漏了一行」
+    // 看起来像「请求成功但没有内容」。
+    return browser.i18n.getMessage(key) || key;
+}
+
 export function generateUserFriendlySummaryError(error) {
     const errorType = classifySummaryError(error);
-    const baseMessage = error.message || '未知错误';
-
-    switch (errorType) {
-        case 'network':
-            return `**网络连接错误**\n\n无法连接到服务器。请检查您的网络连接，然后重试。\n\n详细信息：${baseMessage}`;
-        case 'timeout':
-            return `**请求超时**\n\n服务器响应时间过长。请稍后重试。\n\n详细信息：${baseMessage}`;
-        case 'auth':
-            return `**认证失败**\n\n请检查您的 API 密钥配置，然后重试。\n\n详细信息：${baseMessage}`;
-        case 'rate_limit':
-            return `**请求频率限制**\n\n请求过于频繁，请稍等片刻后重试。\n\n详细信息：${baseMessage}`;
-        case 'content_empty':
-            return `**内容为空**\n\n无法提取到有效内容进行总结。请尝试选择其他文本或刷新页面。\n\n详细信息：${baseMessage}`;
-        case 'server_error':
-            return `**服务器错误**\n\n服务器暂时无法处理请求。请稍后重试。\n\n详细信息：${baseMessage}`;
-        default:
-            return `**发生错误**\n\n处理请求时遇到了问题。请重试，如果问题持续存在，请联系支持。\n\n详细信息：${baseMessage}`;
-    }
+    const body = getMessage(ERROR_MESSAGES[errorType].errorKey);
+    const details = error?.message || getMessage('summaryErrorNoMessage');
+    return `${body}\n\n${getMessage('summaryErrorDetails')}${details}`;
 }

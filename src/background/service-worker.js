@@ -13,6 +13,7 @@ import { CloudBackupStore } from './cloud-backup-store.js';
 import { createNavigationHandler } from './navigation-handler.js';
 import { createSelectionTranslationHandler } from './selection-translation.js';
 import { createSubtitleInjector } from './subtitle-injection.js';
+import { createSummaryInjector } from './summary-injection.js';
 
 const ensureScriptsInjected = createEnsureScriptsInjected({
     browserApi: browser,
@@ -43,12 +44,18 @@ const handleSelectionTranslation = createSelectionTranslationHandler({
     coreScriptFiles: CORE_SCRIPT_FILES,
 });
 
+const ensureSummaryInjected = createSummaryInjector({
+    ensureScriptsInjected,
+    logError: logBackgroundError,
+});
+
 const messageHandlers = createBackgroundMessageHandlers({
     browserApi: browser,
     settingsManager: SettingsManager,
     translatorManager: TranslatorManager,
     tabStateManager: TabStateManager,
     ensureScriptsInjected,
+    ensureSummaryInjected,
     setBadgeAndState: updateBadgeAndState,
     cloudBackups,
     logError: logBackgroundError,
@@ -62,8 +69,15 @@ const handleNavigation = createNavigationHandler({
     handleSubtitleInjection,
     tabStateManager: TabStateManager,
     logError: logBackgroundError,
+    interruptTab: tabId => TranslatorManager.interruptTab(tabId),
     cssFiles: CSS_FILES,
     coreScriptFiles: CORE_SCRIPT_FILES,
+});
+
+// 标签页关闭：这个标签页上排队/在跑的翻译作业再也没有接收方，
+// 不中断的话它们会继续消耗 AI 配额，然后死在 sendMessage 上。
+browser.tabs.onRemoved.addListener(tabId => {
+    TranslatorManager.interruptTab(tabId);
 });
 
 browser.runtime.onInstalled.addListener(() => {
@@ -120,9 +134,11 @@ browser.commands.onCommand.addListener(async (command, tab) => {
         }
 
         try {
-            const scriptsReady = await ensureScriptsInjected(tab.id, 0, [...CSS_FILES, ...CORE_SCRIPT_FILES]);
+            // 只要摘要包：快捷键就是「现在就要摘要」，所以 force，不看站点开关。
+            // 核心内容脚本不必注入——摘要包自己注册监听，它不依赖页面翻译。
+            const scriptsReady = await ensureSummaryInjected(tab.id, { force: true });
             if (!scriptsReady) {
-                logBackgroundError('onCommand (toggle-summary)', new Error(`Failed to inject scripts into tab ${tab.id}.`));
+                logBackgroundError('onCommand (toggle-summary)', new Error(`Failed to inject summary module into tab ${tab.id}.`));
                 return;
             }
 
@@ -159,8 +175,16 @@ browser.runtime.onMessage.addListener((request, sender) => {
     });
 });
 
-browser.webNavigation.onCompleted.addListener(handleNavigation, { url: [{ schemes: ['http', 'https'] }] });
-browser.webNavigation.onHistoryStateUpdated.addListener(handleNavigation, { url: [{ schemes: ['http', 'https'] }] });
+// `onCompleted` 意味着顶层文档已被替换（旧记录必须失效）；
+// `onHistoryStateUpdated` 是 SPA 路由，仍是同一个文档与同一份注入记录。
+browser.webNavigation.onCompleted.addListener(
+    details => handleNavigation(details, { documentReplaced: true }),
+    { url: [{ schemes: ['http', 'https'] }] },
+);
+browser.webNavigation.onHistoryStateUpdated.addListener(
+    details => handleNavigation(details),
+    { url: [{ schemes: ['http', 'https'] }] },
+);
 
 SettingsManager.on('settingsChanged', async ({ newValue, oldValue }) => {
     const criticalKeys = [
@@ -180,7 +204,7 @@ SettingsManager.on('settingsChanged', async ({ newValue, oldValue }) => {
     const activeTabIds = await TabStateManager.getActiveTabIds();
     for (const tabId of activeTabIds) {
         browser.tabs.sendMessage(tabId, { type: messageType, payload: { newValue } }).catch(error => {
-            if (!error.message.includes('Receiving end does not exist')) {
+            if (!error?.message?.includes('Receiving end does not exist')) {
                 logBackgroundError('settingsChanged listener (notify tab)', error);
             }
         });

@@ -1077,5 +1077,53 @@
   "testNotTranslated": {
     "message": "Not translated:",
     "description": "Prefix shown when the test-translation result came back untranslated."
+  },
+  "summaryErrorNetwork": {
+    "message": "**Network error**\n\nCould not reach the server. Check your connection and try again.",
+    "description": "Summary dialog error when the request never reached the server."
+  },
+  "summaryErrorTimeout": {
+    "message": "**Request timed out**\n\nThe server took too long to respond. Try again in a moment.",
+    "description": "Summary dialog error when the request timed out."
+  },
+  "summaryErrorAuth": {
+    "message": "**Authentication failed**\n\nCheck your API key configuration and try again.",
+    "description": "Summary dialog error for 401/403 style failures."
+  },
+  "summaryErrorRateLimit": {
+    "message": "**Rate limited**\n\nToo many requests. Wait a moment and try again.",
+    "description": "Summary dialog error for 429 style failures."
+  },
+  "summaryErrorContentEmpty": {
+    "message": "**Nothing to summarize**\n\nNo usable content was extracted. Try selecting other text, or reload the page.",
+    "description": "Summary dialog error when the page yielded no content."
+  },
+  "summaryErrorServer": {
+    "message": "**Server error**\n\nThe server could not handle the request right now. Try again later.",
+    "description": "Summary dialog error for 5xx style failures."
+  },
+  "summaryErrorUnknown": {
+    "message": "**Something went wrong**\n\nThe request could not be completed. Try again; if it keeps failing, contact support.",
+    "description": "Summary dialog fallback error."
+  },
+  "summaryErrorDetails": {
+    "message": "Details: ",
+    "description": "Label before the raw error message in a summary error."
+  },
+  "summaryErrorNoMessage": {
+    "message": "Unknown error",
+    "description": "Shown when an error carries no message."
+  },
+  "optionNotSet": {
+    "message": "Not set",
+    "description": "Displayed when a domain rule override is empty."
+  },
+  "textOriginal": {
+    "message": "Original",
+    "description": "Label for the untranslated text on a translingual context menu item."
+  },
+  "summaryErrorTooLong": {
+    "message": "This page is too long to summarize in one go: $1 characters (limit $2). Select the part you want summarized instead.",
+    "description": "Summary rejected because extracted content exceeds the input limit. Placeholders: [actualLength, limit]"
   }
 }

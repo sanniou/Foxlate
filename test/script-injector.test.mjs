@@ -88,6 +88,9 @@ function createTabStateManager(initialInjectedFiles = []) {
 
     return {
         marks,
+        async getInjectedFiles(_tabId, _frameId) {
+            return [...injected];
+        },
         async isFrameInjected(_tabId, _frameId, files = []) {
             if (files.length === 0) {
                 return injected.size > 0;
@@ -221,4 +224,43 @@ test('ensureScriptsInjected returns false and logs when injection fails', async 
     assert.match(errors[0].error.message, /js blocked/);
     assert.doesNotMatch(errors[0].error.message, /Failed to inject scripts/);
     assert.equal(errors[0].error.name, 'Error');
+});
+
+test('注入判定只读一次已注入清单，不再逐文件读 storage', async () => {
+    // 旧实现对 N 个文件各调一次 isFrameInjected，即 N+1 次串行 storage.session 读取；
+    // 每次读取都是一次跨进程往返，且全在注入临界区里。这里锁住读取次数。
+    const browserMock = createBrowserMock();
+    globalThis.__foxlateBrowserMock = browserMock;
+    const { createEnsureScriptsInjected } = await loadScriptInjector();
+    const reads = [];
+    const ensureScriptsInjected = createEnsureScriptsInjected({
+        browserApi: browserMock,
+        tabStateManager: {
+            async getInjectedFiles(tabId, frameId) {
+                reads.push({ tabId, frameId });
+                return ['common/common.css'];
+            },
+            async markFrameAsInjected() {},
+            async isFrameInjected() {
+                throw new Error('should not be called per file');
+            },
+        },
+        logError() {},
+    });
+
+    const files = [
+        'common/common.css',
+        'content/content-script.js',
+        'content/subtitle/subtitle-manager.js',
+        'common/i18n.js',
+    ];
+    const result = await ensureScriptsInjected(21, 0, files);
+
+    assert.equal(result, true);
+    assert.deepEqual(reads, [{ tabId: 21, frameId: 0 }]);
+    assert.deepEqual(browserMock.calls.insertCSS, []);
+    assert.deepEqual(browserMock.calls.executeScript, [{
+        target: { tabId: 21, frameIds: [0] },
+        files: ['content/content-script.js', 'content/subtitle/subtitle-manager.js', 'common/i18n.js'],
+    }]);
 });

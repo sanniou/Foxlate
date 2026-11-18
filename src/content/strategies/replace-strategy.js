@@ -1,6 +1,6 @@
 import browser from '../../lib/browser-polyfill.js';
 import * as Constants from '../../common/constants.js';
-import { DisplayManager } from '../display-manager.js';
+import { getElementData } from '../display/element-state-map.js';
 import { escapeHtml } from '../../common/escape.js';
 import { reconstructDOM } from '../dom-reconstructor.js';
 import { translatedContentLayoutService } from '../layout/translated-content-layout-service.js';
@@ -13,7 +13,7 @@ class ReplaceStrategy {
     revert(element) {
         // 从 DisplayManager 获取状态，而不是从 DOM 的 dataset 读取。
         // 这确保了状态的单一来源，并修复了切换模式时丢失原始内容的问题。
-        const data = DisplayManager.getElementData(element);
+        const data = getElementData(element);
         if (data && data.originalContent !== undefined) {
            element.innerHTML = data.originalContent;
         }
@@ -55,7 +55,7 @@ class ReplaceStrategy {
                 }
                 break;
             case Constants.DISPLAY_MANAGER_STATES.TRANSLATED:
-                const data = DisplayManager.getElementData(element);
+                const data = getElementData(element);
                 // 检查是否存在格式保留翻译所需的数据
                 if (data && data.translatedText && data.translationUnit?.nodeMap) {
                     try {
@@ -78,7 +78,7 @@ class ReplaceStrategy {
                 }
                 break;
        case Constants.DISPLAY_MANAGER_STATES.ERROR:
-            const errorData = DisplayManager.getElementData(element);
+            const errorData = getElementData(element);
             const errorMessage = errorData?.errorMessage || 'Translation Error';
             const errorPrefix = browser.i18n.getMessage('contextMenuErrorPrefix') || 'Error';
             // Non-destructive: keep original text, mark error for hover + a11y.

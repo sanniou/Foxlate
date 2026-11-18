@@ -38,6 +38,7 @@ export function createBackgroundMessageHandlers({
     setBadgeAndState,
     cloudBackups,
     logError,
+    ensureSummaryInjected,
     cssFiles,
     coreScriptFiles,
 }) {
@@ -59,6 +60,7 @@ export function createBackgroundMessageHandlers({
             translatorManager,
             tabStateManager,
             ensureScriptsInjected,
+            ensureSummaryInjected,
             setBadgeAndState,
             logError,
             cssFiles,

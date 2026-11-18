@@ -387,3 +387,141 @@ N7–N8 是「声明了依赖，但没有任何代码在用」。两者都不会
 - **顺带修掉一个真实缺陷**：content 侧原实现直读 `error.message` / `error.stack`，在 `error` 为 `null` 或 `undefined` 时会**在错误处理器里再抛 `TypeError`**。共享实现加了 `error instanceof Error ? error.message : String(error)` 保护。
 
 ---
+
+---
+
+### 批 12 落地清单（1.7.5 多视角自审：用户 / 产品 / UI / 架构）
+
+审计方式：5 个只读 subagent 分视角并行（产品+用户旅程 / UI+无障碍 / 架构|性能|测试 / 安全|并发 / 扩展生命周期），凡是「代码读起来像缺陷」的结论一律先复现再立项——本轮拒绝了 2 条假阳性（见末段）。
+
+**P0 · 生命周期**
+
+| # | 证据 | 问题 | 状态 |
+|---|---|---|---|
+| P0-1 | `src/background/navigation-handler.js` 只在 `onHistoryStateUpdated`（SPA 路由）清状态；`onCompleted`（同一标签页第二次整页导航）走的是同一个「已注入」检查 | 扩展装好后第一次整页导航之后，同一标签页的后续整页导航**永远不会重新注入**内容脚本：注入记录按 tabId 记忆，而 `document` 已经换了。表现是「刷新过一次之后，翻译按钮/右键菜单全哑」 | **FIXED** |
+
+修法：`TabStateManager.resetTabDocumentState(tabId)`（清 `tabTranslationStates` + `injectedFrames`，保留 host 级 `sessionTabTranslations`）；`handleNavigation(details, { documentReplaced })` 在 `frameId === 0 && documentReplaced` 时调用它并清徽标；`onCompleted` 传 `documentReplaced: true`，`onHistoryStateUpdated` 不传。
+
+**并发 / 竞态**
+
+| # | 证据 | 问题 | 状态 |
+|---|---|---|---|
+| K12 | `src/background/translation-task-scheduler.js` `#active` 是单槽 + `interruptAll()` | 用户在 A 标签页点「停止翻译」会把 B 标签页正在跑的翻译一起中止；排队任务也不分标签页 | **FIXED** |
+| K13 | `src/content/content-runtime.js` `startTranslationJob` 先查 `this.currentPageJob`、再 `await getEffectiveSettings()`、最后才赋值 | 两次快速点击可以各自通过检查 → 两个作业同时跑，`replace` 模式下同一段落被翻两遍 | **FIXED** |
+| K14 | `src/content/input/input-translation-client.js` 无请求代号 | 慢的旧响应会覆盖新响应（用户看到的译文与输入框内容不符） | **FIXED** |
+| K15 | `src/background/navigation-handler.js` 不中止作业 | 整页导航后旧文档的翻译作业仍在跑，结果写进已卸载的 DOM | **FIXED** |
+| C10 | `src/background/translation-cache-store.js` `scheduleSave` 每次调用都 `clearTimeout` + 2s | 持续翻译时计时器**永远**被重置 → 长会话一次都不落盘，关闭浏览器即丢全部缓存 | **FIXED**（加 `maxWait` 上限） |
+| C11 | `src/background/translation-pipeline.js` 缓存键不含 AI 的 `customPrompt`/`model` | 改了提示词或模型，旧译文仍被命中 → 用户「改了提示词却没效果」 | **FIXED**（`aiConfigFingerprint` 进键） |
+
+**数据完整性**
+
+| # | 证据 | 问题 | 状态 |
+|---|---|---|---|
+| S1 | `src/common/settings-manager.js` `savePartialSettings` 基于调用方传入的整份快照写 `storage.local` | 两个设置页同时打开时，后保存的一方会静默丢弃另一方刚改的字段 | **FIXED**（保存前重读权威值再合并） |
+| S2 | `src/background/cloud-backup-store.js` 整份设置塞进单个 `storage.sync` key | `QUOTA_BYTES_PER_ITEM` 是 8192 字节：引擎列表一大就上传失败，且 API Key 明文上云 | **FIXED**（分片 + 头部键，删除时连分片一起删，`apiKey`/`token`/`secret`/`password` 系字段置空） |
+
+**正确性 / 转义**
+
+| # | 证据 | 问题 | 状态 |
+|---|---|---|---|
+| J11 | `src/background/translators/ai-translator.js` 用字符串值做 `String.replace` 的替换位 | `$&`、`$'`、`$1` 会被当作替换模式解析 → 页面里只要出现 `$&` 这类字样，提示词就会被打歪 | **FIXED**（函数式替换） |
+| J12 | `src/common/translation-glossary.js` 同上（术语目标文本含 `$&` 会翻成别的东西） | **FIXED** |
+| J13 | `src/background/translators/ai-translator.js` | 模型回 `Here you go:\n[...]` 这种包了话的 JSON、或漏一条，`JSON.parse` 整段抛错 → 同一次付费请求里的十几条一起变红，而且错误文案不含可重试关键词，**没有第二次机会** | **FIXED**（括号配对抠出数组做宽松解析；整批失败且错误属于「形状类」时二分拆小重试） |
+
+**冷启动**
+
+| # | 证据 | 问题 | 状态 |
+|---|---|---|---|
+| J14 | `src/content/content-runtime.js` 把 `onMessage` 监听器注册在若干 `await` 之后，而背景注入返回后立刻 `sendMessage` | 首次点击翻译有概率落进「Receiving end does not exist」真空期 | **FIXED**（监听器先注册，再用 `src/background/tab-messaging.js` 对真空期做有限重试） |
+
+**i18n / UI 一致性**
+
+| # | 证据 | 问题 | 状态 |
+|---|---|---|---|
+| J15 | `src/content/summary/summary-error-messages.js` 中文文案写死 | 英文界面下摘要失败提示是中文 | **FIXED**（改 i18n key，补 en/zh_CN 条目） |
+| J16 | `src/options/components/DomainRuleModal.js` `'未设置'` 写死 3 处 | 英文界面下域名规则弹窗显示中文 | **FIXED** |
+| U1 | `src/popup/popup-actions.js` 保存后重拉快照 | 保存显示模式触发的异步刷新会把用户刚点的分段控件弹回旧值 | **FIXED**（本地意图优先 + 刷新序号） |
+
+**架构 / 门禁**
+
+| # | 证据 | 问题 | 状态 |
+|---|---|---|---|
+| G1 | `test/bundle-budget.test.mjs` 遍历的是 `SIZE_BUDGET_KB` 的键 | 新增构建入口永远不会被体积门禁覆盖（`build.js` 有 7 个入口，门禁只管 4 个） | **FIXED**（入口清单抽到 `build-entries.cjs` 单一来源，门禁按入口清单逐个断言） |
+| G2 | `src/content/strategies/*` → `display-manager.js` → `display/display-strategy-registry.js` → `src/content/strategies/*` | 4 个模块环：策略只需要「读」元素状态，却依赖整个 DisplayManager | **FIXED**（状态表下沉到叶子模块 `src/content/display/element-state-map.js`，环 4 → 0） |
+| G3 | `src/background/script-injector.js` 逐文件串行读 `storage.session` | 注入前 N 次串行 IPC | **FIXED**（一次批量读） |
+| G4 | `src/common/text-measurement.js` 每次查表都对全文 `JSON.stringify` 当缓存键 | 长文本反复测量时的主要开销 | **FIXED**（廉价键） |
+| G5 | 无模块环门禁 | 环一旦回来没人会知道 | **FIXED**（`test/layering.test.mjs` 新增全图 DFS 找环） |
+
+**本轮判定为「不是缺陷」的三条**
+
+- **IO `threshold: 0.5` 会让高于两倍视口的元素永不翻译**——错。IntersectionObserver 在 `isIntersecting` 翻转时就会入队回调，不要求跨越阈值桶；`checkCompletion` 也从不要求 `observedElements` 为空。**曾据此改过 `threshold: 0` 并写了用例，验证发现是假阳性，已回退。** 教训：观察者语义先对规范，再立缺陷。
+- **「AI 批量没有条数上限」**——错。`src/content/translation-batch-queue.js:7-8` 已有 `DEFAULT_MAX_ITEMS = 12` / `DEFAULT_MAX_CHARS = 10000`，`:88` 达到任一上限即冲刷。审计只读到 `groupBatchItems` 按语言/引擎分组的那一层，就下了结论。真实缺陷是上面 J13 的**失败连坐**，不是上限。
+- **「页面一个可翻译元素都没有」时用户看不到反馈**——不成立。`emptyCandidates` / `allPrecheckSkipped` 已经从作业传到 `badge-state.js` 与 popup 文案。
+
+**本轮评估后不修（含理由）**
+
+- `src/lib/readability.esm.js` 从动态 `import()` 拿到静态导入：`build.js` 用 `format: 'iife'`，esbuild 对 iife 不做代码分割，动态导入会被内联进同一个包——改了等于没改。
+- popup 把 `bindPopupEvents` 提到首个 `await` 之前：收益是几毫秒的可点击窗口，代价是在 `currentHostname` 尚未就绪时点击会把改动写到默认规则而不是当前站点规则。**收益不抵风险，维持原序。**
+- options 两个模态框（17.0KB + 15.1KB）改动态导入：同 iife 原因，不产生独立 chunk。
+- `test/helpers/bundle.mjs` 跨测试文件共享构建缓存：12 个测试文件各跑一次 esbuild，但跨进程缓存一旦键算错，整套测试会对着旧产物变绿——**用一个可能撒谎的缓存换 1–2 秒，不值。**
+
+**待决策的大项 → 已在批 13 落地**（用户批准）：摘要包按需注入，见下。
+
+**验证（本批实际跑出来的数字）**
+
+- `npm test`：**434 pass / 0 fail**（50 个测试文件，本批起点 396）。
+- `npm run build:firefox`、`npm run build:chrome`：均成功。
+- 每条修复都用「回退修复 → 对应用例必须变红」验证过：P0-1（2 红）、K12（3 红）、K13（1 红）、K14（1 红）、C10/C11、S1、S2（4 红）、J11（1 红）、J13（3 红）、J14（2 红）、G1（1 红）、G2（1 红）。
+
+---
+
+## 批 13 · 1.7.6：摘要包按需注入（把 36% 的内容包移出冷路径）
+
+### 问题
+
+内容脚本在每一次页面加载里都带着 `src/lib/readability.esm.js`（81.4 KB）、`src/lib/marked.esm.js`（55.4 KB）与整个 `src/content/summary/`（约 77 KB）——合计约 214 KB，占当时 597 KB 内容包的 36%。而摘要默认关闭，且只在用户按下按钮/快捷键时才用得上。**不翻译、不摘要的页面也在下载并解析这三块。**
+
+批 12 把这条记为「待决策」，因为拆包要同时改构建入口、注入时机、消息流与四条初始化路径。批准后落地，做法沿用仓库既有的字幕模块形态（`content/subtitle/subtitle-manager.js` 是独立注入入口，自己挂监听），不引入新范式。
+
+### 落地
+
+| 位置 | 变更 |
+|------|------|
+| `build-entries.cjs` | 新增第 8 个入口 `content/summary/summary-entry.js`（入口清单仍是单一来源） |
+| `src/content/summary/summary-entry.js` | 新增。模块顶层**同步**注册 `TOGGLE_SUMMARY_REQUEST` 监听；`bootstrapSummary()` 只在站点开关为开时建面板；`buildForcedSummarySettings()` 把「这一次要摘要」翻成可用配置 |
+| `src/content/content-runtime.js` | 删掉 `import { initializeSummary }`、`initializeSummary` 字段与 `toggleSummary()`；改为 `requestSummaryModule()` 发 `ENSURE_SUMMARY_MODULE`（注入失败只记日志，不影响页面翻译） |
+| `src/content/content-message-handlers.js` | 摘掉 `TOGGLE_SUMMARY_REQUEST` 映射（改由摘要包自己处理，避免两处响应同一条消息） |
+| `src/common/message-types.js` | 新增 `ENSURE_SUMMARY_MODULE`（content → SW） |
+| `src/background/summary-injection.js` | 新增注入器：开关为关不注入；`force: true` 用于快捷键；设置读失败按「不需要」处理，绝不为了一个未确认的开关给所有页面塞 278 KB |
+| `src/background/background-constants.js` | `SUMMARY_SCRIPT_FILES` / `SUMMARY_CSS_FILES` 单独成组；`content/summary/summary.css` 从 `CSS_FILES` 移出（非摘要页面不再注入它） |
+| `src/background/handlers/tab-handlers.js` | `ENSURE_SUMMARY_MODULE` 处理器；tabId 取 `sender.tab.id` 而非 payload（请求方永远是自己所属的标签页，自报 tabId 只是给伪造留缝） |
+| `src/background/service-worker.js` | `toggle-summary` 快捷键改为 `ensureSummaryInjected(tab.id, { force: true })`；顺带把 `error.message.includes` 修成 `error?.message?.includes` |
+
+### 数字（未压缩，同一套 esbuild 配置）
+
+| 入口 | 1.7.5 | 1.7.6 | 变化 |
+|------|-------|-------|------|
+| `content/content-script.js` | 597.0 KB | 366.7 KB | **−230.3 KB（−38.6%）** |
+| `content/summary/summary-entry.js` | — | 277.9 KB | 仅摘要开启/点击时注入 |
+
+压缩后产物：`content-script.js` 146.2 KB，`summary-entry.js` 142.9 KB。
+
+### 门禁（三条，都在旧结构上验证过变红）
+
+1. `test/bundle-budget.test.mjs` → `SCOPED_DEPENDENCIES` 新增 `src/lib/readability.esm.js`、`src/lib/marked.esm.js`、`src/content/summary/`，只允许出现在 `content/summary/summary-entry.js`。把 `initializeSummary` 重新 import 进 `content-runtime.js` 后实测报出 readability 81.4 KB、marked 55.4 KB、`src/content/summary/` 三条越界。
+2. 体积预算：`content/content-script.js` 620 → **440 KB**，新增 `content/summary/summary-entry.js` **340 KB**。同一实验下实测 `512.9 KB > 440 KB`。
+3. `test/summary-entry.test.mjs`（新增 6 例）：监听在模块求值期同步注册；开关为关不建面板；开关为开按设置初始化；快捷键把关闭的开关翻成本次启用且丢掉页面选区语境；无选区时不动选区语境；非本模块消息返回 `undefined` 放行。
+
+另加 `test/summary-injection.test.mjs`（新增 5 例）：关不注入、开同时注入样式与脚本到 frame 0、`force` 无视开关、设置读失败不注入并记日志、无 tabId 直接返回 false。
+
+### 教训
+
+- **拆分之后「谁决定要不要下载」必须留在后台。** 内容侧能自己 import 自己就会 import；判据放在注入器里，内容侧只发一条「我需要」。
+- **监听必须同步注册。** `browser.scripting.executeScript` 在整个 IIFE 执行完才 resolve，后台注入完立刻发消息；任何 `await` 之后再注册都会丢第一条。
+- **`buildForcedSummarySettings` 不能拿来判断开关**——它恒为 `enabled: true`，用它判「要不要初始化」会让每次翻译都建出一个用户没要的面板。判断用原始设置。
+- `getSelection().toString()` 清零选区语境的逻辑只应在**有选区**时触发；测试初版断言写反了，是测试错不是实现错。
+
+### 验证
+
+- `npm test`：**445 pass / 0 fail**（52 个测试文件；本批起点 434）。
+- `npm run build:firefox`、`npm run build:chrome`：均成功。

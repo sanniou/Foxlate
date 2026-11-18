@@ -1,6 +1,6 @@
 import browser from '../../lib/browser-polyfill.js';
 import * as Constants from '../../common/constants.js';
-import { DisplayManager } from '../display-manager.js';
+import { getElementData } from '../display/element-state-map.js';
 import { HoverTooltipSurface } from '../tooltip/hover-tooltip-surface.js';
 
 class HoverStrategy {
@@ -74,7 +74,7 @@ class HoverStrategy {
         // 在应用新状态前，先清理旧状态，确保元素处于干净状态。
         this.revert(element);
 
-        const data = DisplayManager.getElementData(element);
+        const data = getElementData(element);
 
         switch (state) {
             case Constants.DISPLAY_MANAGER_STATES.ORIGINAL:

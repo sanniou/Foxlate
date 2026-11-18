@@ -1,7 +1,7 @@
 import browser from '../../lib/browser-polyfill.js';
 import * as Constants from '../../common/constants.js';
 import { getSpeechCode } from '../../common/language-config.js';
-import { DisplayManager } from '../display-manager.js';
+import { getElementData } from '../display/element-state-map.js';
 import EnhancedTooltipManager from '../enhanced-tooltip-manager.js';
 
 class EnhancedContextMenuStrategy {
@@ -46,7 +46,7 @@ class EnhancedContextMenuStrategy {
         const target = element;
         this.#currentTarget = target; // Keep track of the current target for event handlers.
 
-        const data = DisplayManager.getElementData(target);
+        const data = getElementData(target);
         const coords = {
             clientX: parseFloat(target.dataset.clientX),
             clientY: parseFloat(target.dataset.clientY),
@@ -142,7 +142,7 @@ class EnhancedContextMenuStrategy {
         }
         
         // 如果都没有，返回一个占位符
-        return '原文';
+        return browser.i18n.getMessage('textOriginal') || 'Original';
     }
 }
 

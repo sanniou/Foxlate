@@ -1,5 +1,6 @@
 import * as Constants from '../common/constants.js';
 import { resolveDisplayLanguageContext } from './display/display-language-context.js';
+import { elementStates, getElementData } from './display/element-state-map.js';
 import { DisplayStateStore } from './display/display-state-store.js';
 import { defaultDisplayStrategyRegistry } from './display/display-strategy-registry.js';
 
@@ -10,10 +11,9 @@ export class DisplayManager {
 
     static strategyRegistry = defaultDisplayStrategyRegistry;
 
-    // 使用 WeakMap 来存储元素状态。
-    // WeakMap 对键（DOM 元素）使用弱引用，当元素从 DOM 中被移除且没有其他引用时，
-    // 垃圾回收器可以自动清理它，从而防止在动态页面上发生内存泄漏。
-    static elementStates = new WeakMap();
+    // 使用 WeakMap 来存储元素状态。状态表本身定义在叶子模块 `display/element-state-map.js`，
+    // 显示策略从那里直接读取，避免 strategies → display-manager → registry → strategies 的模块环。
+    static elementStates = elementStates;
 
     static elementRegistry = new Map();
 
@@ -33,7 +33,7 @@ export class DisplayManager {
     }
 
     static getElementData(element) {
-        return this.stateStore.getData(element);
+        return getElementData(element);
     }
 
     static setElementState(element, newState, data = null) {

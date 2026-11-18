@@ -29,18 +29,14 @@ export function createEnsureScriptsInjected({
 
         const uniqueFiles = [...new Set(filesToInject)];
 
-        const allFilesInjected = await tabStateManager.isFrameInjected(tabId, frameId, uniqueFiles);
-        if (allFilesInjected) {
-            return true;
-        }
-
         try {
-            const filesMissing = [];
-            for (const file of uniqueFiles) {
-                const fileInjected = await tabStateManager.isFrameInjected(tabId, frameId, [file]);
-                if (!fileInjected) {
-                    filesMissing.push(file);
-                }
+            // 一次读回已注入清单，本地做集合差。（旧实现先整体判断、再逐文件各读一次
+            // storage.session，7 个文件 = 8 次跨进程串行读取，而且前多少次全在同一个
+            // 注入路径的临界区里。）
+            const injectedFiles = new Set(await tabStateManager.getInjectedFiles(tabId, frameId));
+            const filesMissing = uniqueFiles.filter(file => !injectedFiles.has(file));
+            if (filesMissing.length === 0) {
+                return true;
             }
 
             const cssToInject = filesMissing.filter(file => file.endsWith('.css'));

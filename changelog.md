@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.7.6] - 2026-10-22
+
+### ⚡️ Performance
+*   **Summary module is loaded on demand:** readability (81 KB), marked (55 KB) and the whole summary UI (~78 KB) used to ship in the content bundle, so every translated page paid ~215 KB for a feature that defaults to off. They now live in their own injected entry (`content/summary/summary-entry.js`); the content bundle drops from **597 KB to 367 KB (−38%)**, and the summary style is no longer injected on pages that never open it.
+*   **Bundle gate covers every entry:** the size budget only checked 4 of 7 entry points, so subtitle bundles could grow unobserved. The entry list now has a single source (`build-entries.cjs`) shared by `build.js` and the budget test, and the content budget tightened 620 KB → 440 KB so the split cannot silently regress.
+
+### 🐛 Reliability
+*   **Same-tab navigation:** a second full navigation in the same tab kept the stale injection record, so nothing was re-injected and translation, selection and summary all went dead until the tab was reopened. Top-level document replacement now clears per-document state (injected files + tab status) while keeping the host-level auto-translate intent.
+*   **Stop translation:** it aborted every tab's work, not just the requesting one.
+*   **Home popup regression:** the settings listener resubscribed on every render, so each `SETTINGS_UPDATED` leaked a listener; the injection-progress animation also outlived a stop request. Both are now torn down with the view.
+*   **Stale snapshots:** saving the display mode from the popup could be reverted by a settings snapshot read before the save; options saves now re-read the authoritative value before writing, so two open settings pages stop dropping each other's fields.
+*   **Input translation:** a slow response could overwrite the translation of newer text.
+
+### 🤖 AI
+*   **Batch resilience:** one line missing from an AI batch used to fail every node in that paid request, permanently. Malformed replies are now parsed tolerantly (balanced-bracket scan) and shape failures are retried as smaller batches, bounded.
+*   **Prompt safety:** user text containing `$&` / `$'` was reinterpreted as a replacement pattern and silently mangled the prompt and glossary output.
+
+### ☁️ Settings & backup
+*   **Cloud backup:** a single `storage.sync` key failed as soon as settings exceeded 8 KB (the per-item quota) and stored API keys in plaintext. Backups are now chunked, credentials are stripped, and deleting a backup removes its chunks.
+*   **Translation cache:** the persist debounce was re-armed by every batch, so a long session never wrote the cache; it also keyed entries without the prompt and model, so edits reused stale translations.
+
+### ♻️ Architecture
+*   **Module cycles:** the four display-strategy ↔ DisplayManager cycles are gone (element state moved to a leaf module), and the test suite now fails on any new cycle in `src/`.
+*   **Locale plumbing:** summary error messages and the domain-rule modal no longer hardcode Chinese; they go through `browser.i18n`, and tests assert against the locale table instead of literals.
+*   **Regression coverage:** 445 tests.
+
 ## [1.7.5] - 2026-10-21
 
 ### 🐛 Input translation
