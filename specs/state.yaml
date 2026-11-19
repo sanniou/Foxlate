@@ -31,6 +31,6 @@ git:
   branch: main
   hash: null                 # 不手抄 commit hash；需要时现读 `git rev-parse --short HEAD`
 handoff:
-  last_step_completed: "发布 1.7.7：UI/无障碍对比度（options 51 处 → 0）、宿主样式泄漏、摘要对话框字体与 aria-label 本地化、隐藏标签页翻译挂死、徽标全失败态；461 tests、Firefox/Chrome 构建通过"
+  last_step_completed: "1.7.9 已发布（CSS 选择器合并导致的追加模式译文不可见、摘要面板无盒模型、隐藏标签页翻译死锁、焦点环缺失）"
   open_decisions: []
   next_skill: survey-context

@@ -336,3 +336,33 @@ test('a slow refresh that resolves last cannot overwrite a newer one', async () 
         '晚到的旧刷新不得覆盖新刷新的结果',
     );
 });
+
+test('内容脚本还没注入时，主按钮必须保持可点（否则新装用户没有下一步）', async () => {
+    setupDom();
+    const { PopupActions, PopupRenderer, queryPopupElements } = await bundlePopupModules();
+    const elements = queryPopupElements(document);
+    const renderer = new PopupRenderer(elements);
+    const state = { activeTabId: 9, currentHostname: 'docs.example.com', currentRuleSource: 'default' };
+
+    const browserApi = {
+        ...globalThis.__foxlateBrowserMock,
+        tabs: {
+            ...globalThis.__foxlateBrowserMock.tabs,
+            sendMessage: async () => {
+                throw new Error('Could not establish connection. Receiving end does not exist.');
+            },
+        },
+    };
+
+    const actions = new PopupActions({ elements, renderer, state, browserApi });
+    await actions.updateButtonStateFromContentScript();
+
+    // 关键：不能用「禁用」来表达「还没注入」——补注入的入口就是这个按钮本身。
+    assert.equal(elements.translatePageBtn.disabled, false, '主按钮必须可点，点击会走后台补注入');
+    assert.ok(
+        elements.errorDisplay?.textContent?.includes(englishMessage('popupNeedsInjection').slice(0, 12)),
+        `提示必须说明「点一下即可激活」，实际：${JSON.stringify(elements.errorDisplay?.textContent)}`,
+    );
+    // 依赖内容脚本的控件仍然禁用，避免用户对着无效控件操作。
+    assert.equal(elements.displayModeButtons?.[0]?.disabled, true);
+});

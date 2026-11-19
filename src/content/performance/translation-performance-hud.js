@@ -24,17 +24,22 @@ function formatDelay(ms) {
 }
 
 export class TranslationPerformanceHud {
+    // 生产构建里没有调试浮层：所有入口在 `__DEBUG__` 为 false 时直接返回，
+    // 连 DOM 元素都不会被创建。此前它对所有用户可见地渲染，并且每次进度回调
+    // 都重建约 20 个节点（500 段的页面就是上千次重写）。
+    #enabled = Boolean(globalThis.__DEBUG__);
     #element = null;
     #snapshot = { ...DEFAULT_SNAPSHOT };
     #hideTimer = null;
 
     show() {
+        if (!this.#enabled) return;
         this.#ensureElement();
         this.#element.classList.add('visible');
     }
 
     hide({ immediate = false } = {}) {
-        if (!this.#element) return;
+        if (!this.#enabled || !this.#element) return;
         if (this.#hideTimer) {
             clearTimeout(this.#hideTimer);
             this.#hideTimer = null;
@@ -48,11 +53,13 @@ export class TranslationPerformanceHud {
     }
 
     reset() {
+        if (!this.#enabled) return;
         this.#snapshot = { ...DEFAULT_SNAPSHOT };
         this.render();
     }
 
     update(partialSnapshot = {}) {
+        if (!this.#enabled) return;
         this.#snapshot = { ...this.#snapshot, ...partialSnapshot };
         this.render();
         if (this.#snapshot.state === 'translated' || this.#snapshot.state === 'idle') {

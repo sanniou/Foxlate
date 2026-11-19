@@ -31,7 +31,6 @@ Stack: JavaScript (ESM) · plain DOM (no UI framework) · esbuild · WebExtensio
 - `src/content/` — page translation job, display strategies, tooltip, summary, subtitles, input
 - `src/popup/` / `src/options/` — extension UI (bootstrap → app → state/actions/renderer)
 - `src/common/` — design tokens (`tokens.css` = 取值，`common.css` = 语义别名) and utilities
-- `src/common/design/` — 动效/排版常量与无障碍策略的单一来源
 - `build.js` — esbuild pipeline; rewrites manifest for chrome vs firefox
 - `public/` — manifest base, icons, locales (`en`, `zh_CN`)
 
@@ -55,7 +54,7 @@ Stack: JavaScript (ESM) · plain DOM (no UI framework) · esbuild · WebExtensio
 - Never reintroduce the pre-1.6.0 indigo MD3 design direction (rejected; the cyan/glass `--fox-*` system is live)
 - Never add a new design-token system alongside `--fox-*`
 - Never push directly to `main` except via `land-branch.sh`
-- Never ship design sources (`.psd`, `.ai`, `.xcf`) or `.md` in the store package — `source-artifact-ignore` in build.js enforces this; `package-firefox.sh` re-checks before zipping
+- Never ship design sources (`.psd`, `.ai`, `.xcf`) or `.md` in the store package — `SOURCE_ARTIFACT_EXTENSIONS` + `isExcludedAsset` in build.js enforce this; `package-firefox.sh` re-checks before zipping
 - Never create GitHub issues from agent workflows — use `specs/bugs/`
 - Never attribute commits to AI agents (`Co-authored-by`, etc.)
 
@@ -92,5 +91,5 @@ Stack: JavaScript (ESM) · plain DOM (no UI framework) · esbuild · WebExtensio
 
 - Live design system is cyan/glass `--fox-*`（1.6.0 起）——取值在 `src/common/tokens.css`，语义别名在 `src/common/common.css`
 - Chrome build target exists; store listing still "coming soon"
-- Tests: `npm test` → 464 pass（56 个测试文件）
+- Tests: `npm test` → 490 pass（61 个测试文件）
 <!-- END bigpowers:learned-preferences -->

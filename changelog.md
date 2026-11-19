@@ -1,5 +1,35 @@
 # Changelog
 
+## [1.7.9] - 2026-10-24
+
+### 🐛 Fixed — 用户可见的主功能缺陷（真实 Chrome 复现）
+
+*   **追加显示模式的译文完全不可见.** 1.7.4 去 MD3 时有条选择器列表写作
+    `.foxlate-panel, .foxlate-performance-hud, .foxlate-appended-text, .foxlate-error-underline,`，
+    纯 token 声明体被删、列表却留着 —— CSS 解析器把它和紧随其后的 `.foxlate-panel {` 合成一条规则，
+    于是**追加模式的每段译文都拿到 `visibility: hidden` / `opacity: 0` / `position: fixed`**。
+    浏览器实测：旧 CSS 下 `.foxlate-appended-text` 计算值 `visibility: hidden`，新 CSS 下 `visible`。
+    `test/content-style-isolation.test.mjs` 锁死面板盒模型与隐藏声明不得泄漏到内联译文/失败下划线/浮层。
+*   **摘要面板此前没有盒模型.** 面板规则同样被合并进那条列表，浮层既没有 `1px` 描边、也没有阴影和
+    `12px` 圆角，只剩 `display: flex` 干挂在页面上。现在恢复 `background` / `border` / `box-shadow` /
+    `border-radius`，并用 `font: inherit` 显式声明"面板内文字跟随面板"，不再继承宿主页面的 Times New Roman。
+*   **隐藏标签页里翻译永远卡在 loading.** 后台标签页没有布局与绘制，`IntersectionObserver` 不会回调，
+    而翻译作业只把 `isIntersecting === true` 的元素排进队列、靠观察器驱动翻页 → 状态永远 `loading`，
+    徽标永远转圈。已复现并修复：入队后由作业自己排空剩余元素，不依赖观察器叫醒；单测覆盖
+    "观察器长时间不回调时作业仍推进"。
+
+### ♿️ Accessibility
+
+*   **焦点环此前等于没有.** 四处 `:focus-visible` 写成 `outline: 0` + `16%–28%` 的 `color-mix` 阴影
+    （叠在任意表面约 1.2–1.5:1），两处下拉选项在 `@media (hover: hover)` 里直接 `outline: 0` ——
+    外接键盘 + 鼠标的 Windows 用户整个丢掉焦点指示。现在统一 `2px solid` 实色 token；
+    `design-contrast.test.mjs` 新增门禁：任何 `:focus` 规则都不得 `outline: 0`。
+
+### 🧪 Tests
+
+*   新增 `test/content-style-isolation.test.mjs`（2 例，回退修复后必红）、焦点环门禁（1 例）。
+*   **Regression coverage:** 490 tests。
+
 ## [1.7.8] - 2026-10-23
 
 ### ♿️ Accessibility

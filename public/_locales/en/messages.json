@@ -4,7 +4,7 @@
     "description": "Name of the extension."
   },
   "extensionDescription": {
-    "message": "Translate web pages, selected text, and video subtitles with multiple engines (DeepLx, Google, AI). Features advanced rules, display modes, and content filtering.",
+    "message": "Translate pages, selections and subtitles with Google, DeepLX or your own AI. Rules, display modes and summaries included.",
     "description": "A rich description for the extension store listing."
   },
   "generalSettings": {
@@ -102,6 +102,10 @@
   "domain": {
     "message": "Domain:",
     "description": "Label for the domain input."
+  },
+  "domainRuleInvalid": {
+    "message": "Enter a domain such as example.com.",
+    "description": "Validation message for the domain rule field."
   },
   "autoTranslate": {
     "message": "Auto Translate:",
@@ -274,6 +278,10 @@
   "importError": {
     "message": "Failed to import settings. The file might be corrupted or invalid."
   },
+  "importErrorInvalidShape": {
+    "message": "That file is not a Foxlate settings backup.",
+    "description": "Shown when an imported settings file fails shape validation."
+  },
   "removeAiEngine": {
     "message": "Remove",
     "description": "Button text to remove an AI engine profile."
@@ -330,7 +338,7 @@
   },
   "contextMenuTitle": {
     "message": "Translate '%s' with Foxlate",
-    "description": "Context menu item for translating selected text. %s is the placeholder for the selected text."
+    "description": "Context menu item for translating selected text. %s is replaced by the selected text (contextMenus placeholder, not an i18n substitution)."
   },
   "popupRuleDefault": {
     "message": "Using default settings",
@@ -459,9 +467,9 @@
     "message": "Translation engine is not configured. Please update settings.",
     "description": "Error when translation engine is missing for a translation task."
   },
-  "popupTranslationNotAvailable": {
-    "message": "Translation is not available on this page.",
-    "description": "Message shown in the popup when on a page that cannot be translated (e.g., about: pages)."
+  "popupNeedsInjection": {
+    "message": "This page is not active yet — press Translate to activate Foxlate here.",
+    "description": "Shown when the page has no content script yet (fresh install, update, or on-click site access)."
   },
   "popupEmptyCandidates": {
     "message": "No translatable text found. Try different content selectors in Options.",
@@ -530,14 +538,6 @@
   "subtitleDisplayModeBilingual": {
     "message": "Bilingual",
     "description": "Subtitle display mode: Show both original and translated text."
-  },
-  "subtitleToolbarTitleEnabled": {
-    "message": "Foxlate (Subtitles Enabled)",
-    "description": "Toolbar icon tooltip while subtitle translation is switched on."
-  },
-  "subtitleToolbarTitleDisabled": {
-    "message": "Foxlate (Subtitles Disabled)",
-    "description": "Toolbar icon tooltip while subtitle translation is switched off."
   },
   "defaultEngineNotFound": {
     "message": "Default translation engine not found. Please select a different default engine.",
@@ -1153,6 +1153,10 @@
   "summaryCopyError": {
     "message": "Copy error",
     "description": "Accessible label of the copy button on a summary error message."
+  },
+  "summaryCopyFailed": {
+    "message": "Copy failed. Select the text and copy it manually.",
+    "description": "Shown when writing to the clipboard is rejected (insecure page, missing permission, or user denial)."
   },
   "summaryRerollMessage": {
     "message": "Regenerate answer",

@@ -139,11 +139,14 @@ button {
     flex: 0 0 auto;
 }
 
+/* 焦点环：必须能在页面上被看见。
+   `color-mix(..., 24%, transparent)` 叠在任意表面上约 1.2–1.5:1，远低于 WCAG 2.4.11/1.4.11
+   对焦点指示器的 3:1 要求；焦点环全透明等于键盘用户没有焦点。用实色 token（vs 白面 3.5:1）。 */
 .btn:focus-visible,
 .form-control:focus-visible,
 .switch input:focus-visible + .switch-track {
-    outline: 0;
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-border-focus) 24%, transparent);
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
 }
 
 .btn:disabled {
@@ -330,7 +333,8 @@ button {
 }
 
 .form-control:focus {
-    outline: 0;
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px;
     border-color: var(--color-primary);
     background-color: var(--color-surface-raised);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 16%, transparent);

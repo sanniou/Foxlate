@@ -141,6 +141,18 @@ export class PopupRenderer {
         this.elements.scrollIdleTranslationCheckbox.disabled = !enabled || !hasHostname;
     }
 
+    /**
+     * 只启用「翻译此页」主按钮。
+     *
+     * 内容脚本还没注入时（刚安装/刚更新/Chrome 站点访问=点击时），其它控件都无处可用，
+     * 但主按钮必须能点：后台的 TOGGLE_TRANSLATION_REQUEST 会先补注入再开始翻译。
+     * 之前这里把按钮一起禁掉，用户装完扩展后每次打开 popup 只能看到「此页不可翻译」，
+     * 而且没有任何下一步。
+     */
+    setTranslateButtonEnabled(enabled) {
+        this.elements.translatePageBtn.disabled = !enabled;
+    }
+
     renderRuleControls(settings, hasHostname) {
         this.elements.autoTranslateCheckbox.disabled = !hasHostname;
         this.elements.autoTranslateCheckbox.checked = settings.autoTranslate === 'always';

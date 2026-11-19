@@ -91,9 +91,14 @@ main {
 }
 
 @media (hover: hover) {
-    .lang-select:hover,
-    .lang-select:focus {
-        outline: 0;
+    /* 同上：hover 只管底色，焦点环另写一条——否则外接键盘的用户看不到焦点。 */
+    .lang-select:hover {
+        background: var(--color-surface-hover);
+    }
+
+    .lang-select:focus-visible {
+        outline: 2px solid var(--color-border-focus);
+        outline-offset: -2px;
         background: var(--color-surface-hover);
     }
 }
@@ -236,6 +241,8 @@ main {
 
 .form-control-sm:focus,
 .control-select:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px;
     background: var(--color-surface);
     border-color: var(--color-primary);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 14%, transparent);

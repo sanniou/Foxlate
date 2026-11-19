@@ -121,9 +121,17 @@ Foxlate ${VERSION} — Firefox (AMO) 上架信息
 
 【提交时的其它填写项】
   许可证：MIT（见 package.json）
-  隐私政策：扩展仅在本机处理文本；翻译文本会发送到用户自选的翻译服务
-    （Google / DeepLX / 用户自配 AI）。无遥测、无自建服务器。
-  数据收集声明：不收集（none），填写时逐项选 NO。
+  数据收集声明（manifest 已声明）：browser_specific_settings.gecko.data_collection_permissions
+    .required = ["websiteContent"] —— 页面正文会被发送到翻译/AI 服务，属于「网站内容」外发，
+    不能填「不收集」。AMO 表单里的类目必须与 manifest 保持一致。
+  实际数据流（申报时逐条对齐，不要写「不收集」）：
+    1. 页面翻译 / 划词 / 输入框：把待译文本发往用户选定的引擎端点。
+       默认引擎是 Google（translate.googleapis.com），用户可在设置里改成 DeepLX 或自配 AI。
+    2. AI 摘要与追问：把页面正文（或选中文本）发往用户配置的 AI 端点。
+    3. 云备份：只在用户开启同步后，把设置（ApiKey 已置空）写入浏览器账号同步区。
+    4. 朗读：调用系统语音合成，是否联网由操作系统决定。
+  本扩展自身不收集遥测、不上报使用数据、不运行自建服务器。
+  隐私政策需要公开 URL（AMO/CWS 都要求），仓库内的 PRIVACY.md 只是草稿源。
 INFO
 
 echo

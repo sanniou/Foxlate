@@ -136,8 +136,8 @@
 }
 
 .themed-select-trigger:focus-visible {
-    outline: 0;
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 16%, transparent);
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
 }
 
 .themed-select-value {
@@ -221,9 +221,15 @@
 }
 
 @media (hover: hover) {
-    .themed-select-option:hover,
+    /* 鼠标悬停给底色即可；但键盘焦点不能只靠底色——`@media (hover: hover)` 对
+       外接键盘 + 鼠标的 Windows 用户是成立的，那批人会把焦点环整个弄丢。 */
+    .themed-select-option:hover {
+        background: var(--color-surface-hover);
+    }
+
     .themed-select-option:focus-visible {
-        outline: 0;
+        outline: 2px solid var(--color-border-focus);
+        outline-offset: -2px;
         background: var(--color-surface-hover);
     }
 }

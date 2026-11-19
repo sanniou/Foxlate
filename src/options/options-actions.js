@@ -1,6 +1,7 @@
 import browser from '../lib/browser-polyfill.js';
 import { MESSAGE_TYPES } from '../common/message-types.js';
 import { SettingsManager } from '../common/settings-manager.js';
+import { normalizeRuleDomain, validateImportedSettings } from '../common/settings-domain.js';
 import { shouldTranslate } from '../common/precheck.js';
 import { escapeHtml } from '../common/escape.js';
 import { loadLanguageDetector } from '../common/lang-detect.js';
@@ -175,6 +176,18 @@ export class OptionsActions {
         try {
             const state = this.getState();
             const newDomainRules = { ...state.domainRules };
+
+            // 用户会填 `https://Example.com/path`、`example.com:8080`、带空格或全大写。
+            // 原样存下来永远匹配不上（匹配用的是 hostname），界面却提示保存成功。
+            const normalizedDomain = normalizeRuleDomain(rule.domain);
+            if (!normalizedDomain) {
+                this.showStatusMessage(
+                    browser.i18n.getMessage('domainRuleInvalid') || 'Enter a domain such as example.com.',
+                    true,
+                );
+                return;
+            }
+            rule.domain = normalizedDomain;
             if (originalDomain) {
                 if (newDomainRules[originalDomain]?.addedAt) {
                     rule.addedAt = newDomainRules[originalDomain].addedAt;
@@ -235,9 +248,21 @@ export class OptionsActions {
         const reader = new FileReader();
         reader.onload = async (readerEvent) => {
             try {
-                const settings = JSON.parse(readerEvent.target.result);
-                this.setInitialSettingsSnapshot(settings);
-                await SettingsManager.saveLocalSettings(settings);
+                const parsed = JSON.parse(readerEvent.target.result);
+                const validated = validateImportedSettings(parsed);
+                if (validated.error) {
+                    // 形状不对时一个字段都不写：写进去的坏设置会让扩展在下次启动时抛错，
+                    // 而用户已经看到「导入成功」。
+                    this.showStatusMessage(
+                        browser.i18n.getMessage('importErrorInvalidShape')
+                        || `Not a Foxlate settings file (${validated.error}).`,
+                        true,
+                    );
+                    return;
+                }
+
+                await SettingsManager.saveLocalSettings(validated.settings);
+                this.setInitialSettingsSnapshot(validated.settings);
                 this.showStatusMessage(browser.i18n.getMessage('importSuccess'));
             } catch (error) {
                 this.showStatusMessage(browser.i18n.getMessage('importError'), true);

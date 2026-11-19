@@ -346,6 +346,30 @@ class SummaryModule {
         }
     }
     
+    /**
+     * 复制到剪贴板，并把失败变成用户可见的提示。
+     *
+     * `navigator.clipboard` 在非安全上下文（http 页面）、缺少 `clipboardWrite` 权限、
+     * 或用户拒绝时都会拒绝写入。此前两处调用都没有 catch：点了复制没有任何反应，
+     * 控制台只留一条 unhandled rejection —— 用户唯一能想到的解释是「这个按钮坏了」。
+     */
+    #copyToClipboard(text, activeTab) {
+        const reportFailure = () => {
+            this.state.addErrorMessageToTab(
+                activeTab.id,
+                browser.i18n.getMessage('summaryCopyFailed')
+                || 'Copy failed. Select the text and copy it manually.',
+            );
+        };
+
+        if (!navigator.clipboard?.writeText) {
+            reportFailure();
+            return;
+        }
+
+        navigator.clipboard.writeText(text).catch(reportFailure);
+    }
+
     async handleDialogAction(action, index, payload = null) {
         const activeTab = this.state.getActiveTab();
         if (!activeTab) return;
@@ -386,12 +410,11 @@ class SummaryModule {
                 await this.getAIResponseForTab(activeTab);
                 break;
             case 'copy':
-                navigator.clipboard.writeText(message.role === 'user' ? message.content : message.contents[message.activeContentIndex]);
+                this.#copyToClipboard(message.role === 'user' ? message.content : message.contents[message.activeContentIndex], activeTab);
                 break;
             case 'copy-error':
                 // 复制错误消息
-                const errorContent = message.contents[message.activeContentIndex];
-                navigator.clipboard.writeText(errorContent);
+                this.#copyToClipboard(message.contents[message.activeContentIndex], activeTab);
                 break;
             case 'edit':
                 this.summaryDialog.enterEditMode(index, message.content);

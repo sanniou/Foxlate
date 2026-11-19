@@ -184,7 +184,13 @@ async function main() {
 
     // --- 配置常量 ---
     const isWatchMode = process.argv.includes('--watch');
-    const outDir = path.join(__dirname, 'dist');
+    // 允许把产物写到别处（`--outdir=...`）。测试必须用它：`test/build-manifest.test.mjs`
+    // 会为两个 target 各真跑一次构建，写共享 `dist/` 会让「跑测试」变成「改构建产物」，
+    // 也会让两个并发测试互相覆盖。
+    const outDirArg = process.argv.find(arg => arg.startsWith('--outdir='));
+    const outDir = outDirArg
+        ? path.resolve(__dirname, outDirArg.slice('--outdir='.length))
+        : path.join(__dirname, 'dist');
     const { SOURCE_DIR: srcDir, entryFilePaths } = require('./build-entries.cjs');
     const publicDir = path.join(__dirname, 'public');
 

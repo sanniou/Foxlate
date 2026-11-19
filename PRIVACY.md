@@ -1,69 +1,61 @@
 # Privacy Policy for Foxlate
 
-**Last Updated: 2024-05-16**
+**Last Updated: 2026-11-19**
 
-Foxlate respects your privacy. As an open-source extension, its code is available for review on [GitHub](https://github.com/sanniou/foxlate).
+Foxlate is an open-source browser extension; its code is available for review on [GitHub](https://github.com/sanniou/foxlate).
 
-## 1. Data Handling: What We Do & Don't
+Foxlate itself runs no servers, has no telemetry and no analytics. It does, however, **send the text you ask it to translate to the translation service you have selected** — that is what a translation extension does. The sections below describe exactly what leaves your browser.
 
-### We DO NOT:
+## 1. Data that stays on your device
 
-*   Collect, store, or transmit your translated text, personal information, IP address, browsing history, API keys, or endpoints.
-*   Have access to any data processed by the extension.
+Stored in your browser's extension storage, never uploaded by Foxlate:
 
-### We DO:
+- your settings (engine choice, target language, display mode, domain rules, content selectors, glossary);
+- API keys and endpoint URLs you enter for DeepLX / your own AI provider;
+- the translation cache and the recent-translation history (clearable in Settings);
+- per-tab state (what was translated on which tab).
 
-*   Store your chosen translation engine, API keys (if required by the engine), preferences (target language, display mode, rules), and translation cache locally in your browser.
-*   Send the text you select for translation directly to the third-party translation service you configure.
+If your browser syncs extension storage, that sync is performed by the browser vendor under their own policy — Foxlate only writes to the extension storage areas it is given.
 
-### Key takeaways:
+## 2. Data that leaves your browser
 
-*   Your translation data and personal information remain private.
-*   Foxlate only interacts with translation services you explicitly choose.
+Foxlate sends data only to endpoints **you can see and change** in Settings:
 
----
+| Feature | What is sent | Where it goes | Default |
+|---|---|---|---|
+| Page / selection / input translation | the text being translated | the engine you selected | **Google Translate** (`translate.googleapis.com`) |
+| AI translation | the text being translated + your prompt | the AI endpoint you configure | — (must be configured) |
+| AI summary & follow-up questions | the page body (or the selected text) + your question | the AI endpoint you configure | — (must be configured) |
+| DeepLX translation | the text being translated | the DeepLX URL you enter | — (must be configured) |
+| Subtitle translation | subtitle lines | same as page translation | follows your engine |
+| Text-to-speech | the text to be read aloud | your operating system's speech engine | on demand |
 
-## 2. Local Data Storage
+The page text sent for translation is the part Foxlate selected as translatable; it is not a dump of your full browsing history, and nothing is sent for pages you did not ask it to translate.
 
-Foxlate uses your browser's storage to save settings. This data, including API keys, remains on your device and may be synced across your devices by your browser (not by us). You can clear the translation cache in the extension's settings.
+Because the default engine is Google, a fresh install that translates a page sends that page's text to Google. You can change or disable the engine at any time in Settings.
 
-### Key takeaway:
+## 3. Third-party services
 
-*   Your settings are stored securely by your browser and never accessed by us.
+The services above are operated by third parties and are subject to their own privacy policies. Foxlate does not control them, does not proxy them, and does not see their responses beyond what your browser receives.
 
----
+## 4. Cloud backup (optional, off by default)
 
-## 3. Data Sent to Translation Services
+When you enable backup, Foxlate writes your **settings** — with API keys and secrets blanked out — into your browser's sync storage so they can follow you to another device. Translated text is never included in a backup.
 
-When you translate text, Foxlate sends it to the API of the service you've configured (e.g., DeepLx, Google Translate). We don't provide translation services; you control the choice. Your data is subject to the privacy policy of that service.
+## 5. What Foxlate does not do
 
-### Key takeaway:
+- No analytics, telemetry, crash reporting or usage counters.
+- No accounts, no identifiers, no advertising, no selling of data.
+- No remote code: all executable code ships inside the extension package.
+- No reading of pages you have not asked it to act on.
 
-*   You have full control over which translation service is used.
+## 6. Your controls
 
----
+- Clear the translation cache and history in Settings.
+- Change the engine, endpoint, or prompt at any time; set the engine to one you trust.
+- Disable individual features (page translation, selection translation, input translation, subtitles, summary) in Settings.
+- Uninstalling the extension removes its local storage.
 
-## 4. Browser Permissions
+## 7. Contact
 
-Foxlate requires these permissions:
-
-*   **`storage`**: Save settings and cache.
-*   **`scripting` & `host_permissions: ["<all_urls>"]`**: Inject code for translation, display results, and connect to translation APIs you specify.
-*   **`contextMenus`**: Add "Translate with Foxlate" to the right-click menu.
-*   **`webNavigation`**: Enable automatic translation and subtitle features on websites you configure.
-
-### Key takeaway:
-
-*   Permissions are used solely to provide translation features.
-
----
-
-## 5. Policy Updates
-
-We may update this policy. Changes will be posted here with the updated date. Please review periodically.
-
----
-
-## 6. Contact
-
-For questions, please open an issue on our GitHub repository.
+Open an issue at <https://github.com/sanniou/foxlate/issues>.

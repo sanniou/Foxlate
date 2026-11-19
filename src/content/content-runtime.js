@@ -21,7 +21,8 @@ export class ContentRuntime {
         win = window,
         displayManager = DisplayManager,
         PageTranslationJobClass = PageTranslationJob,
-        performanceHud = new TranslationPerformanceHud(),
+        // 生产构建里 `__DEBUG__` 是编译期 false，esbuild 会把这个分支连同模块引用一起消除。
+        performanceHud = globalThis.__DEBUG__ ? new TranslationPerformanceHud() : null,
         initializeInputHandlerFn = initializeInputHandler,
         QuickActionPanelClass = QuickActionPanel,
         getEffectiveSettings = createEffectiveSettingsGetter({ browserApi, win }),
@@ -52,7 +53,7 @@ export class ContentRuntime {
             generateId,
             logError,
             onBatchStateChange: ({ queued, inFlight }) => {
-                this.performanceHud.updateBatch({ queued, inFlight });
+                if (globalThis.__DEBUG__) this.performanceHud.updateBatch({ queued, inFlight });
             },
             onTranslationResult: (payload) => this.handleTranslationResult(payload),
         });
@@ -76,6 +77,7 @@ export class ContentRuntime {
             cssFilePath: this.cssFilePath,
             logError: this.logError,
             onProgress: (snapshot) => {
+                if (!globalThis.__DEBUG__) return;
                 this.performanceHud.update({
                     ...snapshot,
                     batchQueued: this.batchQueue.queuedCount,
@@ -87,8 +89,10 @@ export class ContentRuntime {
                     this.currentPageJob = null;
                 }
                 this.batchQueue.clear();
-                this.performanceHud.reset();
-                this.performanceHud.hide({ immediate: true });
+                if (globalThis.__DEBUG__) {
+                    this.performanceHud.reset();
+                    this.performanceHud.hide({ immediate: true });
+                }
             },
             translateElement: (element, activeSettings) => {
                 this.elementTranslator.translateElement(element, activeSettings);
@@ -202,6 +206,7 @@ export class ContentRuntime {
     }
 
     handleTranslationRetryScheduled(payload = {}) {
+        if (!globalThis.__DEBUG__) return;
         this.performanceHud.updateRetry({ retryDelayMs: payload.delayMs || 0 });
     }
 

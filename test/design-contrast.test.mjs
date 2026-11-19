@@ -247,3 +247,30 @@ test('对比度计算与 WCAG 参考值一致', () => {
     assert.equal(contrast('#ffffff', '#ffffff').toFixed(0), '1');
     assert.ok(Math.abs(contrast('#767676', '#ffffff') - 4.54) < 0.02);
 });
+
+test('所有页面的焦点环都真的画出来（不能只是 outline: 0）', async () => {
+    // 键盘用户唯一的焦点指示就是焦点环。1.7.4 去 MD3 时多处写成
+    // `outline: 0` + 一个 16–28% 的 color-mix 阴影：阴影本身就接近透明，
+    // 还有几处直接 `outline: 0` 不给任何替代 → 键盘用户看不到当前焦点。
+    const STYLE_FILES = [
+        path.join(projectRoot, 'src/common/common.css'),
+        path.join(projectRoot, 'src/options/options.css'),
+        path.join(projectRoot, 'src/popup/popup.css'),
+        path.join(projectRoot, 'src/content/style.css'),
+    ];
+
+    const offenders = [];
+    for (const file of STYLE_FILES) {
+        const css = await readFile(file, 'utf8');
+        // 逐条规则检查选择器块：只在块内出现 outline: 0 才算「掐掉焦点环」。
+        for (const match of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+            const [, selectorText, declarations] = match;
+            if (!/:focus/.test(selectorText)) continue;
+            if (/outline:\s*(0|none)\b/.test(declarations)) {
+                offenders.push(`${path.relative(projectRoot, file)}: ${selectorText.trim().split('\n').pop()}`);
+            }
+        }
+    }
+
+    assert.deepEqual(offenders, [], `焦点环被掐掉（键盘用户看不到焦点）：\n  ${offenders.join('\n  ')}`);
+});

@@ -19,10 +19,14 @@ async function loadSettingsDomain() {
     await writeFile(entryPath, `
         export {
             generateDomainTimestamp,
+            isHostnameWithin,
+            normalizeRuleDomain,
+            redactSecrets,
             removeAiEngineFromSettings,
             resolveEffectiveSettings,
             setDomainRuleProperty,
             upsertAiEngine,
+            validateImportedSettings,
             validateSettings,
         } from ${JSON.stringify(path.join(projectRoot, 'src/common/settings-domain.js'))};
     `);
@@ -228,4 +232,79 @@ test('settings domain mutators update AI engines and rule properties immutably',
     const ignored = setDomainRuleProperty(settings, 'example.com', 'aiEngines', []);
     assert.equal(ignored, settings);
     assert.equal(ignored.domainRules['example.com'], undefined);
+});
+
+test('规则域名按点边界匹配，而不是裸字符串后缀', async () => {
+    const { resolveEffectiveSettings } = await loadSettingsDomain();
+    const settings = {
+        domainRules: {
+            'google.com': { displayMode: 'append', applyToSubdomains: true },
+            'm': { displayMode: 'hover', applyToSubdomains: true },
+        },
+    };
+
+    // 命中：本域与真子域。
+    assert.equal(resolveEffectiveSettings(settings, 'google.com').source, 'google.com');
+    assert.equal(resolveEffectiveSettings(settings, 'www.google.com').source, 'google.com');
+    // 不命中：只是字符串后缀，不是子域。
+    assert.equal(resolveEffectiveSettings(settings, 'notgoogle.com').source, 'default');
+    // 单字母规则不得命中所有以 m 结尾的域名。
+    assert.equal(resolveEffectiveSettings(settings, 'example.com').source, 'default');
+    assert.equal(resolveEffectiveSettings(settings, 'm').source, 'm');
+});
+
+test('域名输入被归一化成可匹配的 hostname', async () => {
+    const { normalizeRuleDomain } = await loadSettingsDomain();
+
+    assert.equal(normalizeRuleDomain('https://Example.com/path?x=1'), 'example.com');
+    assert.equal(normalizeRuleDomain('example.com:8080'), 'example.com');
+    assert.equal(normalizeRuleDomain('  WWW.Example.COM  '), 'www.example.com');
+    assert.equal(normalizeRuleDomain('http://docs.example.co.uk/a/b'), 'docs.example.co.uk');
+    // 非法输入返回 null，由调用方提示，而不是存一条静默无效的规则。
+    assert.equal(normalizeRuleDomain(''), null);
+    assert.equal(normalizeRuleDomain('   '), null);
+    assert.equal(normalizeRuleDomain('localhost'), null);
+    assert.equal(normalizeRuleDomain('not a domain'), null);
+});
+
+test('导入备份按形状校验，坏数据不落库', async () => {
+    const { validateImportedSettings } = await loadSettingsDomain();
+
+    // 形状正确：直接接受，并补齐默认值。
+    const good = validateImportedSettings({ aiEngines: [], domainRules: {} });
+    assert.ok(good.settings, `有效的备份应被接受，实际：${JSON.stringify(good)}`);
+    assert.equal(Array.isArray(good.settings.aiEngines), true);
+
+    // 云备份外壳。
+    const wrapped = validateImportedSettings({ settings: { aiEngines: [{ id: 'ai:1' }] } });
+    assert.equal(wrapped.settings.aiEngines.length, 1);
+
+    // 典型坏数据：aiEngines 是字符串 —— 会让 `settings.aiEngines.find` 抛 TypeError。
+    assert.deepEqual(validateImportedSettings({ aiEngines: 'x' }), { error: 'invalid-ai-engines' });
+    assert.deepEqual(validateImportedSettings({ aiEngines: [] , domainRules: [] }), { error: 'invalid-domain-rules' });
+    assert.deepEqual(validateImportedSettings(null), { error: 'not-an-object' });
+    assert.deepEqual(validateImportedSettings([1, 2]), { error: 'not-an-object' });
+    assert.deepEqual(validateImportedSettings({ aiEngines: [], glossary: 'x' }), { error: 'invalid-glossary' });
+});
+
+test('发往界面的有效设置不带明文 API key', async () => {
+    const { redactSecrets } = await loadSettingsDomain();
+
+    const effective = {
+        translatorEngine: 'ai:abc',
+        aiEngines: [
+            { id: 'abc', name: 'My AI', apiKey: 'sk-secret', apiUrl: 'https://api.example/v1', model: 'm' },
+        ],
+    };
+
+    const redacted = redactSecrets(effective);
+
+    assert.equal('apiKey' in redacted.aiEngines[0], false, '明文密钥不得发给内容脚本/popup');
+    assert.equal(redacted.aiEngines[0].id, 'abc', '界面需要的字段必须保留');
+    assert.equal(redacted.aiEngines[0].apiUrl, 'https://api.example/v1');
+    // 不得改动原对象：调用方可能还要用完整设置。
+    assert.equal(effective.aiEngines[0].apiKey, 'sk-secret');
+    // 没有 aiEngines 时原样返回。
+    const plain = { translatorEngine: 'google' };
+    assert.equal(redactSecrets(plain), plain);
 });

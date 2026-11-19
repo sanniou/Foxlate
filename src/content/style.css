@@ -5,12 +5,6 @@
   do not inject common.css into host pages). Guarded by test/design-token-parity.test.mjs.
 */
 
-.foxlate-panel,
-.foxlate-performance-hud,
-.foxlate-appended-text,
-.foxlate-error-underline,
-
-
 .foxlate-panel {
     position: fixed;
     z-index: 2147483647;
@@ -458,8 +452,8 @@
 }
 
 .foxlate-quick-action-panel button:focus-visible {
-    outline: 0;
-    box-shadow:
-        0 0 0 3px color-mix(in srgb, var(--fox-color-primary) 28%, transparent),
-        0 6px 18px -8px color-mix(in srgb, var(--fox-color-primary) 55%, transparent);
+    /* 内容脚本里原来的 28% 混合环在深色页面上接近不可见；焦点环用实色 --fox-color-focus。 */
+    outline: 2px solid var(--fox-color-focus);
+    outline-offset: 2px;
+    box-shadow: 0 6px 18px -8px color-mix(in srgb, var(--fox-color-primary) 55%, transparent);
 }

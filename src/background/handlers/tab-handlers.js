@@ -90,21 +90,6 @@ export function createTabHandlers({
             return { success: true, newMode };
         },
 
-        async [MESSAGE_TYPES.UPDATE_SUBTITLE_TRANSLATION_STATUS](request) {
-            const { tabId, enabled } = request.payload;
-            try {
-                await browserApi.action.setIcon({ tabId, path: enabled ? 'icons/icon48.png' : 'icons/icon48-disabled.png' });
-                // 工具栏提示是用户可见文案，必须走本地化；写死英文会让 zh_CN 用户看到英文。
-                await browserApi.action.setTitle({
-                    tabId,
-                    title: browserApi.i18n.getMessage(enabled ? 'subtitleToolbarTitleEnabled' : 'subtitleToolbarTitleDisabled'),
-                });
-            } catch (error) {
-                logError('UPDATE_SUBTITLE_TRANSLATION_STATUS', error);
-            }
-            return { success: true };
-        },
-
         async [MESSAGE_TYPES.STOP_TRANSLATION](request) {
             const tabId = request?.payload?.tabId;
             if (tabId === undefined || tabId === null) {

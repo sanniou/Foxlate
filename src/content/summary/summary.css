@@ -126,9 +126,42 @@
    浅色玻璃面板上会出现白字（实测在摘要弹窗上取到 `system-ui` + 16px 继承值）。
    只约束「框」（面板、按钮、提示），翻译后的正文仍应跟随页面排版。 */
 .foxlate-summary-dialog {
+    /* 盒模型在 1.7.4 的 token 清理里被整块删掉了，只剩字体与颜色：面板因此变成
+       `position: static` 的透明块，JS 设的 left/top 全部失效，摘要界面沉到页面底部。
+       这里按 --fox-* 取值恢复，并保留原先的进场/缩放过渡。 */
+    position: fixed;
+    z-index: 2147483641;
+    display: flex;
+    flex-direction: column;
+    width: 410px;
+    height: 510px;
+    max-width: 90vw;
+    max-height: 85vh;
+    overflow: hidden;
+    box-sizing: border-box;
+    border: 1px solid var(--fox-color-border);
+    border-radius: var(--fox-radius-lg);
+    background: var(--fox-color-panel-glass);
+    box-shadow: var(--fox-shadow-popover);
     color: var(--fox-color-text);
     font-family: var(--fox-font-sans);
+    font-size: 14px;
     line-height: 1.55;
+    opacity: 0;
+    overscroll-behavior: contain;
+    touch-action: pan-y pinch-zoom;
+    transform: translateY(10px) scale(0.98);
+    transition:
+        opacity var(--fox-motion-response-slow) var(--fox-motion-ease-emphasized),
+        transform var(--fox-motion-response-slow) var(--fox-motion-ease-emphasized),
+        width var(--fox-motion-response-slow) var(--fox-motion-ease-emphasized),
+        height var(--fox-motion-response-slow) var(--fox-motion-ease-emphasized),
+        top var(--fox-motion-response-slow) var(--fox-motion-ease-emphasized),
+        left var(--fox-motion-response-slow) var(--fox-motion-ease-emphasized),
+        visibility 0s 0.28s;
+    visibility: hidden;
+    -webkit-user-modify: read-only;
+    user-modify: read-only;
 }
 
 .foxlate-summary-dialog.visible {
@@ -212,7 +245,7 @@
     font-weight: 760;
 }
 
-.refresh-button {
+.foxlate-summary-dialog .refresh-button {
     display: flex;
     padding: 8px;
     border: 0;
@@ -227,7 +260,7 @@
 }
 
 @media (hover: hover) {
-    .refresh-button:hover {
+    .foxlate-summary-dialog .refresh-button:hover {
         background: color-mix(in srgb, var(--fox-color-primary) 12%, transparent);
         color: var(--fox-color-primary);
         transform: translateY(-1px);
@@ -433,7 +466,7 @@
     max-width: 100%;
 }
 
-.message-edit-area textarea {
+.foxlate-summary-dialog .message-edit-area textarea {
     width: 100%;
     padding: 10px;
     border: 1px solid var(--fox-color-border);
@@ -445,13 +478,13 @@
     resize: vertical;
 }
 
-.message-edit-area textarea:focus {
+.foxlate-summary-dialog .message-edit-area textarea:focus {
     outline: 0;
     border-color: var(--fox-color-primary);
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--fox-color-primary) 16%, transparent);
 }
 
-.message-edit-area .message-actions {
+.foxlate-summary-dialog .message-edit-area .message-actions {
     justify-content: flex-end;
     margin-top: 4px;
     opacity: 1;
@@ -461,7 +494,7 @@
     align-items: flex-start;
 }
 
-.loading-indicator {
+.foxlate-summary-dialog .loading-indicator {
     position: relative;
     display: inline-block;
     width: 8px;
@@ -472,8 +505,8 @@
     animation: loading-bounce 1.4s infinite ease-in-out both;
 }
 
-.loading-indicator::before,
-.loading-indicator::after {
+.foxlate-summary-dialog .loading-indicator::before,
+.foxlate-summary-dialog .loading-indicator::after {
     content: "";
     position: absolute;
     top: 0;
@@ -484,10 +517,10 @@
     animation: loading-bounce 1.4s infinite ease-in-out both;
 }
 
-.loading-indicator::before { left: -12px; animation-delay: -0.32s; }
-.loading-indicator::after { left: 12px; animation-delay: -0.16s; }
+.foxlate-summary-dialog .loading-indicator::before { left: -12px; animation-delay: -0.32s; }
+.foxlate-summary-dialog .loading-indicator::after { left: 12px; animation-delay: -0.16s; }
 
-.message-actions {
+.foxlate-summary-dialog .message-actions {
     display: flex;
     gap: 8px;
     padding: 0 4px;
@@ -501,7 +534,7 @@
     }
 }
 
-.message-actions button {
+.foxlate-summary-dialog .message-actions button {
     display: flex;
     align-items: center;
     padding: 4px;
@@ -513,13 +546,13 @@
 }
 
 @media (hover: hover) {
-    .message-actions button:hover {
+    .foxlate-summary-dialog .message-actions button:hover {
         background: color-mix(in srgb, var(--fox-color-primary) 12%, transparent);
         color: var(--fox-color-primary);
     }
 }
 
-.message-actions button:disabled {
+.foxlate-summary-dialog .message-actions button:disabled {
     cursor: not-allowed;
     opacity: 0.5;
 }
@@ -558,7 +591,7 @@
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--fox-color-primary) 16%, transparent);
 }
 
-.send-button {
+.foxlate-summary-dialog .send-button {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -576,18 +609,18 @@
 }
 
 @media (hover: hover) {
-    .send-button:hover:not(:disabled) {
+    .foxlate-summary-dialog .send-button:hover:not(:disabled) {
         filter: saturate(1.08) brightness(1.02);
         transform: translateY(-1px) scale(1.03);
     }
 }
 
-.send-button:disabled {
+.foxlate-summary-dialog .send-button:disabled {
     background: var(--fox-color-border-strong);
     cursor: not-allowed;
 }
 
-.send-button svg {
+.foxlate-summary-dialog .send-button svg {
     width: 18px;
     height: 18px;
     margin-left: 2px;
@@ -600,7 +633,7 @@
     background: var(--fox-color-surface-dim);
 }
 
-.suggest-button {
+.foxlate-summary-dialog .suggest-button {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -619,14 +652,14 @@
 }
 
 @media (hover: hover) {
-    .suggest-button:hover {
+    .foxlate-summary-dialog .suggest-button:hover {
         border-color: var(--fox-color-primary);
         background: color-mix(in srgb, var(--fox-color-primary) 10%, var(--fox-color-panel-glass));
         color: var(--fox-color-primary);
     }
 }
 
-.suggest-button.loading {
+.foxlate-summary-dialog .suggest-button.loading {
     cursor: wait;
     opacity: 0.72;
 }

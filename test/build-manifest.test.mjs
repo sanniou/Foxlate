@@ -1,26 +1,42 @@
 // story: e01s01
 import assert from 'node:assert/strict';
-import { readFile, access } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import test from 'node:test';
+import test, { after } from 'node:test';
 
 const projectRoot = path.resolve(import.meta.dirname, '..');
 const packageJsonPath = path.join(projectRoot, 'package.json');
 const baseManifestPath = path.join(projectRoot, 'public', 'manifest.base.json');
-const distManifestPath = path.join(projectRoot, 'dist', 'manifest.json');
+
+// 构建产物写到临时目录，不碰仓库里的 `dist/`。
+// 这组用例会对两个 target 各真跑一次构建；写共享 `dist/` 会让「跑测试」等于
+// 「改构建产物」——并行跑测试时互相覆盖，也会把脏产物留在工作区里。
+const buildRootPromise = mkdtemp(path.join(os.tmpdir(), 'foxlate-build-manifest-'));
+let buildDir = null;
+
+after(async () => {
+    await rm(await buildRootPromise, { recursive: true, force: true });
+});
 
 async function readJson(filePath) {
     return JSON.parse(await readFile(filePath, 'utf8'));
 }
 
 async function readDist(relativePath) {
-    return readFile(path.join(projectRoot, 'dist', relativePath), 'utf8');
+    return readFile(path.join(buildDir, relativePath), 'utf8');
 }
 
-function runBuild(target) {
+async function readDistManifest() {
+    return readJson(path.join(buildDir, 'manifest.json'));
+}
+
+async function runBuild(target) {
+    const root = await buildRootPromise;
+    buildDir = path.join(root, target);
     return new Promise((resolve, reject) => {
-        const child = spawn(process.execPath, ['build.js', `--target=${target}`], {
+        const child = spawn(process.execPath, ['build.js', `--target=${target}`, `--outdir=${buildDir}`], {
             cwd: projectRoot,
             stdio: ['ignore', 'pipe', 'pipe'],
         });
@@ -51,8 +67,7 @@ test('manifest.base.json version is a build-time placeholder', async () => {
 test('chrome build injects package version and service_worker background', async () => {
     const { version } = await readJson(packageJsonPath);
     await runBuild('chrome');
-    await access(distManifestPath);
-    const manifest = await readJson(distManifestPath);
+    const manifest = await readDistManifest();
 
     assert.equal(manifest.version, version);
     assert.equal(manifest.background?.service_worker, 'background/service-worker.js');
@@ -62,8 +77,7 @@ test('chrome build injects package version and service_worker background', async
 test('firefox build injects package version and scripts background', async () => {
     const { version } = await readJson(packageJsonPath);
     await runBuild('firefox');
-    await access(distManifestPath);
-    const manifest = await readJson(distManifestPath);
+    const manifest = await readDistManifest();
 
     assert.equal(manifest.version, version);
     assert.deepEqual(manifest.background?.scripts, ['background/service-worker.js']);
@@ -140,3 +154,45 @@ test('production build eliminates debug-only branches entirely', async () => {
         );
     }
 });
+
+test('两条 target 的 manifest 都带上商店与平台必需项', async () => {
+    // 这些是「不修就上传不了 / 装到旧版浏览器就坏」的元数据，不是风格问题：
+    // - data_collection_permissions：AMO 自 2025-11-03 起对新提交强制，缺失即拒；
+    // - strict_min_version：storage.session 需要 Firefox 115+；
+    // - clipboardWrite：Firefox 内容脚本写剪贴板的前提；
+    // - 每个 command 都要有默认键位，否则「有快捷键」只是文档里的说法。
+    for (const target of ['firefox', 'chrome']) {
+        await runBuild(target);
+        const manifest = await readDistManifest();
+
+        assert.ok(
+            manifest.permissions.includes('clipboardWrite'),
+            `${target}: 缺 clipboardWrite —— Firefox 下复制译文会被拒绝`,
+        );
+
+        for (const [name, command] of Object.entries(manifest.commands || {})) {
+            assert.ok(
+                command.suggested_key?.default,
+                `${target}: command ${name} 没有默认键位，用户必须手配才能用`,
+            );
+        }
+
+        if (target === 'firefox') {
+            const gecko = manifest.browser_specific_settings?.gecko || {};
+            const declared = gecko.data_collection_permissions?.required;
+            assert.ok(
+                Array.isArray(declared) && declared.includes('websiteContent'),
+                'Firefox: 必须声明 data_collection_permissions.required = ["websiteContent"]（AMO 强制）',
+            );
+            assert.equal(gecko.strict_min_version, '115.0', 'Firefox: storage.session 要求 115+');
+        } else {
+            assert.equal(manifest.browser_specific_settings, undefined, 'Chrome: 不得残留 gecko 键');
+            const description = manifest.description;
+            assert.ok(
+                typeof description === 'string' && description.length <= 132,
+                `Chrome: description 必须 ≤132 字符（当前 ${description?.length}），否则 CWS 上传报错`,
+            );
+        }
+    }
+});
+

@@ -22,11 +22,44 @@ export function createEnsureScriptsInjected({
     tabStateManager = TabStateManager,
     logError = defaultLogError,
 } = {}) {
+    // 同一 (tab, frame) 的注入必须串行。
+    //
+    // 这里是「读已注入清单 → 执行注入 → 写回清单」，没有锁时两个并发调用会同时读到
+    // 「未注入」，于是同一份 content script 被执行两次：监听器、观察器、单例全部叠一套。
+    // 已复现：二次注入 subtitle-manager 后，一次状态请求收到两个响应，先到的
+    // `isSupported:false` 让 popup 的字幕控件直接消失。并发来源很常见 ——
+    // 用户点 popup 的翻译按钮的同时，导航事件也正在注入。
+    const queues = new Map();
+
+    const keyOf = (tabId, frameId) => `${tabId}:${frameId}`;
+
+    async function runExclusive(key, task) {
+        const previous = queues.get(key) || Promise.resolve();
+        let release;
+        const gate = new Promise((resolve) => { release = resolve; });
+        const tail = previous.then(() => gate);
+        queues.set(key, tail);
+
+        await previous.catch(() => {});
+        try {
+            return await task();
+        } finally {
+            release();
+            if (queues.get(key) === tail) {
+                queues.delete(key);
+            }
+        }
+    }
+
     return async function ensureScriptsInjected(tabId, frameId, filesToInject) {
         if (!filesToInject?.length) {
             return true;
         }
 
+        return runExclusive(keyOf(tabId, frameId), () => injectMissingFiles(tabId, frameId, filesToInject));
+    };
+
+    async function injectMissingFiles(tabId, frameId, filesToInject) {
         const uniqueFiles = [...new Set(filesToInject)];
 
         try {
@@ -60,5 +93,5 @@ export function createEnsureScriptsInjected({
             logError(`ensureScriptsInjected for tab ${tabId}, frame ${frameId}`, error);
             return false;
         }
-    };
+    }
 }

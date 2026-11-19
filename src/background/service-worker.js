@@ -80,13 +80,15 @@ browser.tabs.onRemoved.addListener(tabId => {
     TranslatorManager.interruptTab(tabId);
 });
 
-browser.runtime.onInstalled.addListener(() => {
+browser.runtime.onInstalled.addListener(async () => {
+    // `onInstalled` 在每次升级时也会触发。先清空再重建：否则同一个 id 二次 create 会报
+    // duplicate-id，本地化标题的改动永远刷不到老用户的右键菜单上。
+    await browser.contextMenus.removeAll();
     browser.contextMenus.create({
         id: 'translate-selection',
         title: browser.i18n.getMessage('contextMenuTitle'),
         contexts: ['selection'],
     });
-    console.log('Context menu created.');
 });
 
 browser.commands.onCommand.addListener(async (command, tab) => {

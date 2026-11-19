@@ -383,7 +383,7 @@ N7–N8 是「声明了依赖，但没有任何代码在用」。两者都不会
 **批 11（C5 错误记录器）**
 - 新增 `src/common/error-logger.js`：`createErrorLogger({ context, source, quietAbort })`。**中止策略变成显式参数**——此前它是“同一份逻辑写多遍”的根源（三份实现的差异全在是否吞掉 AbortError）。
 - 新增 `test/error-logger.test.mjs`（5 条，含 `null` / `undefined` / 非 Error 对象三类入参）。
-- 替换 6 个调用点：`src/content/translation/page-translation-job.js`、`src/content/translation/translation-dispatcher.js`、`src/content/input/input-translation-service.js`、`src/background/handlers/translation-handlers.js`（两处：页面翻译与输入框翻译）、`src/background/service-worker.js`。
+- 替换 6 个调用点：`src/content/page-translation-job.js`、`src/content/element-translation-controller.js`、`src/content/input/input-translation-client.js`、`src/background/handlers/translation-handlers.js`（两处：页面翻译与输入框翻译）、`src/background/service-worker.js`。
 - **顺带修掉一个真实缺陷**：content 侧原实现直读 `error.message` / `error.stack`，在 `error` 为 `null` 或 `undefined` 时会**在错误处理器里再抛 `TypeError`**。共享实现加了 `error instanceof Error ? error.message : String(error)` 保护。
 
 ---

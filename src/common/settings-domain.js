@@ -23,6 +23,70 @@ function mergeSelectors(baseSelectors, additionalSelectors) {
     return Array.from(new Set([...base, ...additional])).join(', ');
 }
 
+/**
+ * 校验「导入的备份」是否真的是一份设置。
+ *
+ * 导入入口此前只有 `JSON.parse` 就写库：一个 `"aiEngines": "x"` 的备份会让下一次
+ * `settings.aiEngines.find(...)` 直接抛 TypeError，而界面提示的是「导入成功」。
+ * 这里只做形状判定与错误定位，真正的归一化仍交给 `validateSettings`。
+ *
+ * @param {unknown} raw `JSON.parse` 的结果
+ * @returns {{ settings: object } | { error: string }}
+ */
+/**
+ * 把「发往界面/内容脚本」的有效设置里的密钥抹掉。
+ *
+ * `GET_EFFECTIVE_SETTINGS` 的响应会整份发给内容脚本和 popup，而 `aiEngines[].apiKey`
+ * 是明文。内容侧只需要引擎 id 与名字，popup 只需要 id/名字，谁都不需要密钥；
+ * 明文密钥每注入一次就多传一次（实测设置整包 16 KB 量级），也把凭据暴露在
+ * 内容脚本这个更大的攻击面里。写回路径（GET_VALIDATED_SETTINGS）不受影响。
+ *
+ * @param {object} settings 有效设置（可以是合并了域规则的副本）
+ * @returns {object} 抹掉 `aiEngines[].apiKey` 的浅拷贝
+ */
+export function redactSecrets(settings) {
+    if (!settings || typeof settings !== 'object') return settings;
+    if (!Array.isArray(settings.aiEngines)) return settings;
+
+    return {
+        ...settings,
+        aiEngines: settings.aiEngines.map(engine => {
+            if (!engine || typeof engine !== 'object') return engine;
+            const { apiKey: _apiKey, ...rest } = engine;
+            return rest;
+        }),
+    };
+}
+
+export function validateImportedSettings(raw) {
+    if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+        return { error: 'not-an-object' };
+    }
+
+    // 兼容云备份导出的 `{ settings: {...} }` 外壳。
+    const candidate = (raw.settings && typeof raw.settings === 'object' && !Array.isArray(raw.settings))
+        ? raw.settings
+        : raw;
+
+    if (!Array.isArray(candidate.aiEngines)) {
+        return { error: 'invalid-ai-engines' };
+    }
+    if (candidate.domainRules !== undefined
+        && (candidate.domainRules === null || typeof candidate.domainRules !== 'object' || Array.isArray(candidate.domainRules))) {
+        return { error: 'invalid-domain-rules' };
+    }
+    if (candidate.glossary !== undefined
+        && (candidate.glossary === null || typeof candidate.glossary !== 'object' || Array.isArray(candidate.glossary))) {
+        return { error: 'invalid-glossary' };
+    }
+    if (candidate.summarySettings !== undefined
+        && (candidate.summarySettings === null || typeof candidate.summarySettings !== 'object' || Array.isArray(candidate.summarySettings))) {
+        return { error: 'invalid-summary-settings' };
+    }
+
+    return { settings: validateSettings(candidate) };
+}
+
 export function validateSettings(storedSettings) {
     const defaultSettings = generateDefaultSettings();
     const settingsToValidate = storedSettings ? structuredClone(storedSettings) : defaultSettings;
@@ -74,11 +138,48 @@ export function validateSettings(storedSettings) {
     return validatedSettings;
 }
 
+/**
+ * 规则域名是否覆盖该主机名。
+ *
+ * 必须是「相等或点边界后缀」：`endsWith` 的裸字符串比较会把 `google.com` 的规则
+ * 命中到 `notgoogle.com`，也会让 `m` 这种单字母规则命中所有以 m 结尾的域名。
+ */
+export function isHostnameWithin(hostname, domain) {
+    if (!hostname || !domain) return false;
+    return hostname === domain || hostname.endsWith(`.${domain}`);
+}
+
+/**
+ * 把用户输入归一化成能用于匹配的主机名。
+ *
+ * 用户在「域名规则」里会填 `https://Example.com/path`、`example.com:8080`、带空格或大写。
+ * 原样存下来就永远匹配不上（匹配用的是 hostname）。非法输入返回 null，由调用方报错，
+ * 而不是保存一条静默无效的规则。
+ *
+ * @param {string} input
+ * @returns {string | null}
+ */
+export function normalizeRuleDomain(input) {
+    const raw = String(input ?? '').trim();
+    if (!raw) return null;
+
+    // 允许「裸主机名」与「带 scheme 的 URL」两种输入。
+    const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`;
+    let hostname = '';
+    try {
+        hostname = new URL(withScheme).hostname.toLowerCase();
+    } catch {
+        return null;
+    }
+    if (!hostname || !hostname.includes('.')) return null;
+    return hostname;
+}
+
 function findMatchingDomainRule(domainRules = {}, hostname) {
     if (!hostname) return { domainRule: {}, ruleSource: 'default' };
 
     const matchingDomain = Object.keys(domainRules)
-        .filter(domain => hostname.endsWith(domain))
+        .filter(domain => isHostnameWithin(hostname, domain))
         .sort((a, b) => b.length - a.length)[0];
 
     if (!matchingDomain) return { domainRule: {}, ruleSource: 'default' };

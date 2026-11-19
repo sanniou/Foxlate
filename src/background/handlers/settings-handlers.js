@@ -1,4 +1,5 @@
 import { MESSAGE_TYPES } from '../../common/message-types.js';
+import { redactSecrets } from '../../common/settings-domain.js';
 
 /**
  * 设置读写类消息处理器。
@@ -8,7 +9,9 @@ import { MESSAGE_TYPES } from '../../common/message-types.js';
 export function createSettingsHandlers({ settingsManager }) {
     return {
         async [MESSAGE_TYPES.GET_EFFECTIVE_SETTINGS](request) {
-            return settingsManager.getEffectiveSettings(request.payload.hostname);
+            const effective = await settingsManager.getEffectiveSettings(request.payload.hostname);
+            // 内容脚本与 popup 都不需要明文密钥；写回走 GET_VALIDATED_SETTINGS。
+            return redactSecrets(effective);
         },
 
         async [MESSAGE_TYPES.GET_VALIDATED_SETTINGS]() {

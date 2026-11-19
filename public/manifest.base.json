@@ -12,11 +12,13 @@
     "storage",
     "scripting",
     "contextMenus",
-    "webNavigation"
+    "webNavigation",
+    "clipboardWrite"
   ],
   "background": {
-    "scripts": ["background/service-worker.js"],
-    "type": "module"
+    "scripts": [
+      "background/service-worker.js"
+    ]
   },
   "default_locale": "en",
   "action": {
@@ -46,6 +48,9 @@
       "description": "__MSG_commandToggleDisplayMode__"
     },
     "toggle-summary": {
+      "suggested_key": {
+        "default": "Alt+Z"
+      },
       "description": "__MSG_commandToggleSummary__"
     }
   },
@@ -56,9 +61,7 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "common/tokens.css",
         "content/style.css",
-        "content/enhanced-style.css",
         "lib/franc.bundle.mjs"
       ],
       "matches": [
@@ -68,7 +71,13 @@
   ],
   "browser_specific_settings": {
     "gecko": {
-      "id": "foxlate@sanni"
+      "id": "foxlate@sanni",
+      "strict_min_version": "115.0",
+      "data_collection_permissions": {
+        "required": [
+          "websiteContent"
+        ]
+      }
     }
   }
 }

@@ -113,9 +113,12 @@ export class PopupActions {
             }
         } catch (error) {
             if (error.message.includes('Receiving end does not exist')) {
+                // 内容脚本尚未注入，不等于此页不可翻译：后台的 TOGGLE_TRANSLATION_REQUEST
+                // 本来就会先补注入再翻译。所以主按钮保持可点，文案说明「点一下即可激活」。
+                this.renderer.setTranslateButtonEnabled(true);
                 this.renderer.renderError(
-                    this.browser.i18n.getMessage('popupTranslationNotAvailable') ||
-                    'Translation is not available on this page.'
+                    this.browser.i18n.getMessage('popupNeedsInjection') ||
+                    'This page is not active yet — press Translate to activate Foxlate here.',
                 );
             } else {
                 console.error(`[Popup] Failed to get translation status from content script for tab ${this.state.activeTabId}:`, error);

@@ -96,15 +96,27 @@ Discovered fixes: same branch, **separate commits**. Never narrate a failure and
 
 Prefer modules under ~300 lines. `src/lib/*` 是 vendored 第三方代码，不适用此规则。
 
-当前超过 300 行的第一方文件（19 个，`wc -l` 实测）：
+当前超过 300 行的第一方文件（18 个，`wc -l` 实测；不含 `src/lib`）：
 
-| 文件 | 行数 | 状态 |
-|------|-----:|------|
-| `src/content/summary/summary.css` | 722 | 待观察 |
-| `src/common/common.css` | 720 | 语义别名层，待观察 |
-| `src/content/summary/summary.view.js` | 623 | 待观察 |
-| `src/content/page-translation-job.js` | 616 | 待观察 |
-| `src/options/options.css` | 607 | 待观察 |
-| `src/options/options-actions.js` | 607 | 已从 2000+ 拆分；剩余为动作表 |
+| 文件 | 行数 |
+|------|-----:|
+| `src/content/summary/summary.css` | 733 |
+| `src/common/common.css` | 720 |
+| `src/content/page-translation-job.js` | 692 |
+| `src/options/options-actions.js` | 632 |
+| `src/content/summary/summary.view.js` | 623 |
+| `src/options/options.css` | 607 |
+| `src/content/summary/summary.js` | 485 |
+| `src/content/style.css` | 465 |
+| `src/popup/popup.css` | 412 |
+| `src/options/components/AIEngineModal.js` | 408 |
+| `src/common/text-measurement.js` | 406 |
+| `src/content/dom-walker.js` | 398 |
+| `src/content/content-runtime.js` | 385 |
+| `src/content/subtitle/youtube-subtitle-strategy.js` | 352 |
+| `src/options/components/DomainRuleModal.js` | 339 |
+| `src/common/settings-domain.js` | 336 |
+| `src/content/enhanced-tooltip-manager.js` | 324 |
+| `src/content/input-handler.js` | 307 |
 
 Boy-scout when touched — no big-bang rewrite unless planned.

@@ -54,6 +54,9 @@ export function createTranslateTextBatchHandler({
                     surface: 'page-batch',
                 });
             }
+            // 记录是内存态 + 合并写；这里显式落盘，别让「整批成功但历史丢了」取决于定时器
+            // 能否在 service worker 被回收前跑完。
+            await Promise.all([historyStore.flush?.(), failureQueue.flush?.()]);
 
             await sendToTabIgnoringMissingReceiver({
                 browserApi,

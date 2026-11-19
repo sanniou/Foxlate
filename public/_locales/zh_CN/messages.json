@@ -103,6 +103,10 @@
     "message": "域名：",
     "description": "域名输入框的标签。"
   },
+  "domainRuleInvalid": {
+    "message": "请输入形如 example.com 的域名。",
+    "description": "域名规则输入框的校验提示。"
+  },
   "autoTranslate": {
     "message": "自动翻译：",
     "description": "自动翻译规则的标签。"
@@ -278,6 +282,10 @@
   "importError": {
     "message": "导入设置失败。文件可能已损坏或格式无效。"
   },
+  "importErrorInvalidShape": {
+    "message": "该文件不是 Foxlate 的设置备份。",
+    "description": "导入的设置文件形状校验失败时显示。"
+  },
   "testing": {
     "message": "测试中..."
   },
@@ -331,7 +339,7 @@
   },
   "contextMenuTitle": {
     "message": "使用 Foxlate 翻译 '%s'",
-    "description": "右键菜单中翻译选中文本的条目。%s 是选中文本的占位符。"
+    "description": "右键菜单中翻译选中文本的条目。%s 由 contextMenus 替换为选中文本（不是 i18n 占位符）。"
   },
   "popupRuleDefault": {
     "message": "正在使用默认设置",
@@ -480,9 +488,9 @@
     "message": "翻译引擎未配置。请更新设置。",
     "description": "当翻译任务缺少翻译引擎时的错误。"
   },
-  "popupTranslationNotAvailable": {
-    "message": "此页面不支持翻译。",
-    "description": "在无法翻译的页面（例如 about: 页面）上，弹窗中显示的消息。"
+  "popupNeedsInjection": {
+    "message": "此页还没激活——点「翻译此页」即可在本地启用 Foxlate。",
+    "description": "内容脚本尚未注入时（刚安装、刚更新、或站点访问设为点击时）的提示。"
   },
   "commandToggleTranslation": {
     "message": "切换显示翻译/原文",
@@ -539,14 +547,6 @@
   "subtitleDisplayModeBilingual": {
     "message": "双语",
     "description": "字幕显示模式：同时显示原文和译文。"
-  },
-  "subtitleToolbarTitleEnabled": {
-    "message": "Foxlate（字幕已开启）",
-    "description": "字幕翻译开启时，工具栏图标的悬停提示。"
-  },
-  "subtitleToolbarTitleDisabled": {
-    "message": "Foxlate（字幕已关闭）",
-    "description": "字幕翻译关闭时，工具栏图标的悬停提示。"
   },
   "defaultEngineNotFound": {
     "message": "默认翻译引擎不存在，请选择其他默认引擎",
@@ -1154,6 +1154,10 @@
   "summaryCopyError": {
     "message": "复制错误信息",
     "description": "错误摘要消息上复制按钮的无障碍标签。"
+  },
+  "summaryCopyFailed": {
+    "message": "复制失败：请手动选中文本后复制。",
+    "description": "写入剪贴板被拒绝时（非安全上下文、缺权限、用户拒绝）。"
   },
   "summaryRerollMessage": {
     "message": "重新生成回答",
