@@ -1066,6 +1066,10 @@
     "message": "Error",
     "description": "Prefix shown before a translation error message in the page."
   },
+  "translationFailedFallback": {
+    "message": "Translation failed",
+    "description": "Fallback text when a translated element errors without a specific message"
+  },
   "invalidCssSelector": {
     "message": "Invalid CSS selector",
     "description": "Validation error for a content/exclude selector field."

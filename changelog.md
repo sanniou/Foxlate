@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.7.8] - 2026-10-23
+
+### ♿️ Accessibility
+*   **hover 模式此前只有鼠标能用.** 悬停显示模式只挂了 `mouseenter`，用 Tab 在链接间移动的人在整个模式下拿不到任何译文。`focus`/`blur` 现在和鼠标走同一条展示路径，`revert` 会一并摘掉四个监听器（否则撤销翻译后仍会弹译文）。
+*   **错误态文案不再写死英文.** 没有具体错误详情时浮层显示的是 `Translation Error`，与界面语言不一致；现在走 `browser.i18n`（新增 `translationFailedFallback`），并顺手修掉 `originalContent` 缺失时把 `undefined` 塞进浮层的问题。
+
+### 🧪 Tests
+*   新增 `test/hover-keyboard-access.test.mjs`：键盘聚焦显示、失焦收起、撤销后不再触发、错误文案走 i18n。回退修复后 2/3 用例变红——验证的是行为，不是导出符号。
+*   **Regression coverage:** 464 tests。
+
 ## [1.7.7] - 2026-10-23
 
 ### 🎨 Accessibility

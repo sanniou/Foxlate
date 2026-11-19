@@ -569,3 +569,22 @@ N7–N8 是「声明了依赖，但没有任何代码在用」。两者都不会
 - 后续几项修复的**浏览器级**复验被扩展重载摩擦挡住（`chrome.runtime.reload()` 后 `--load-extension` 指向的目录被替换，扩展变 `ERR_BLOCKED_BY_CLIENT`）。这几项以单元级证据为准：先在旧代码上用同一组用例确认变红，再在新代码上转绿。
 - 未覆盖：输入翻译的真浏览器路径（IME）、字幕站点（需要 YouTube/B 站真实页面）、AI 摘要的流式渲染。属下一轮。
 
+---
+
+## 批 13（1.7.8 桌面端可达性复查）
+
+### H. UI / a11y
+
+| # | 证据 | 问题 | 影响 | 状态 |
+|---|---|---|---|---|
+| H14 | `src/content/strategies/hover-strategy.js:31-38`（旧）只有 `mouseenter`/`mouseleave` | hover 显示模式是纯鼠标交互 | 用 Tab 在链接间移动的用户，在整个「悬停显示」模式下拿不到任何译文——这是该模式唯一没被覆盖的输入方式，而链接恰恰是键盘用户最常停驻的元素 | **FIXED**（`focus`/`blur` 与鼠标共用展示路径；`revert` 一并摘掉四个监听器） |
+| H15 | `src/content/strategies/hover-strategy.js:99`（旧）`data?.errorMessage \|\| 'Translation Error'` | 错误态回退文案写死英文 | 中文界面里浮层弹出英文；且 `data.originalContent` 缺失时把 `undefined` 拼进文案 | **FIXED**（新增 locale key `translationFailedFallback`，`originalContent` 用 `?? ''` 兜底） |
+
+### 门禁
+
+- `test/hover-keyboard-access.test.mjs`：键盘聚焦展示、失焦收起、`revert` 后鼠标与焦点都不再触发、错误文案来自 i18n。回退到旧行为后 2/3 变红（仅补上类的具名导出以便注入假浮层，行为断言本身是红的）。
+
+### 验证
+
+- `npm test`：**464 pass / 0 fail**（56 个测试文件；本批起点 461）。
+- 未覆盖：hover 模式的**真浏览器**键盘路径（需要 `--load-extension` 会话稳定加载当前 dist，本轮重载摩擦未解决，以 jsdom 行为断言为准）。

@@ -1067,6 +1067,10 @@
     "message": "翻译错误",
     "description": "页面内翻译错误信息的前缀。"
   },
+  "translationFailedFallback": {
+    "message": "翻译失败",
+    "description": "hover/错误态在没有具体错误详情时的回退文案"
+  },
   "invalidCssSelector": {
     "message": "CSS 选择器无效",
     "description": "内容/排除选择器字段的校验错误。"

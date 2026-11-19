@@ -32,11 +32,28 @@ class HoverStrategy {
             this.#surface.scheduleHide();
         };
 
+        // 键盘也要能看到译文。hover 模式此前只有 mouseenter，用 Tab 在链接间移动的人
+        // 在整个模式下拿不到任何译文——「用键盘浏览」是这个模式唯一没被照顾到的入口。
+        const handleFocus = () => {
+            this.#surface.show({ text: translatedText, targetElement: element, isError });
+        };
+
+        const handleBlur = () => {
+            this.#surface.scheduleHide();
+        };
+
         // 将处理函数附加到元素上，以便 revert 时可以精确移除
-        element._foxlateHoverHandlers = { handleMouseEnter, handleMouseLeave };
+        element._foxlateHoverHandlers = {
+            handleMouseEnter,
+            handleMouseLeave,
+            handleFocus,
+            handleBlur,
+        };
 
         element.addEventListener('mouseenter', handleMouseEnter);
         element.addEventListener('mouseleave', handleMouseLeave);
+        element.addEventListener('focus', handleFocus);
+        element.addEventListener('blur', handleBlur);
     }
 
     /**
@@ -53,8 +70,11 @@ class HoverStrategy {
         );
 
         if (element._foxlateHoverHandlers) {
-            element.removeEventListener('mouseenter', element._foxlateHoverHandlers.handleMouseEnter);
-            element.removeEventListener('mouseleave', element._foxlateHoverHandlers.handleMouseLeave);
+            const handlers = element._foxlateHoverHandlers;
+            element.removeEventListener('mouseenter', handlers.handleMouseEnter);
+            element.removeEventListener('mouseleave', handlers.handleMouseLeave);
+            element.removeEventListener('focus', handlers.handleFocus);
+            element.removeEventListener('blur', handlers.handleBlur);
             delete element._foxlateHoverHandlers;
         }
         
@@ -92,11 +112,14 @@ class HoverStrategy {
                 }
                 break;
             case Constants.DISPLAY_MANAGER_STATES.ERROR:
+                // 错误提示也是给用户看的文案，跟界面同一种语言；此前写死英文 'Translation Error'。
                 const errorPrefix = browser.i18n.getMessage('contextMenuErrorPrefix') || 'Error';
-                const errorMessage = data?.errorMessage || 'Translation Error';
+                const errorMessage = data?.errorMessage
+                    || browser.i18n.getMessage('translationFailedFallback')
+                    || 'Translation failed';
                 const fullErrorMessage = `${errorPrefix}: ${errorMessage}`;
                 element.classList.add('foxlate-state-error');
-                this.displayTranslation(element, data.originalContent, fullErrorMessage, true);
+                this.displayTranslation(element, data?.originalContent ?? '', fullErrorMessage, true);
                 break;
             default:
                 console.warn(`[Hover Strategy] Unknown state: ${state}`);
@@ -104,5 +127,7 @@ class HoverStrategy {
     }
 }
 
-// 导出该类的一个实例，以保持单例模式
+// 导出该类的一个实例，以保持单例模式。类本身也导出：键盘/焦点这类行为只能在
+// 注入假浮层的前提下测量，否则测试只能断言"实例存在"。
+export { HoverStrategy };
 export default new HoverStrategy();
