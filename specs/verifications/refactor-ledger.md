@@ -588,3 +588,33 @@ N7–N8 是「声明了依赖，但没有任何代码在用」。两者都不会
 
 - `npm test`：**464 pass / 0 fail**（56 个测试文件；本批起点 461）。
 - 未覆盖：hover 模式的**真浏览器**键盘路径（需要 `--load-extension` 会话稳定加载当前 dist，本轮重载摩擦未解决，以 jsdom 行为断言为准）。
+
+## 批 14（1.7.9 全功能 / UI / 代码自测）
+
+五路只读 agent 报告 + 真 Chrome 逐条复现。本批只收「浏览器里能看见、能复现」的缺陷。
+
+### I. CSS / 渲染（三处同源级联缺陷）
+
+| # | 证据 | 问题 | 影响 | 状态 |
+|---|---|---|---|---|
+| I1 | `src/content/style.css:452-460`（旧） | `.foxlate-panel, .foxlate-performance-hud, .foxlate-appended-text, .foxlate-error-underline,` 的声明体在 1.7.4 去 token 时被删、列表残留，与紧随的 `.foxlate-panel {` 合并成一条规则 | **追加显示模式的每段译文计算值都是 `visibility: hidden` / `opacity: 0` / `position: fixed`** —— 整条显示模式事实上不可见；失败下划线同样不可见；性能浮层被拉成 fixed | **FIXED**（`test/content-style-isolation.test.mjs` 锁死面板盒模型与隐藏声明不得泄漏） |
+| I2 | `src/content/style.css:452-460`（旧） | 摘要面板一并被合并进上述列表 | 浮层没有 `1px` 描边、`box-shadow`、`12px` 圆角，只剩 `display: flex`；文字继承宿主页面的 Times New Roman | **FIXED**（恢复盒模型 + `font: inherit`） |
+| I3 | 真 Chrome 实测（背景标签页） | 后台标签页无布局/绘制 → `IntersectionObserver` 不回调，而作业只把 `isIntersecting` 的元素入队并靠观察器推进 | 后台标签页翻译永远 `loading`，徽标永远转圈 | **FIXED**（入队后作业自行排空剩余元素） |
+
+### J. 焦点可见性
+
+| # | 证据 | 问题 | 影响 | 状态 |
+|---|---|---|---|---|
+| J1 | `src/common/common.css:142-146`、`src/options/options.css:138-141`、`src/popup/popup.css:237-241`、`src/content/style.css:454-460`（旧） | 四处 `outline: 0` + `16%–28%` `color-mix` 阴影 | 焦点环叠在任意表面约 1.2–1.5:1，低于 3:1 要求 | **FIXED**（`2px solid` 实色 token） |
+| J2 | `src/options/options.css:224-228`、`src/popup/popup.css:93-98`（旧） | 下拉选项在 `@media (hover: hover)` 里 `outline: 0` | 外接键盘 + 鼠标的 Windows 用户完全失去焦点指示 | **FIXED**（hover 只管底色，焦点另给实色 outline） |
+
+### 门禁
+
+- `test/content-style-isolation.test.mjs`（2 例）：面板盒模型规则不得与内联译文/下划线/浮层共用选择器；`visibility: hidden` 只能出现在面板自身规则里。旧 CSS 下必红。
+- `test/design-contrast.test.mjs` 新增焦点环门禁：任何 `:focus` 规则不得 `outline: 0`。旧 CSS 下必红。
+
+### 验证
+
+- `npm test`：**490 pass / 0 fail**（61 个测试文件）。
+- 真 Chrome 计算值：`.foxlate-appended-text` 旧 CSS `visibility: hidden` → 新 CSS `visible`；`.foxlate-panel` 旧 `border: 0 none` / 无阴影 → 新 `1px` + `0 8px 24px -10px` + `12px`；四处焦点规则经 CSSOM 读取确认为 `2px solid var(--color-*)`。
+- 未覆盖：`@media (hover: hover)` 焦点环的真实键盘走查（窗口级焦点在无头会话里拿不到，以 CSSOM 声明为准）。
