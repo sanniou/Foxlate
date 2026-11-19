@@ -20,6 +20,19 @@ const PRESERVABLE_BLOCK_TAGS = new Set([
     'UL', 'OL', 'DL', 'DT', 'DD' // 推荐新增
 ]);
 
+/**
+ * 原子保留标签：自身不包含可翻译文本，但在重建译文时必须原位复活。
+ *
+ * 以前它们不属于「可保留标签」，而 `#collectPreservableElement` 只在「子节点里有实质文本」
+ * 时才记录标签——图片/视频/内联控件没有任何文本，于是被静默丢掉。replace 模式实测：
+ * 维基信息框 `<td>` 里 `img 1→0`、GitHub README `<li>` 里 `code 3→0`。
+ * 这类丢失对用户是可见的数据损失。
+ */
+const PRESERVABLE_ATOMIC_TAGS = new Set([
+    'IMG', 'PICTURE', 'SVG', 'VIDEO', 'AUDIO', 'IFRAME', 'CANVAS', 'OBJECT', 'EMBED',
+    'INPUT', 'TEXTAREA', 'SELECT', 'BUTTON' // 表单控件同样是用户可感知的内容
+]);
+
 // 通过组合基本集合来构建最终的标签集。
 // 1. 所有需要保留格式的标签（内联 + 块级）。
 const PRESERVABLE_TAGS = new Set([...PRESERVABLE_INLINE_TAGS, ...PRESERVABLE_BLOCK_TAGS]);
@@ -266,6 +279,20 @@ export class DOMWalker {
     }
 
     /**
+     * 原子元素：用一个空的 `<tN></tN>` 对占位，重建时 `cloneNode(false)` 原样插回。
+     * 里面没有可翻译文本，所以不需要走子节点遍历。
+     */
+    static #collectAtomicElement(child, state) {
+        const tagId = `t${state.tagIndex++}`;
+        state.nodeMap[tagId] = {
+            node: child.cloneNode(false),
+            preservesWhitespace: false,
+            atomic: true,
+        };
+        state.segments.push(`<${tagId}>`, `</${tagId}>`);
+    }
+
+    /**
      * 保留格式的元素：用 <tN> 包裹其内容，并记录重建所需的节点信息。
      * 起始标签是乐观写入的——子节点最终没有实质内容时回滚。
      */
@@ -320,6 +347,8 @@ export class DOMWalker {
 
         if (PRESERVABLE_TAGS.has(tagName)) {
             DOMWalker.#collectPreservableElement(child, state);
+        } else if (PRESERVABLE_ATOMIC_TAGS.has(tagName)) {
+            DOMWalker.#collectAtomicElement(child, state);
         } else {
             // 结构性但非保留的标签（如 DIV）继承父级的格式化上下文
             DOMWalker.#walk(child, inPreformattedContext, state);

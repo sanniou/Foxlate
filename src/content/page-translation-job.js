@@ -11,6 +11,7 @@ import {
 } from './page-translation/page-translation-elements.js';
 import { ABORT_POLICY, createErrorLogger } from '../common/error-logger.js';
 import { PageTranslationProgress } from './page-translation/page-translation-progress.js';
+import { getProjectCodeFromBcp47 } from '../common/language-config.js';
 import { revertPageTranslationDom } from './page-translation/page-translation-reverter.js';
 
 // 内容脚本里的 AbortError 完全静默：用户主动中止（换页、关开关）不该产生任何日志。
@@ -73,6 +74,25 @@ export class PageTranslationJob {
         this.progress = new PageTranslationProgress();
 
         this.state = 'idle';
+    }
+
+    /**
+     * 读 `<html lang>` / `<body lang>` 并映射为项目语言代码。
+     *
+     * 只用于给「检测不出语言的短文本」下判断：页面自己声明为目标语言时，
+     * 就不再把这些碎片送去翻译（中文页翻成中文以前会发 20 个无意义请求）。
+     * @returns {string|null}
+     */
+    #readPageLanguage() {
+        try {
+            const doc = globalThis.document;
+            const raw = doc?.documentElement?.getAttribute?.('lang')
+                ?? doc?.body?.getAttribute?.('lang')
+                ?? null;
+            return getProjectCodeFromBcp47(raw) || null;
+        } catch {
+            return null;
+        }
     }
 
     getProgressSnapshot(extra = {}) {

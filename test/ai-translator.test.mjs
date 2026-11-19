@@ -181,3 +181,48 @@ test('AITranslator.translateBatch keeps brackets inside strings intact', async (
 
     assert.deepEqual(result.texts, ['含 [方括号] 的译文', '带 ] 的右括号']);
 });
+
+test('AITranslator.translateBatch 校正被模型换序的返回（按占位标签锚定）', async () => {
+    // 长度检查通过但顺序被打乱时，以前会把 A 段译文写进 B 段元素：界面正常、内容错位。
+    setupBrowserMock();
+    installFetchMock('["<t1>乙</t1>","<t0>甲</t0>"]');
+    const { AITranslator } = await loadAITranslator();
+    const translator = new AITranslator();
+
+    const result = await translator.translateBatch(['<t0>One</t0>', '<t1>Two</t1>'], 'ZH', 'auto', createConfig());
+
+    assert.deepEqual(result.texts, ['<t0>甲</t0>', '<t1>乙</t1>']);
+});
+
+test('AITranslator.translateBatch 发现占位标签丢失时抛可重试错误', async () => {
+    setupBrowserMock();
+    installFetchMock('["纯文本，标签没了","<t1>乙</t1>"]');
+    const { AITranslator } = await loadAITranslator();
+    const translator = new AITranslator();
+
+    const originalConsoleError = console.error;
+    console.error = () => {};
+    try {
+        await assert.rejects(
+            () => translator.translateBatch(['<t0>One</t0>', '<t1>Two</t1>'], 'ZH', 'auto', createConfig()),
+            /lost placeholder tags/,
+        );
+    } finally {
+        console.error = originalConsoleError;
+    }
+});
+
+test('批量请求不再把数组同时塞进 system prompt 和 user message', async () => {
+    // 之前请求体是原文的 2.16 倍：system prompt 里一次、user message 里又一次。
+    setupBrowserMock();
+    const calls = installFetchMock('["你好","世界"]');
+    const { AITranslator } = await loadAITranslator();
+    const translator = new AITranslator();
+
+    await translator.translateBatch(['Hello', 'World'], 'ZH', 'auto', createConfig());
+
+    const systemPrompt = calls[0].body.messages[0].content;
+    assert.doesNotMatch(systemPrompt, /"Hello"/, 'system prompt 不应重复完整数组');
+    assert.match(systemPrompt, /user message/);
+    assert.deepEqual(JSON.parse(calls[0].body.messages[1].content), ['Hello', 'World']);
+});

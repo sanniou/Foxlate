@@ -31,6 +31,6 @@ git:
   branch: main
   hash: null                 # 不手抄 commit hash；需要时现读 `git rev-parse --short HEAD`
 handoff:
-  last_step_completed: "1.7.9 已发布（CSS 选择器合并导致的追加模式译文不可见、摘要面板无盒模型、隐藏标签页翻译死锁、焦点环缺失）"
+  last_step_completed: "1.7.10 已发布（术语整词匹配、非拉丁语言检测、不可识别语言策略、原子元素保留、AI 批量换序校正）"
   open_decisions: []
   next_skill: survey-context

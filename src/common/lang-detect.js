@@ -103,6 +103,16 @@ function detectByCharacterSet(text) {
         return 'jpn';
     } else if (/[\u0400-\u04FF]/.test(text)) { // 西里尔字母 (俄语等)
         return 'rus';
+    } else if (/[\u0600-\u06FF\u0750-\u077F]/.test(text)) { // 阿拉伯字母区（含波斯/乌尔都扩展区）
+        return 'ara';
+    } else if (/[\u0E00-\u0E7F]/.test(text)) { // 泰文区
+        return 'tha';
+    } else if (/[\u0590-\u05FF]/.test(text)) { // 希伯来文区
+        return 'heb';
+    } else if (/[\u0900-\u097F]/.test(text)) { // 天城文区（印地语等）
+        return 'hin';
+    } else if (/[\u0370-\u03FF]/.test(text)) { // 希腊字母区
+        return 'ell';
     } else if (/[ñ]/.test(text)) { // 西班牙语特有字符
         return 'spa';
     } else if (/[æœ]/.test(text)) { // 法语特有字符 (æ, œ 是高置信度标志)
@@ -115,9 +125,12 @@ function detectByCharacterSet(text) {
         return 'deu';
     } else if (/\bij\b/i.test(text)) { // 荷兰语特有双字母 (ij)
         return 'nld';
-    } else if (/^[\u4e00-\u9fa5\s\p{P}]+$/u.test(text)) { // 仅包含汉字、空格和标点
+    } else if (/^[\u4e00-\u9fa5\s\p{P}\p{S}]+$/u.test(text)) { // 仅包含汉字、空格、标点和符号
         return 'cmn';
-    } else if (/^[a-zA-Z0-9\s\p{P}]+$/u.test(text)) { // 仅包含基础拉丁字符、数字、空格和标点
+    } else if (/^[a-zA-Z0-9\s\p{P}\p{S}]+$/u.test(text)) {
+        // 仅包含基础拉丁字符、数字、空格、标点和符号。
+        // 漏掉 `\p{S}` 会让含 `$ + ~ < > |` 的正常英文（价格为 `$5`、副标题、代码片段里的运算符）
+        // 落到 `und` → 被当成「不支持的语言」跳过，实测副标题级漏翻 7.9–26.5%。
         return 'eng';
     }
     return 'und';

@@ -9,7 +9,7 @@ import { postProcess } from './translation-pipeline.js';
  */
 function isSplittableBatchError(error) {
     const message = String(error?.message || '');
-    return /length mismatch|must be a string|must be a JSON array|Invalid response structure|Unexpected token|JSON/i.test(message);
+    return /length mismatch|must be a string|must be a JSON array|Invalid response structure|Unexpected token|lost placeholder tags|JSON/i.test(message);
 }
 
 /**

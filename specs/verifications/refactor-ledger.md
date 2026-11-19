@@ -618,3 +618,34 @@ N7–N8 是「声明了依赖，但没有任何代码在用」。两者都不会
 - `npm test`：**490 pass / 0 fail**（61 个测试文件）。
 - 真 Chrome 计算值：`.foxlate-appended-text` 旧 CSS `visibility: hidden` → 新 CSS `visible`；`.foxlate-panel` 旧 `border: 0 none` / 无阴影 → 新 `1px` + `0 8px 24px -10px` + `12px`；四处焦点规则经 CSSOM 读取确认为 `2px solid var(--color-*)`。
 - 未覆盖：`@media (hover: hover)` 焦点环的真实键盘走查（窗口级焦点在无头会话里拿不到，以 CSSOM 声明为准）。
+
+## 批 15（1.7.10 翻译质量实测复查）
+
+19 个真实页面 / 6.8 MB 语料（CNN、Guardian、MDN、Chrome Docs、维基中英泰、半岛阿语、HN、Discourse、Steam、GitHub README、arxiv），全部跑真实源码管线。
+
+### K. 静默丢内容
+
+| # | 证据 | 问题 | 影响 | 状态 |
+|---|---|---|---|---|
+| K1 | `src/common/translation-glossary.js:31-36`（旧） | 术语匹配是裸子串正则 | 15 万字语料实测 `cat` 假匹配 **100%**（72/72）、`he` 99.6%、`AI` 96.6%；`cat=>猫` 产出 `classifi猫ions` | **FIXED**（拉丁术语整词匹配，非 ASCII 保持子串） |
+| K2 | 同上 | 术语作用于带 `<tN>` 的文本 | 单字母术语 `t` 把 `<t0>` 打成 `<X0>` → `Unknown translator tag ID` → 整段退化纯文本 | **FIXED**（同 K1 的边界断言顺带覆盖） |
+| K3 | `src/common/language-config.js:14-24`（旧）只有 11 种语言 | `SUPPORTED_LANG_CODES` 是 franc 白名单 | 阿语页 33 候选 → **0** 送翻；泰语维基 1225 → 82（6.1%） | **FIXED**（补 20 种映射 + 阿/泰/希伯来/天城文/希腊字母区兜底） |
+| K4 | `src/common/lang-detect.js:120`（旧） | 字符集兜底只允许 `\p{P}`，缺 `\p{S}` | 含 `$ + ~ < > \|` 的正常英文落进 `und` → 被跳过，副标题级漏翻 7.9–26.5% | **FIXED** |
+| K5 | `src/common/precheck.js:46`（旧） | `projectCode === null` 一律判「不翻译」 | 检测不出语言的文本被静默跳过（短文本、混排、罕见正字法） | **FIXED**（仅当页面 `lang` 等于目标语言时跳过） |
+| K6 | `src/content/dom-walker.js:12-14`（旧） | 原子元素（`img`/`video`/表单控件）无文本 → 被「空内容回滚」丢掉 | replace 模式实测维基信息框 `<td>` `img 1→0`、README `<li>` `code 3→0` | **FIXED**（`PRESERVABLE_ATOMIC_TAGS` 占位 + 重建复活） |
+| K7 | `src/background/translators/ai-translator.js:56-81`（旧） | 批量只校验条数 | 同数量换序被静默接受 → A 段译文写进 B 段元素；标签丢失退化成纯文本 | **FIXED**（标签签名锚定校正；丢失抛可重试错误） |
+| K8 | `src/background/translators/ai-translator.js:198`（旧） | 数组同时进 system prompt 与 user message | 请求体 **2.16×** 原文（费钱 + 首字延迟） | **FIXED** |
+
+### 未落地（已设计，需产品取舍）
+
+- **只在 `<div>` 里的正文永远漏抽**：Steam 主描述 1393 字（覆盖 0.308）、HN 全部评论（0.444）、Guardian 17 条摘要（0.822）。`constants.js` 首选选择器没有 `div`，而 `translatable-elements.js:233` 的兜底只在「首选命中 0 个」时启用。改成「覆盖率低于阈值即启用兜底」会同时抬高过抽风险（docs-chrome 一页 662 候选已是现状 P1），需要先定阈值与白/黑名单策略，故不在本批强行改。
+
+### 门禁
+
+- `test/translation-quality.test.mjs`（9 例）全部先在旧代码上验证变红。
+- `test/dom-walker.test.mjs` 新增原子元素重建用例（旧代码红）、`test/ai-translator.test.mjs` 新增换序/丢标签/请求体三例（旧代码红）。
+
+### 验证
+
+- `npm test`：**503 pass / 0 fail**（62 个测试文件）。
+- 未覆盖：真实 AI 供应商对「标签签名校正」的行为（离线 mock 验证逻辑，未实测线上模型）。

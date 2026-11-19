@@ -6,6 +6,7 @@ import { DisplayManager } from './display-manager.js';
 import { logContentError } from './content-logger.js';
 import { TranslationBatchQueue } from './translation-batch-queue.js';
 import { generateId as defaultGenerateId } from '../common/ids.js';
+import { getProjectCodeFromBcp47 } from '../common/language-config.js';
 
 export class ElementTranslationController {
     constructor({
@@ -36,14 +37,19 @@ export class ElementTranslationController {
         const domWalkerResult = this.domWalker.create(element, effectiveSettings.translationSelector);
         if (!domWalkerResult) return;
 
+        const currentPageJob = this.getCurrentPageJob();
         const { sourceText, plainText, translationUnit } = domWalkerResult;
-        const { result: shouldTranslateResult } = shouldTranslate(plainText, effectiveSettings);
+        const { result: shouldTranslateResult } = shouldTranslate(
+            plainText,
+            effectiveSettings,
+            false,
+            { pageLanguage: currentPageJob?.pageLanguage ?? null }
+        );
         if (!shouldTranslateResult) {
-            this.getCurrentPageJob()?.recordPrecheckSkipped?.();
+            currentPageJob?.recordPrecheckSkipped?.();
             return;
         }
 
-        const currentPageJob = this.getCurrentPageJob();
         if (currentPageJob) {
             this.#ensureJobIsTranslating(currentPageJob);
             currentPageJob.recordTranslationStarted();

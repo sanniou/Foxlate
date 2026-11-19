@@ -129,3 +129,26 @@ test('追加类型由计算样式决定：display 非 inline 即为块级', asyn
     const promoted = await walk('<span id="t" style="display:inline"><div>Hello</div></span>');
     assert.equal(promoted.result.translationUnit.appendType, 'block');
 });
+
+test('图片等原子元素在重建后原位复活，不被文本替换吃掉', async () => {
+    // replace 模式的真实事故：维基信息框 `<td>` 里 `img 1→0`、GitHub README `<li>` 里
+    // `code 3→0`——因为原子元素没有文本，`#collectPreservableElement` 的"空内容回滚"
+    // 逻辑把它们当成空标签丢掉了。
+    const { DOMWalker } = await modules();
+    const { reconstructDOM } = await bundleModule(reexportSource('src/content/dom-reconstructor.js', ['reconstructDOM']));
+    const dom = installDomEnvironment('<p id="t">before <img src="a.png" alt="x"> after</p>');
+    const target = dom.window.document.querySelector('#t');
+
+    const { sourceText, translationUnit } = DOMWalker.create(target);
+    assert.match(sourceText, /<t0><\/t0>/, '图片必须留下一个原子标签占位');
+
+    // 译文里标签顺序照原样保留（这里模拟翻译引擎原样回传标签）。
+    const translated = sourceText.replace('before', '之前').replace('after', '之后');
+    const fragment = reconstructDOM(translated, translationUnit.nodeMap);
+    const container = dom.window.document.createElement('p');
+    container.appendChild(fragment);
+
+    assert.equal(container.querySelectorAll('img').length, 1, '图片必须被重建回来');
+    assert.equal(container.querySelector('img').getAttribute('src'), 'a.png');
+    assert.match(container.textContent, /之前/);
+});

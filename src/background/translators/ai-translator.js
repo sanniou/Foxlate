@@ -8,13 +8,25 @@ export class AITranslator extends BaseTranslator {
     super('AI');
   }
 
-  #createSystemPrompt(text, targetLang, sourceLang, aiConfig) {
+  /**
+   * @param {string|Array} text 待翻译文本（或批量模式下的文本数组）
+   * @param {string} targetLang
+   * @param {string} sourceLang
+   * @param {object} aiConfig
+   * @param {object} [options]
+   * @param {string} [options.payloadOverride] 覆盖 `{textToTranslate}` 的取值。
+   *   批量模式用它避免把整个数组同时塞进 system prompt 和 user message ——
+   *   实测请求体因此变成原文的 2.16 倍，既费钱也拖慢首字延迟。
+   */
+  #createSystemPrompt(text, targetLang, sourceLang, aiConfig, { payloadOverride } = {}) {
     const { customPrompt: customPromptTemplate, context } = aiConfig;
     const placeholderMap = {
       '{targetLang}': targetLang,
       '{sourceLang}': sourceLang,
       '{context}': context ? (typeof context === 'string' ? context : formatContextString(context)) : '',
-      '{textToTranslate}': Array.isArray(text) ? JSON.stringify(text) : text
+      '{textToTranslate}': payloadOverride !== undefined
+        ? payloadOverride
+        : (Array.isArray(text) ? JSON.stringify(text) : text)
     };
 
     let systemPrompt = customPromptTemplate;
@@ -46,7 +58,79 @@ export class AITranslator extends BaseTranslator {
     }
   }
 
-  #parseBatchResponse(rawText, expectedCount) {
+  /**
+   * 取出文本里所有 `<tN>` 形式占位标签，按出现顺序。
+   * @param {string} value
+   * @returns {string[]}
+   */
+  static #tagSignature(value) {
+    return String(value).match(/<\/?\s*t\d+\s*>/g)?.map(tag => tag.replace(/\s+/g, '')) ?? [];
+  }
+
+  /**
+   * 校验翻译回来的条目和输入条目的占位标签是否一一对应。
+   *
+   * 只校验条数是不够的：模型把同样条数的结果**换了顺序**时，长度检查完全通过，
+   * 于是 A 段译文被写进 B 段元素——用户看到的是错位的中文，而界面一切正常。
+   * 带内联标签的段落（链接、粗体、行内代码）能靠标签签名发现错位；
+   * 如果签名唯一对应，就直接把顺序修正回来，不必浪费一次重试。
+   *
+   * @param {string[]} sources 送翻的原文
+   * @param {string[]} results 模型返回的译文
+   * @returns {string[]} 顺序已被校正的译文
+   */
+  static #alignByTagSignature(sources, results) {
+    const sourceSignatures = sources.map(source => AITranslator.#tagSignature(source));
+    const resultSignatures = results.map(result => AITranslator.#tagSignature(result));
+    const key = signature => signature.join('');
+
+    if (sourceSignatures.every(signature => signature.length === 0)) {
+      return results; // 全是纯文本，没有任何可校验的锚点
+    }
+
+    // 只把"标签签名在源里唯一"的条目当作锚点：重复签名无法区分是谁的译文。
+    const sourceKeyCounts = new Map();
+    for (const signature of sourceSignatures) {
+      if (signature.length === 0) continue;
+      const k = key(signature);
+      sourceKeyCounts.set(k, (sourceKeyCounts.get(k) ?? 0) + 1);
+    }
+
+    const aligned = new Array(sources.length).fill(undefined);
+    const usedResults = new Set();
+
+    for (let index = 0; index < results.length; index += 1) {
+      const k = key(resultSignatures[index]);
+      if (!k || sourceKeyCounts.get(k) !== 1) continue;
+      const sourceIndex = sourceSignatures.findIndex(signature => key(signature) === k);
+      if (sourceIndex >= 0 && aligned[sourceIndex] === undefined) {
+        aligned[sourceIndex] = results[index];
+        usedResults.add(index);
+      }
+    }
+
+    // 源条目带标签却没被任何返回项锚定 → 模型把占位标签弄丢了。
+    // 这类错误交给上层"拆小批重试"，绝不静默退化成纯文本（那会一并丢掉内联链接/粗体）。
+    const lostTags = sources.filter((_, index) => (
+      sourceSignatures[index].length > 0 && aligned[index] === undefined
+    )).length;
+    if (lostTags > 0) {
+      throw new Error(`AI batch response lost placeholder tags on ${lostTags} item(s).`);
+    }
+
+    // 纯文本条目之间无法校验顺序，按剩余的返回顺序填充。
+    let cursor = 0;
+    for (let index = 0; index < sources.length; index += 1) {
+      if (aligned[index] !== undefined) continue;
+      while (usedResults.has(cursor)) cursor += 1;
+      aligned[index] = results[cursor];
+      usedResults.add(cursor);
+    }
+
+    return aligned;
+  }
+
+  #parseBatchResponse(rawText, expectedCount, sources = []) {
     let jsonText = rawText.trim();
     const fencedMatch = jsonText.match(/^```(?:json)?\s*([\s\S]*?)```$/);
     if (fencedMatch) {
@@ -60,12 +144,16 @@ export class AITranslator extends BaseTranslator {
     if (parsed.length !== expectedCount) {
       throw new Error(`AI batch response length mismatch: expected ${expectedCount}, got ${parsed.length}.`);
     }
-    return parsed.map((item, index) => {
+    const results = parsed.map((item, index) => {
       if (typeof item !== 'string') {
         throw new Error(`AI batch response item ${index} must be a string.`);
       }
       return item;
     });
+
+    return sources.length === results.length && sources.length > 0
+      ? AITranslator.#alignByTagSignature(sources, results)
+      : results;
   }
 
   /**
@@ -191,7 +279,9 @@ export class AITranslator extends BaseTranslator {
     log.push(browser.i18n.getMessage('logEntryApiRequest', this.name));
     log.push(`[API URL] ${apiUrl}`);
 
-    const baseSystemPrompt = this.#createSystemPrompt(texts, targetLang, sourceLang, aiConfig);
+    const baseSystemPrompt = this.#createSystemPrompt(texts, targetLang, sourceLang, aiConfig, {
+      payloadOverride: '(the JSON array of text segments in the user message)',
+    });
     const systemPrompt = `${baseSystemPrompt}
 
 You are translating a JSON array of independent text segments. Return only a valid JSON array of strings.
@@ -232,7 +322,7 @@ Rules:
 
       if (data.choices && data.choices.length > 0 && data.choices[0].message) {
         const translatedText = data.choices[0].message.content.trim();
-        return { texts: this.#parseBatchResponse(translatedText, texts.length), log };
+        return { texts: this.#parseBatchResponse(translatedText, texts.length, texts), log };
       }
       throw new Error('Invalid response structure from AI API');
     } catch (error) {
