@@ -52,6 +52,7 @@ export function createTabHandlers({
             }
             const injected = await ensureSummaryInjected(tabId, {
                 hostname: request.payload?.hostname,
+                enabled: request.payload?.enabled,
             });
             return { success: true, injected };
         },
@@ -116,13 +117,23 @@ export function createTabHandlers({
         },
 
         async [MESSAGE_TYPES.TRANSLATION_STATUS_UPDATE](request, sender) {
-            const { status, tabId, emptyCandidates = false } = request.payload || {};
+            const {
+                status,
+                tabId,
+                emptyCandidates = false,
+                failedCount = 0,
+                completedCount = 0,
+            } = request.payload || {};
             if (!tabId) {
                 logError('TRANSLATION_STATUS_UPDATE', new Error('Missing tabId in status update payload.'));
                 return { success: true };
             }
 
-            await setBadgeAndState(tabId, status, { emptyCandidates: Boolean(emptyCandidates) });
+            await setBadgeAndState(tabId, status, {
+                emptyCandidates: Boolean(emptyCandidates),
+                failedCount: Number(failedCount) || 0,
+                completedCount: Number(completedCount) || 0,
+            });
             if (sender.tab?.url) {
                 try {
                     const hostname = new URL(sender.tab.url).hostname;

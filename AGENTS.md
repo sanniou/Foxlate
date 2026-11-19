@@ -92,5 +92,5 @@ Stack: JavaScript (ESM) · plain DOM (no UI framework) · esbuild · WebExtensio
 
 - Live design system is cyan/glass `--fox-*`（1.6.0 起）——取值在 `src/common/tokens.css`，语义别名在 `src/common/common.css`
 - Chrome build target exists; store listing still "coming soon"
-- Tests: `npm test` → 445 pass（52 个测试文件）
+- Tests: `npm test` → 461 pass（55 个测试文件）
 <!-- END bigpowers:learned-preferences -->

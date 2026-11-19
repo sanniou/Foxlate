@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.7.7] - 2026-10-23
+
+### 🎨 Accessibility
+*   **Contrast:** `--fox-color-text-muted` and the primary/error/warning text pairs failed WCAG AA wherever they carried real text — 51 failures on the options page alone (`10px` labels at **3.08:1**, the primary CTA's white-on-cyan at **3.68:1**). Tokens moved to text `#8b95a4` (dark mode recalibrated separately), primary-hover `#0e7490` and error `#b81d3f`; the app now measures **0 failures** on both popup and options, and `design-contrast.test.mjs` keeps it that way by resolving the real CSS variables.
+*   **Host-page leakage:** the summary dialog inherited the *host page's* font and text colour, and every `foxlate-` button kept Chrome's `2px outset` chrome (black 3D frames around the floating summary button and the dialog tabs). A new `content/control-reset.css` gives all injected controls a baseline whose specificity can never override a component's own declaration.
+
+### 🌍 Localization
+*   **Screen-reader labels were English** while the UI was Chinese (`Copy`, `Retry`, `Copy Error`, `Suggest`, `Send`). All five now go through `browser.i18n`, and a test walks the bundled dialog markup to prove no hardcoded English aria-label survives.
+
+### 🐛 Reliability
+*   **Background tabs hung forever:** opening a link in a background tab and translating froze at `loading`, because IntersectionObserver delivers nothing in a hidden document and the initial scan waits for visibility. The scan now advances on `requestIdleCallback` when visible and a short timeout when hidden; the mutation queue got the same treatment.
+*   **The badge lied:** when every paragraph failed (bad key, rate limit, offline) it still showed `✓`. It now shows `!` in the error colour, and the popup says how many paragraphs failed and what to check.
+
+### ♻️ Quality
+*   **E2E harness** (`scripts/e2e/`): a dependency-free fixture server plus a documented agent-browser recipe, used to find the two runtime bugs above. Scratch state lives in `.tmp/` (git-ignored).
+*   **Regression coverage:** 461 tests.
+
 ## [1.7.6] - 2026-10-22
 
 ### ⚡️ Performance

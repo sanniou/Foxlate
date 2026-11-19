@@ -12,3 +12,6 @@ CLAUDE.md
 
 # Agent runtime state
 .pi/
+
+# E2E scratch
+/.tmp/

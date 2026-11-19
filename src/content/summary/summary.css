@@ -120,6 +120,17 @@
 }
 
 
+/* 面板根节点的字体与文字色必须来自设计系统。
+   曾经没有这条规则：面板从宿主页面继承 `font-family` 与 `color`，于是衬线博客里
+   面板是衬线，正文 10px 的小站里面板又会被挤小；深色站点把 `body` 文字设成白色时，
+   浅色玻璃面板上会出现白字（实测在摘要弹窗上取到 `system-ui` + 16px 继承值）。
+   只约束「框」（面板、按钮、提示），翻译后的正文仍应跟随页面排版。 */
+.foxlate-summary-dialog {
+    color: var(--fox-color-text);
+    font-family: var(--fox-font-sans);
+    line-height: 1.55;
+}
+
 .foxlate-summary-dialog.visible {
     visibility: visible;
     opacity: 1;

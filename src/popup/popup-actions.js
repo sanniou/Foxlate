@@ -98,6 +98,13 @@ export class PopupActions {
                     this.browser.i18n.getMessage('popupEmptyCandidates')
                     || 'No translatable text found on this page. Adjust content selectors in Options if needed.',
                 );
+            } else if (response.state === 'translated' && response.failedCount > 0 && !response.completedCount) {
+                // 全部失败：徽标已经变成「!」，这里必须说清「为什么」以及「怎么办」，
+                // 否则用户只看到满页红色下划线，会以为是页面本身出了问题。
+                this.renderer.renderError(
+                    (this.browser.i18n.getMessage('popupTranslationFailed') || 'Every translation failed ({count}). Check the engine configuration.')
+                        .replace('{count}', String(response.failedCount)),
+                );
             } else if (response.state === 'translated' && response.allPrecheckSkipped) {
                 this.renderer.renderError(
                     this.browser.i18n.getMessage('popupAllPrecheckSkipped')

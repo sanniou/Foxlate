@@ -52,6 +52,9 @@ export class PageTranslationJob {
         this.mutationQueue = new Set();
         this.idleCallbackId = null;
         this.initialScanIdleCallbackId = null;
+        // 隐藏文档不能用 requestIdleCallback 推进（见 #isDocumentHidden）
+        this.initialScanTimeoutId = null;
+        this.translationTimeoutIds = new Set();
         this.initialScanQueue = [];
         this.initialScanInProgress = false;
         this.initialScanObservedCount = 0;
@@ -210,6 +213,10 @@ export class PageTranslationJob {
                     tabId: this.tabId,
                     emptyCandidates: Boolean(snap.emptyCandidates),
                     allPrecheckSkipped: Boolean(snap.allPrecheckSkipped),
+                    // 失败计数必须跟着完成状态回到后台：全部失败时页面只剩一片红色下划线，
+                    // 徽标却打勾，等于告诉用户「翻译好了」。
+                    failedCount: snap.failed,
+                    completedCount: snap.completed,
                 },
             }).catch(e => this.logError('checkCompletion (sending completed status)', e));
         }
@@ -259,6 +266,10 @@ export class PageTranslationJob {
             cancelIdleCallback(this.initialScanIdleCallbackId);
             this.initialScanIdleCallbackId = null;
         }
+        if (this.initialScanTimeoutId) {
+            clearTimeout(this.initialScanTimeoutId);
+            this.initialScanTimeoutId = null;
+        }
         this.initialScanQueue = [];
         this.initialScanInProgress = false;
         this.#stopScrollObserver();
@@ -266,6 +277,10 @@ export class PageTranslationJob {
             cancelIdleCallback(callbackId);
         }
         this.translationIdleCallbackIds.clear();
+        for (const timeoutId of this.translationTimeoutIds) {
+            clearTimeout(timeoutId);
+        }
+        this.translationTimeoutIds.clear();
         this.observedElements.clear();
         this.intersectionObserver = null;
         this.mutationObserver = null;
@@ -297,6 +312,19 @@ export class PageTranslationJob {
         return this.settings?.translateAfterScrollIdle !== false;
     }
 
+    /**
+     * 文档是否不可见（后台标签页 / 最小化窗口 / 未渲染的预览）。
+     *
+     * 隐藏文档里没有布局也没有绘制：IntersectionObserver 永远不会回调 `isIntersecting`，
+     * `requestIdleCallback` 会被节流到秒级甚至挂起。凡是「等视口/等空闲」的调度在这个
+     * 状态下都会无限期延迟，而用户点的是一次真实动作，页面必须照常推进。
+     *
+     * @returns {boolean} 文档不可见时为 true
+     */
+    #isDocumentHidden() {
+        return globalThis.document?.hidden === true;
+    }
+
     #getScrollIdleDelay() {
         const delay = Number(this.settings?.scrollIdleDelayMs);
         return Number.isFinite(delay) && delay >= 0 ? delay : 300;
@@ -324,6 +352,15 @@ export class PageTranslationJob {
     }
 
     #requestTranslationIdleCallback(callback, timeout = 1000) {
+        if (this.#isDocumentHidden()) {
+            const timeoutId = setTimeout(() => {
+                this.translationTimeoutIds.delete(timeoutId);
+                callback();
+            }, 0);
+            this.translationTimeoutIds.add(timeoutId);
+            return;
+        }
+
         let callbackId = null;
         let callbackRanSynchronously = false;
 
@@ -364,7 +401,16 @@ export class PageTranslationJob {
     }
 
     #scheduleInitialScan() {
-        if (this.initialScanIdleCallbackId !== null) return;
+        if (this.initialScanIdleCallbackId !== null || this.initialScanTimeoutId !== null) return;
+
+        if (this.#isDocumentHidden()) {
+            // 隐藏文档的 rIC 可能永远等不到空闲窗口，首次扫描会一直不开始。
+            this.initialScanTimeoutId = setTimeout(() => {
+                this.initialScanTimeoutId = null;
+                this.#processInitialScan({ didTimeout: true, timeRemaining: () => 0 });
+            }, 0);
+            return;
+        }
 
         let callbackId = null;
         let callbackRanSynchronously = false;
@@ -429,7 +475,12 @@ export class PageTranslationJob {
                 this.state = 'translating';
             }
             // If intersections already precheck-skipped every visible node, finish the job.
-            if (this.observedElements.size === 0) {
+            //
+            // 隐藏文档例外：那里根本不用观察者，元素是排队等定时器翻译的，
+            // `observedElements` 从始至终为空。此时调用 checkCompletion 会看到
+            // 「没有在途翻译」而立刻宣布 translated —— 用户在译文还没写进页面时
+            // 就先看到「翻译完成」。收尾交给真正译完时的那条 checkCompletion。
+            if (this.observedElements.size === 0 && !this.#isDocumentHidden()) {
                 this.checkCompletion();
             }
             return;
@@ -516,6 +567,20 @@ export class PageTranslationJob {
 
     #observeElements(elements) {
         if (!this.intersectionObserver) return 0;
+
+        // 隐藏文档：没有视口信息可用，可见性启发式退化为「全部当作可见」。
+        // 不这么做的后果是元素永远进不了翻译队列（IO 不回调），而 observedElements
+        // 非空又挡住 checkCompletion —— 用户看到的就是「点了翻译，一直转圈」。
+        if (this.#isDocumentHidden()) {
+            const pending = elements.filter(element => (
+                !element.dataset.translationId && !this.observedElements.has(element)
+            ));
+            if (pending.length > 0) {
+                this.#queueOrTranslateIntersectingElements(pending);
+            }
+            return pending.length;
+        }
+
         let observedCount = 0;
         for (const element of elements) {
             if (element.dataset.translationId || this.observedElements.has(element)) {

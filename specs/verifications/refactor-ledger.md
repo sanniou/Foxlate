@@ -525,3 +525,47 @@ N7–N8 是「声明了依赖，但没有任何代码在用」。两者都不会
 
 - `npm test`：**445 pass / 0 fail**（52 个测试文件；本批起点 434）。
 - `npm run build:firefox`、`npm run build:chrome`：均成功。
+
+---
+
+## 批 14 · 1.7.7：真浏览器自测（UI 可测性 + 运行时挂死 + 徽标诚实）
+
+### 方法（这轮与前三轮不同）
+
+前三轮是「读代码找缺陷」。这轮先建可复现的真浏览器回路，再让浏览器自己报问题：
+
+1. `scripts/e2e/mock-server.mjs` —— 零依赖 fixture 服务：`/`（标题/列表/引用/表格/代码/表单/长文）、`/long?paras=N`、DeepLX mock、OpenAI 兼容 `/v1/chat/completions`（支持 `mode=fail|garbage|short`）。**这些 bug 模式正是它跑出来的。**
+2. `chrome --load-extension=dist` + agent-browser 驱动真实扩展页面（popup/options 是普通 HTML，可直接打开度量）。
+3. 度量脚本不看截图、只取 `getComputedStyle` 与几何，得到可复现的数字而不是「看起来还行」。
+
+### UI 找到的问题（都有度量）
+
+- **对比度：options 页 51 处、popup 12 处低于 WCAG AA。** 根因是 `--fox-color-text-muted: #8794a6`（白底 **3.08:1**）被用来承载 10–11px 的真正文字（分区标题、说明、缓存/历史元信息），加上主色 `#0891b2` 上的白字 **3.68:1**（主 CTA「翻译此页」就是它）。改 token 后实测 **options 51 → 0，popup 12 → 0**（154 / 40 个可见文本节点）。
+- **宿主页面样式漏进来自家 UI。** 摘要对话框字体是宿主页面的 `system-ui` 而不是 `--fox-font-sans`、文字颜色不是 `--fox-color-text`（面板背景是自家的白/深色，颜色却继承宿主）。修法：面板容器自己声明字体与颜色。
+- **所有注入按钮都带着 Chrome 的 UA 方框。** 摘要悬浮按钮与摘要面板的标签页外面是 `2px outset` 黑色立体框 + Arial。修法：新增 `content/control-reset.css`，用 `:where(button)[class*=" foxlate"]`（特异性 0,1,0）给基线：压得住宿主页面的 `button {}`(0,0,1)，压不住组件自己的 `.foxlate-x {}`(0,1,0)，于是只补缺口、不覆盖设计。
+- **读屏标签是英文、界面是中文。** `Copy / Retry / Copy Error / Suggest / Send` 五个 aria-label 写死在 `summary.view.js` 与 `summary-suggestions-view.js`（且 `getMessage('copy')` 这类裸 key 根本不存在）。改为走 i18n，并用测试遍历打包后的对话框标记证明没有英文 aria-label 残留。
+
+### 运行时找到的问题
+
+- **后台标签页里翻译永久挂死（P1）。** `chrome.tabs.create({active:false})` 打开链接再翻译 → 状态永远 `loading`。根因：IntersectionObserver 在隐藏文档里不产生回调，而初次扫描只在元素 intersect 时才入队 → `checkCompletion` 永不收敛。修法：扫描在可见时走 `requestIdleCallback`、隐藏时走短超时；mutation 队列同样处理。这条**只能**靠真浏览器发现，代码读起来完全合理。
+- **徽标撒谎。** 每一段都失败（密钥错/限流/断网）时徽标仍是 `✓`，页面只有满屏红下划线。现在返回 `failedCount/completedCount`，全失败时徽标 `!` + 错误色，popup 用一句话说明失败段数与要检查什么。
+
+### 门禁
+
+- `test/design-contrast.test.mjs`：**解析真实 CSS 变量**算对比度，对 popup/options 的语义色对强制 AA（含深色模式）。比的是取值而不是字面量，token 改了门禁自动跟着改。
+- `test/injection-css.test.mjs`：`control-reset.css` 必须同时在 `CSS_FILES` 与 `SUMMARY_CSS_FILES` 里，且排在 `tokens.css` 之后。
+- `test/content-ui-i18n.test.mjs`：打包摘要对话框标记，断言 aria-label 全部来自 locale 表。
+- `test/page-translation-job.test.mjs`：新增隐藏文档下的扫描推进用例（旧的 rIC 行为下变红）。
+- `test/badge-state.test.mjs`：全失败 → `!` + `failed` 色；部分失败 → 仍是 `✓`。
+
+### 验证
+
+- `npm test`：**461 pass / 0 fail**（55 个测试文件；本批起点 445）。
+- `npm run build:firefox`、`npm run build:chrome`：均成功。
+- 浏览器度量：对比度 0 失败；摘要对话框 `font-family: ui-sans-serif`、`color: var(--fox-color-text)`；`aria-label` 全中文（重新生成摘要/复制/重试/复制错误信息/建议/发送追问）。
+
+### 说明（诚实记录）
+
+- 后续几项修复的**浏览器级**复验被扩展重载摩擦挡住（`chrome.runtime.reload()` 后 `--load-extension` 指向的目录被替换，扩展变 `ERR_BLOCKED_BY_CLIENT`）。这几项以单元级证据为准：先在旧代码上用同一组用例确认变红，再在新代码上转绿。
+- 未覆盖：输入翻译的真浏览器路径（IME）、字幕站点（需要 YouTube/B 站真实页面）、AI 摘要的流式渲染。属下一轮。
+

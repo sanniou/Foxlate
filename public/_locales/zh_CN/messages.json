@@ -349,6 +349,10 @@
     "message": "未找到可翻译文本。可在选项中调整内容选择器。",
     "description": "整页翻译结束但未提取到候选节点时的提示。"
   },
+  "popupTranslationFailed": {
+    "message": "每一段都翻译失败了（{count} 段）。请检查翻译引擎的地址与密钥，或稍后重试。",
+    "description": "全部翻译失败时的提示；{count} 是失败段数"
+  },
   "popupAllPrecheckSkipped": {
     "message": "找到了文本，但内置过滤全部跳过（已是目标语言、URL、代码等）。",
     "description": "页面有节点但预检全部跳过时的提示。"
@@ -1126,5 +1130,45 @@
   "summaryErrorTooLong": {
     "message": "页面内容过长，无法一次摘要：$1 字符（上限 $2）。请选中需要摘要的那段内容再试。",
     "description": "Summary rejected because extracted content exceeds the input limit. Placeholders: [actualLength, limit]"
+  },
+  "summaryRefreshButton": {
+    "message": "重新生成摘要",
+    "description": "摘要弹窗中刷新按钮的无障碍标签。"
+  },
+  "summarySendButton": {
+    "message": "发送追问",
+    "description": "摘要弹窗中发送按钮的无障碍标签。"
+  },
+  "summaryCopyMessage": {
+    "message": "复制",
+    "description": "摘要消息上复制按钮的无障碍标签。"
+  },
+  "summaryRetryMessage": {
+    "message": "重试",
+    "description": "失败摘要消息上重试按钮的无障碍标签。"
+  },
+  "summaryCopyError": {
+    "message": "复制错误信息",
+    "description": "错误摘要消息上复制按钮的无障碍标签。"
+  },
+  "summaryRerollMessage": {
+    "message": "重新生成回答",
+    "description": "摘要回答上重新生成按钮的无障碍标签。"
+  },
+  "summaryEditMessage": {
+    "message": "编辑消息",
+    "description": "摘要消息上编辑按钮的无障碍标签。"
+  },
+  "summarySaveEdit": {
+    "message": "保存编辑",
+    "description": "编辑摘要消息时保存按钮的无障碍标签。"
+  },
+  "summaryCancelEdit": {
+    "message": "取消编辑",
+    "description": "编辑摘要消息时取消按钮的无障碍标签。"
+  },
+  "summaryEditSuggestion": {
+    "message": "编辑该建议",
+    "description": "追问建议上编辑按钮的无障碍标签。"
   }
 }

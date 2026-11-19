@@ -276,7 +276,7 @@ test('徽标颜色必须是 tokens.css 的品牌原语，不得另起一套', as
     const tokens = await readCss('src/common/tokens.css');
     const badgeSource = await readFile(path.join(projectRoot, 'src/background/badge-state.js'), 'utf8');
 
-    const tokenPalette = ['primary', 'success', 'warning'].map((name) => {
+    const tokenPalette = ['primary', 'success', 'warning', 'error'].map((name) => {
         const value = tokens.match(new RegExp(`--fox-color-${name}:\\s*(#[0-9a-fA-F]{6})`))?.[1];
         assert.ok(value, `tokens.css 缺少 --fox-color-${name}`);
         return value.toLowerCase();
@@ -290,7 +290,7 @@ test('徽标颜色必须是 tokens.css 的品牌原语，不得另起一套', as
         .sort();
 
     assert.deepEqual(badgePalette, [...tokenPalette].sort(),
-        '徽标配色与 --fox-color-primary/success/warning 不一致，两边已漂移');
+        '徽标配色与 --fox-color-primary/success/warning/error 不一致，两边已漂移');
 });
 
 // ---------------------------------------------------------------- 设计元素

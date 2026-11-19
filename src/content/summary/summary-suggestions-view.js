@@ -92,7 +92,9 @@ export class SummarySuggestionsView {
             const editButton = document.createElement('button');
             editButton.className = 'edit-suggestion-button';
             editButton.dataset.suggestion = suggestion;
-            editButton.setAttribute('aria-label', 'Edit suggestion');
+            // 建议条上只有图标，无障碍名称必须本地化：曾经硬编码 'Edit suggestion'，
+            // 中文界面对屏幕阅读器播英文。
+            editButton.setAttribute('aria-label', browser.i18n.getMessage('summaryEditSuggestion') || 'Edit suggestion');
             editButton.innerHTML = this.getIcon('edit');
 
             suggestionEl.appendChild(textSpan);

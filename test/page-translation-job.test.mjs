@@ -54,6 +54,10 @@ function setupDom(html) {
 
     globalThis.window = window;
     globalThis.document = window.document;
+    // jsdom 默认报告 hidden: true（它没有渲染循环）。被测的是「可见标签页」的
+    // 正常路径，所以显式声明可见；隐藏文档的行为由专门用例翻转这个字段。
+    Object.defineProperty(window.document, 'hidden', { value: false, configurable: true });
+    Object.defineProperty(window.document, 'visibilityState', { value: 'visible', configurable: true });
     globalThis.Node = window.Node;
     globalThis.NodeFilter = window.NodeFilter;
     globalThis.HTMLElement = window.HTMLElement;
@@ -509,4 +513,125 @@ test('PageTranslationJob revert stops observers, reverts registry, and unwraps l
         'STOP_TRANSLATION',
         'TRANSLATION_STATUS_UPDATE',
     ]);
+});
+
+/**
+ * 后台标签页 / 最小化窗口里没有布局与绘制：
+ *  - IntersectionObserver 永远不会回调 `isIntersecting`；
+ *  - requestIdleCallback 会被节流到秒级甚至挂起。
+ *
+ * 依赖这两者推进的翻译会一直停在 loading：元素进不了队列，observedElements 又
+ * 非空挡住 checkCompletion。用户看到的就是「点了翻译没反应」。下面两条钉住退化行为。
+ */
+/** 轮询等待而不是死等一个固定时长：隐藏文档路径由两个 setTimeout(0) 依次推进。 */
+async function waitUntil(predicate, timeoutMs = 1000) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        if (predicate()) return true;
+        await new Promise(resolve => setTimeout(resolve, 5));
+    }
+    return predicate();
+}
+
+function markDocumentHidden(dom, hidden = true) {
+    Object.defineProperty(dom.window.document, 'hidden', { value: hidden, configurable: true });
+    Object.defineProperty(dom.window.document, 'visibilityState', {
+        value: hidden ? 'hidden' : 'visible',
+        configurable: true,
+    });
+}
+
+test('隐藏文档不等 IntersectionObserver，元素直接进入翻译队列', async () => {
+    const dom = setupDom('<p id="target">Hello</p>');
+    const observers = installObserverMocks();
+    markDocumentHidden(dom);
+    const browserMock = createBrowserMock();
+    globalThis.__foxlateBrowserMock = browserMock;
+    const { PageTranslationJob } = await loadPageTranslationJob();
+    const target = dom.window.document.querySelector('#target');
+    const translated = [];
+
+    const job = new PageTranslationJob(3, createSettings(), {
+        browserApi: browserMock,
+        findAllSearchRootsFn: () => [document.body],
+        findTranslatableElementsFn: () => [target],
+        logError() {},
+        translateElement(element, settings) {
+            translated.push({ element, settings });
+        },
+    });
+
+    await job.start();
+    // 隐藏文档走定时器而非 rIC，等它落地。
+    await waitUntil(() => translated.length > 0);
+
+    assert.deepEqual(translated.map(item => item.element), [target], '隐藏文档必须直接翻译，不等视口回调');
+    assert.deepEqual(observers.intersectionInstances[0]?.observed ?? [], [], '隐藏文档不需要观察视口');
+    assert.notEqual(job.state, 'loading', '隐藏文档不能卡在 loading');
+});
+
+test('隐藏文档的首次扫描用定时器推进（rIC 可能永不触发）', async () => {
+    const dom = setupDom('<p id="target">Hello</p>');
+    const observers = installObserverMocks();
+    markDocumentHidden(dom);
+    let idleCallbackCalls = 0;
+    const originalIdle = globalThis.requestIdleCallback;
+    globalThis.requestIdleCallback = callback => {
+        idleCallbackCalls += 1;
+        return originalIdle(callback);
+    };
+
+    try {
+        const browserMock = createBrowserMock();
+        globalThis.__foxlateBrowserMock = browserMock;
+        const { PageTranslationJob } = await loadPageTranslationJob();
+        const target = dom.window.document.querySelector('#target');
+
+        let translationRan = 0;
+        const job = new PageTranslationJob(4, createSettings(), {
+            browserApi: browserMock,
+            findAllSearchRootsFn: () => [document.body],
+            findTranslatableElementsFn: () => [target],
+            logError() {},
+            translateElement() { translationRan += 1; },
+        });
+
+        await job.start();
+        await waitUntil(() => translationRan > 0);
+
+        assert.equal(idleCallbackCalls, 0, '隐藏文档的首次扫描不应依赖 requestIdleCallback');
+        assert.ok(observers.mutationInstances.length >= 1, '监听仍然要挂上，可见后再处理动态内容');
+    } finally {
+        globalThis.requestIdleCallback = originalIdle;
+    }
+});
+
+test('隐藏文档不会在译文落地前就宣布翻译完成', async () => {
+    const dom = setupDom('<p id="target">Hello</p>');
+    installObserverMocks();
+    markDocumentHidden(dom);
+    const browserMock = createBrowserMock();
+    globalThis.__foxlateBrowserMock = browserMock;
+    const { PageTranslationJob } = await loadPageTranslationJob();
+    const target = dom.window.document.querySelector('#target');
+    const started = [];
+
+    const job = new PageTranslationJob(5, createSettings(), {
+        browserApi: browserMock,
+        findAllSearchRootsFn: () => [document.body],
+        findTranslatableElementsFn: () => [target],
+        logError() {},
+        // 永不回调完成：模拟慢请求。此时状态必须还是 translating。
+        translateElement(element) { started.push(element); },
+    });
+
+    await job.start();
+    await waitUntil(() => started.length > 0);
+
+    assert.equal(started.length, 1);
+    assert.notEqual(job.state, 'translated', '译文还没写入，不能先报完成');
+    assert.ok(
+        !browserMock.messages.some(message => message.payload?.status === 'translated'),
+        '不能向后台广播「已完成」',
+    );
 });

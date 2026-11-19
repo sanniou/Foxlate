@@ -467,6 +467,10 @@
     "message": "No translatable text found. Try different content selectors in Options.",
     "description": "Shown when page translation finishes with zero extractable candidates."
   },
+  "popupTranslationFailed": {
+    "message": "Every paragraph failed to translate ({count} in total). Check the engine URL and key, then try again.",
+    "description": "Shown when every translation failed; {count} is the number of failures"
+  },
   "popupAllPrecheckSkipped": {
     "message": "Found text, but filters skipped all of it (same language, URLs, code…).",
     "description": "Shown when page nodes existed but every candidate failed built-in precheck."
@@ -1125,5 +1129,45 @@
   "summaryErrorTooLong": {
     "message": "This page is too long to summarize in one go: $1 characters (limit $2). Select the part you want summarized instead.",
     "description": "Summary rejected because extracted content exceeds the input limit. Placeholders: [actualLength, limit]"
+  },
+  "summaryRefreshButton": {
+    "message": "Refresh summary",
+    "description": "Accessible label of the refresh button in the summary dialog."
+  },
+  "summarySendButton": {
+    "message": "Send follow-up",
+    "description": "Accessible label of the send button in the summary dialog."
+  },
+  "summaryCopyMessage": {
+    "message": "Copy",
+    "description": "Accessible label of the copy button on a summary message."
+  },
+  "summaryRetryMessage": {
+    "message": "Retry",
+    "description": "Accessible label of the retry button on a failed summary message."
+  },
+  "summaryCopyError": {
+    "message": "Copy error",
+    "description": "Accessible label of the copy button on a summary error message."
+  },
+  "summaryRerollMessage": {
+    "message": "Regenerate answer",
+    "description": "Accessible label of the reroll button on a summary answer."
+  },
+  "summaryEditMessage": {
+    "message": "Edit message",
+    "description": "Accessible label of the edit button on a summary message."
+  },
+  "summarySaveEdit": {
+    "message": "Save edit",
+    "description": "Accessible label of the save button while editing a summary message."
+  },
+  "summaryCancelEdit": {
+    "message": "Cancel edit",
+    "description": "Accessible label of the cancel button while editing a summary message."
+  },
+  "summaryEditSuggestion": {
+    "message": "Edit suggestion",
+    "description": "Accessible label of the edit button on a follow-up suggestion."
   }
 }

@@ -21,9 +21,12 @@
    ========================================= */
 
 :root {
-    --fox-color-primary: #0891b2;
-    --fox-color-primary-hover: #0e7490;
-    --fox-color-primary-active: #155e75;
+    /* 主色是「白字要能读」的实色填充，所以取值在 cyan-700 而不是 cyan-600：
+       `#0891b2` 上的白字只有 3.68:1，连 AA 大字号都不达（实测于 popup 主 CTA、
+       设置页按钮、页内快选面板）。图形与装饰仍可用渐变里的亮端。 */
+    --fox-color-primary: #0e7490;
+    --fox-color-primary-hover: #155e75;
+    --fox-color-primary-active: #164e63;
     --fox-color-on-primary: #ffffff;
     --fox-color-primary-soft: #cffafe;
     --fox-color-on-primary-soft: #164e63;
@@ -33,13 +36,15 @@
     --fox-color-accent-soft: #ede9fe;
     --fox-color-on-accent-soft: #4c1d95;
 
-    --fox-color-warm: #f97316;
+    --fox-color-warm: #c2410c;
     --fox-color-warm-soft: #ffedd5;
-    --fox-color-success: #10b981;
+    /* 语义色同时是「彩色文字」：原来 #10b981 / #f59e0b 在白色上是 2.54 / 2.15，
+       连 3:1 都不到。徽标与状态字共用这两个 token，所以统一压到 AA。 */
+    --fox-color-success: #047857;
     --fox-color-success-bg: #ecfdf5;
-    --fox-color-warning: #f59e0b;
+    --fox-color-warning: #b45309;
     --fox-color-warning-bg: #fffbeb;
-    --fox-color-error: #e11d48;
+    --fox-color-error: #be123c;
     --fox-color-error-bg: #fff1f2;
     --fox-color-on-error-bg: #9f1239;
 
@@ -55,15 +60,19 @@
     --fox-color-panel-raised: #ffffff;
     --fox-color-panel-glass: rgba(255, 255, 255, 0.94);
     --fox-color-surface-dim: #f4f8fb;
-    --fox-color-hover: rgba(8, 145, 178, 0.08);
-    --fox-color-pressed: rgba(8, 145, 178, 0.14);
+    --fox-color-hover: rgba(14, 116, 144, 0.08);
+    --fox-color-pressed: rgba(14, 116, 144, 0.16);
 
     --fox-color-text: #172033;
     --fox-color-text-secondary: #536173;
-    --fox-color-text-muted: #8794a6;
+    /* 次要文字不是「装饰即可低对比」：它装着所有说明性句子（设置页每条解释、
+       时间戳、辅助提示）。原来 #8794a6 在白色面板上 3.08:1，全站 60+ 处不达 AA。
+       #5f6b7d 在 panel 5.40、bg 5.04、bg-strong 4.94，三个底座上都过线。 */
+    --fox-color-text-muted: #5f6b7d;
     --fox-color-border: rgba(120, 140, 164, 0.26);
     --fox-color-border-strong: rgba(83, 97, 115, 0.34);
-    --fox-color-focus: #06b6d4;
+    /* 焦点环是非文本图形（WCAG 1.4.11，3:1）：#06b6d4 在白色上只有 2.43。 */
+    --fox-color-focus: #0891b2;
 
     --fox-font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 
@@ -116,7 +125,7 @@
     --fox-shadow-overlay: 0 26px 64px -36px rgba(20, 35, 52, 0.66);
     --fox-shadow-overlay-lg: 0 34px 84px -38px rgba(20, 35, 52, 0.72);
 
-    --fox-gradient-brand: linear-gradient(135deg, #0891b2 0%, #0e7490 100%);
+    --fox-gradient-brand: linear-gradient(135deg, #0e7490 0%, #155e75 100%);
     --fox-gradient-warm: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
 
     /* ---- 动效 ----
@@ -178,6 +187,10 @@
         --fox-color-error: #fb7185;
         --fox-color-error-bg: rgba(225, 29, 72, 0.16);
         --fox-color-on-error-bg: #fecdd3;
+        /* 浅色侧压深后的取值放到深色底上会变成「看不清的深绿/深棕」，
+           深色侧单独给一档高亮语义色（面板上 8.78 / 10.11）。 */
+        --fox-color-success: #34d399;
+        --fox-color-warning: #fbbf24;
         --fox-color-success-bg: rgba(16, 185, 129, 0.16);
         --fox-color-warning-bg: rgba(245, 158, 11, 0.16);
         --fox-shadow-surface: 0 1px 2px rgba(0, 0, 0, 0.28);

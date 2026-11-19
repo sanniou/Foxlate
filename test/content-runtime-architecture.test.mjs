@@ -230,22 +230,25 @@ test('content runtime initializes once and routes page translation messages thro
     // readability + marked 又拖回每个页面的内容包。
     assert.deepEqual(
         browserMock.messages.filter(message => message.type === 'ENSURE_SUMMARY_MODULE'),
-        [{ type: 'ENSURE_SUMMARY_MODULE', payload: { hostname: 'example.com' } }],
+        [{ type: 'ENSURE_SUMMARY_MODULE', payload: { hostname: 'example.com', enabled: true } }],
     );
     assert.deepEqual(globalThis.__summaryCalls, []);
     assert.equal(globalThis.__inputHandlerCalls, 1);
 
-    assert.deepEqual(await runtime.handleMessage({ type: 'REQUEST_TRANSLATION_STATUS' }), {
+    // 完成度计数是 popup 判断「翻好了」还是「每段都失败」的依据，属于状态契约的一部分。
+    const idleStatus = {
         state: 'original',
         emptyCandidates: false,
         allPrecheckSkipped: false,
-    });
+        failedCount: 0,
+        completedCount: 0,
+    };
+    assert.deepEqual(await runtime.handleMessage({ type: 'REQUEST_TRANSLATION_STATUS' }), idleStatus);
     assert.deepEqual(await runtime.handleMessage({ type: 'TOGGLE_TRANSLATION_REQUEST_AT_CONTENT', payload: { tabId: 7 } }), { success: true });
     assert.deepEqual(jobEvents, [['start', 7, settings]]);
     assert.deepEqual(await runtime.handleMessage({ type: 'REQUEST_TRANSLATION_STATUS' }), {
+        ...idleStatus,
         state: 'loading',
-        emptyCandidates: false,
-        allPrecheckSkipped: false,
     });
 
     assert.deepEqual(await runtime.handleMessage({ type: 'UPDATE_DISPLAY_MODE', payload: { displayMode: 'replace' } }), { success: true });
@@ -253,11 +256,7 @@ test('content runtime initializes once and routes page translation messages thro
 
     assert.deepEqual(await runtime.handleMessage({ type: 'TOGGLE_TRANSLATION_REQUEST_AT_CONTENT', payload: { tabId: 7 } }), { success: true });
     assert.deepEqual(jobEvents, [['start', 7, settings], ['revert', 7]]);
-    assert.deepEqual(await runtime.handleMessage({ type: 'REQUEST_TRANSLATION_STATUS' }), {
-        state: 'original',
-        emptyCandidates: false,
-        allPrecheckSkipped: false,
-    });
+    assert.deepEqual(await runtime.handleMessage({ type: 'REQUEST_TRANSLATION_STATUS' }), idleStatus);
 });
 
 test('message listener is registered before the first await finishes', async () => {

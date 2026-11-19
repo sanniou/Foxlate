@@ -196,7 +196,7 @@ export class SummaryDialog {
         this.element.innerHTML = `
             <div class="foxlate-summary-header">
                 <h3>${browser.i18n.getMessage('summaryModalTitle') || 'Summary'}</h3>
-                <button class="refresh-button" aria-label="Refresh">${this.getIcon('refresh')}</button>
+                <button class="refresh-button" aria-label="${escapeHtml(browser.i18n.getMessage('summaryRefreshButton') || 'Refresh summary')}">${this.getIcon('refresh')}</button>
             </div>
             <div class="foxlate-summary-tabs"></div>
             <div class="foxlate-summary-content-wrapper">
@@ -204,12 +204,12 @@ export class SummaryDialog {
                <div class="foxlate-summary-conversation"></div>
             </div>
             <div class="foxlate-summary-menubar">
-                <button class="suggest-button" aria-label="Suggest">${this.getIcon('suggest')} ${browser.i18n.getMessage('summarySuggestButton')}</button>
+                <button class="suggest-button" aria-label="${escapeHtml(browser.i18n.getMessage('summarySuggestButton') || 'Suggest')}">${this.getIcon('suggest')} ${browser.i18n.getMessage('summarySuggestButton')}</button>
             </div>
             <div class="foxlate-summary-suggestions"></div>
             <div class="foxlate-summary-footer">
                 <textarea placeholder="${escapeHtml(browser.i18n.getMessage('summaryInputPlaceholder') || 'Ask a follow-up...')}" rows="1"></textarea>
-                <button class="send-button" aria-label="Send">${this.getIcon('send')}</button>
+                <button class="send-button" aria-label="${escapeHtml(browser.i18n.getMessage('summarySendButton') || 'Send follow-up')}">${this.getIcon('send')}</button>
             </div>
         `;
         this.tabsArea = this.element.querySelector('.foxlate-summary-tabs');

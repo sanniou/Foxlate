@@ -157,7 +157,7 @@ export class ContentRuntime {
         const settings = await this.getEffectiveSettings();
         this.currentPageJob = this.createPageTranslationJob(tabId, settings);
         await this.currentPageJob.start();
-        this.requestSummaryModule();
+        this.requestSummaryModule(settings);
         return { success: true };
     }
 
@@ -185,7 +185,7 @@ export class ContentRuntime {
             this.window.subtitleManager.updateSettings(effective);
         }
 
-        this.requestSummaryModule();
+        this.requestSummaryModule(effective);
         this.quickActionPanel?.updateSettings(effective);
         return { success: true };
     }
@@ -214,7 +214,13 @@ export class ContentRuntime {
 
     getTranslationStatus() {
         if (!this.currentPageJob) {
-            return { state: 'original', emptyCandidates: false, allPrecheckSkipped: false };
+            return {
+                state: 'original',
+                emptyCandidates: false,
+                allPrecheckSkipped: false,
+                failedCount: 0,
+                completedCount: 0,
+            };
         }
 
         let state = 'original';
@@ -229,6 +235,10 @@ export class ContentRuntime {
             state,
             emptyCandidates: Boolean(snap.emptyCandidates),
             allPrecheckSkipped: Boolean(snap.allPrecheckSkipped),
+            // popup 用它区分「翻好了」和「每一段都失败」——后者徽标是「!」，
+            // 需要一句能照着做的提示，而不是让用户对着满屏红下划线猜。
+            failedCount: Number(snap.failed) || 0,
+            completedCount: Number(snap.completed) || 0,
         };
     }
 
@@ -285,13 +295,25 @@ export class ContentRuntime {
      * 请求后台注入摘要模块。
      *
      * 摘要（readability 正文抽取 + marked 渲染 + 面板 UI）不再打进内容包，所以这里只能
-     * 「请后台代拿」。后台已经知道这个站点的 `summarySettings.enabled`，开关为关时不会
-     * 真的注入。注入失败只影响摘要入口，不该打断页面翻译，因此只记日志。
+     * 「请后台代拿」。注入失败只影响摘要入口，不该打断页面翻译，因此只记日志。
+     *
+     * **开关判断由内容侧给出**：`settings` 就是本页面刚刚用来决定要不要建面板的那份
+     * 生效设置。早期版本让后台自己再读一次，结果撞上后台设置缓存的陈旧窗口——实测
+     * 「在设置页打开摘要 → 立即翻译当前页面」时后台还读得到 `enabled: false`，于是面板
+     * 按钮根本不出现。同一份判断只该有一个来源。
+     *
+     * @param {object} [settings] 生效设置；未开启摘要时不发请求
      */
-    requestSummaryModule() {
+    requestSummaryModule(settings) {
+        if (!settings?.summarySettings?.enabled) {
+            return;
+        }
         this.browser.runtime.sendMessage({
             type: MESSAGE_TYPES.ENSURE_SUMMARY_MODULE,
-            payload: { hostname: this.window.location?.hostname },
+            payload: {
+                hostname: this.window.location?.hostname,
+                enabled: true,
+            },
         }).catch(error => this.logError('requestSummaryModule', error));
     }
 
@@ -332,7 +354,7 @@ export class ContentRuntime {
         this.browser.runtime.onMessage.addListener(this.handleMessage);
 
         const settings = await this.getEffectiveSettings();
-        this.requestSummaryModule();
+        this.requestSummaryModule(settings);
         this.initializeInputHandler();
         this.quickActionPanel = new this.QuickActionPanelClass({
             browserApi: this.browser,

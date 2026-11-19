@@ -8,6 +8,7 @@
  */
 export const CSS_FILES = [
     'common/tokens.css',
+    'content/control-reset.css',
     'content/style.css',
     'content/enhanced-style.css',
 ];
@@ -27,4 +28,11 @@ export const CORE_SCRIPT_FILES = ['content/content-script.js'];
  */
 export const SUMMARY_SCRIPT_FILES = ['content/summary/summary-entry.js'];
 
-export const SUMMARY_CSS_FILES = ['content/summary/summary.css'];
+export const SUMMARY_CSS_FILES = [
+    // tokens.css 必须跟着走：快捷键路径（`force`）是在没翻译过的页面上直接注入摘要包的，
+    // 那时 `content/style.css` 与 tokens 都还没注入——只给 summary.css 会让里面所有
+    // `var(--fox-color-*)` 变成无效值，面板直接透明。
+    'common/tokens.css',
+    'content/control-reset.css',
+    'content/summary/summary.css',
+];

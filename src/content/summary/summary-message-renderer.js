@@ -1,3 +1,4 @@
+import browser from '../../lib/browser-polyfill.js';
 import { marked } from '../../lib/marked.esm.js';
 import { escapeHtml } from '../../common/escape.js';
 import { sanitizeHtml } from '../../common/html-sanitizer.js';
@@ -8,6 +9,10 @@ export class SummaryMessageRenderer {
         this.getIcon = getIcon;
         this.getWidth = getWidth;
     }
+
+    // 图标按钮的可见内容只有一个 SVG，无障碍名称全靠 aria-label ——
+    // 所以它必须本地化（曾经写死 Copy / Retry / Copy Error，中文界面播英文）。
+
 
     renderConversation({ conversationArea, history, isLoading, renderedMessageCount, fullRerenderNeeded }) {
         if (!conversationArea) {
@@ -60,8 +65,8 @@ export class SummaryMessageRenderer {
             <div class="message-edit-area">
                 <textarea rows="3">${escapeHtml(content)}</textarea>
                 <div class="message-actions">
-                    <button data-action="cancel-edit" aria-label="Cancel">${this.getIcon('cancel')}</button>
-                    <button data-action="save-edit" aria-label="Save">${this.getIcon('save')}</button>
+                    <button data-action="cancel-edit" aria-label="${escapeHtml(browser.i18n.getMessage('summaryCancelEdit') || 'Cancel')}">${this.getIcon('cancel')}</button>
+                    <button data-action="save-edit" aria-label="${escapeHtml(browser.i18n.getMessage('summarySaveEdit') || 'Save')}">${this.getIcon('save')}</button>
                 </div>
             </div>
         `;
@@ -190,14 +195,14 @@ export class SummaryMessageRenderer {
     }
 
     #getActionsHtml(message) {
-        let buttons = `<button data-action="copy" aria-label="Copy">${this.getIcon('copy')}</button>`;
+        let buttons = `<button data-action="copy" aria-label="${escapeHtml(browser.i18n.getMessage('summaryCopyMessage') || 'Copy')}">${this.getIcon('copy')}</button>`;
         if (message.role === 'user') {
-            buttons += `<button data-action="edit" aria-label="Edit">${this.getIcon('edit')}</button>`;
+            buttons += `<button data-action="edit" aria-label="${escapeHtml(browser.i18n.getMessage('summaryEditMessage') || 'Edit')}">${this.getIcon('edit')}</button>`;
         } else if (message.isError) {
             if (message.retryCallback) {
-                buttons += `<button data-action="retry" aria-label="Retry">${this.getIcon('refresh')}</button>`;
+                buttons += `<button data-action="retry" aria-label="${escapeHtml(browser.i18n.getMessage('summaryRetryMessage') || 'Retry')}">${this.getIcon('refresh')}</button>`;
             }
-            buttons += `<button data-action="copy-error" aria-label="Copy Error">${this.getIcon('copy')}</button>`;
+            buttons += `<button data-action="copy-error" aria-label="${escapeHtml(browser.i18n.getMessage('summaryCopyError') || 'Copy error')}">${this.getIcon('copy')}</button>`;
         } else {
             const contents = message.contents || [];
             if (contents.length > 1) {
@@ -208,7 +213,7 @@ export class SummaryMessageRenderer {
                     <button data-action="history-next" ${activeIndex === contents.length - 1 ? 'disabled' : ''}>${this.getIcon('next')}</button>
                 `;
             }
-            buttons += `<button data-action="reroll" aria-label="Reroll">${this.getIcon('reroll')}</button>`;
+            buttons += `<button data-action="reroll" aria-label="${escapeHtml(browser.i18n.getMessage('summaryRerollMessage') || 'Regenerate answer')}">${this.getIcon('reroll')}</button>`;
         }
         return `<div class="message-actions">${buttons}</div>`;
     }

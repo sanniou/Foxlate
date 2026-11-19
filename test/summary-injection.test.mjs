@@ -66,7 +66,12 @@ test('开关为开时把样式与脚本一起注入顶层文档', async () => {
     assert.deepEqual(injections, [{
         tabId: 42,
         frameId: 0,
-        files: ['content/summary/summary.css', 'content/summary/summary-entry.js'],
+        files: [
+            'common/tokens.css',
+            'content/control-reset.css',
+            'content/summary/summary.css',
+            'content/summary/summary-entry.js',
+        ],
     }]);
 });
 
@@ -76,9 +81,47 @@ test('快捷键路径无视开关（用户当场要了摘要）', async () => {
     assert.equal(await ensureSummaryInjected(7, { force: true }), true);
     assert.equal(injections.length, 1);
     assert.deepEqual(injections[0].files.sort(), [
+        'common/tokens.css',
+        'content/control-reset.css',
         'content/summary/summary-entry.js',
         'content/summary/summary.css',
     ].sort());
+});
+
+test('调用方给出 enabled=false 时不注入，也不回读设置', async () => {
+    let reads = 0;
+    const ensureSummaryInjected = createSummaryInjector({
+        ensureScriptsInjected: async () => true,
+        logError: () => {},
+        settingsManager: {
+            async getEffectiveSettings() {
+                reads += 1;
+                return { summarySettings: { enabled: true } };
+            },
+        },
+    });
+
+    assert.equal(await ensureSummaryInjected(42, { enabled: false }), false);
+    assert.equal(reads, 0, '结论已由内容侧给出时不该再读一次设置（那正是缓存陈旧导致面板不出现的根因）');
+});
+
+test('调用方给出 enabled=true 时直接注入，同样不回读设置', async () => {
+    let reads = 0;
+    const injections = [];
+    const ensureSummaryInjected = createSummaryInjector({
+        ensureScriptsInjected: async (tabId, frameId, files) => { injections.push(files); return true; },
+        logError: () => {},
+        settingsManager: {
+            async getEffectiveSettings() {
+                reads += 1;
+                return { summarySettings: { enabled: false } };
+            },
+        },
+    });
+
+    assert.equal(await ensureSummaryInjected(42, { enabled: true }), true);
+    assert.equal(reads, 0);
+    assert.equal(injections.length, 1);
 });
 
 test('设置读取失败时不注入，并把原因记进日志', async () => {

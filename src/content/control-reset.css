@@ -1,0 +1,36 @@
+/* =========================================================
+   宿主页面上的控件基线
+   =========================================================
+   内容脚本的控件是直接插进**别人的文档**里的：`<button>` 会继承宿主浏览器的
+   默认外观（Chrome 的 `2px outset black` 方框 + Arial 字体 + 1px 6px 内边距）。
+   组件样式只声明了外观的一部分，剩下没声明的就从 UA 漏进来——于是摘要悬浮按钮
+   和摘要面板的标签页外面套着一圈黑色立体方框，字体也变成页面的默认字体。
+
+   为什么不用逐组件补 `border: 0`：漏一处就是一个黑框，而漏的地方只有真的渲染到
+   宿主页面才看得见。这里给所有带 `foxlate-` 类的按钮一个统一基线。
+
+   特异性必须刚好是 (0,1,0)：属性选择器贡献一个类权重，`:where(button)` 贡献 0。
+   由此得到三条确定性：
+     - 压得住宿主页面的 `button { … }`（0,0,1）——那正是漏 UA 样式的地方；
+     - 压不住组件自己的 `.foxlate-xxx { padding: … }`（同为 0,1,0，但后注入）——
+       基线只补缺口，永不覆盖组件的显式声明；
+     - 不能被写成 `button[class*=…]`（0,1,1）：那会盖掉组件在同特异性上的声明。
+
+   `tokens.css` 必须排在它前面：`font-family` 用的是 `--fox-font-sans`。
+   ========================================================= */
+
+:where(button)[class^="foxlate"],
+:where(button)[class*=" foxlate"],
+:where([class^="foxlate"] button),
+:where([class*=" foxlate"] button) {
+    appearance: none;
+    -webkit-appearance: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font-family: var(--fox-font-sans);
+    letter-spacing: normal;
+    box-sizing: border-box;
+}
